@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "create": "^0.5.5",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "vite": "^8.0.16"
+  }
+}
