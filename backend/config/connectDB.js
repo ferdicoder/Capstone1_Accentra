@@ -12,7 +12,8 @@ const pool = new Pool({
  }); 
   
 const connectDB = async () =>{
-  console.log(`Database Connected, running on PORT: ${process.env.PGPORT}`); 
+  const connect = await pool.query('SELECT NOW()');
+  console.log(`Database Connected, running on PORT: ${process.env.PGPORT}, ${connect.rows[0].now}`); 
 }
 
 
