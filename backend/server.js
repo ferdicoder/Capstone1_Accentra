@@ -2,7 +2,6 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors'
 import { connectDB } from './config/connectDB.js';
-import apiMock from './routes/api.mock.js';
 
 const PORT = process.env.PORT;
 const server = express(); 
@@ -17,7 +16,6 @@ server.get('/', (req, res) =>{
 async function startServer(){
   try{
     await connectDB(); 
-    server.use('/mock', apiMock);
     server.listen(PORT, ()=>{
       console.log(`Server running on PORT: ${PORT}`); 
     }); 
