@@ -1,8 +1,6 @@
-
+import { Button } from "@/components/ui/Button"
 export default function App() {
   return(
-    <div className="border">
-      <h2>HELLO WORLD</h2>
-    </div>
+    <Button variant="outline" size="lg" className="bg-blue-500 text-white">Click me</Button>
   )
 }
