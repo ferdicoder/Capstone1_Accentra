@@ -1,6 +1,9 @@
-import { Button } from "@/components/ui/Button"
 export default function App() {
   return(
-    <Button variant="outline" size="lg" className="bg-blue-500 text-white">Click me</Button>
+    <>
+      <p>Example Component: </p>
+      <button className="border active:bg-black active:text-white">click me daddy </button>
+    </>
+    
   )
 }
