@@ -1,6 +1,7 @@
-import { Button } from "@/components/ui/Button"
+import LoginPage from "./pages/LoginPage";
+
 export default function App() {
-  return(
-    <Button variant="outline" size="lg" className="bg-blue-500 text-white">Click me</Button>
+  return (
+    <LoginPage />
   )
 }
