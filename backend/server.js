@@ -19,7 +19,6 @@ async function startServer(){
     server.listen(PORT, ()=>{
       console.log(`Server running on PORT: ${PORT}`); 
     }); 
-
      
   }catch(error){
     console.log(error); 
