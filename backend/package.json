@@ -17,6 +17,7 @@
     "@supabase/supabase-js": "^2.108.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
+    "express-rate-limit": "^8.5.2",
     "pg": "^8.21.0"
   }
 }
