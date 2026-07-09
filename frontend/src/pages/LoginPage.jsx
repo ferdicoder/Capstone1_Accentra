@@ -5,7 +5,21 @@ import { LoginForm } from "@/components/login-form"
 export default function LoginPage() {
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
-      <div className="flex flex-col gap-4 p-6 md:p-10">
+     
+      <div className="flex flex-col items-center justify-center bg-linear-to-br from-navy-900 via-forest-900 to-emerald-500">
+        <div className="w-fit">
+          <h1 className="text-5xl font-bold text-white m-8">Accounting Made Simple</h1>
+          <p className="text-lg text-white m-8">
+            Accentra bridges the gap between their accounting firms and their clients  <br />
+            a centralized platform for managing you accounting service, client documents, and BIR Compliance <br />
+            in one place. 
+          </p>
+          <div>
+          </div>
+        </div>
+      </div>
+
+       <div className="flex flex-col gap-4 p-6 md:p-10">
         <div className="flex justify-center gap-2 md:justify-start">
           <a href="#" className="flex items-center gap-2 font-medium">
             <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
@@ -20,18 +34,7 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-      <div className="flex flex-col items-center justify-center bg-muted">
-        <div className="w-fit">
-          <h1 className="text-5xl font-bold">Accounting Made Simple</h1>
-          <p className="text-lg">
-            Accentra bridges the gap between their accounting firms and their clients  <br />
-            a centralized platform for managing you accounting service, client documents, and BIR Compliance <br />
-            in one place. 
-          </p>
-          <div>
-          </div>
-        </div>
-      </div>
+      
     </div>
   )
 }
