@@ -20,10 +20,10 @@ export default function SignupPage() {
           </div>
         </div>
       </div>
-      <div className="flex flex-col items-center justify-center bg-muted">
+      <div className="flex flex-col items-center justify-center bg-linear-to-br from-navy-900 via-forest-900 to-emerald-500">
         <div className="w-fit">
-          <h1 className="text-5xl font-bold">Accounting Made Simple</h1>
-          <p className="text-lg">
+          <h1 className="text-5xl font-bold text-white mb-4">Accounting Made Simple</h1>
+          <p className="text-lg text-white">
             Accentra bridges the gap between their accounting firms and their clients  <br />
             a centralized platform for managing you accounting service, client documents, and BIR Compliance <br />
             in one place. 
