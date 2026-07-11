@@ -38,7 +38,7 @@ export function LoginForm({
     
       <FieldGroup> {/* this component groups related form fields together, providing a semantic structure and styling for the form */}
       
-        <div className="flex flex-col items-center gap-2"> {/* this div centers the welcome message and description text */}
+        <div className="flex flex-col items-center"> {/* this div centers the welcome message and description text */}
           <h1 className="text-2xl font-bold">Welcome Back!</h1>
           <p className="text-xs text-balance text-muted-foreground alig">
             Please enter your details
@@ -46,7 +46,7 @@ export function LoginForm({
         </div>
 
         <Field> {/* this component represents the emailform field */}
-          <FieldLabel htmlFor="email" className="gap-0 mb-0.5">
+          <FieldLabel htmlFor="email" className="gap-0">
             Email<span className=" text-red-500">*</span></FieldLabel>
           <Input 
           id="email" 
@@ -56,7 +56,7 @@ export function LoginForm({
           />
 
           {errors.email && (
-            <p className="text-sm text-red-500">Email is required.</p>
+            <p className="text-sm p-0 text-red-500">Email is required.</p>
           )}
         </Field>
 
