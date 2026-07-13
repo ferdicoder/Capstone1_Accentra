@@ -78,8 +78,8 @@ export function SignupForm({
 
         <Field>
           <div className="flex justify-between">
+             <Button className={cn('flex-1')}>Back</Button>
             <Button className={cn('flex-1')}>Continue</Button>
-            <Button className={cn('flex-1')}>Back</Button>
           </div>
         </Field>
         
