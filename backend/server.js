@@ -14,7 +14,7 @@ async function startServer(){
   try{
 
     // catch all 
-    app.all('/api/v1/*', (req, res) => {
+    server.all('/api/v1/*', (req, res) => {
       res.status(404).json({
         status: 'fail',
         message: `API endpoint ${req.originalUrl} does not exist.`
