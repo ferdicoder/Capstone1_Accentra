@@ -1,4 +1,4 @@
-import DashboardPage from "@/pages/DashboardPage"
+import DashboardPage from "@/pages/DashboardClient"
 
 export default function App() {
   return (
