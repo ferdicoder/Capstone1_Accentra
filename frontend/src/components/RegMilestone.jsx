@@ -27,7 +27,7 @@ export default function RegMilestone(){
 }
 
 
-/*import { cn } from "@/lib/utils";
+{/*import { cn } from "@/lib/utils";
 
 const signupSteps = ["Account", "Firm Info", "OTP"];
 
@@ -68,4 +68,4 @@ export default function RegMilestone({ currentStep = 1 }) {
       })}
     </div>
   );
-}
+*/}
