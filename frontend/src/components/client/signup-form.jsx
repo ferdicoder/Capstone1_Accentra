@@ -8,7 +8,7 @@ import {
   FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import RegMilestone from "./RegMilestone"
+import RegMilestone from "../auth/RegMilestone"
 
 
 export function SignupForm({
