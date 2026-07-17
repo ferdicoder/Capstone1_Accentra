@@ -4,6 +4,6 @@ import FirmLoginPage from "./pages/firm/FirmLoginPage"
 import ClientDashboardPage from "./pages/client/ClientDashboardPage"
 export default function App() {
   return (
-      <ClientDashboardPage />
+      <SignupPage />
   )
 }
