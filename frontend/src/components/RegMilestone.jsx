@@ -69,3 +69,4 @@ export default function RegMilestone({ currentStep = 1 }) {
     </div>
   );
 }
+  */
