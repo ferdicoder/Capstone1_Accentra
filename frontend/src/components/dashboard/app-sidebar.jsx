@@ -3,9 +3,7 @@
 import * as React from "react"
 
 import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
 import { NavUser } from "@/components/nav-user"
-import { TeamSwitcher } from "@/components/team-switcher"
 import {
   Sidebar,
   SidebarContent,
@@ -13,174 +11,84 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { GalleryVerticalEndIcon, AudioLinesIcon, TerminalIcon, TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, FrameIcon, PieChartIcon, MapIcon } from "lucide-react"
+import {
+  BellIcon,
+  BriefcaseIcon,
+  CreditCardIcon,
+  LayoutGridIcon,
+  UserIcon,
+} from "lucide-react"
 
-// This is sample data.
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+    name: "Maria Santos",
+    email: "maria@accentra.com",
+    avatar: "/avatars/maria.jpg",
   },
-  teams: [
-    {
-      name: "Acme Inc",
-      logo: (
-        <GalleryVerticalEndIcon />
-      ),
-      plan: "Enterprise",
-    },
-    {
-      name: "Acme Corp.",
-      logo: (
-        <AudioLinesIcon />
-      ),
-      plan: "Startup",
-    },
-    {
-      name: "Evil Corp.",
-      logo: (
-        <TerminalIcon />
-      ),
-      plan: "Free",
-    },
-  ],
   navMain: [
     {
-      title: "Playground",
+      title: "Dashboard",
       url: "#",
-      icon: (
-        <TerminalSquareIcon />
-      ),
+      icon: <LayoutGridIcon />,
       isActive: true,
-      items: [
-        {
-          title: "History",
-          url: "#",
-        },
-        {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
-      ],
+      items: [],
     },
     {
-      title: "Models",
+      title: "Engagement",
       url: "#",
-      icon: (
-        <BotIcon />
-      ),
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
+      icon: <BriefcaseIcon />,
+      items: [],
     },
     {
-      title: "Documentation",
+      title: "Billing & Payment",
       url: "#",
-      icon: (
-        <BookOpenIcon />
-      ),
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
+      icon: <CreditCardIcon />,
+      items: [],
     },
     {
-      title: "Settings",
+      title: "Notifications",
       url: "#",
-      icon: (
-        <Settings2Icon />
-      ),
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: (
-        <FrameIcon />
-      ),
+      icon: <BellIcon />,
+      items: [],
     },
     {
-      name: "Sales & Marketing",
+      title: "My Profile",
       url: "#",
-      icon: (
-        <PieChartIcon />
-      ),
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: (
-        <MapIcon />
-      ),
+      icon: <UserIcon />,
+      items: [],
     },
   ],
 }
 
-export function AppSidebar({
-  ...props
-}) {
+export function AppSidebar(props) {
   return (
-    <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
+    <Sidebar
+      collapsible="icon"
+      style={{
+        backgroundImage:
+          "linear-gradient(180deg, #0F3443 0%, #0F4D3C 67%, #10B981 96%)",
+      }}
+      className="text-emerald-50 shadow-[0_0_40px_rgba(0,0,0,0.3)] border-r border-white/10"
+      {...props}
+    >
+      <SidebarHeader className="rounded-[24px] border border-white/10 bg-white/5 p-3 shadow-sm shadow-black/10">
+        <div className="flex items-center gap-2 px-2 py-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500 text-white">
+            A
+          </div>
+          <div className="grid flex-1 gap-1">
+            <p className="text-sm font-semibold text-sidebar-foreground">Accent ra</p>
+            <p className="text-xs text-sidebar-foreground/70">Client Portal</p>
+          </div>
+        </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="py-2">
         <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="pt-3 border-t border-white/10">
         <NavUser user={data.user} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
-  );
+  )
 }
