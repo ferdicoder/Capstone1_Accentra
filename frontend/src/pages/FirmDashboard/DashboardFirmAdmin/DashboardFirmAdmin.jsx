@@ -2,17 +2,16 @@ import {
   ChevronDown,
   ChevronLeft,
   Bell,
-  Gift,
   Users,
   CreditCard,
-  Calendar,
   Briefcase,
   LayoutDashboard,
   FileText,
   Receipt,
-  Plus,
-  CheckCircle2,
-  Clock3,
+  Settings,
+  Building2,
+  FolderCheck,
+  UserCog,
 } from "lucide-react";
 
 const sidebarItems = [
@@ -25,48 +24,70 @@ const sidebarItems = [
         active: true,
       },
       {
-        label: "Service Requests",
-        icon: FileText,
+        label: "Staff Management",
+        icon: UserCog,
         children: [
-          "All Requests",
-          "Pending Review",
-          "Create Engagement",
+          "Staff Accounts",
+          "Roles & Permissions",
+        ],
+      },
+      {
+        label: "Client Management",
+        icon: Building2,
+        children: [
+          "Clients",
+          "Client Requests",
         ],
       },
       {
         label: "Engagements",
         icon: Briefcase,
-        children: ["Processing", "Details"],
-      },
-      {
-        label: "Calendar",
-        icon: Calendar,
+        children: [
+          "Active Engagements",
+          "Completed Engagements",
+        ],
       },
     ],
   },
+
   {
-    title: "MANAGEMENT",
+    title: "OPERATIONS",
     items: [
+      {
+        label: "Client Documents",
+        icon: FolderCheck,
+        children: [
+          "Pending Review",
+          "Approved",
+          "Rejected",
+        ],
+      },
       {
         label: "Billing",
         icon: Receipt,
         children: [
           "Invoices",
-          "Confirm Payment",
+          "Payments",
         ],
       },
       {
         label: "Notifications",
         icon: Bell,
-        badge: 4,
+        badge: 5,
+      },
+    ],
+  },
+
+  {
+    title: "FIRM",
+    items: [
+      {
+        label: "Firm Profile",
+        icon: Building2,
       },
       {
-        label: "Services",
-        icon: Gift,
-      },
-      {
-        label: "User Management",
-        icon: Users,
+        label: "Settings",
+        icon: Settings,
       },
     ],
   },
@@ -74,46 +95,117 @@ const sidebarItems = [
 
 const statCards = [
   {
-    icon: Gift,
-    value: "2",
-    title: "New Requests",
+    icon: FileText,
+    value: "12",
+    title: "Pending Requests",
     subtitle: "Awaiting review",
-    accent: "text-red-400",
+    accent: "text-red-300",
   },
+
   {
-    icon: Users,
-    value: "3",
+    icon: Briefcase,
+    value: "18",
     title: "Active Engagements",
-    subtitle: "In progress",
+    subtitle: "Currently processing",
     accent: "text-emerald-300",
   },
+
+  {
+    icon: FolderCheck,
+    value: "9",
+    title: "Pending Documents",
+    subtitle: "Need approval",
+    accent: "text-yellow-300",
+  },
+
   {
     icon: CreditCard,
-    value: "₱4,200",
-    title: "Pending Billing",
-    subtitle: "Unpaid invoices",
-    accent: "text-yellow-300",
+    value: "₱78,400",
+    title: "Outstanding Payments",
+    subtitle: "Pending collection",
+    accent: "text-cyan-300",
+  },
+];
+
+const requests = [
+  {
+    id: "REQ-2026-104",
+    client: "ABC Trading Corp",
+    service: "Bookkeeping Services",
+    submitted: "Jul 18, 2026",
+    status: "Pending",
+  },
+  {
+    id: "REQ-2026-103",
+    client: "Vertex Solutions",
+    service: "Tax Filing",
+    submitted: "Jul 17, 2026",
+    status: "Approved",
+  },
+  {
+    id: "REQ-2026-102",
+    client: "Prime Retail Inc.",
+    service: "Payroll Services",
+    submitted: "Jul 16, 2026",
+    status: "Pending",
+  },
+  {
+    id: "REQ-2026-101",
+    client: "BluePeak Corp",
+    service: "Business Advisory",
+    submitted: "Jul 15, 2026",
+    status: "Rejected",
+  },
+  {
+    id: "REQ-2026-100",
+    client: "Golden Harvest Foods",
+    service: "Audit Assistance",
+    submitted: "Jul 14, 2026",
+    status: "Approved",
+  },
+];
+
+const activities = [
+  {
+    text: "New client request submitted by ABC Trading Corp",
+    time: "3 mins ago",
+  },
+  {
+    text: "Invoice INV-102 generated",
+    time: "25 mins ago",
+  },
+  {
+    text: "Document approved for Vertex Solutions",
+    time: "1 hour ago",
+  },
+  {
+    text: "New staff account added",
+    time: "2 hours ago",
+  },
+  {
+    text: "Engagement ENG-2026-018 created",
+    time: "4 hours ago",
   },
 ];
 
 function Sidebar() {
   return (
     <aside className="w-[240px] bg-gradient-to-b from-[#043C43] to-[#1D7A68] text-white flex flex-col">
-      {/* Firm Header */}
       <div className="border-b border-white/10 px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex gap-3">
+
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 font-bold">
-              M
+              A
             </div>
 
             <div>
               <h3 className="text-sm font-semibold">
-                Maria
+                Reyes & Associates
               </h3>
 
               <p className="text-xs text-white/60">
-                CPA from Reyes & Associates
+                Firm Administrator
               </p>
             </div>
           </div>
@@ -122,7 +214,6 @@ function Sidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
         {sidebarItems.map((section) => (
           <div
@@ -162,24 +253,20 @@ function Sidebar() {
                       )}
 
                       {item.children && (
-                        <ChevronDown
-                          size={14}
-                        />
+                        <ChevronDown size={14} />
                       )}
                     </button>
 
                     {item.children && (
                       <div className="ml-7 mt-2 space-y-2 border-l border-white/10 pl-4">
-                        {item.children.map(
-                          (child) => (
-                            <button
-                              key={child}
-                              className="block text-sm text-white/60 hover:text-white"
-                            >
-                              {child}
-                            </button>
-                          )
-                        )}
+                        {item.children.map((child) => (
+                          <button
+                            key={child}
+                            className="block text-sm text-white/60 hover:text-white"
+                          >
+                            {child}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -190,24 +277,23 @@ function Sidebar() {
         ))}
       </div>
 
-      {/* Bottom */}
       <div className="border-t border-white/10 p-4">
         <button className="mb-4 flex w-full items-center justify-center rounded-xl bg-white/5 py-3 text-sm">
-          Invite Team / Client
+          Add Staff Member
         </button>
 
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-400 text-xs font-bold text-black">
-            M
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-400 text-xs font-bold text-black">
+            FA
           </div>
 
           <div>
             <p className="text-sm font-medium">
-              CPA_Maria
+              Firm Administrator
             </p>
 
             <p className="text-xs text-white/50">
-              Maria@reyesassociates.ph
+              admin@firm.com
             </p>
           </div>
         </div>
@@ -222,36 +308,33 @@ function TopBar() {
       <div>
         <div className="flex items-center gap-3 text-sm">
           <span className="text-slate-600">
-            Maria
+            Reyes & Associates
           </span>
 
-          <span className="text-emerald-300">
-            &gt;
-          </span>
+          <span className="text-emerald-300">&gt;</span>
 
           <span className="font-medium text-emerald-600">
-            Dashboard
+            Firm Dashboard
           </span>
         </div>
 
         <h1 className="mt-6 text-5xl font-bold text-slate-900">
-          Good afternoon, Maria (CPA)
+          Good afternoon, Administrator
         </h1>
 
         <p className="mt-2 text-lg text-slate-600">
-          Here's what's happening with your firm today.
+          Manage your firm's clients, engagements, staff, and billing.
         </p>
       </div>
 
       <div className="flex items-center gap-4">
         <button className="relative rounded-full bg-white p-3 shadow">
           <Bell size={18} />
-
           <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
         </button>
 
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-400 font-bold">
-          M
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-400 font-bold">
+          FA
         </div>
       </div>
     </header>
@@ -260,7 +343,7 @@ function TopBar() {
 
 function StatsCards() {
   return (
-    <div className="mt-8 grid grid-cols-3 gap-4">
+    <div className="mt-8 grid grid-cols-4 gap-4">
       {statCards.map((card) => {
         const Icon = card.icon;
 
@@ -275,7 +358,10 @@ function StatsCards() {
               </div>
 
               <div className="rounded-full border border-white/20 p-2">
-                <ChevronLeft className="rotate-180" size={16} />
+                <ChevronLeft
+                  className="rotate-180"
+                  size={16}
+                />
               </div>
             </div>
 
@@ -287,9 +373,7 @@ function StatsCards() {
               {card.title}
             </p>
 
-            <p
-              className={`mt-1 text-sm ${card.accent}`}
-            >
+            <p className={`mt-1 text-sm ${card.accent}`}>
               {card.subtitle}
             </p>
           </div>
@@ -299,147 +383,88 @@ function StatsCards() {
   );
 }
 
-const deadlines = [
-  {
-    id: "ENG-2025-045",
-    client: "Santos Retail Trading",
-    service: "Annual ITR Filing",
-    assignee: "Sarah Lim",
-    due: "Jul 15, 2025",
-    left: "13d left",
-    status: "Processing",
-    color: "bg-emerald-500",
-  },
-  {
-    id: "ENG-2025-044",
-    client: "BluePeak Corp",
-    service: "Business Advisory",
-    assignee: "Mark Tan",
-    due: "Jul 1, 2025",
-    left: "1d overdue",
-    status: "Under Review",
-    color: "bg-red-500",
-  },
-  {
-    id: "ENG-2025-042",
-    client: "Verde Solutions",
-    service: "Quarterly VAT Return",
-    assignee: "Jane Reyes",
-    due: "Jul 20, 2025",
-    left: "18d left",
-    status: "Processing",
-    color: "bg-emerald-500",
-  },
-  {
-    id: "ENG-2025-041",
-    client: "Lim Trading Corp",
-    service: "Monthly Bookkeeping",
-    assignee: "Carlo Vega",
-    due: "Jul 8, 2025",
-    left: "6d left",
-    status: "Processing",
-    color: "bg-amber-500",
-  },
-  {
-    id: "ENG-2025-040",
-    client: "Meridian Holdings",
-    service: "Audit & Assurance",
-    assignee: "Ana Dizon",
-    due: "Jul 25, 2025",
-    left: "23d left",
-    status: "Processing",
-    color: "bg-emerald-500",
-  },
-];
-
-const activities = [
-  {
-    text: "New request from Santos Retail Trading",
-    time: "2 min ago",
-  },
-  {
-    text: "BluePeak Corp submitted 3 documents",
-    time: "18 min ago",
-  },
-  {
-    text: "ENG-2025-043 marked completed by Jane Reyes",
-    time: "1 hr ago",
-  },
-  {
-    text: "Invoice #INV-0028 paid by Verde Solutions",
-    time: "3 hr ago",
-  },
-  {
-    text: "Meridian Holdings submitted Audit request",
-    time: "5 hr ago",
-  },
-];
-
-function UpcomingDeadlines() {
+function ClientRequestsQueue() {
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm border-t-2 border-emerald-500/15">
+    <div className="rounded-2xl border-t-2 border-emerald-500/15 bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-emerald-900">
-          Upcoming Deadlines
+          Client Requests Queue
         </h2>
+
         <button className="text-sm text-emerald-600 hover:text-emerald-700">
           View All
         </button>
       </div>
+
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-emerald-200 text-xs font-medium uppercase tracking-wider text-emerald-600">
-              <th className="pb-3 pr-4">Engagement</th>
+              <th className="pb-3 pr-4">Request ID</th>
               <th className="pb-3 pr-4">Client</th>
-              <th className="pb-3 pr-4">Service</th>
-              <th className="pb-3 pr-4">Assignee</th>
-              <th className="pb-3 pr-4">Due</th>
+              <th className="pb-3 pr-4">Requested Service</th>
+              <th className="pb-3 pr-4">Submitted Date</th>
               <th className="pb-3 pr-4">Status</th>
-              <th className="pb-3"></th>
+              <th className="pb-3">Actions</th>
             </tr>
           </thead>
+
           <tbody>
-            {deadlines.map((d) => (
+            {requests.map((request) => (
               <tr
-                key={d.id}
+                key={request.id}
                 className="border-b border-emerald-100/50 text-sm transition-colors hover:bg-emerald-50/70"
               >
                 <td className="py-4 pr-4 font-medium text-slate-900">
-                  {d.id}
+                  {request.id}
                 </td>
-                <td className="py-4 pr-4 text-slate-700">{d.client}</td>
-                <td className="py-4 pr-4 text-slate-700">{d.service}</td>
-                <td className="py-4 pr-4 text-slate-700">{d.assignee}</td>
-                <td className="py-4 pr-4 text-slate-700">{d.due}</td>
+
+                <td className="py-4 pr-4 text-slate-700">
+                  {request.client}
+                </td>
+
+                <td className="py-4 pr-4 text-slate-700">
+                  {request.service}
+                </td>
+
+                <td className="py-4 pr-4 text-slate-700">
+                  {request.submitted}
+                </td>
+
                 <td className="py-4 pr-4">
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
-                      d.status === "Under Review"
+                      request.status === "Approved"
+                        ? "bg-emerald-50 text-emerald-600"
+                        : request.status === "Rejected"
                         ? "bg-red-50 text-red-600"
-                        : "bg-emerald-50 text-emerald-600"
+                        : "bg-amber-50 text-amber-600"
                     }`}
                   >
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${
-                        d.status === "Under Review"
+                        request.status === "Approved"
+                          ? "bg-emerald-500"
+                          : request.status === "Rejected"
                           ? "bg-red-500"
-                          : "bg-emerald-500"
+                          : "bg-amber-500"
                       }`}
                     />
-                    {d.status}
+
+                    {request.status}
                   </span>
                 </td>
-                <td className="py-4 text-right">
-                  <span
-                    className={`text-xs font-medium ${
-                      d.left.includes("overdue")
-                        ? "text-red-500"
-                        : "text-slate-500"
-                    }`}
-                  >
-                    {d.left}
-                  </span>
+
+                <td className="py-4">
+                  <div className="flex gap-2">
+                    <button className="rounded-lg bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 transition hover:bg-emerald-200">
+                      Approve
+                    </button>
+
+                    <button className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-200">
+                      Reject
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -452,25 +477,33 @@ function UpcomingDeadlines() {
 
 function RecentActivity() {
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm border-t-2 border-emerald-500/15">
+    <div className="rounded-2xl border-t-2 border-emerald-500/15 bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-emerald-900">
           Recent Activity
         </h2>
+
         <button className="text-sm text-emerald-600 hover:text-emerald-700">
           View All
         </button>
       </div>
+
       <div className="space-y-0">
-        {activities.map((a, i) => (
+        {activities.map((activity, index) => (
           <div
-            key={i}
+            key={index}
             className="flex items-start gap-3 border-b border-emerald-100/40 py-3 last:border-0"
           >
-            <div className="mt-0.5 h-2 w-2 flex-shrink-0 rounded-full bg-emerald-500" />
+            <div className="mt-0.5 h-2 w-2 rounded-full bg-emerald-500" />
+
             <div className="flex-1">
-              <p className="text-sm text-slate-800">{a.text}</p>
-              <p className="mt-0.5 text-xs text-emerald-600/60">{a.time}</p>
+              <p className="text-sm text-slate-800">
+                {activity.text}
+              </p>
+
+              <p className="mt-0.5 text-xs text-emerald-600/60">
+                {activity.time}
+              </p>
             </div>
           </div>
         ))}
@@ -481,16 +514,30 @@ function RecentActivity() {
 
 function QuickActions() {
   const actions = [
-    { label: "New Engagement", desc: "Create a new client engagement" },
-    { label: "Invite Client", desc: "Send portal invitation" },
-    { label: "Generate Report", desc: "Create a summary report" },
+    {
+      label: "Create Engagement",
+      desc: "Open a new client engagement",
+    },
+    {
+      label: "Review Documents",
+      desc: "Approve pending client files",
+    },
+    {
+      label: "Add Staff Member",
+      desc: "Create a new staff account",
+    },
+    {
+      label: "Generate Invoice",
+      desc: "Create billing records",
+    },
   ];
 
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm border-t-2 border-emerald-500/15">
+    <div className="rounded-2xl border-t-2 border-emerald-500/15 bg-white p-6 shadow-sm">
       <h2 className="mb-4 text-lg font-semibold text-emerald-900">
         Quick Actions
       </h2>
+
       <div className="space-y-3">
         {actions.map((action) => (
           <button
@@ -501,9 +548,16 @@ function QuickActions() {
               <p className="text-sm font-medium text-slate-900">
                 {action.label}
               </p>
-              <p className="text-xs text-emerald-700/70">{action.desc}</p>
+
+              <p className="text-xs text-emerald-700/70">
+                {action.desc}
+              </p>
             </div>
-            <ChevronDown size={16} className="-rotate-90 text-emerald-400" />
+
+            <ChevronDown
+              size={16}
+              className="-rotate-90 text-emerald-400"
+            />
           </button>
         ))}
       </div>
@@ -511,7 +565,7 @@ function QuickActions() {
   );
 }
 
-export default function DashboardPage() {
+export default function DashboardFirmAdmin() {
   return (
     <div className="flex h-screen bg-emerald-50/40">
       <Sidebar />
@@ -523,7 +577,7 @@ export default function DashboardPage() {
 
         <div className="mt-5 grid grid-cols-12 gap-4">
           <div className="col-span-8">
-            <UpcomingDeadlines />
+            <ClientRequestsQueue />
           </div>
 
           <div className="col-span-4 space-y-4">
