@@ -5,7 +5,7 @@ import { supabase } from "../config/supabase.js";
     if auth created and the insertion failed the user is basically registered
   leave for testing 
 */
-async function registerClient(email, password, profile) {
+async function registerClient(email, password, profile) { 
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password
@@ -24,36 +24,22 @@ async function registerClient(email, password, profile) {
   return { data: userData, error: insertError.message };
 }
 
-/*
-async function signInUser(email, password, profile){
+async function signinClient(email, password){
   const { data, error } = await supabase.auth.signInWithPassword({
-    email, 
-    password
+    email: email,
+    password: password
   }); 
-
-  return {data, error}
+  if(error){
+    console.log(`Error: ${error.message}`)
+    return { error }
+  }
+  
+  console.log("Login Successful"); 
+  return { data }; 
 }
 
-async function insertUser(userId, userData) {
-  const { role_id, first_name, last_name, email, middle_name, birthdate, contact_no, business_id } = userData;
-  
-  const { data , error } = await supabase
-    .from("users")
-    .insert({
-      user_id: userId,
-      first_name,
-      last_name,
-      email,
-      middle_name: middle_name || null,
-      birthdate: birthdate || null,
-      contact_no: contact_no || null,
-      business_id: business_id || null,
-    });
-  
-  return { data, error };
-}
-*/
 
 export{
-  registerClient
+  registerClient, 
+  signinClient
 }
