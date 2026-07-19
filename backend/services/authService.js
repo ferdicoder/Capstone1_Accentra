@@ -1,4 +1,20 @@
-import { supabase } from "../config/supabase.js";
+import { supabase, sbAdmin } from "../config/supabase.js";
+
+async function signinClient(email, password){
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email,
+    password: password,
+    app_metadata: { role: "client" }
+  }); 
+  if(error){
+    console.log(`Error: ${error.message}`)
+    return { error }
+  }
+  
+  console.log("Login Successful"); 
+  return { data }; 
+}
+
 
 /*
   fix: orphaned state of auth creation before insertion
@@ -13,33 +29,51 @@ async function registerClient(email, password, profile) {
   if(authError) return { authData: null, error: authError.message }; 
    
   const userId = authData.user?.id; 
-  const { data: userData , error: insertError } = await supabase
+  if(!userId) return { authData: null, authError: authError.message }; 
+  
+  const user = await insertUser(userId, profile); 
+  if(user.insertError) return { error: user.insertError }
+
+  return { authData, data: user.userData  };
+}
+
+
+async function insertUser(userId, profile){
+   const { data: userData , error: insertError } = await supabase
     .from("users")
     .insert({
       user_id: userId, 
       ...profile
-    });
-  if(insertError) return { userData: null, error: insertError.message }
-  
-  return { data: userData, error: insertError.message };
+    })
+    .select();
+  if(insertError) return { insertError: insertError.message }
+
+  return { userData }
 }
 
-async function signinClient(email, password){
-  const { data, error } = await supabase.auth.signInWithPassword({
+
+
+async function createStaff(email, password, profile){
+  const { data: authData, error: authError } = await sbAdmin.auth.admin.createUser({
     email: email,
-    password: password
-  }); 
-  if(error){
-    console.log(`Error: ${error.message}`)
-    return { error }
-  }
-  
-  console.log("Login Successful"); 
-  return { data }; 
-}
+    password: password, 
+    app_metadata: { role: "staff" },
+    email_confirm: true
+  })
+  if(authError) return { authError: Autherror.message }; 
 
+  const userId = authData.user?.id;
+  if(!userId) return { authData: null, authError: authError.message }; 
+
+  const user = await insertUser(userId, profile); 
+  if(user.insertError) return { error: user.insertError }
+
+  console.log('Staff created successfully'); 
+  return { authData, data: user.userData }; 
+}
 
 export{
   registerClient, 
-  signinClient
+  signinClient,
+  createStaff
 }
