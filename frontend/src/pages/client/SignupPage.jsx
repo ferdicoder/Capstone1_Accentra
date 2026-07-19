@@ -1,4 +1,4 @@
-import { AuthLayout } from "@/components/auth-layout"
+import { AuthLayout } from "@/components/auth/auth-layout"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,8 @@ const signupSteps = ["Account", "Firm Info", "OTP"]
 const initialFormState = {
   firstName: "",
   lastName: "",
+  middleName: "",
+  birthDate: "",
   email: "",
   password: "",
   confirmPassword: "",
@@ -18,6 +20,7 @@ const initialFormState = {
   tin: "",
   industry: "",
   address: "",
+  contactNumber: "",
   otp: ["", "", "", "", "", ""],
 }
 
@@ -124,6 +127,19 @@ export default function SignupPage() {
                   />
                 </Field>
 
+                  <Field>
+                  <FieldLabel htmlFor="middleName">Middle Name</FieldLabel>
+                  <Input
+                    id="middleName"
+                    name="middleName"
+                    type="text"
+                    placeholder="Juan"
+                    value={formData.middleName}
+                    onChange={updateField}
+                    className="bg-background"
+                  />
+                </Field>
+
                 <Field>
                   <FieldLabel htmlFor="lastName">Last Name</FieldLabel>
                   <Input
@@ -133,6 +149,20 @@ export default function SignupPage() {
                     placeholder="Dela Cruz"
                     required
                     value={formData.lastName}
+                    onChange={updateField}
+                    className="bg-background"
+                  />
+                </Field>
+
+                  <Field>
+                  <FieldLabel htmlFor="birthDate">Birthdate</FieldLabel>
+                  <Input
+                    id="birthDate"
+                    name="birthDate"
+                    type="date"
+                    placeholder="1990-01-01"
+                    required
+                    value={formData.birthDate}
                     onChange={updateField}
                     className="bg-background"
                   />
@@ -253,13 +283,25 @@ export default function SignupPage() {
                     className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
                   >
                     <option value="">Select Industry</option>
-                    <option value="accounting">Accounting</option>
                     <option value="retail">Retail</option>
                     <option value="manufacturing">Manufacturing</option>
                     <option value="services">Services</option>
+                    <option value="accounting">Hybrid</option>
                   </select>
                 </Field>
               </div>
+
+               <Field>
+                <FieldLabel htmlFor="contactNumber">Contact Number</FieldLabel>
+                <Input
+                  id="contactNumber"
+                  name="contactNumber"
+                  placeholder="09123456789"
+                  value={formData.contactNumber}
+                  onChange={updateField}
+                  className="bg-background"
+                />
+              </Field>
 
               <Field>
                 <FieldLabel htmlFor="address">Address</FieldLabel>
