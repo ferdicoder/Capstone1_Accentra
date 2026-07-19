@@ -1,4 +1,4 @@
-import DashboardFirmAdmin from "@/pages/FirmDashboard/DashboardFirmAdmin/DashboardFirmAdmin"
+import DashboardFirmAdmin from "@/pages/firm/DashboardFirmAdmin"
 
 export default function App() {
   return (
