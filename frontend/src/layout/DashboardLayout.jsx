@@ -9,13 +9,25 @@ export function DashboardLayout({
   title,
   breadcrumbs = [],
   actions,
+  hasUnreadNotifications,
+  onNotificationsClick,
+  onRequestServiceClick,
   children,
 }) {
   return (
     <SidebarProvider>
       <AppSidebar role={role} user={user} />
       <SidebarInset>
-        <DashboardHeader title={title} breadcrumbs={breadcrumbs} actions={actions} />
+        <DashboardHeader
+          role={role}
+          user={user}
+          title={title}
+          breadcrumbs={breadcrumbs}
+          actions={actions}
+          hasUnreadNotifications={hasUnreadNotifications}
+          onNotificationsClick={onNotificationsClick}
+          onRequestServiceClick={onRequestServiceClick}
+        />
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">{children}</div>
       </SidebarInset>
     </SidebarProvider>

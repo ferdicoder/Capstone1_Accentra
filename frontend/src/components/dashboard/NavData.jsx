@@ -49,20 +49,24 @@ export const roleConfig = {
     label: "Firm Admin",
     nav: firmAdminNav,
     team: { name: "Accentra", plan: "Firm Admin" },
+    profileUrl: "/firm-admin/settings",
   },
   "firm-user": {
     label: "Firm User",
     nav: firmUserNav,
     team: { name: "Accentra", plan: "Firm User" },
+    profileUrl: "/firm-user/profile",
   },
   "firm-staff": {
     label: "Firm Staff",
     nav: firmUserNav,
     team: { name: "Accentra", plan: "Firm Staff" },
+    profileUrl: "/firmstaff/profile",
   },
   client: {
     label: "Client",
     nav: clientNav,
     team: { name: "Accentra", plan: "Client Portal" },
+    profileUrl: "/client/profile",
   },
 }
