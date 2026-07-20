@@ -1,14 +1,18 @@
+import { Landmark } from "lucide-react"
+
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
 
 import { NavMain } from "@/components/dashboard/NavMain"
 import { NavUser } from "@/components/dashboard/NavUser"
-import { TeamSwitcher } from "@/components/dashboard/TeamSwitcher"
 import { roleConfig } from "@/components/dashboard/NavData"
 
 const defaultUser = {
@@ -23,7 +27,21 @@ export function AppSidebar({ role = "firm-admin", user = defaultUser, ...props }
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher team={config.team} />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" className="pointer-events-none">
+              <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-navy-900 via-forest-900 to-emerald-500 text-white">
+                <Landmark className="size-4" />
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                <span className="truncate font-semibold">Accentra</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {config.label}
+                </span>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <NavMain label={config.label} items={config.nav} />

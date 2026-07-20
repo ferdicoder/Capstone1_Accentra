@@ -20,17 +20,23 @@ export function NavMain({ label = "Platform", items = [] }) {
   return (
     <SidebarGroup>
       <SidebarGroupLabel>{label}</SidebarGroupLabel>
-      <SidebarMenu>
+      <SidebarMenu className="gap-1">
         {items.map((item) => {
           const hasChildren = item.items && item.items.length > 0
 
           if (!hasChildren) {
             return (
               <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild tooltip={item.title} isActive={item.isActive}>
-                  <a href={item.url}>
-                    {item.icon && <item.icon />}
-                    <span>{item.title}</span>
+                <SidebarMenuButton
+                  asChild
+                  tooltip={item.title}
+                  isActive={item.isActive}
+                  className="gap-4"
+                >
+                  <a href={item.url}
+                   className="flex w-full items-center gap-4">
+                    {item.icon && <item.icon className="size-4 shrink-0" />}
+                    <span className="truncate">{item.title}</span>
                   </a>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -46,19 +52,19 @@ export function NavMain({ label = "Platform", items = [] }) {
             >
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip={item.title}>
-                    {item.icon && <item.icon />}
-                    <span>{item.title}</span>
-                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  <SidebarMenuButton tooltip={item.title} className="gap-2">
+                    {item.icon && <item.icon className="size-4 shrink-0" />}
+                    <span className="truncate">{item.title}</span>
+                    <ChevronRight className="ml-auto size-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                   </SidebarMenuButton>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <SidebarMenuSub>
+                  <SidebarMenuSub className="gap-1">
                     {item.items.map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
                         <SidebarMenuSubButton asChild>
                           <a href={subItem.url}>
-                            <span>{subItem.title}</span>
+                            <span className="truncate">{subItem.title}</span>
                           </a>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
