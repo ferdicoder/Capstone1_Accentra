@@ -5,7 +5,7 @@ import {
   FieldGroup,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import RegMilestone from "../../layout/RegMilestone";
+import RegMilestone from "./RegMilestone";
 
 export function OtpForm({
   className,

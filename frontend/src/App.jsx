@@ -1,10 +1,12 @@
-import LoginPage  from "./pages/client/LoginPage"
-import SignupPage from "./pages/client/SignupPage"
-import FirmLoginPage from "./pages/firm/FirmLoginPage"
-import ClientDashboardPage from "./pages/client/ClientDashboardPage"
-import DashboardClient from "./pages/client/DashboardClient"
+
+import FirmStaffDashboard from "@/pages/firm/FirmStaffDashboard"
+import FirmAdminDashboard from "@/pages/firm/Dashboard"
+import ClientDashboard from "@/pages/client/Dashboard"
+import FirmLoginPage from "@/pages/firm/FirmLoginPage"
+import ClientLoginPage from "@/pages/client/LoginPage"
+import ClientSignupPage from "@/pages/client/SignupPage"
 export default function App() {
   return (
-      <DashboardClient/>
+    <FirmStaffDashboard />
   )
 }

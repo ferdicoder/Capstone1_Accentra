@@ -8,7 +8,7 @@ import {
   FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import RegMilestone from "../../layout/RegMilestone"
+import RegMilestone from "./RegMilestone"
 
 
 export function SignupForm({
@@ -78,8 +78,8 @@ export function SignupForm({
 
         <Field>
           <div className="flex justify-between">
-             <Button className={cn('flex-1')}>Back</Button>
             <Button className={cn('flex-1')}>Continue</Button>
+            <Button className={cn('flex-1')}>Back</Button>
           </div>
         </Field>
         

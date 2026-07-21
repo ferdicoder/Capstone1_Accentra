@@ -86,14 +86,12 @@ export function LoginForm({
           className="
           mt-4
           w-full
-          h-14
-          rounded-2xl
-          bg-gradient-to-r
-          from-[#0F3443]
-          to-[#10B981]
+          h-10
+          rounded-xl
+          bg-emerald-700
+          hover:bg-forest-900
           text-white
-          hover:opacity-90
-          transition-all
+          transition-colors
           focus-visible:ring-2
           focus-visible:ring-emerald-500
           "
