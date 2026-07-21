@@ -12,6 +12,7 @@
   - Node - JavaScript runtime for Backend
   - Express - Node Framework
   - Supabase - PostgreSQL and Auth
+  - DrizzleORM - schema management in application layer
 - ### Cloud & Deployment
   - Blackblaze B2 - Cloud Storage for documents
   - Railway - for Frontend and Backend Services
