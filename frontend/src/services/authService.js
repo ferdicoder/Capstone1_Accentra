@@ -15,6 +15,20 @@ async function signinClient(email, password){
   return { data }; 
 }
 
+async function signinStaff(email, password){
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email,
+    password: password,
+    app_metadata: { role: "staff" }
+  }); 
+  if(error){
+    console.log(`Error: ${error.message}`)
+    return { error }
+  }
+  
+  console.log("Login Successful"); 
+  return { data }; 
+}
 
 /*
   fix: orphaned state of auth creation before insertion
