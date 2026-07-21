@@ -5,6 +5,6 @@ import ClientDashboardPage from "./pages/client/ClientDashboardPage"
 import DashboardClient from "./pages/client/DashboardClient"
 export default function App() {
   return (
-      <DashboardClient />
+      <DashboardClient/>
   )
 }

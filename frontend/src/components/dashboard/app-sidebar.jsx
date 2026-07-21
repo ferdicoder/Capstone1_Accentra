@@ -64,12 +64,8 @@ export function AppSidebar(props) {
   return (
     <Sidebar
       collapsible="icon"
-      style={{
-        backgroundImage:
-          "linear-gradient(180deg, #0F3443 0%, #0F4D3C 67%, #10B981 96%)",
-      }}
-      className="text-emerald-50 shadow-[0_0_40px_rgba(0,0,0,0.3)] border-r border-white/10"
-      {...props}
+  className="bg-[#0F473E] text-emerald-50 shadow-[0_0_40px_rgba(0,0,0,0.3)] border-r border-white/10"
+  {...props}
     >
       <SidebarHeader className="rounded-[24px] border border-white/10 bg-white/5 p-3 shadow-sm shadow-black/10">
         <div className="flex items-center gap-2 px-2 py-2">
