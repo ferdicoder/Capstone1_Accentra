@@ -7,6 +7,6 @@ import ClientLoginPage from "@/pages/client/LoginPage"
 import ClientSignupPage from "@/pages/client/SignupPage"
 export default function App() {
   return (
-    <FirmStaffDashboard />
+    <ClientDashboard />
   )
 }
