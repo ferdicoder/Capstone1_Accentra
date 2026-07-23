@@ -142,7 +142,7 @@ function Sidebar({
       <div
         data-slot="sidebar"
         className={cn(
-          "flex h-full w-(--sidebar-width) flex-col bg-[#0F473E] text-white",
+          "flex h-full w-(--sidebar-width) flex-col text-white",
           className
         )}
         {...props}>
@@ -207,11 +207,13 @@ function Sidebar({
           className
         )}
         {...props}>
-        <div
+       <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="flex size-full flex-col bg-[#0F473E] text-white group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:shadow-sm group-data-[variant=floating]:ring-1 group-data-[variant=floating]:ring-sidebar-border">
-          {children}
+          className={cn(
+            "flex size-full flex-col bg-sidebar text-sidebar-foreground group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:shadow-sm group-data-[variant=floating]:ring-1 group-data-[variant=floating]:ring-sidebar-border",
+            className
+          )}> {children}
         </div>
       </div>
     </div>

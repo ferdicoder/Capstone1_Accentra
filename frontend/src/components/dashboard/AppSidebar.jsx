@@ -27,15 +27,15 @@ export function AppSidebar({ role = "firm-admin", user = defaultUser, ...props }
   return (
     <Sidebar
       collapsible="icon"
-      className="[&_[data-slot=sidebar-container]]:bg-[#0F473E] [&_[data-slot=sidebar-container]]:text-white"
+      className="bg-sidebar text-white"
       {...props}
     >
-      <SidebarHeader>
+      <SidebarHeader className="border-b border-white/10 px-2.5 py-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" className="pointer-events-none hover:bg-transparent">
-              <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-navy-900 via-forest-900 to-emerald-500 text-white">
-                <Landmark className="size-4" />
+              <div className="flex size-10 items-center justify-center rounded-xl bg-white/10">
+                <Landmark className="size-5 text-white" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-semibold">Accentra</span>
