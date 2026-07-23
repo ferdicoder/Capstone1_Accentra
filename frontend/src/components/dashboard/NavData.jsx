@@ -38,7 +38,7 @@ export const clientNav = [
   { title: "Service Requests", url: "/firm-admin/firm-users", icon: UserCog, items: [] },
   { title: "My Engagements", url: "/client/engagements", icon: Briefcase, items: [] },
   { title: "Billing", url: "/client/invoices", icon: Receipt, items: [] },
-  { title: "Settings", url: "/firm-admin/settings", icon: Settings, items: [{title:"General", url:"/settings/general"},{title:"Account", url:"/settings/account"},] },
+  { title: "Settings", url: "/firm-admin/settings", icon: Settings, items: [{title:"General", url:"/settings/general"},{title:"Accounts", url:"/settings/account"},] },
 ]
 
 export const roleConfig = {
