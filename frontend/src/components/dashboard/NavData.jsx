@@ -15,33 +15,30 @@ import {
 } from "lucide-react"
 
 export const firmAdminNav = [
-  { title: "Dashboard", url: "/firm-admin/dashboard", icon: LayoutDashboard, items: [] },
+  { title: "Home", url: "/firm-admin/dashboard", icon: LayoutDashboard, items: [] },
   { title: "Clients", url: "/firm-admin/clients", icon: Users, items: [] },
-  { title: "Firm Users", url: "/firm-admin/firm-users", icon: UserCog, items: [] },
+  { title: "Service Requests", url: "/firm-admin/firm-users", icon: UserCog, items: [] },
   { title: "Engagements", url: "/firm-admin/engagements", icon: Briefcase, items: [] },
-  { title: "Tasks", url: "/firm-admin/tasks", icon: ListTodo, items: [] },
-  { title: "Documents", url: "/firm-admin/documents", icon: FileText, items: [] },
   { title: "Calendar", url: "/firm-admin/calendar", icon: Calendar, items: [] },
-  { title: "Reports", url: "/firm-admin/reports", icon: BarChart3, items: [] },
-  { title: "Settings", url: "/firm-admin/settings", icon: Settings, items: [] },
+  { title: "Billing", url: "/firm-admin/calendar", icon: Receipt, items: [] },
+  { title: "Settings", url: "/firm-admin/settings", icon: Settings, items: [{title:"General", url:"/settings/general"},{title:"User Management", url:"/settings/userManagement"}] },
 ]
 
 export const firmUserNav = [
-  { title: "Dashboard", url: "/firm-user/dashboard", icon: LayoutDashboard, items: [] },
+  { title: "Home", url: "/firm-user/dashboard", icon: LayoutDashboard, items: [] },
+  { title: "Service Requests", url: "/firm-admin/firm-users", icon: UserCog, items: [] },
   { title: "My Engagements", url: "/firm-user/engagements", icon: Briefcase, items: [] },
-  { title: "Tasks", url: "/firm-user/tasks", icon: ClipboardList, items: [] },
-  { title: "Documents", url: "/firm-user/documents", icon: FileText, items: [] },
   { title: "Calendar", url: "/firm-user/calendar", icon: Calendar, items: [] },
-  { title: "Profile", url: "/firm-user/profile", icon: UserCircle, items: [] },
+  { title: "Settings", url: "/firm-admin/settings", icon: Settings, items: [{title:"General", url:"/settings/general"}, {title:"Account", url:"/settings/account"},] },
 ]
 
+
 export const clientNav = [
-  { title: "Dashboard", url: "/client/dashboard", icon: LayoutDashboard, items: [] },
+  { title: "Home", url: "/client/dashboard", icon: LayoutDashboard, items: [] },
+  { title: "Service Requests", url: "/firm-admin/firm-users", icon: UserCog, items: [] },
   { title: "My Engagements", url: "/client/engagements", icon: Briefcase, items: [] },
-  { title: "Documents", url: "/client/documents", icon: FileText, items: [] },
-  { title: "Messages", url: "/client/messages", icon: MessageSquare, items: [] },
-  { title: "Invoices", url: "/client/invoices", icon: Receipt, items: [] },
-  { title: "Profile", url: "/client/profile", icon: UserCircle, items: [] },
+  { title: "Billing", url: "/client/invoices", icon: Receipt, items: [] },
+  { title: "Settings", url: "/firm-admin/settings", icon: Settings, items: [{title:"General", url:"/settings/general"},{title:"Account", url:"/settings/account"},] },
 ]
 
 export const roleConfig = {
@@ -51,19 +48,13 @@ export const roleConfig = {
     team: { name: "Accentra", plan: "Firm Admin" },
     profileUrl: "/firm-admin/settings",
   },
-  "firm-user": {
-    label: "Firm User",
-    nav: firmUserNav,
-    team: { name: "Accentra", plan: "Firm User" },
-    profileUrl: "/firm-user/profile",
-  },
   "firm-staff": {
     label: "Firm Staff",
     nav: firmUserNav,
     team: { name: "Accentra", plan: "Firm Staff" },
     profileUrl: "/firmstaff/profile",
   },
-  client: {
+  "client": {
     label: "Client",
     nav: clientNav,
     team: { name: "Accentra", plan: "Client Portal" },
