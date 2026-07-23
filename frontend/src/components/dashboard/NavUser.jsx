@@ -35,7 +35,11 @@ export function NavUser({ user }) {
               render={
                 <SidebarMenuButton
                   size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  className=" data-[state=open]:bg-sidebar-accent 
+                              data-[state=open]:text-sidebar-accent-foreground
+                              group-data-[collapsible=icon]:size-8!
+                              group-data-[collapsible=icon]:p-0!
+                              group-data-[collapsible=icon]:justify-center"
                 />
               }
             >

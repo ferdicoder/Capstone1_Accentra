@@ -30,29 +30,29 @@ export function AppSidebar({ role = "firm-admin", user = defaultUser, ...props }
       className="bg-sidebar text-white"
       {...props}
     >
-      <SidebarHeader className="border-b border-white/10 px-2.5 py-4">
-        <SidebarMenu>
+      <SidebarHeader className="border-b border-white/10 px-2 py-4 group-data-[collapsible=icon]:px-2">
+        <SidebarMenu> 
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" className="pointer-events-none hover:bg-transparent">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-white/10">
+            <SidebarMenuButton size="lg" className="pointer-events-none hover:bg-sidebar-accent/80 group-data-[collapsible=icon]:justify-center">
+              <div className="flex size-8 shrink-0  items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/10 group-data-[collapsible=icon]:size-8">
                 <Landmark className="size-5 text-white" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-semibold">Accentra</span>
-                <span className="truncate text-xs text-white/60">
+                <span className="truncate text-sm font-semibold tracking-tight">Accentra</span>
+                <span className="truncate text-xs text-white/50">
                   {config.label}
-                </span>
+                </span> 
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="px-2 py-4  group-data-[collapsible=icon]:px-0">
         <NavMain label={config.label} items={config.nav} />
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-white/10 p-3  group-data-[collapsible=icon]:p-2 ">
         <NavUser user={user} />
-      </SidebarFooter>
+      </SidebarFooter >
       <SidebarRail />
     </Sidebar>
   )
