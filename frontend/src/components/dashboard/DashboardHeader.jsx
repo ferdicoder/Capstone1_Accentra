@@ -30,7 +30,7 @@ export function DashboardHeader({
   const isClient = role === "client"
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+    <header className="flex h-20 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-16">
       <div className="flex flex-1 items-center gap-2 px-4">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
@@ -63,13 +63,13 @@ export function DashboardHeader({
         </Breadcrumb>
       </div>
 
-      <div className="flex items-center gap-2 px-4">
+      <div className="flex items-center gap-2.5 px-4">
         {actions}
 
         {isClient && (
           <Button
             size="sm"
-            className="gap-1.5 bg-gradient-to-br from-navy-900 via-forest-900 to-emerald-500 text-white hover:opacity-90"
+            className=" h-10 px-5 gap-2 bg-forest-900 text-white hover:opacity-90"
             onClick={onRequestServiceClick}
           >
             <CirclePlus className="size-4" />
@@ -80,19 +80,19 @@ export function DashboardHeader({
         <Button
           variant="ghost"
           size="icon"
-          className="relative"
+          className="size-10 relative"
           onClick={onNotificationsClick}
           aria-label="Notifications"
         >
           <Bell className="size-5" />
           {hasUnreadNotifications && (
-            <span className="absolute right-2 top-2 size-2 rounded-full bg-emerald-500" />
+            <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-emerald-500" />
           )}
         </Button>
 
         <Button variant="ghost" size="icon" className="rounded-full" asChild>
           <a href={profileHref} aria-label="Profile">
-            <Avatar className="size-7">
+            <Avatar className="size-9">
               <AvatarImage src={user?.avatar} alt={user?.name} />
               <AvatarFallback className="text-xs">
                 {user?.name ? user.name.slice(0, 2).toUpperCase() : "AC"}

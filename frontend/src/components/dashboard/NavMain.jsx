@@ -19,7 +19,6 @@ import {
 export function NavMain({ label = "Platform", items = [] }) {
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarMenu className="gap-1">
         {items.map((item) => {
           const hasChildren = item.items && item.items.length > 0
