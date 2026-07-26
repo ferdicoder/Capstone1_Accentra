@@ -1,18 +1,26 @@
-import { supabase, sbAdmin } from "../config/supabase.js";
+import { supabase } from '../config/supabase.js'
+import { setUserRole } from './api/userAPI';
 
+
+/**
+ * fix: every role can login to every auth routes signins
+ */
 async function signinClient(email, password){
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: email,
-    password: password,
-    app_metadata: { role: "client" }
-  }); 
-  if(error){
-    console.log(`Error: ${error.message}`)
-    return { error }
-  }
-  
-  console.log("Login Successful"); 
-  return { data }; 
+  try{
+      const { data, error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password
+    }); 
+    if(error) throw new Error(error.message)
+
+    const role = await setUserRole(data.user);
+    console.log("Login Successful"); 
+    return { data, role }; 
+
+    }catch(err){
+      console.error(err); 
+      throw err;
+    }
 }
 
 async function signinStaff(email, password){
@@ -67,27 +75,27 @@ async function insertUser(userId, profile){
 
 
 
-async function createStaff(email, password, profile){
-  const { data: authData, error: authError } = await sbAdmin.auth.admin.createUser({
-    email: email,
-    password: password, 
-    app_metadata: { role: "staff" },
-    email_confirm: true
-  })
-  if(authError) return { authError: Autherror.message }; 
+// async function createStaff(email, password, profile){
+//   const { data: authData, error: authError } = await sbAdmin.auth.admin.createUser({
+//     email: email,
+//     password: password, 
+//     app_metadata: { role: "staff" },
+//     email_confirm: true
+//   })
+//   if(authError) return { authError: Autherror.message }; 
 
-  const userId = authData.user?.id;
-  if(!userId) return { authData: null, authError: authError.message }; 
+//   const userId = authData.user?.id;
+//   if(!userId) return { authData: null, authError: authError.message }; 
 
-  const user = await insertUser(userId, profile); 
-  if(user.insertError) return { error: user.insertError }
+//   const user = await insertUser(userId, profile); 
+//   if(user.insertError) return { error: user.insertError }
 
-  console.log('Staff created successfully'); 
-  return { authData, data: user.userData }; 
-}
+//   console.log('Staff created successfully'); 
+//   return { authData, data: user.userData }; 
+// }
 
 export{
   registerClient, 
   signinClient,
-  createStaff
+  signinStaff
 }

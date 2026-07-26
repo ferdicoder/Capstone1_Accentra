@@ -8,15 +8,25 @@ import {
   FieldLabel,
   FieldSeparator,
 } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
+import { Input } from "@/components/ui/input";
 
-export function LoginForm({
+import { signinClient } from "@/services/authService.js";
+import { useNavigate } from "react-router-dom";
+
+export function ClientLoginForm({
   className,
   ...props
 }) {
-    const [errors, setErrors] = useState({})
+    const [errors, setErrors] = useState({});
 
-    const handleSubmit = (event) => {
+    const navigate = useNavigate(); 
+    const roleHome = { 
+      admin: '/admin/dashboard', 
+      staff: '/firm/dashboard', 
+      client: '/client/dashboard' 
+    };
+
+    const handleSubmit = async (event) => {
       event.preventDefault()
 
       const email= event.target.email.value
@@ -25,14 +35,20 @@ export function LoginForm({
       const newErrors = {
         email: !email,
         password: !password,
-      }
-
+      } 
       setErrors(newErrors)
       if (!newErrors.email && !newErrors.password) {
         console.log("Login Successful:")
       }
-    }
 
+       // login 
+      const user = await signinClient(email, password); 
+      if(user.error) console.log('ERRRO:', user.error)
+     
+
+      navigate(`${user.role}/dashboard`);
+    }
+    
   return (
     <form onSubmit={handleSubmit} className={cn("flex flex-col gap-6", className)} {...props}> {/* this is the form element that wraps the entire login form, applying flexbox layout and spacing between child elements */}
     
@@ -88,7 +104,7 @@ export function LoginForm({
           w-full
           h-14
           rounded-2xl
-          bg-gradient-to-r
+          bg-linear-to-r
           from-[#0F3443]
           to-[#10B981]
           text-white
