@@ -9,4 +9,3 @@ export const supabase = createClient( import.meta.env.VITE_SUPABASE_URL, import.
 
 
 
-// export const sbAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);

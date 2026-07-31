@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 
-import { registerClient } from "@/services/authService"; 
+import { registerClient } from "../../../../backend/services/authService"; 
 import { useNavigate } from "react-router-dom"
 
 

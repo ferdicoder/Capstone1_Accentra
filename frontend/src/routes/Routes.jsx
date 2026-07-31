@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import ClientDashboard  from '@/pages/client/ClientDashboard'; 
 import LoginPage from "@/pages/client/LoginPage";
-
+import SignupPage from "@/pages/client/SignupPage";
 import FirmAdminDashboard from "@/pages/firm/FirmAdminDashboard";
 
 
@@ -14,6 +14,10 @@ function ProtectedRoute({ allowedRoles, children }) {
 }
 
 export const router = createBrowserRouter([
+  {
+    path: '/signup',
+    element: <SignupPage />
+  },
   {
     path: '/',
     element: <LoginPage />

@@ -1,4 +1,4 @@
-import { createStaff } from "../services/authService.js";
+import { createStaff } from "../../../backend/services/authService.js";
 
 async function testCreateStaff(){
   console.log('Invitation Staff testing...')

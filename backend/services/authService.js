@@ -1,5 +1,5 @@
-import { supabase } from '../config/supabase.js'
-import { setUserRole } from './api/userAPI';
+import { supabase } from '../../frontend/src/config/supabase.js'
+import { setUserRole } from './api/userAPI.js';
 import toISODateString from '@/utils/formatDate.js';
 
 /**
@@ -22,7 +22,6 @@ async function signinClient(email, password){
       throw err;
     }
 }
-
 
 /*
   add: password hashing
