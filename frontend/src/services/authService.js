@@ -1,6 +1,6 @@
 import { supabase } from '../config/supabase.js'
 import { setUserRole } from './api/userAPI';
-
+import toISODateString from '@/utils/formatDate.js';
 
 /**
  * fix: every role can login to every auth routes signins
@@ -23,6 +23,38 @@ async function signinClient(email, password){
     }
 }
 
+
+/*
+  add: password hashing
+*/
+async function registerClient(formData) {
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: formData.email,
+    password: formData.password,
+    options: {
+      data: {
+        first_name: formData.firstName, 
+        last_name: formData.lastName, 
+        middle_name: formData.middleName,
+        birth_date: toISODateString(formData.birthDate),
+        contact_no: formData.contactNumber,
+        business_name: formData.businessName,
+        business_type: formData.businessType,
+        tin_no: formData.tin,
+        industry: formData.industry,
+        address: formData.address
+      }
+    }
+  });
+
+  if (authError) return { data: null, error: authError.message };
+  if (!authData.user) return { data: null, error: 'No user returned from signUp' };
+
+  return { data: authData, error: null };
+}
+
+/* will be added: after admin UI is done
+
 async function signinStaff(email, password){
   const { data, error } = await supabase.auth.signInWithPassword({
     email: email,
@@ -38,34 +70,12 @@ async function signinStaff(email, password){
   return { data }; 
 }
 
-/*
-  fix: orphaned state of auth creation before insertion
-    if auth created and the insertion failed the user is basically registered
-  leave for testing 
-*/
-async function registerClient(email, password, profile) { 
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password
-  });
-  if(authError) return { authData: null, error: authError.message }; 
-   
-  const userId = authData.user?.id; 
-  if(!userId) return { authData: null, authError: authError.message }; 
-  
-  const user = await insertUser(userId, profile); 
-  if(user.insertError) return { error: user.insertError }
-
-  return { authData, data: user.userData  };
-}
-
-
-async function insertUser(userId, profile){
+async function insertUser(userId, formData){
    const { data: userData , error: insertError } = await supabase
     .from("users")
     .insert({
       user_id: userId, 
-      ...profile
+      ...formData
     })
     .select();
   if(insertError) return { insertError: insertError.message }
@@ -74,28 +84,27 @@ async function insertUser(userId, profile){
 }
 
 
+async function createStaff(email, password, formData){
+  const { data: authData, error: authError } = await sbAdmin.auth.admin.createUser({
+    email: email,
+    password: password, 
+    app_metadata: { role: "staff" },
+    email_confirm: true
+  })
+  if(authError) return { authError: Autherror.message }; 
 
-// async function createStaff(email, password, profile){
-//   const { data: authData, error: authError } = await sbAdmin.auth.admin.createUser({
-//     email: email,
-//     password: password, 
-//     app_metadata: { role: "staff" },
-//     email_confirm: true
-//   })
-//   if(authError) return { authError: Autherror.message }; 
+  const userId = authData.user?.id;
+  if(!userId) return { authData: null, authError: authError.message }; 
 
-//   const userId = authData.user?.id;
-//   if(!userId) return { authData: null, authError: authError.message }; 
+  const user = await insertUser(userId, formData); 
+  if(user.insertError) return { error: user.insertError }
 
-//   const user = await insertUser(userId, profile); 
-//   if(user.insertError) return { error: user.insertError }
-
-//   console.log('Staff created successfully'); 
-//   return { authData, data: user.userData }; 
-// }
+  console.log('Staff created successfully'); 
+  return { authData, data: user.userData }; 
+}
+*/
 
 export{
   registerClient, 
-  signinClient,
-  signinStaff
+  signinClient
 }
