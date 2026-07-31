@@ -1,6 +1,10 @@
-import { Button } from "@/components/ui/Button"
+import { RouterProvider } from "react-router-dom";
+import { router } from '@/routes/Routes'
+import { useAuth } from "./hooks/useAuth";
+
 export default function App() {
-  return(
-    <Button variant="outline" size="lg" className="bg-blue-500 text-white">Click me</Button>
+  useAuth();
+  return (
+    <RouterProvider router={router} />
   )
 }
