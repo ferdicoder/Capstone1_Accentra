@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {useState} from "react"
+import { useState } from "react"
 import {
   Field,
   FieldDescription,
@@ -8,7 +8,11 @@ import {
   FieldLabel,
   FieldSeparator,
 } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
+import { Input } from "@/components/ui/input";
+
+import { useNavigate } from "react-router-dom";
+
+import { signinUser } from "@/services/authService"
 
 export function FirmLoginForm({
   className,
@@ -16,7 +20,9 @@ export function FirmLoginForm({
 }) {
     const [errors, setErrors] = useState({})
 
-    const handleSubmit = (event) => {
+    const navigate = useNavigate(); 
+
+    const handleSubmit = async (event) => {
       event.preventDefault()
 
       const email= event.target.email.value
@@ -25,12 +31,18 @@ export function FirmLoginForm({
       const newErrors = {
         email: !email,
         password: !password,
-      }
-
+      } 
       setErrors(newErrors)
       if (!newErrors.email && !newErrors.password) {
         console.log("Login Successful:")
       }
+
+       // login 
+      const user = await signinUser(email, password); 
+      if(user.error) console.log('ERRRO:', user.error)
+     
+
+      navigate(`/${user.role}/dashboard`);
     }
 
   return (
