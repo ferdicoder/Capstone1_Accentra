@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { supabase } from '@/config/supabase';
 import { authStore } from '@/store/authStore';
-import { setUserRole } from '../../../backend/services/api/userAPI';
+import { setUserRole } from '../services/api/userAPI';
 
 export function useAuth() {
   useEffect(() => {

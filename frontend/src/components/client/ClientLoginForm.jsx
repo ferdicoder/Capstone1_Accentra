@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input";
 
-import { signinClient } from "../../../../backend/services/authService";
+import { signinUser } from "../../services/authService";
 import { useNavigate } from "react-router-dom";
 
 export function ClientLoginForm({
@@ -20,11 +20,6 @@ export function ClientLoginForm({
     const [errors, setErrors] = useState({});
 
     const navigate = useNavigate(); 
-    const roleHome = { 
-      admin: '/admin/dashboard', 
-      staff: '/firm/dashboard', 
-      client: '/client/dashboard' 
-    };
 
     const handleSubmit = async (event) => {
       event.preventDefault()
@@ -42,11 +37,11 @@ export function ClientLoginForm({
       }
 
        // login 
-      const user = await signinClient(email, password); 
+      const user = await signinUser(email, password); 
       if(user.error) console.log('ERRRO:', user.error)
      
 
-      navigate(`${user.role}/dashboard`);
+      navigate(`/${user.role}/dashboard`);
     }
     
   return (

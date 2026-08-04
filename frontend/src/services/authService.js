@@ -1,11 +1,11 @@
-import { supabase } from '../../frontend/src/config/supabase.js'
+import { supabase } from '../config/supabase.js';
 import { setUserRole } from './api/userAPI.js';
 import toISODateString from '@/utils/formatDate.js';
 
 /**
  * fix: every role can login to every auth routes signins
  */
-async function signinClient(email, password){
+async function signinUser(email, password){
   try{
       const { data, error } = await supabase.auth.signInWithPassword({
       email: email,
@@ -105,5 +105,5 @@ async function createStaff(email, password, formData){
 
 export{
   registerClient, 
-  signinClient
+  signinUser
 }
