@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 
-import { registerClient } from "../../../../backend/services/authService"; 
+import { registerClient } from "../../services/authService"; 
 import { useNavigate } from "react-router-dom"
 
 
@@ -57,7 +57,7 @@ export default function SignupPage() {
       const newUser = await registerClient(formData); 
       if(newUser.error) throw newUser.error;
       console.log("Registration submitted", formData); 
-      navigate('/'); 
+      navigate('/client/signin'); 
     }catch(err){
       console.error(err); 
     }
