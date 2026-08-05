@@ -6,6 +6,7 @@ import { useMemo, useState } from "react"
 import { Ban, CheckCircle2, Pencil } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { DashboardLayout } from "@/layout/DashboardLayout"
 import { FirmUsersToolbar } from "@/components/firm/users/firm-users-toolbar"
 import { FirmUserTable } from "@/components/firm/users/firm-user-table"
 import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-menu"
@@ -103,75 +104,80 @@ export default function FirmUserListPreview() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-5xl space-y-4 p-6">
-        <header className="space-y-1">
-          <h1 className="text-2xl font-bold">Firm Users — Component Preview</h1>
-          <p className="text-sm text-muted-foreground">
-            Temporary page showing the FirmUserList suite with mock data.
-          </p>
-          <div className="flex items-center gap-3 pt-1">
-            {notice && (
-              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
-                {notice}
-              </span>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setLoading((value) => !value)}
-            >
-              {loading ? "Hide skeleton" : "Show loading skeleton"}
-            </Button>
-          </div>
-        </header>
-
-        <FirmUsersToolbar
-          searchValue={search}
-          onSearchChange={setSearch}
-          roleFilter={roleFilter}
-          onRoleFilterChange={setRoleFilter}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          onAddUser={() => setDialogOpen(true)}
-          resultCount={`${filteredUsers.length} of ${users.length} users`}
-        />
-
-        <FirmUserTable
-          users={filteredUsers}
-          loading={loading}
-          emptyMessage="No users match your filters."
-          emptyDescription="Try clearing the search or filters."
-          actions={(user) => (
-            <FirmUserActionsMenu
-              user={user}
-              items={[
-                {
-                  key: "edit",
-                  label: "Edit user",
-                  icon: Pencil,
-                  onSelect: (selected) => setNotice(`Edit ${selected.name}`),
-                },
-                { type: "separator" },
-                user.status === "suspended"
-                  ? {
-                      key: "activate",
-                      label: "Reactivate",
-                      icon: CheckCircle2,
-                      onSelect: toggleSuspend,
-                    }
-                  : {
-                      key: "suspend",
-                      label: "Suspend",
-                      icon: Ban,
-                      destructive: true,
-                      onSelect: toggleSuspend,
-                    },
-              ]}
-            />
-          )}
-        />
+    <DashboardLayout
+      role="firm-admin"
+      title="Firm Users"
+      breadcrumbs={[
+        { label: "Firm Admin", href: "/firm-admin/dashboard" },
+        { label: "User Management", href: "/firm-admin/user-management" },
+      ]}
+      actions={
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setLoading((value) => !value)}
+        >
+          {loading ? "Hide skeleton" : "Show loading skeleton"}
+        </Button>
+      }
+    >
+      <div className="flex flex-wrap items-center gap-3 py-1">
+        <p className="text-sm text-muted-foreground">
+          Manage your firm's users and their access to the platform. You can invite new users, edit existing users, and suspend or reactivate users as needed.
+          
+        </p>
+        {notice && (
+          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
+            {notice}
+          </span>
+        )}
       </div>
+
+      <FirmUsersToolbar
+        searchValue={search}
+        onSearchChange={setSearch}
+        roleFilter={roleFilter}
+        onRoleFilterChange={setRoleFilter}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        onAddUser={() => setDialogOpen(true)}
+        resultCount={`${filteredUsers.length} of ${users.length} users`}
+      />
+
+      <FirmUserTable
+        users={filteredUsers}
+        loading={loading}
+        emptyMessage="No users match your filters."
+        emptyDescription="Try clearing the search or filters."
+        actions={(user) => (
+          <FirmUserActionsMenu
+            user={user}
+            items={[
+              {
+                key: "edit",
+                label: "Edit user",
+                icon: Pencil,
+                onSelect: (selected) => setNotice(`Edit ${selected.name}`),
+              },
+              { type: "separator" },
+              user.status === "suspended"
+                ? {
+                    key: "activate",
+                    label: "Reactivate",
+                    icon: CheckCircle2,
+                    onSelect: toggleSuspend,
+                  }
+                : {
+                    key: "suspend",
+                    label: "Suspend",
+                    icon: Ban,
+                    destructive: true,
+                    onSelect: toggleSuspend,
+                  },
+            ]}
+          />
+        )}
+      />
 
       <FirmUserCreateDialog
         open={dialogOpen}
@@ -179,6 +185,6 @@ export default function FirmUserListPreview() {
         onSubmit={handleCreate}
         submitting={submitting}
       />
-    </div>
+    </DashboardLayout>
   )
 }

@@ -37,7 +37,7 @@ export const router = createBrowserRouter([
   },
   {
     // TEMPORARY preview route ni lexi
-    path: '/firm-users-preview',
+    path: '/firm-admin/user-management',
     element: <FirmUserListPreview />
   }
 ]); 
