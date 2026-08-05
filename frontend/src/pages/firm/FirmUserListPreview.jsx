@@ -90,7 +90,14 @@ export default function FirmUserListPreview() {
       setUsers((prev) => [
         {
           id: String(Date.now()),
-          name: `${values.firstName} ${values.lastName}`,
+          name: [
+            values.firstName,
+            values.middleName,
+            values.lastName,
+            values.extension,
+          ]
+            .filter(Boolean)
+            .join(" "),
           email: values.email,
           role: values.role,
           status: "invited",

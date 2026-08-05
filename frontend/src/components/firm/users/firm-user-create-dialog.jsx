@@ -4,15 +4,20 @@ import { ChevronDown, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,25 +28,33 @@ import { roleFilterOptions } from "./firm-user-variants"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/** Accepts 09XXXXXXXXX or +639XXXXXXXXX (digits, spaces, dashes allowed). */
+const PHONE_PATTERN = /^\+?[0-9\s-]{10,14}$/
+
 /**
- * Presentational "Add User" slide-over form for the firm user list.
+ * Presentational "Add User" modal form for the firm user list.
  * Fully controlled: the parent owns `open`/`onOpenChange` and performs any
  * API work after receiving the values from `onSubmit`. No API/auth/routing.
  *
- * @param {boolean} open - Whether the panel is visible.
+ * The firm admin creates the account on behalf of the new firm user/staff,
+ * so the form includes a temporary password that the new user can change
+ * after their first sign-in.
+ *
+ * @param {boolean} open - Whether the dialog is visible.
  * @param {Function} onOpenChange - (open: boolean) => void.
- * @param {Function} onSubmit - (values: { firstName, lastName, email, role }) => void.
+ * @param {Function} onSubmit - (values: { firstName, middleName, lastName,
+ *   extension, email, contactNumber, temporaryPassword, role }) => void.
  *   Values are validated before being passed up; parent does the actual request.
  * @param {Array} roleOptions - [{ value, label }] for the role selector. Defaults
  *   to `roleFilterOptions` from "./firm-user-variants".
  * @param {string} defaultRole - Role preselected on open. Default "staff".
  * @param {boolean} submitting - Disables the form and shows a spinner on submit.
  * @param {string} error - Optional message from the parent (e.g. failed request).
- * @param {string} title - Panel title. Default "Add User".
+ * @param {string} title - Dialog title. Default "Add User".
  * @param {string} description - Helper text under the title.
  * @param {string} submitLabel - Submit button label. Default "Add User".
  * @param {string} cancelLabel - Cancel button label. Default "Cancel".
- * @param {string} className - Extra classes merged onto the sheet content.
+ * @param {string} className - Extra classes merged onto the dialog content.
  */
 export function FirmUserCreateDialog({
   open = false,
@@ -58,10 +71,14 @@ export function FirmUserCreateDialog({
   className,
   ...props
 }) {
-  // The sheet content unmounts when closed, so this state resets on every open.
+  // The dialog content unmounts when closed, so this state resets on every open.
   const [firstName, setFirstName] = useState("")
+  const [middleName, setMiddleName] = useState("")
   const [lastName, setLastName] = useState("")
+  const [extension, setExtension] = useState("")
   const [email, setEmail] = useState("")
+  const [contactNumber, setContactNumber] = useState("")
+  const [temporaryPassword, setTemporaryPassword] = useState("")
   const [role, setRole] = useState(() =>
     roleOptions.some((option) => option.value === defaultRole) ? defaultRole : ""
   )
@@ -76,6 +93,8 @@ export function FirmUserCreateDialog({
       firstName: !firstName.trim(),
       lastName: !lastName.trim(),
       email: !email.trim() || !EMAIL_PATTERN.test(email.trim()),
+      contactNumber: !contactNumber.trim() || !PHONE_PATTERN.test(contactNumber.trim()),
+      temporaryPassword: temporaryPassword.length < 8,
       role: !role,
     }
     setErrors(newErrors)
@@ -83,21 +102,25 @@ export function FirmUserCreateDialog({
 
     onSubmit?.({
       firstName: firstName.trim(),
+      middleName: middleName.trim(),
       lastName: lastName.trim(),
+      extension: extension.trim(),
       email: email.trim(),
+      contactNumber: contactNumber.trim(),
+      temporaryPassword,
       role,
     })
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} {...props}>
-      <SheetContent side="right" data-slot="firm-user-create-dialog" className={className}>
-        <SheetHeader>
-          <SheetTitle>{title}</SheetTitle>
-          <SheetDescription>{description}</SheetDescription>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange} {...props}>
+      <DialogContent data-slot="firm-user-create-dialog" className={className}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 pb-4">
+        <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto">
           <FieldGroup>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
@@ -135,6 +158,30 @@ export function FirmUserCreateDialog({
               </Field>
             </div>
 
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="firm-user-middle-name">Middle name</FieldLabel>
+                <Input
+                  id="firm-user-middle-name"
+                  value={middleName}
+                  onChange={(event) => setMiddleName(event.target.value)}
+                  placeholder="Santos"
+                  disabled={submitting}
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="firm-user-extension">Extension</FieldLabel>
+                <Input
+                  id="firm-user-extension"
+                  value={extension}
+                  onChange={(event) => setExtension(event.target.value)}
+                  placeholder="Jr., Sr., III"
+                  disabled={submitting}
+                />
+              </Field>
+            </div>
+
             <Field>
               <FieldLabel htmlFor="firm-user-email">
                 Email<span className="text-red-500">*</span>
@@ -149,6 +196,48 @@ export function FirmUserCreateDialog({
                 className={cn(errors.email && "border-red-500 focus-visible:ring-red-500")}
               />
               {errors.email && <p className="text-sm text-red-500">Enter a valid email address.</p>}
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="firm-user-contact-number">
+                Contact number<span className="text-red-500">*</span>
+              </FieldLabel>
+              <Input
+                id="firm-user-contact-number"
+                type="tel"
+                value={contactNumber}
+                onChange={(event) => setContactNumber(event.target.value)}
+                placeholder="0917 123 4567"
+                disabled={submitting}
+                className={cn(errors.contactNumber && "border-red-500 focus-visible:ring-red-500")}
+              />
+              {errors.contactNumber && (
+                <p className="text-sm text-red-500">Enter a valid contact number.</p>
+              )}
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="firm-user-temporary-password">
+                Temporary password<span className="text-red-500">*</span>
+              </FieldLabel>
+              <Input
+                id="firm-user-temporary-password"
+                type="password"
+                value={temporaryPassword}
+                onChange={(event) => setTemporaryPassword(event.target.value)}
+                placeholder="••••••••"
+                disabled={submitting}
+                className={cn(
+                  errors.temporaryPassword && "border-red-500 focus-visible:ring-red-500"
+                )}
+              />
+              {errors.temporaryPassword ? (
+                <p className="text-sm text-red-500">Password must be at least 8 characters.</p>
+              ) : (
+                <FieldDescription>
+                  The user can change this after their first sign-in.
+                </FieldDescription>
+              )}
             </Field>
 
             <Field>
@@ -191,7 +280,7 @@ export function FirmUserCreateDialog({
             </p>
           )}
 
-          <SheetFooter className="mt-auto flex-row justify-end gap-2 px-0 pb-0">
+          <DialogFooter className="flex-row justify-end gap-2">
             <Button
               type="button"
               variant="outline"
@@ -208,9 +297,9 @@ export function FirmUserCreateDialog({
               {submitting && <Loader2 className="size-4 animate-spin" />}
               {submitting ? `${submitLabel}…` : submitLabel}
             </Button>
-          </SheetFooter>
+          </DialogFooter>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
