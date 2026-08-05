@@ -50,7 +50,7 @@ const mockUsers = [
   },
 ]
 
-export default function FirmUserListPreview() {
+export default function UserManagementPage() {
   const [users, setUsers] = useState(mockUsers)
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("")

@@ -7,8 +7,7 @@ import SignupPage from "@/pages/client/SignupPage";
 import FirmAdminDashboard from "@/pages/firm/FirmAdminDashboard";
 import FirmLoginPage from "@/pages/firm/FirmLoginPage";
 import FirmStaffDashboard from "@/pages/firm/FirmStaffDashboard";
-// TEMPORARY preview route ni lexi
-import FirmUserListPreview from "@/pages/firm/FirmUserListPreview";
+import UserManagementPage from "@/pages/firm/UserManagementPage";
 
 export const router = createBrowserRouter([
   {
@@ -36,8 +35,7 @@ export const router = createBrowserRouter([
     element: <FirmAdminDashboard />
   },
   {
-    // TEMPORARY preview route ni lexi
     path: '/firm-admin/user-management',
-    element: <FirmUserListPreview />
+    element: <UserManagementPage />
   }
 ]); 
