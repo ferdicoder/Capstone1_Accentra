@@ -1,8 +1,11 @@
 import { createBrowserRouter } from "react-router-dom";
 
-import ClientDashboard  from '@/pages/client/ClientDashboard'; 
+import ClientDashboard from '@/pages/client/ClientDashboard';
 import LoginPage from "@/pages/client/LoginPage";
 import SignupPage from "@/pages/client/SignupPage";
+import ClientProfilePage from "@/pages/client/ClientProfilePage";
+import ClientServiceRequestsPage from "@/pages/client/ClientServiceRequestsPage";
+import NewServiceRequestForm from "@/pages/client/NewServiceRequestForm";
 
 import FirmAdminDashboard from "@/pages/firm/FirmAdminDashboard";
 import FirmLoginPage from "@/pages/firm/FirmLoginPage";
@@ -24,6 +27,18 @@ export const router = createBrowserRouter([
     element: <ClientDashboard />
   },
   {
+    path: '/client/profile',
+    element: <ClientProfilePage />
+  },
+  {
+    path: '/client/service-requests',
+    element: <ClientServiceRequestsPage />
+  },
+  {
+    path: '/client/service-requests/new',
+    element: <NewServiceRequestForm />
+  },
+  {
     path: '/firm/signin',
     element: <FirmLoginPage />
   },
@@ -43,4 +58,4 @@ export const router = createBrowserRouter([
     path: '/admin/services',
     element: <ServiceManagementPage />
   }
-]); 
+]);
