@@ -1,7 +1,3 @@
-// TEMPORARY PREVIEW PAGE — created so the FirmUserList components can be
-// viewed in the browser. Not part of the real app. Delete this file (and its
-// route in src/routes/Routes.jsx) once the real FirmUserList page exists.
-
 import { useMemo, useState } from "react"
 import { Ban, CheckCircle2, Pencil } from "lucide-react"
 
@@ -11,40 +7,66 @@ import { FirmUsersToolbar } from "@/components/firm/users/firm-users-toolbar"
 import { FirmUserTable } from "@/components/firm/users/firm-user-table"
 import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-menu"
 import { FirmUserCreateDialog } from "@/components/firm/users/firm-user-create-dialog"
+import { FirmUserEditDialog } from "@/components/firm/users/firm-user-edit-dialog"
 
 const mockUsers = [
   {
     id: "1",
+    firstName: "Juan",
+    middleName: "Santos",
+    lastName: "Dela Cruz",
+    extension: "",
     name: "Juan Dela Cruz",
     email: "juan@accentra.ph",
+    contactNumber: "0917 111 2233",
     role: "admin",
     status: "active",
   },
   {
     id: "2",
+    firstName: "Maria",
+    middleName: "",
+    lastName: "Santos",
+    extension: "",
     name: "Maria Santos",
     email: "maria@accentra.ph",
+    contactNumber: "0918 222 3344",
     role: "staff",
     status: "active",
   },
   {
     id: "3",
-    name: "Pedro Ramos",
+    firstName: "Pedro",
+    middleName: "Ramos",
+    lastName: "Ramos",
+    extension: "Jr.",
+    name: "Pedro Ramos Jr.",
     email: "pedro@accentra.ph",
+    contactNumber: "0919 333 4455",
     role: "accountant",
     status: "invited",
   },
   {
     id: "4",
+    firstName: "Ana",
+    middleName: "",
+    lastName: "Reyes",
+    extension: "",
     name: "Ana Reyes",
     email: "ana@accentra.ph",
+    contactNumber: "0920 444 5566",
     role: "staff",
     status: "suspended",
   },
   {
     id: "5",
+    firstName: "Luis",
+    middleName: "Miguel",
+    lastName: "Garcia",
+    extension: "",
     name: "Luis Garcia",
     email: "luis@accentra.ph",
+    contactNumber: "0921 555 6677",
     role: "partner",
     status: "inactive",
   },
@@ -58,6 +80,9 @@ export default function UserManagementPage() {
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [editingUser, setEditingUser] = useState(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editSubmitting, setEditSubmitting] = useState(false)
   const [notice, setNotice] = useState("")
 
   const filteredUsers = useMemo(() => {
@@ -90,6 +115,10 @@ export default function UserManagementPage() {
       setUsers((prev) => [
         {
           id: String(Date.now()),
+          firstName: values.firstName,
+          middleName: values.middleName,
+          lastName: values.lastName,
+          extension: values.extension,
           name: [
             values.firstName,
             values.middleName,
@@ -99,6 +128,7 @@ export default function UserManagementPage() {
             .filter(Boolean)
             .join(" "),
           email: values.email,
+          contactNumber: values.contactNumber,
           role: values.role,
           status: "invited",
         },
@@ -107,6 +137,46 @@ export default function UserManagementPage() {
       setSubmitting(false)
       setDialogOpen(false)
       setNotice(`${values.firstName} ${values.lastName} invited`)
+    }, 800)
+  }
+
+  const openEditDialog = (user) => {
+    setEditingUser(user)
+    setEditDialogOpen(true)
+  }
+
+  const handleSave = (values) => {
+    setEditSubmitting(true)
+    // Simulated request — swap for a real API call later.
+    setTimeout(() => {
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.id === values.id
+            ? {
+                ...user,
+                firstName: values.firstName,
+                middleName: values.middleName,
+                lastName: values.lastName,
+                extension: values.extension,
+                name: [
+                  values.firstName,
+                  values.middleName,
+                  values.lastName,
+                  values.extension,
+                ]
+                  .filter(Boolean)
+                  .join(" "),
+                email: values.email,
+                contactNumber: values.contactNumber,
+                role: values.role,
+                status: values.status,
+              }
+            : user
+        )
+      )
+      setEditSubmitting(false)
+      setEditDialogOpen(false)
+      setNotice(`${values.firstName} ${values.lastName} updated`)
     }, 800)
   }
 
@@ -164,7 +234,7 @@ export default function UserManagementPage() {
                 key: "edit",
                 label: "Edit user",
                 icon: Pencil,
-                onSelect: (selected) => setNotice(`Edit ${selected.name}`),
+                onSelect: openEditDialog,
               },
               { type: "separator" },
               user.status === "suspended"
@@ -191,6 +261,14 @@ export default function UserManagementPage() {
         onOpenChange={setDialogOpen}
         onSubmit={handleCreate}
         submitting={submitting}
+      />
+
+      <FirmUserEditDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        user={editingUser}
+        onSubmit={handleSave}
+        submitting={editSubmitting}
       />
     </DashboardLayout>
   )
