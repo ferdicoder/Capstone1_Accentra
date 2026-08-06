@@ -4,13 +4,11 @@ import { roleBadgeStyles } from "./firm-user-variants"
 const defaultRoleLabels = {
   admin: "Admin",
   staff: "Staff",
-  accountant: "Accountant",
-  partner: "Partner",
-  client: "Client",
 }
 
 /**
  * Presentational pill that renders a user's role with a distinct color.
+ * Only Admin and Staff roles are used by the User Management module.
  *
  * @param {string} role - Raw role value, e.g. "admin" or "staff".
  * @param {Object} roleLabels - Optional { value: label } overrides for display text.

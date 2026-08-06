@@ -3,16 +3,15 @@ import { statusBadgeStyles, statusDotStyles } from "./firm-user-variants"
 
 const defaultStatusLabels = {
   active: "Active",
-  invited: "Invited",
-  pending: "Pending",
-  suspended: "Suspended",
   inactive: "Inactive",
+  deactivated: "Deactivated",
 }
 
 /**
  * Presentational pill that renders a user's account status with a colored dot.
+ * Status is derived from system activity — never manually assigned.
  *
- * @param {string} status - Raw status value, e.g. "active" or "invited".
+ * @param {string} status - Raw status value, e.g. "active" or "deactivated".
  * @param {Object} statusLabels - Optional { value: label } overrides for display text.
  * @param {boolean} showDot - Whether to show the leading status dot. Default true.
  * @param {string} className - Extra classes merged onto the badge.

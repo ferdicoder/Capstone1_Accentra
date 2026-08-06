@@ -43,8 +43,8 @@ const mockUsers = [
     name: "Pedro Ramos Jr.",
     email: "pedro@accentra.ph",
     contactNumber: "0919 333 4455",
-    role: "accountant",
-    status: "invited",
+    role: "staff",
+    status: "inactive",
   },
   {
     id: "4",
@@ -56,7 +56,7 @@ const mockUsers = [
     email: "ana@accentra.ph",
     contactNumber: "0920 444 5566",
     role: "staff",
-    status: "suspended",
+    status: "deactivated",
   },
   {
     id: "5",
@@ -67,7 +67,7 @@ const mockUsers = [
     name: "Luis Garcia",
     email: "luis@accentra.ph",
     contactNumber: "0921 555 6677",
-    role: "partner",
+    role: "admin",
     status: "inactive",
   },
 ]
@@ -76,7 +76,6 @@ export default function UserManagementPage() {
   const [users, setUsers] = useState(mockUsers)
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
-  const [statusFilter, setStatusFilter] = useState("")
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -93,18 +92,21 @@ export default function UserManagementPage() {
         user.name.toLowerCase().includes(query) ||
         user.email.toLowerCase().includes(query)
       const matchesRole = !roleFilter || user.role === roleFilter
-      const matchesStatus = !statusFilter || user.status === statusFilter
-      return matchesSearch && matchesRole && matchesStatus
+      return matchesSearch && matchesRole
     })
-  }, [users, search, roleFilter, statusFilter])
+  }, [users, search, roleFilter])
 
-  const toggleSuspend = (user) => {
-    const nextStatus = user.status === "suspended" ? "active" : "suspended"
+  // Deactivation is the only manual status change — the rest is derived from
+  // system activity. Reactivating restores an account to its derived state
+  // (inactive until the user signs in).
+  const toggleDeactivate = (user) => {
+    const nextStatus =
+      user.status === "deactivated" ? "inactive" : "deactivated"
     setUsers((prev) =>
       prev.map((u) => (u.id === user.id ? { ...u, status: nextStatus } : u))
     )
     setNotice(
-      `${user.name} ${nextStatus === "suspended" ? "suspended" : "reactivated"}`
+      `${user.name} ${nextStatus === "deactivated" ? "deactivated" : "reactivated"}`
     )
   }
 
@@ -130,13 +132,13 @@ export default function UserManagementPage() {
           email: values.email,
           contactNumber: values.contactNumber,
           role: values.role,
-          status: "invited",
+          status: "inactive", // derived: exists but hasn't signed in yet
         },
         ...prev,
       ])
       setSubmitting(false)
       setDialogOpen(false)
-      setNotice(`${values.firstName} ${values.lastName} invited`)
+      setNotice(`${values.firstName} ${values.lastName} added`)
     }, 800)
   }
 
@@ -169,7 +171,6 @@ export default function UserManagementPage() {
                 email: values.email,
                 contactNumber: values.contactNumber,
                 role: values.role,
-                status: values.status,
               }
             : user
         )
@@ -200,8 +201,7 @@ export default function UserManagementPage() {
     >
       <div className="flex flex-wrap items-center gap-3 py-1">
         <p className="text-sm text-muted-foreground">
-          Manage your firm's users and their access to the platform. You can invite new users, edit existing users, and suspend or reactivate users as needed.
-          
+          Manage your firm's users and their access to the platform. You can invite new users, edit existing users, and deactivate or reactivate users as needed.
         </p>
         {notice && (
           <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
@@ -215,8 +215,6 @@ export default function UserManagementPage() {
         onSearchChange={setSearch}
         roleFilter={roleFilter}
         onRoleFilterChange={setRoleFilter}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
         onAddUser={() => setDialogOpen(true)}
         resultCount={`${filteredUsers.length} of ${users.length} users`}
       />
@@ -237,19 +235,19 @@ export default function UserManagementPage() {
                 onSelect: openEditDialog,
               },
               { type: "separator" },
-              user.status === "suspended"
+              user.status === "deactivated"
                 ? {
                     key: "activate",
                     label: "Reactivate",
                     icon: CheckCircle2,
-                    onSelect: toggleSuspend,
+                    onSelect: toggleDeactivate,
                   }
                 : {
-                    key: "suspend",
-                    label: "Suspend",
+                    key: "deactivate",
+                    label: "Deactivate",
                     icon: Ban,
                     destructive: true,
-                    onSelect: toggleSuspend,
+                    onSelect: toggleDeactivate,
                   },
             ]}
           />

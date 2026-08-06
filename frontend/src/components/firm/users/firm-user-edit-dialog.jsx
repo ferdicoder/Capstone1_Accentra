@@ -23,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { roleFilterOptions, statusFilterOptions } from "./firm-user-variants"
+import { roleFilterOptions } from "./firm-user-variants"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -51,7 +51,6 @@ function EditUserForm({
   submitting,
   error,
   roleOptions,
-  statusOptions,
   onCancel,
   submitLabel,
   cancelLabel,
@@ -71,11 +70,9 @@ function EditUserForm({
     getField(user, "contactNumber", "contact_number")
   )
   const [role, setRole] = useState(() => user?.role ?? "")
-  const [status, setStatus] = useState(() => user?.status ?? "")
   const [errors, setErrors] = useState({})
 
   const activeRole = roleOptions.find((option) => option.value === role)
-  const activeStatus = statusOptions.find((option) => option.value === status)
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -87,7 +84,6 @@ function EditUserForm({
       contactNumber:
         !contactNumber.trim() || !PHONE_PATTERN.test(contactNumber.trim()),
       role: !role,
-      status: !status,
     }
     setErrors(newErrors)
     if (Object.values(newErrors).some(Boolean)) return
@@ -101,7 +97,6 @@ function EditUserForm({
       email: email.trim(),
       contactNumber: contactNumber.trim(),
       role,
-      status,
     })
   }
 
@@ -207,75 +202,38 @@ function EditUserForm({
           )}
         </Field>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field>
-            <FieldLabel>Role<span className="text-red-500">*</span></FieldLabel>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={submitting}
-                    className={cn(
-                      "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
-                      errors.role && "border-red-500 focus-visible:ring-red-500"
-                    )}
-                  />
-                }
-              >
-                {activeRole?.label ?? "Select role"}
-                <ChevronDown className="size-4 opacity-60" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-40">
-                {roleOptions.map((option) => (
-                  <DropdownMenuItem
-                    key={option.value}
-                    onClick={() => setRole(option.value)}
-                  >
-                    {option.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {errors.role && <p className="text-sm text-red-500">Select a role.</p>}
-          </Field>
-
-          <Field>
-            <FieldLabel>Status<span className="text-red-500">*</span></FieldLabel>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={submitting}
-                    className={cn(
-                      "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
-                      errors.status && "border-red-500 focus-visible:ring-red-500"
-                    )}
-                  />
-                }
-              >
-                {activeStatus?.label ?? "Select status"}
-                <ChevronDown className="size-4 opacity-60" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-40">
-                {statusOptions.map((option) => (
-                  <DropdownMenuItem
-                    key={option.value}
-                    onClick={() => setStatus(option.value)}
-                  >
-                    {option.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {errors.status && (
-              <p className="text-sm text-red-500">Select a status.</p>
-            )}
-          </Field>
-        </div>
+        <Field>
+          <FieldLabel>Role<span className="text-red-500">*</span></FieldLabel>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={submitting}
+                  className={cn(
+                    "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
+                    errors.role && "border-red-500 focus-visible:ring-red-500"
+                  )}
+                />
+              }
+            >
+              {activeRole?.label ?? "Select role"}
+              <ChevronDown className="size-4 opacity-60" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-40">
+              {roleOptions.map((option) => (
+                <DropdownMenuItem
+                  key={option.value}
+                  onClick={() => setRole(option.value)}
+                >
+                  {option.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {errors.role && <p className="text-sm text-red-500">Select a role.</p>}
+        </Field>
       </FieldGroup>
 
       {error && (
@@ -315,18 +273,19 @@ function EditUserForm({
  * dialog opens and resets on close. Mirrors FirmUserCreateDialog so both
  * modals share the exact same layout, radius, and spacing conventions.
  *
+ * Status is intentionally NOT editable here — it is derived from system
+ * activity (active / inactive / deactivated), never manually assigned.
+ *
  * @param {boolean} open - Whether the dialog is visible.
  * @param {Function} onOpenChange - (open: boolean) => void.
  * @param {Object} user - The user record being edited. Used to pre-fill
- *   firstName/middleName/lastName/extension/email/contactNumber/role/status
+ *   firstName/middleName/lastName/extension/email/contactNumber/role
  *   (snake_case variants like first_name are also accepted).
  * @param {Function} onSubmit - (values: { id, firstName, middleName, lastName,
- *   extension, email, contactNumber, role, status }) => void. Values are
- *   validated before being passed up; parent does the actual request.
+ *   extension, email, contactNumber, role }) => void. Values are validated
+ *   before being passed up; parent does the actual request.
  * @param {Array} roleOptions - [{ value, label }] for the role selector.
  *   Defaults to `roleFilterOptions` from "./firm-user-variants".
- * @param {Array} statusOptions - [{ value, label }] for the status selector.
- *   Defaults to `statusFilterOptions` from "./firm-user-variants".
  * @param {boolean} submitting - Disables the form and shows a spinner on submit.
  * @param {string} error - Optional message from the parent (e.g. failed request).
  * @param {string} title - Dialog title. Default "Edit User".
@@ -341,11 +300,10 @@ export function FirmUserEditDialog({
   onSubmit,
   user,
   roleOptions = roleFilterOptions,
-  statusOptions = statusFilterOptions,
   submitting = false,
   error,
   title = "Edit User",
-  description = "Update the user's information, role, and status.",
+  description = "Update the user's information and role.",
   submitLabel = "Save Changes",
   cancelLabel = "Cancel",
   className,
@@ -365,7 +323,6 @@ export function FirmUserEditDialog({
           submitting={submitting}
           error={error}
           roleOptions={roleOptions}
-          statusOptions={statusOptions}
           onCancel={() => onOpenChange?.(false)}
           submitLabel={submitLabel}
           cancelLabel={cancelLabel}
