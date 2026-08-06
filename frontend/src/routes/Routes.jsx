@@ -35,7 +35,7 @@ export const router = createBrowserRouter([
     element: <FirmAdminDashboard />
   },
   {
-    path: '/firm-admin/user-management',
+    path: '/admin/users',
     element: <UserManagementPage />
   }
 ]); 
