@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react"
 import { Ban, CheckCircle2, Pencil } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
+
 import { DashboardLayout } from "@/layout/DashboardLayout"
 import { FirmUsersToolbar } from "@/components/firm/users/firm-users-toolbar"
 import { FirmUserTable } from "@/components/firm/users/firm-user-table"
@@ -75,8 +74,7 @@ const mockUsers = [
 export default function UserManagementPage() {
   const [users, setUsers] = useState(mockUsers)
   const [search, setSearch] = useState("")
-  const [roleFilter, setRoleFilter] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [roleFilter, setRoleFilter] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
@@ -188,17 +186,7 @@ export default function UserManagementPage() {
       breadcrumbs={[
         { label: "Firm Admin", href: "/admin/dashboard" },
         { label: "User Management", href: "/admin/users" },
-      ]}
-      actions={
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setLoading((value) => !value)}
-        >
-          {loading ? "Hide skeleton" : "Show loading skeleton"}
-        </Button>
-      }
-    >
+      ]}      >
       <div className="flex flex-wrap items-center gap-3 py-1">
         <p className="text-sm text-muted-foreground">
           Manage your firm's users and their access to the platform. You can invite new users, edit existing users, and deactivate or reactivate users as needed.
@@ -220,8 +208,7 @@ export default function UserManagementPage() {
       />
 
       <FirmUserTable
-        users={filteredUsers}
-        loading={loading}
+        users={filteredUsers}
         emptyMessage="No users match your filters."
         emptyDescription="Try clearing the search or filters."
         actions={(user) => (

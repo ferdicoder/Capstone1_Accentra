@@ -8,6 +8,7 @@ import FirmAdminDashboard from "@/pages/firm/FirmAdminDashboard";
 import FirmLoginPage from "@/pages/firm/FirmLoginPage";
 import FirmStaffDashboard from "@/pages/firm/FirmStaffDashboard";
 import UserManagementPage from "@/pages/firm/UserManagementPage";
+import ServiceManagementPage from "@/pages/firm/ServiceManagementPage";
 
 export const router = createBrowserRouter([
   {
@@ -37,5 +38,9 @@ export const router = createBrowserRouter([
   {
     path: '/admin/users',
     element: <UserManagementPage />
+  },
+  {
+    path: '/admin/services',
+    element: <ServiceManagementPage />
   }
 ]); 
