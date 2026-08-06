@@ -1,80 +1,26 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Ban, CheckCircle2, Pencil } from "lucide-react"
-
+
+import { Button } from "@/components/ui/button"
 import { DashboardLayout } from "@/layout/DashboardLayout"
 import { FirmUsersToolbar } from "@/components/firm/users/firm-users-toolbar"
 import { FirmUserTable } from "@/components/firm/users/firm-user-table"
 import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-menu"
 import { FirmUserCreateDialog } from "@/components/firm/users/firm-user-create-dialog"
 import { FirmUserEditDialog } from "@/components/firm/users/firm-user-edit-dialog"
+import { getUsers } from "@/services/api/userAPI"
+import useFetch from "@/hooks/useFetch"
 
-const mockUsers = [
-  {
-    id: "1",
-    firstName: "Juan",
-    middleName: "Santos",
-    lastName: "Dela Cruz",
-    extension: "",
-    name: "Juan Dela Cruz",
-    email: "juan@accentra.ph",
-    contactNumber: "0917 111 2233",
-    role: "admin",
-    status: "active",
-  },
-  {
-    id: "2",
-    firstName: "Maria",
-    middleName: "",
-    lastName: "Santos",
-    extension: "",
-    name: "Maria Santos",
-    email: "maria@accentra.ph",
-    contactNumber: "0918 222 3344",
-    role: "staff",
-    status: "active",
-  },
-  {
-    id: "3",
-    firstName: "Pedro",
-    middleName: "Ramos",
-    lastName: "Ramos",
-    extension: "Jr.",
-    name: "Pedro Ramos Jr.",
-    email: "pedro@accentra.ph",
-    contactNumber: "0919 333 4455",
-    role: "staff",
-    status: "inactive",
-  },
-  {
-    id: "4",
-    firstName: "Ana",
-    middleName: "",
-    lastName: "Reyes",
-    extension: "",
-    name: "Ana Reyes",
-    email: "ana@accentra.ph",
-    contactNumber: "0920 444 5566",
-    role: "staff",
-    status: "deactivated",
-  },
-  {
-    id: "5",
-    firstName: "Luis",
-    middleName: "Miguel",
-    lastName: "Garcia",
-    extension: "",
-    name: "Luis Garcia",
-    email: "luis@accentra.ph",
-    contactNumber: "0921 555 6677",
-    role: "admin",
-    status: "inactive",
-  },
-]
+const buildDisplayName = ({ firstName, middleName, lastName, extension, name }) => {
+  if (name) return name
+
+  return [firstName, middleName, lastName, extension].filter(Boolean).join(" ")
+}
 
 export default function UserManagementPage() {
-  const [users, setUsers] = useState(mockUsers)
+  const [users, setUsers] = useState([])
   const [search, setSearch] = useState("")
-  const [roleFilter, setRoleFilter] = useState("")
+  const [roleFilter, setRoleFilter] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
@@ -82,13 +28,27 @@ export default function UserManagementPage() {
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [notice, setNotice] = useState("")
 
+  const { data: fetchedUsers, loading, error } = useFetch(getUsers)
+
+  useEffect(() => {
+    setUsers(fetchedUsers ?? [])
+  }, [fetchedUsers])
+
+  useEffect(() => {
+    if (error) {
+      console.error("Failed to load users", error)
+      setNotice("Failed to load users")
+    }
+  }, [error])
+
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase()
     return users.filter((user) => {
+      const displayName = buildDisplayName(user).toLowerCase()
       const matchesSearch =
         !query ||
-        user.name.toLowerCase().includes(query) ||
-        user.email.toLowerCase().includes(query)
+        displayName.includes(query) ||
+        (user.email ?? "").toLowerCase().includes(query)
       const matchesRole = !roleFilter || user.role === roleFilter
       return matchesSearch && matchesRole
     })
@@ -119,14 +79,7 @@ export default function UserManagementPage() {
           middleName: values.middleName,
           lastName: values.lastName,
           extension: values.extension,
-          name: [
-            values.firstName,
-            values.middleName,
-            values.lastName,
-            values.extension,
-          ]
-            .filter(Boolean)
-            .join(" "),
+          name: buildDisplayName(values),
           email: values.email,
           contactNumber: values.contactNumber,
           role: values.role,
@@ -158,14 +111,7 @@ export default function UserManagementPage() {
                 middleName: values.middleName,
                 lastName: values.lastName,
                 extension: values.extension,
-                name: [
-                  values.firstName,
-                  values.middleName,
-                  values.lastName,
-                  values.extension,
-                ]
-                  .filter(Boolean)
-                  .join(" "),
+                name: buildDisplayName(values),
                 email: values.email,
                 contactNumber: values.contactNumber,
                 role: values.role,
@@ -186,7 +132,17 @@ export default function UserManagementPage() {
       breadcrumbs={[
         { label: "Firm Admin", href: "/admin/dashboard" },
         { label: "User Management", href: "/admin/users" },
-      ]}      >
+      ]}
+      actions={
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setLoading((value) => !value)}
+        >
+          {loading ? "Hide skeleton" : "Show loading skeleton"}
+        </Button>
+      }
+    >
       <div className="flex flex-wrap items-center gap-3 py-1">
         <p className="text-sm text-muted-foreground">
           Manage your firm's users and their access to the platform. You can invite new users, edit existing users, and deactivate or reactivate users as needed.
@@ -208,7 +164,8 @@ export default function UserManagementPage() {
       />
 
       <FirmUserTable
-        users={filteredUsers}
+        users={filteredUsers}
+        loading={loading}
         emptyMessage="No users match your filters."
         emptyDescription="Try clearing the search or filters."
         actions={(user) => (
