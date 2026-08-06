@@ -163,7 +163,7 @@ function AttachmentUploader({ files, error, onAdd, onRemove }) {
   )
 }
 
-export default function NewServiceRequestPage() {
+export default function NewServiceRequestForm() {
   const navigate = useNavigate()
 
   const [formData, setFormData] = useState(initialFormState)
