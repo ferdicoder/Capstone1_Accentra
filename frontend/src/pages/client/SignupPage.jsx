@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 
-const signupSteps = ["Account", "Firm Info", "OTP"]
+import { registerClient } from "../../services/authService"; 
+import { useNavigate } from "react-router-dom"
+
 
 const initialFormState = {
   firstName: "",
@@ -20,13 +22,18 @@ const initialFormState = {
   tin: "",
   industry: "",
   address: "",
-  contactNumber: "",
-  otp: ["", "", "", "", "", ""],
+  contactNumber: ""
+  // otp: ["", "", "", "", "", ""],
 }
 
+
 export default function SignupPage() {
-  const [currentStep, setCurrentStep] = useState(1)
-  const [formData, setFormData] = useState(initialFormState)
+  const signupSteps = ["Account", "Info"]
+  const [currentStep, setCurrentStep] = useState(1); 
+
+  const [formData, setFormData] = useState(initialFormState); 
+  const navigate = useNavigate()
+  
 
   const updateField = (event) => {
     const { name, value } = event.target
@@ -37,29 +44,24 @@ export default function SignupPage() {
     }))
   }
 
-  const updateOtp = (index, value) => {
-    const digit = value.replace(/\D/g, "").slice(-1)
 
-    setFormData((currentFormData) => {
-      const nextOtp = [...currentFormData.otp]
-      nextOtp[index] = digit
-
-      return {
-        ...currentFormData,
-        otp: nextOtp,
-      }
-    })
-  }
-
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
 
-    if (currentStep < 3) {
+    if (currentStep < 2) {
       setCurrentStep((step) => step + 1)
       return
     }
 
-    console.log("Registration submitted", formData)
+    try{
+      const newUser = await registerClient(formData); 
+      if(newUser.error) throw newUser.error;
+      console.log("Registration submitted", formData); 
+      navigate('/client/signin'); 
+    }catch(err){
+      console.error(err); 
+    }
+    
   }
 
   const handleBack = () => {
@@ -321,14 +323,37 @@ export default function SignupPage() {
                     Back
                   </Button>
                   <Button type="submit" className="flex-1 bg-emerald-500 hover:bg-emerald-600">
-                    Continue
+                    Submit
                   </Button>
                 </div>
               </Field>
             </>
           )}
 
-          {currentStep === 3 && (
+          
+        </FieldGroup>
+      </form>
+    </AuthLayout>
+  )
+}
+
+
+
+// const updateOtp = (index, value) => {
+  //   const digit = value.replace(/\D/g, "").slice(-1)
+
+  //   setFormData((currentFormData) => {
+  //     const nextOtp = [...currentFormData.otp]
+  //     nextOtp[index] = digit
+
+  //     return {
+  //       ...currentFormData,
+  //       otp: nextOtp,
+  //     }
+  //   })
+  // }
+
+  {/* {currentStep === 3 && (
             <>
               <div className="flex flex-col gap-1 text-center">
                 <h1 className="text-3xl font-bold">Verify Your Identity</h1>
@@ -365,9 +390,4 @@ export default function SignupPage() {
                 </div>
               </Field>
             </>
-          )}
-        </FieldGroup>
-      </form>
-    </AuthLayout>
-  )
-}
+          )} */}

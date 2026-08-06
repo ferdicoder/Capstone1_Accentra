@@ -1,4 +1,4 @@
-import { signinClient } from '../services/authService.js'; 
+import { signinClient } from '../../../backend/services/authService.js'; 
 
 async function testLogin(){
   console.log('testing login...'); 

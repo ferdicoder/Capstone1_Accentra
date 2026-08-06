@@ -12,7 +12,10 @@
   - Node - JavaScript runtime for Backend
   - Express - Node Framework
   - Supabase - PostgreSQL and Auth
+<<<<<<<<< Temporary merge branch 1
+=========
   - DrizzleORM - schema management in application layer
+>>>>>>>>> Temporary merge branch 2
 - ### Cloud & Deployment
   - Blackblaze B2 - Cloud Storage for documents
   - Railway - for Frontend and Backend Services
