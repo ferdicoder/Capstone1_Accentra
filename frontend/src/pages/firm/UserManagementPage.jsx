@@ -186,8 +186,8 @@ export default function UserManagementPage() {
       role="firm-admin"
       title="Firm Users"
       breadcrumbs={[
-        { label: "Firm Admin", href: "/firm-admin/dashboard" },
-        { label: "User Management", href: "/firm-admin/user-management" },
+        { label: "Firm Admin", href: "/admin/dashboard" },
+        { label: "User Management", href: "/admin/users" },
       ]}
       actions={
         <Button

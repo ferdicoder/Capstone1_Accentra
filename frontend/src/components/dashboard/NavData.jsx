@@ -15,7 +15,7 @@ export const firmAdminNav = [
   { title: "Engagements", url: "/firm-admin/engagements", icon: Briefcase, items: [] },
   { title: "Calendar", url: "/firm-admin/calendar", icon: Calendar, items: [] },
   { title: "Billing", url: "/firm-admin/calendar", icon: Receipt, items: [] },
-  { title: "Settings", url: "/firm-admin/settings", icon: Settings, items: [{title:"General", url:"/settings/general"},{title:"User Management", url:"/firm-admin/user-management"}] },
+  { title: "Settings", url: "/firm-admin/settings", icon: Settings, items: [{title:"General", url:"/settings/general"},{title:"User Management", url:"/admin/users"}] },
 ]
 
 export const firmUserNav = [
