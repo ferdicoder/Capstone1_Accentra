@@ -1,4 +1,4 @@
-import { ChevronDown, Filter, Plus, Search } from "lucide-react"
+import { Check, ChevronDown, Filter, Plus, Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
@@ -88,18 +89,30 @@ export function FirmUsersToolbar({
               <ChevronDown className="size-3.5 opacity-60" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-40">
-              <DropdownMenuLabel>Filter by role</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => onRoleFilterChange?.("")}>
-                All roles
-              </DropdownMenuItem>
-              {roleOptions.map((option) => (
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Filter by role</DropdownMenuLabel>
                 <DropdownMenuItem
-                  key={option.value}
-                  onClick={() => onRoleFilterChange?.(option.value)}
+                  onClick={() => onRoleFilterChange?.("")}
+                  className={cn(!roleFilter && "font-medium")}
                 >
-                  {option.label}
+                  <span className="flex w-4 shrink-0 justify-center">
+                    {!roleFilter && <Check className="size-4" />}
+                  </span>
+                  All roles
                 </DropdownMenuItem>
-              ))}
+                {roleOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => onRoleFilterChange?.(option.value)}
+                    className={cn(option.value === roleFilter && "font-medium")}
+                  >
+                    <span className="flex w-4 shrink-0 justify-center">
+                      {option.value === roleFilter && <Check className="size-4" />}
+                    </span>
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         )}

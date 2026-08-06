@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -42,30 +43,32 @@ export function FirmUserActionsMenu({ user, items = [], align = "end", className
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align={align} className={cn("min-w-40", className)}>
-        {items.map((item, index) => {
-          if (item.type === "separator") {
-            return <DropdownMenuSeparator key={`separator-${index}`} />
-          }
-          if (item.type === "label") {
-            return <DropdownMenuLabel key={item.label}>{item.label}</DropdownMenuLabel>
-          }
+        <DropdownMenuGroup>
+          {items.map((item, index) => {
+            if (item.type === "separator") {
+              return <DropdownMenuSeparator key={`separator-${index}`} />
+            }
+            if (item.type === "label") {
+              return <DropdownMenuLabel key={item.label}>{item.label}</DropdownMenuLabel>
+            }
 
-          const Icon = item.icon
-          return (
-            <DropdownMenuItem
-              key={item.key ?? item.label ?? index}
-              variant={item.destructive ? "destructive" : "default"}
-              disabled={item.disabled}
-              onClick={(event) => {
-                event.stopPropagation()
-                item.onSelect?.(user)
-              }}
-            >
-              {Icon && <Icon className="size-4" />}
-              {item.label}
-            </DropdownMenuItem>
-          )
-        })}
+            const Icon = item.icon
+            return (
+              <DropdownMenuItem
+                key={item.key ?? item.label ?? index}
+                variant={item.destructive ? "destructive" : "default"}
+                disabled={item.disabled}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  item.onSelect?.(user)
+                }}
+              >
+                {Icon && <Icon className="size-4" />}
+                {item.label}
+              </DropdownMenuItem>
+            )
+          })}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )
