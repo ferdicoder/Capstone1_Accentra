@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabase.js';
-import { setUserRole } from './api/userAPI.js';
+import { setUserRole } from './userAPI.js';
 import toISODateString from '@/utils/formatDate.js';
 
 /**

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 import { useRef, useState } from "react"
 import { CheckCircle2, FileText, Upload, X } from "lucide-react"
  
-import { registerClient } from "../../services/authService";
+import { registerClient } from "../../api/authService";
 import { useNavigate } from "react-router-dom"
  
  

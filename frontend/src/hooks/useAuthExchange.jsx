@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { setUserRole } from "../services/api/userAPI";
+import { setUserRole } from "../api/userAPI";
 
 export function AuthExchange() {
 

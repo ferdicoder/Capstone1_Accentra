@@ -9,12 +9,12 @@ import {
   ServiceManagementToolbar,
   ServiceDeleteDialog,
   ServiceStatsCards,
-} from "@/components/firm/services/service-list"
+} from "@/components/firm/service-management/service-list"
 import {
   ServiceCreateDialog,
   ServiceEditDialog,
-} from "@/components/firm/services/service-template-form"
-import { categoryFilterOptions } from "@/components/firm/services/service-management-variants"
+} from "@/components/firm/service-management/service-template-form"
+import { categoryFilterOptions } from "@/components/firm/service-management/service-management-variants"
 
 /* ------------------------------------------------------------------ */
 /* Store — mock client-side state. Swap actions with real API later.  */

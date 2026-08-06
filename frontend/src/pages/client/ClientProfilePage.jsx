@@ -9,7 +9,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
-// import { updateClientProfile, updateClientPassword } from "@/services/profileService"
+// import { updateClientProfile, updateClientPassword } from "@/api/profileService"
 
 const currentUser = {
   name: "Maria Santos",
