@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getUsers, updateUser, updateUserStatus } from "@/services/api/userAPI"
+import { getUsers, updateUser, updateUserStatus, createStaff} from "@/services/api/userAPI"
 
 
 export function useFetchUsers() {
@@ -22,6 +22,16 @@ export function useUpdateUser() {
   })
 }
 
+export function useCreateStaff() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createStaff, 
+    onSuccess: (newUser) => {
+      queryClient.setQueryData(["users"], (old = []) => [...old, newUser] )
+    },
+  })
+}
+
 export function useToggleUserStatus() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -39,3 +49,4 @@ export function useToggleUserStatus() {
     },
   })
 }
+
