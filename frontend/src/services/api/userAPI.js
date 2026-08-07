@@ -17,51 +17,47 @@ async function setUserRole(user) {
   return roleData.role;
 }
 
+function mapUserRow(row, roleOverride) {
+  return {
+    id: row.user_id,
+    firstName: row.first_name ?? "",
+    middleName: row.middle_name ?? "",
+    lastName: row.last_name ?? "",
+    name: [row.first_name, row.middle_name, row.last_name].filter(Boolean).join(" "),
+    email: row.email ?? "",
+    contactNumber: row.contact_no ?? "",
+    role: roleOverride ?? row.user_roles?.role ?? "",
+    status: row.status ?? "inactive",
+  }
+}
+
 /**
  * to be refactor later: 
  * - slice to paginate in FE
  * - admin and staff only
  */
-async function getUsers(){
+async function getUsers() {
   const { data, error } = await supabase
-    .from('users')
+    .from("users")
     .select(`
-      user_id,
-      email,
-      contact_no,
-      first_name, 
-      middle_name, 
-      last_name,
-      status,
-      user_roles(role)
+      user_id, email, contact_no, first_name, middle_name, last_name,
+      status, user_roles(role)
     `)
-  if(error) throw error; 
+  if (error) throw error
 
-  return (data ?? []).map((user) => {
-    const roleEntry = Array.isArray(user.user_roles) ? user.user_roles[0] : user.user_roles
-
-    return {
-      id: user.user_id,
-      firstName: user.first_name ?? "",
-      middleName: user.middle_name ?? "",
-      lastName: user.last_name ?? "",
-      name: [user.first_name, user.middle_name, user.last_name].filter(Boolean).join(" "), // fullname
-      email: user.email ?? "",
-      contactNumber: user.contact_no ?? "",
-      role: roleEntry?.role ?? "",
-      status: user.status ?? "inactive",
-    }
+  return (data ?? []).map((row) => {
+    const roleEntry = Array.isArray(row.user_roles) ? row.user_roles[0] : row.user_roles
+    return mapUserRow(row, roleEntry?.role)
   })
-
 }
 
 /**
  * 
  * refactor: update only changed fields 
  */
-async function updateUser(user){
-  const { data, error } = await supabase 
-    .from('users')
+async function updateUser(user) {
+  const { data, error } = await supabase
+    .from("users")
     .update({
       first_name: user.firstName,
       middle_name: user.middleName,
@@ -69,24 +65,24 @@ async function updateUser(user){
       email: user.email,
       contact_no: user.contactNumber,
     })
-    .eq('user_id', user.id)
+    .eq("user_id", user.id)
     .select()
     .single()
-  if(error) throw error; 
-  
-  return data
+
+  if (error) throw error
+  return mapUserRow(data, user.role) // role isn't in this update, so carry it over
 }
 
-async function updateUserStatus({ id, status }){
-  const { data, error } = await supabase 
-    .from('users')
-    .update({ status: user.status })
-    .eq('user_id', user.id)
+async function updateUserStatus({ id, status }) {
+  const { data, error } = await supabase
+    .from("users")
+    .update({ status })
+    .eq("user_id", id)
     .select()
     .single()
-  if(error) throw error; 
-  
-  return data
+
+  if (error) throw error
+  return mapUserRow(data)
 }
 
 export{
