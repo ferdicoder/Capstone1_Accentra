@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 
 import { useNavigate } from "react-router-dom";
 
-import { signinUser } from "@/api/authService"
+import { signinUser } from "@/services/authService"
 
 export function FirmLoginForm({
   className,

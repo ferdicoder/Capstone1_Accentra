@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input";
 
-import { signinUser } from "../../api/authService";
+import { signinUser } from "../../services/authService";
 import { useNavigate } from "react-router-dom";
 
 export function ClientLoginForm({

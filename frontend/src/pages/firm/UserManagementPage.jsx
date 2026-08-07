@@ -8,8 +8,9 @@ import { FirmUserTable } from "@/components/firm/users/firm-user-table"
 import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-menu"
 import { FirmUserCreateDialog } from "@/components/firm/users/firm-user-create-dialog"
 import { FirmUserEditDialog } from "@/components/firm/users/firm-user-edit-dialog"
-import { getUsers } from "@/services/api/userAPI"
-import useFetch from "@/hooks/useFetch"
+
+import { useFetchUsers,useUpdateUser, useToggleUserStatus } from "@/hooks/useUsers"
+
 
 const buildDisplayName = ({ firstName, middleName, lastName, extension, name }) => {
   if (name) return name
@@ -18,80 +19,43 @@ const buildDisplayName = ({ firstName, middleName, lastName, extension, name }) 
 }
 
 export default function UserManagementPage() {
-  const [users, setUsers] = useState([])
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [editSubmitting, setEditSubmitting] = useState(false)
   const [notice, setNotice] = useState("")
 
-  const { data: fetchedUsers, loading, error } = useFetch(getUsers)
+  const { data: users = [], isLoading, error } = useFetchUsers() 
+  const updateUser = useUpdateUser()
+  const toggleStatus = useToggleUserStatus()
 
-  useEffect(() => {
-    setUsers(fetchedUsers ?? [])
-  }, [fetchedUsers])
-
-  useEffect(() => {
-    if (error) {
-      console.error("Failed to load users", error)
-      setNotice("Failed to load users")
-    }
-  }, [error])
-
+  // for searching
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase()
     return users.filter((user) => {
       const displayName = buildDisplayName(user).toLowerCase()
       const matchesSearch =
-        !query ||
-        displayName.includes(query) ||
-        (user.email ?? "").toLowerCase().includes(query)
+        !query || displayName.includes(query) || (user.email ?? "").toLowerCase().includes(query)
       const matchesRole = !roleFilter || user.role === roleFilter
       return matchesSearch && matchesRole
     })
   }, [users, search, roleFilter])
 
-  // Deactivation is the only manual status change — the rest is derived from
-  // system activity. Reactivating restores an account to its derived state
-  // (inactive until the user signs in).
   const toggleDeactivate = (user) => {
-    const nextStatus =
-      user.status === "deactivated" ? "inactive" : "deactivated"
-    setUsers((prev) =>
-      prev.map((u) => (u.id === user.id ? { ...u, status: nextStatus } : u))
-    )
-    setNotice(
-      `${user.name} ${nextStatus === "deactivated" ? "deactivated" : "reactivated"}`
-    )
+    const nextStatus = user.status === "deactivated" ? "inactive" : "deactivated"
+    toggleStatus.mutate({ id: user.id, status: nextStatus })
+    setNotice(`${user.name} ${nextStatus === "deactivated" ? "deactivated" : "reactivated"}`)
   }
 
-  const handleCreate = (values) => {
-    setSubmitting(true)
-    // Simulated request — swap for a real API call later.
-    setTimeout(() => {
-      setUsers((prev) => [
-        {
-          id: String(Date.now()),
-          firstName: values.firstName,
-          middleName: values.middleName,
-          lastName: values.lastName,
-          extension: values.extension,
-          name: buildDisplayName(values),
-          email: values.email,
-          contactNumber: values.contactNumber,
-          role: values.role,
-          status: "inactive", // derived: exists but hasn't signed in yet
-        },
-        ...prev,
-      ])
-      setSubmitting(false)
-      setDialogOpen(false)
-      setNotice(`${values.firstName} ${values.lastName} added`)
-    }, 800)
-  }
+  // const handleCreate = (values) => {
+  //   createUser.mutate(values, {
+  //     onSuccess: () => {
+  //       setDialogOpen(false)
+  //       setNotice(`${values.firstName} ${values.lastName} added`)
+  //     },
+  //   })
+  // }
 
   const openEditDialog = (user) => {
     setEditingUser(user)
@@ -99,30 +63,12 @@ export default function UserManagementPage() {
   }
 
   const handleSave = (values) => {
-    setEditSubmitting(true)
-    // Simulated request — swap for a real API call later.
-    setTimeout(() => {
-      setUsers((prev) =>
-        prev.map((user) =>
-          user.id === values.id
-            ? {
-                ...user,
-                firstName: values.firstName,
-                middleName: values.middleName,
-                lastName: values.lastName,
-                extension: values.extension,
-                name: buildDisplayName(values),
-                email: values.email,
-                contactNumber: values.contactNumber,
-                role: values.role,
-              }
-            : user
-        )
-      )
-      setEditSubmitting(false)
-      setEditDialogOpen(false)
-      setNotice(`${values.firstName} ${values.lastName} updated`)
-    }, 800)
+    updateUser.mutate(values, {
+      onSuccess: () => {
+        setEditDialogOpen(false)
+        setNotice(`${values.firstName} ${values.lastName} updated`)
+      },
+    })
   }
 
   return (
@@ -133,24 +79,18 @@ export default function UserManagementPage() {
         { label: "Firm Admin", href: "/admin/dashboard" },
         { label: "User Management", href: "/admin/users" },
       ]}
-      actions={
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setLoading((value) => !value)}
-        >
-          {loading ? "Hide skeleton" : "Show loading skeleton"}
-        </Button>
-      }
     >
       <div className="flex flex-wrap items-center gap-3 py-1">
         <p className="text-sm text-muted-foreground">
-          Manage your firm's users and their access to the platform. You can invite new users, edit existing users, and deactivate or reactivate users as needed.
+          Manage your firm's users and their access to the platform.
         </p>
         {notice && (
           <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
             {notice}
           </span>
+        )}
+        {error && (
+          <span className="text-xs text-destructive">Failed to load users</span>
         )}
       </div>
 
@@ -165,34 +105,18 @@ export default function UserManagementPage() {
 
       <FirmUserTable
         users={filteredUsers}
-        loading={loading}
+        loading={isLoading}
         emptyMessage="No users match your filters."
         emptyDescription="Try clearing the search or filters."
         actions={(user) => (
           <FirmUserActionsMenu
             user={user}
             items={[
-              {
-                key: "edit",
-                label: "Edit user",
-                icon: Pencil,
-                onSelect: openEditDialog,
-              },
+              { key: "edit", label: "Edit user", icon: Pencil, onSelect: openEditDialog },
               { type: "separator" },
               user.status === "deactivated"
-                ? {
-                    key: "activate",
-                    label: "Reactivate",
-                    icon: CheckCircle2,
-                    onSelect: toggleDeactivate,
-                  }
-                : {
-                    key: "deactivate",
-                    label: "Deactivate",
-                    icon: Ban,
-                    destructive: true,
-                    onSelect: toggleDeactivate,
-                  },
+                ? { key: "activate", label: "Reactivate", icon: CheckCircle2, onSelect: toggleDeactivate }
+                : { key: "deactivate", label: "Deactivate", icon: Ban, destructive: true, onSelect: toggleDeactivate },
             ]}
           />
         )}
@@ -201,8 +125,8 @@ export default function UserManagementPage() {
       <FirmUserCreateDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onSubmit={handleCreate}
-        submitting={submitting}
+        // onSubmit={handleCreate}
+        // submitting={createUser.isPending}
       />
 
       <FirmUserEditDialog
@@ -210,7 +134,7 @@ export default function UserManagementPage() {
         onOpenChange={setEditDialogOpen}
         user={editingUser}
         onSubmit={handleSave}
-        submitting={editSubmitting}
+        submitting={updateUser.isPending}
       />
     </DashboardLayout>
   )

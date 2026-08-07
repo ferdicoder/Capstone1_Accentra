@@ -18,7 +18,9 @@ async function setUserRole(user) {
 }
 
 /**
- * to be refactor later: slice to paginate in FE
+ * to be refactor later: 
+ * - slice to paginate in FE
+ * - admin and staff only
  */
 async function getUsers(){
   const { data, error } = await supabase
@@ -35,19 +37,15 @@ async function getUsers(){
     `)
   if(error) throw error; 
 
-  const users = (data ?? []).map((user) => {
-    const roleEntry = Array.isArray(user.user_roles)
-      ? user.user_roles[0]
-      : user.user_roles
+  return (data ?? []).map((user) => {
+    const roleEntry = Array.isArray(user.user_roles) ? user.user_roles[0] : user.user_roles
 
     return {
       id: user.user_id,
       firstName: user.first_name ?? "",
       middleName: user.middle_name ?? "",
       lastName: user.last_name ?? "",
-      name: [user.first_name, user.middle_name, user.last_name]
-        .filter(Boolean)
-        .join(" "),
+      name: [user.first_name, user.middle_name, user.last_name].filter(Boolean).join(" "), // fullname
       email: user.email ?? "",
       contactNumber: user.contact_no ?? "",
       role: roleEntry?.role ?? "",
@@ -55,10 +53,45 @@ async function getUsers(){
     }
   })
 
-  return { data: users, error: null }
+}
+
+/**
+ * 
+ * refactor: update only changed fields 
+ */
+async function updateUser(user){
+  const { data, error } = await supabase 
+    .from('users')
+    .update({
+      first_name: user.firstName,
+      middle_name: user.middleName,
+      last_name: user.lastName,
+      email: user.email,
+      contact_no: user.contactNumber,
+    })
+    .eq('user_id', user.id)
+    .select()
+    .single()
+  if(error) throw error; 
+  
+  return data
+}
+
+async function updateUserStatus({ id, status }){
+  const { data, error } = await supabase 
+    .from('users')
+    .update({ status: user.status })
+    .eq('user_id', user.id)
+    .select()
+    .single()
+  if(error) throw error; 
+  
+  return data
 }
 
 export{
   setUserRole,
-  getUsers
+  getUsers, 
+  updateUser,
+  updateUserStatus
 }
