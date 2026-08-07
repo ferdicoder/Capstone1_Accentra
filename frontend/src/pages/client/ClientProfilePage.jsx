@@ -1,0 +1,430 @@
+import { useState } from "react"
+import { Save } from "lucide-react"
+
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/dashboard/AppSidebar"
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
+import { Button } from "@/components/ui/button"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
+
+// import { updateClientProfile, updateClientPassword } from "@/api/profileService"
+
+const currentUser = {
+  name: "Maria Santos",
+  email: "maria.santos@santosretail.com",
+  avatar: "",
+}
+
+// Field shape matches formData in SignupPage.jsx exactly (minus password/confirmPassword)
+const initialProfile = {
+  firstName: "Maria",
+  middleName: "Reyes",
+  lastName: "Santos",
+  birthDate: "1990-04-12",
+  email: "maria.santos@santosretail.com",
+  businessName: "Santos Retail Trading",
+  businessType: "sole-proprietorship",
+  tin: "123-456-789-000",
+  industry: "retail",
+  contactNumber: "+63 917 555 1234",
+  address: "12 Mercado St. Sta Ana Manila 1009",
+}
+
+const initialSecurity = {
+  currentPassword: "",
+  newPassword: "",
+  confirmPassword: "",
+}
+
+const tabs = [
+  { key: "info", label: "Personal & Business Info" },
+  { key: "security", label: "Security" },
+]
+
+// Shared classes so every input / select on the page has identical height, border, and focus treatment
+const controlClass = "h-10 w-full bg-background"
+const selectClass = cn(
+  controlClass,
+  "rounded-lg border border-input px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+)
+
+export default function ClientProfilePage() {
+  const [activeTab, setActiveTab] = useState("info")
+  const [profile, setProfile] = useState(initialProfile)
+  const [security, setSecurity] = useState(initialSecurity)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState(null)
+
+  const updateProfileField = (event) => {
+    const { name, value } = event.target
+    setProfile((current) => ({ ...current, [name]: value }))
+  }
+
+  const updateSecurityField = (event) => {
+    const { name, value } = event.target
+    setSecurity((current) => ({ ...current, [name]: value }))
+  }
+
+  const handleSaveInfo = async (event) => {
+    event.preventDefault()
+    setIsSaving(true)
+    setSaveMessage(null)
+    try {
+      // await updateClientProfile(profile)
+      setSaveMessage({ type: "success", text: "Profile updated successfully." })
+    } catch (err) {
+      console.error(err)
+      setSaveMessage({ type: "error", text: "Something went wrong. Please try again." })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSavePassword = async (event) => {
+    event.preventDefault()
+
+    if (security.newPassword !== security.confirmPassword) {
+      setSaveMessage({ type: "error", text: "New password and confirmation don't match." })
+      return
+    }
+
+    setIsSaving(true)
+    setSaveMessage(null)
+    try {
+      // await updateClientPassword(security)
+      setSecurity(initialSecurity)
+      setSaveMessage({ type: "success", text: "Password updated successfully." })
+    } catch (err) {
+      console.error(err)
+      setSaveMessage({ type: "error", text: "Something went wrong. Please try again." })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <SidebarProvider>
+      <AppSidebar role="client" user={currentUser} />
+      <SidebarInset>
+        <DashboardHeader
+          role="client"
+          user={currentUser}
+          breadcrumbs={[{ label: "Home", href: "/client/dashboard" }]}
+          title="My Profile"
+          hasUnreadNotifications
+          onNotificationsClick={() => {}}
+          onRequestServiceClick={() => {}}
+        />
+
+        {/* Single max-width rail shared by every section below, so the header (which spans full width with
+            its own px-4) and the page content line up on the same left/right edges. */}
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
+          <div className="flex items-center gap-4">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
+              {currentUser.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")}
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold leading-tight">{currentUser.name}</h1>
+              <p className="text-sm text-muted-foreground">
+                {profile.businessName} · Client since January 2022
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-8 border-b">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => {
+                  setActiveTab(tab.key)
+                  setSaveMessage(null)
+                }}
+                className={cn(
+                  "-mb-px border-b-2 pb-3 text-sm font-medium transition-colors",
+                  activeTab === tab.key
+                    ? "border-emerald-600 text-emerald-700"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {saveMessage && (
+            <div
+              className={cn(
+                "rounded-lg px-4 py-2.5 text-sm",
+                saveMessage.type === "success"
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : "bg-red-50 text-red-700 border border-red-200"
+              )}
+            >
+              {saveMessage.text}
+            </div>
+          )}
+
+          {activeTab === "info" && (
+            <form onSubmit={handleSaveInfo} className="flex flex-col gap-6">
+              {/* Personal + Business cards sit side by side at equal width on large screens,
+                  so the form fills the same rail as the header instead of trailing off into empty space. */}
+              <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+                {/* Mirrors SignupPage.jsx step 1 (Account) fields */}
+                <div className="rounded-xl border bg-background p-6">
+                  <h2 className="mb-5 text-sm font-semibold">
+                    Personal Information
+                  </h2>
+                  <FieldGroup className="gap-5">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="firstName">First Name</FieldLabel>
+                        <Input
+                          id="firstName"
+                          name="firstName"
+                          value={profile.firstName}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="middleName">Middle Name</FieldLabel>
+                        <Input
+                          id="middleName"
+                          name="middleName"
+                          value={profile.middleName}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="lastName">Last Name</FieldLabel>
+                        <Input
+                          id="lastName"
+                          name="lastName"
+                          value={profile.lastName}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="birthDate">Birthdate</FieldLabel>
+                        <Input
+                          id="birthDate"
+                          name="birthDate"
+                          type="date"
+                          value={profile.birthDate}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                    </div>
+
+                    <Field>
+                      <FieldLabel htmlFor="email">Email Address</FieldLabel>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={profile.email}
+                        onChange={updateProfileField}
+                        className={controlClass}
+                      />
+                    </Field>
+                  </FieldGroup>
+                </div>
+
+                {/* Mirrors SignupPage.jsx step 2 (Info / Firm Information) fields */}
+                <div className="rounded-xl border bg-background p-6">
+                  <h2 className="mb-5 text-sm font-semibold">
+                    Business Information
+                  </h2>
+                  <FieldGroup className="gap-5">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="businessName">
+                          Business Name
+                        </FieldLabel>
+                        <Input
+                          id="businessName"
+                          name="businessName"
+                          value={profile.businessName}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="businessType">
+                          Type of Business
+                        </FieldLabel>
+                        <select
+                          id="businessType"
+                          name="businessType"
+                          value={profile.businessType}
+                          onChange={updateProfileField}
+                          className={selectClass}
+                        >
+                          <option value="">Select Type of Business</option>
+                          <option value="sole-proprietorship">Sole Proprietorship</option>
+                          <option value="partnership">Partnership</option>
+                          <option value="corporation">Corporation</option>
+                          <option value="cooperative">Cooperative</option>
+                        </select>
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="tin">
+                          TIN Number
+                        </FieldLabel>
+                        <Input
+                          id="tin"
+                          name="tin"
+                          value={profile.tin}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="industry">Industry</FieldLabel>
+                        <select
+                          id="industry"
+                          name="industry"
+                          value={profile.industry}
+                          onChange={updateProfileField}
+                          className={selectClass}
+                        >
+                          <option value="">Select Industry</option>
+                          <option value="retail">Retail</option>
+                          <option value="manufacturing">Manufacturing</option>
+                          <option value="services">Services</option>
+                          <option value="accounting">Hybrid</option>
+                        </select>
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="contactNumber">
+                          Contact Number
+                        </FieldLabel>
+                        <Input
+                          id="contactNumber"
+                          name="contactNumber"
+                          value={profile.contactNumber}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="address">
+                          Address
+                        </FieldLabel>
+                        <Input
+                          id="address"
+                          name="address"
+                          value={profile.address}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                    </div>
+                  </FieldGroup>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  disabled={isSaving}
+                  className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
+                >
+                  <Save className="size-4" />
+                  {isSaving ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {activeTab === "security" && (
+            <form onSubmit={handleSavePassword} className="flex flex-col gap-6">
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="rounded-xl border bg-background p-6 lg:col-span-2">
+                  <h2 className="mb-5 text-sm font-semibold">
+                    Change Password
+                  </h2>
+                  <FieldGroup className="gap-5">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="currentPassword">
+                          Current Password
+                        </FieldLabel>
+                        <Input
+                          id="currentPassword"
+                          name="currentPassword"
+                          type="password"
+                          value={security.currentPassword}
+                          onChange={updateSecurityField}
+                          className={controlClass}
+                        />
+                      </Field>
+                      <div />
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="newPassword">
+                          New Password
+                        </FieldLabel>
+                        <Input
+                          id="newPassword"
+                          name="newPassword"
+                          type="password"
+                          value={security.newPassword}
+                          onChange={updateSecurityField}
+                          className={controlClass}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="confirmPassword">
+                          Confirm New Password
+                        </FieldLabel>
+                        <Input
+                          id="confirmPassword"
+                          name="confirmPassword"
+                          type="password"
+                          value={security.confirmPassword}
+                          onChange={updateSecurityField}
+                          className={controlClass}
+                        />
+                      </Field>
+                    </div>
+                  </FieldGroup>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  disabled={isSaving}
+                  className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
+                >
+                  <Save className="size-4" />
+                  {isSaving ? "Saving..." : "Update Password"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  )
+}

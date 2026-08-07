@@ -1,21 +1,17 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter } from "react-router-dom";
 
-import ClientDashboard  from '@/pages/client/ClientDashboard'; 
+import ClientDashboard from '@/pages/client/ClientDashboard';
 import LoginPage from "@/pages/client/LoginPage";
 import SignupPage from "@/pages/client/SignupPage";
+import ClientProfilePage from "@/pages/client/ClientProfilePage";
+import ClientServiceRequestsPage from "@/pages/client/ClientServiceRequestsPage";
+import NewServiceRequestForm from "@/pages/client/NewServiceRequestForm";
 
 import FirmAdminDashboard from "@/pages/firm/FirmAdminDashboard";
 import FirmLoginPage from "@/pages/firm/FirmLoginPage";
 import FirmStaffDashboard from "@/pages/firm/FirmStaffDashboard";
-
-
-function ProtectedRoute({ allowedRoles, children }) {
-  const { role, loading } = useAuthStore();
-  // if (loading) return <Spinner /> ala pa loading spinner
-  if (!role) return <Navigate to="/login" replace />;
-  if (allowedRoles && !allowedRoles.includes(role)) return <Navigate to="/unauthorized" replace />;
-  return children;
-}
+import UserManagementPage from "@/pages/firm/UserManagementPage";
+import ServiceManagementPage from "@/pages/firm/ServiceManagementPage";
 
 export const router = createBrowserRouter([
   {
@@ -31,6 +27,18 @@ export const router = createBrowserRouter([
     element: <ClientDashboard />
   },
   {
+    path: '/client/profile',
+    element: <ClientProfilePage />
+  },
+  {
+    path: '/client/service-requests',
+    element: <ClientServiceRequestsPage />
+  },
+  {
+    path: '/client/service-requests/new',
+    element: <NewServiceRequestForm />
+  },
+  {
     path: '/firm/signin',
     element: <FirmLoginPage />
   },
@@ -41,5 +49,13 @@ export const router = createBrowserRouter([
   {
     path: '/admin/dashboard',
     element: <FirmAdminDashboard />
+  },
+  {
+    path: '/admin/users',
+    element: <UserManagementPage />
+  },
+  {
+    path: '/admin/services',
+    element: <ServiceManagementPage />
   }
-]); 
+]);
