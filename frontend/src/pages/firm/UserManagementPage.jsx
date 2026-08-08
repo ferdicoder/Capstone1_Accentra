@@ -9,7 +9,7 @@ import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-m
 import { FirmUserCreateDialog } from "@/components/firm/users/firm-user-create-dialog"
 import { FirmUserEditDialog } from "@/components/firm/users/firm-user-edit-dialog"
 
-import { useFetchUsers,useUpdateUser, useToggleUserStatus, useCreateStaff} from "@/hooks/useUsers"
+import { useFetchUsers,useUpdateUser, useToggleUserStatus } from "@/hooks/useUsers"
 
 
 const buildDisplayName = ({ firstName, middleName, lastName, extension, name }) => {
@@ -29,7 +29,6 @@ export default function UserManagementPage() {
   const { data: users = [], isLoading, error } = useFetchUsers() 
   const updateUser = useUpdateUser()
   const toggleStatus = useToggleUserStatus()
-  const createStaff = useCreateStaff()
 
   // for searching
   const filteredUsers = useMemo(() => {
@@ -49,14 +48,14 @@ export default function UserManagementPage() {
     setNotice(`${user.name} ${nextStatus === "deactivated" ? "deactivated" : "reactivated"}`)
   }
 
-  const handleCreate = (values) => {
-    createStaff.mutate(values, {
-      onSuccess: () => {
-        setDialogOpen(false)
-        setNotice(`${values.firstName} ${values.lastName} added`)
-      },
-    })
-  }
+  // const handleCreate = (values) => {
+  //   createUser.mutate(values, {
+  //     onSuccess: () => {
+  //       setDialogOpen(false)
+  //       setNotice(`${values.firstName} ${values.lastName} added`)
+  //     },
+  //   })
+  // }
 
   const openEditDialog = (user) => {
     setEditingUser(user)
@@ -126,8 +125,8 @@ export default function UserManagementPage() {
       <FirmUserCreateDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onSubmit={handleCreate}
-        submitting={createStaff.isPending}
+        // onSubmit={handleCreate}
+        // submitting={createUser.isPending}
       />
 
       <FirmUserEditDialog

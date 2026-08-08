@@ -85,47 +85,9 @@ async function updateUserStatus({ id, status }) {
   return mapUserRow(data)
 }
 
-function mapAuthUserRow(authUser, fallback = {}) {
-  const meta = authUser.user_metadata ?? {}
-  return {
-    id: authUser.id,
-    firstName: meta.first_name ?? fallback.firstName ?? "",
-    middleName: meta.middle_name ?? fallback.middleName ?? "",
-    lastName: meta.last_name ?? fallback.lastName ?? "",
-    name: [meta.first_name, meta.middle_name, meta.last_name].filter(Boolean).join(" "),
-    email: authUser.email ?? fallback.email ?? "",
-    contactNumber: meta.contact_no ?? fallback.contactNumber ?? "",
-    role: authUser.app_metadata?.role ?? fallback.role ?? "",
-    status: "inactive", // new staff hasn't signed in yet
-  }
-}
-// url from backend with postgrest wrapped in express
-async function createStaff(user) {
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/staffs/create`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: user.email,
-      password: user.password,
-      role: user.role,
-      firstName: user.firstName,
-      middleName: user.middleName,
-      lastName: user.lastName,
-      contactNumber: user.contactNumber,
-      birthdate: user.birthdate,
-    }),
-  })
-
-  if (!response.ok) throw new Error("Staff creation failed")
-
-  const { user: createdUser } = await response.json()
-  return mapAuthUserRow(createdUser, user)
-}
-
 export{
   setUserRole,
   getUsers, 
   updateUser,
-  updateUserStatus, 
-  createStaff
+  updateUserStatus
 }
