@@ -5,12 +5,11 @@ import LoginPage from "@/pages/client/LoginPage";
 import SignupPage from "@/pages/client/SignupPage";
 import ClientProfilePage from "@/pages/client/ClientProfilePage";
 import ClientServiceRequestsPage from "@/pages/client/ClientServiceRequestsPage";
-import NewServiceRequestForm from "@/pages/client/NewServiceRequestForm";
-
 import FirmAdminDashboard from "@/pages/firm/FirmAdminDashboard";
 import FirmLoginPage from "@/pages/firm/FirmLoginPage";
 import FirmStaffDashboard from "@/pages/firm/FirmStaffDashboard";
 import UserManagementPage from "@/pages/firm/UserManagementPage";
+import FirmProfilePage from "@/pages/firm/FirmProfilePage";
 
 export const router = createBrowserRouter([
   {
@@ -33,10 +32,7 @@ export const router = createBrowserRouter([
     path: '/client/service-requests',
     element: <ClientServiceRequestsPage />
   },
-  {
-    path: '/client/service-requests/new',
-    element: <NewServiceRequestForm />
-  },
+
   {
     path: '/firm/signin',
     element: <FirmLoginPage />
@@ -52,5 +48,9 @@ export const router = createBrowserRouter([
   {
     path: '/admin/users',
     element: <UserManagementPage />
+  },
+  {
+    path: '/admin/profile',
+    element: <FirmProfilePage />
   }
 ]);
