@@ -5,7 +5,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ServiceRequestAvatar } from "./service-request-avatar"
 import { ServiceRequestRow } from "./service-request-row"
 import { ServiceRequestStatusBadge } from "./service-request-status-badge"
-import { formatRevenue, formatSubmittedDate } from "./service-request-variants"
+import {
+  formatRevenue,
+  formatSubmittedDate,
+  getClientFullName,
+} from "./service-request-variants"
 
 const defaultServiceRequestColumns = [
   {
@@ -13,11 +17,15 @@ const defaultServiceRequestColumns = [
     label: "Client",
     render: (request) => (
       <div className="flex items-center gap-3">
-        <ServiceRequestAvatar name={request?.companyName} avatarUrl={request?.avatarUrl} />
+        <ServiceRequestAvatar name={request?.business?.businessName} />
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">{request?.companyName}</p>
-          {request?.contactPerson && (
-            <p className="truncate text-xs text-muted-foreground">{request.contactPerson}</p>
+          <p className="truncate text-sm font-medium text-foreground">
+            {request?.business?.businessName}
+          </p>
+          {request?.client && (
+            <p className="truncate text-xs text-muted-foreground">
+              {getClientFullName(request.client)}
+            </p>
           )}
         </div>
       </div>

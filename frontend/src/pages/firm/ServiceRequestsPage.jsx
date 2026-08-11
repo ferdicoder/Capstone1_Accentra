@@ -46,7 +46,7 @@ export default function ServiceRequestsPage() {
       const matchesStatus = statusFilter === "all" || request.status === statusFilter
       const matchesSearch =
         !query ||
-        [request.companyName, request.requestNumber, request.serviceName].some((field) =>
+        [request.business?.businessName, request.requestNumber, request.serviceName].some((field) =>
           field?.toLowerCase().includes(query)
         )
       return matchesStatus && matchesSearch
@@ -123,7 +123,6 @@ export default function ServiceRequestsPage() {
         request={selectedRequest}
         onApprove={handleApprove}
         onReject={handleReject}
-        className="max-w-3xl"
       />
     </DashboardLayout>
   )

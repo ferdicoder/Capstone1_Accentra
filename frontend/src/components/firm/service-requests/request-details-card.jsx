@@ -1,24 +1,23 @@
 import { FileText } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { formatRevenue, formatSubmittedDate } from "./service-request-variants"
 
 /** Label/value row shared by the request cards on the detail view. */
 export function RequestDetailRow({ label, children, className }) {
   return (
     <div
       className={cn(
-        "grid grid-cols-[120px_1fr] gap-4 py-2.5 text-sm sm:grid-cols-[150px_1fr]",
+        "grid min-w-0 grid-cols-[120px_minmax(0,1fr)] gap-4 py-2.5 text-sm sm:grid-cols-[150px_minmax(0,1fr)]",
         className
       )}
     >
-      <dt className="font-medium text-muted-foreground">{label}</dt>
-      <dd className="text-foreground">{children}</dd>
+      <dt className="min-w-0 font-medium text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 break-words text-foreground">{children}</dd>
     </div>
   )
 }
 
-/** Presentational card showing the details of a service request. */
+/** Presentational card showing what the client requested and their notes. */
 export function RequestDetailsCard({ request, className, ...props }) {
   return (
     <div
@@ -37,19 +36,8 @@ export function RequestDetailsCard({ request, className, ...props }) {
         <RequestDetailRow label="Requested Service">
           <span className="font-medium">{request?.serviceName}</span>
         </RequestDetailRow>
-        <RequestDetailRow label="Estimated Revenue">
-          <span className="font-medium tabular-nums">{formatRevenue(request?.revenue)}</span>
-        </RequestDetailRow>
-        <RequestDetailRow label="Entity Type">{request?.entityType}</RequestDetailRow>
-        <RequestDetailRow label="TIN / UEN">
-          <span className="tabular-nums">{request?.tin}</span>
-        </RequestDetailRow>
-        <RequestDetailRow label="Submitted Date">
-          {formatSubmittedDate(request?.submittedDate)}
-        </RequestDetailRow>
-        <RequestDetailRow label="Contact Person">{request?.contactPerson}</RequestDetailRow>
         <RequestDetailRow label="Client Notes">
-          <p className="text-sm leading-relaxed text-muted-foreground">{request?.notes}</p>
+          <p className="text-sm leading-relaxed break-words text-muted-foreground">{request?.notes}</p>
         </RequestDetailRow>
       </dl>
     </div>

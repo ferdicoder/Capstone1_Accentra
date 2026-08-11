@@ -1,39 +1,45 @@
-import { Building2 } from "lucide-react"
-
 import { cn } from "@/lib/utils"
-import { formatRevenue, formatSubmittedDate } from "./service-request-variants"
+import { ServiceRequestAvatar } from "./service-request-avatar"
+import { getClientFullName } from "./service-request-variants"
 import { RequestDetailRow } from "./request-details-card"
 
-/** Presentational card summarizing the client behind a service request. */
+/** Presentational card showing the client's account and business registration information. */
 export function ClientInfoCard({ request, className, ...props }) {
+  const client = request?.client
+  const business = request?.business
+
   return (
     <div
       data-slot="client-info-card"
       className={cn("rounded-xl border border-border bg-card p-6 shadow-sm", className)}
       {...props}
     >
-      <div className="mb-5 flex items-center gap-2">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-forest-900/10 text-forest-900">
-          <Building2 className="size-4" />
+      <div className="mb-5 flex items-center gap-3">
+        <ServiceRequestAvatar name={business?.businessName} size="lg" className="shrink-0" />
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold">{business?.businessName}</h2>
+          <p className="truncate text-xs text-muted-foreground">{business?.businessType}</p>
         </div>
-        <h2 className="text-sm font-semibold">Client Information</h2>
       </div>
 
+      <p className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        Client / Account
+      </p>
       <dl className="divide-y divide-border/60">
-        <RequestDetailRow label="Company">
-          <span className="font-medium">{request?.companyName}</span>
-        </RequestDetailRow>
-        <RequestDetailRow label="Entity">{request?.entityType}</RequestDetailRow>
-        <RequestDetailRow label="Contact">{request?.contactPerson}</RequestDetailRow>
-        <RequestDetailRow label="Revenue">
-          <span className="font-medium tabular-nums">{formatRevenue(request?.revenue)}</span>
-        </RequestDetailRow>
+        <RequestDetailRow label="Client Name">{getClientFullName(client)}</RequestDetailRow>
+        <RequestDetailRow label="Contact No.">{client?.contactNo}</RequestDetailRow>
+        <RequestDetailRow label="Email">{client?.email}</RequestDetailRow>
+      </dl>
+
+      <p className="mt-5 mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        Business
+      </p>
+      <dl className="divide-y divide-border/60">
         <RequestDetailRow label="TIN / UEN">
-          <span className="tabular-nums">{request?.tin}</span>
+          <span className="tabular-nums">{business?.tinNo}</span>
         </RequestDetailRow>
-        <RequestDetailRow label="Submitted Date">
-          {formatSubmittedDate(request?.submittedDate)}
-        </RequestDetailRow>
+        <RequestDetailRow label="Industry">{business?.industry}</RequestDetailRow>
+        <RequestDetailRow label="Address">{business?.address}</RequestDetailRow>
       </dl>
     </div>
   )
