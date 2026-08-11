@@ -12,6 +12,7 @@ import UserManagementPage from "@/pages/firm/UserManagementPage";
 
 import FirmProfilePage from "@/pages/firm/FirmProfilePage";
 import ServiceManagementPage from "@/pages/firm/ServiceManagementPage";
+import ServiceRequestsPage from "@/pages/firm/ServiceRequestsPage";
 
 export const router = createBrowserRouter([
   {
@@ -59,5 +60,9 @@ export const router = createBrowserRouter([
   {
     path: '/admin/services',
     element: <ServiceManagementPage />
+  },
+  {
+    path: '/admin/service-requests',
+    element: <ServiceRequestsPage />
   }
 ]);

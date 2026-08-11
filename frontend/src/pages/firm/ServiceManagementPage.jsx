@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Ban, CheckCircle2, Pencil, Trash2 } from "lucide-react"
 import { create } from "zustand"
 
+import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { DashboardLayout } from "@/layout/DashboardLayout"
 import {
   ServiceManagementActionsMenu,
@@ -14,7 +15,10 @@ import {
   ServiceCreateDialog,
   ServiceEditDialog,
 } from "@/components/firm/service-management/service-template-form"
-import { categoryFilterOptions } from "@/components/firm/service-management/service-management-variants"
+import {
+  categoryFilterOptions,
+  getServiceTemplatePrice,
+} from "@/components/firm/service-management/service-management-variants"
 
 /* ------------------------------------------------------------------ */
 /* Store — mock client-side state. Swap actions with real API later.  */
@@ -27,7 +31,7 @@ const mockServices = [
     category: "tax-filing",
     description:
       "Complete preparation and e-filing of non-VAT tax returns with the BIR, including attachments and summary schedules.",
-    basePrice: 2500,
+    basePrice: getServiceTemplatePrice("Tax Filing - Non VAT"),
     estimatedTime: "3 business days",
     activeEngagements: 12,
     status: "active",
@@ -43,7 +47,7 @@ const mockServices = [
     category: "tax-filing",
     description:
       "Preparation and e-filing of VAT returns, including monthly 2550M and quarterly 2550Q submissions.",
-    basePrice: 3500,
+    basePrice: getServiceTemplatePrice("Tax Filing - VAT"),
     estimatedTime: "3 business days",
     activeEngagements: 8,
     status: "active",
@@ -59,7 +63,7 @@ const mockServices = [
     category: "business-registration",
     description:
       "End-to-end registration of a sole proprietorship covering DTI, BIR, barangay, and mayor's permits.",
-    basePrice: 8000,
+    basePrice: getServiceTemplatePrice("Business Registration - Sole Proprietorship"),
     estimatedTime: "7 business days",
     activeEngagements: 5,
     status: "active",
@@ -74,7 +78,7 @@ const mockServices = [
     category: "business-registration",
     description:
       "SEC incorporation for domestic corporations, including name reservation, articles of incorporation, and bylaws.",
-    basePrice: 15000,
+    basePrice: getServiceTemplatePrice("Business Registration - Corporation"),
     estimatedTime: "10 business days",
     activeEngagements: 3,
     status: "inactive",
@@ -88,7 +92,7 @@ const mockServices = [
     category: "business-registration",
     description:
       "SEC registration for general and limited partnerships, including partnership agreement drafting.",
-    basePrice: 12000,
+    basePrice: getServiceTemplatePrice("Business Registration - Partnership"),
     estimatedTime: "10 business days",
     activeEngagements: 0,
     status: "deactivated",
@@ -140,6 +144,13 @@ export default function ServiceManagementPage() {
   const [deletingService, setDeletingService] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [notice, setNotice] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  // Simulated load so the shared skeleton system has something to show.
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   const filteredServices = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -217,7 +228,11 @@ export default function ServiceManagementPage() {
       breadcrumbs={[
         { label: "Firm Admin", href: "/admin/dashboard" },
         { label: "Service Management", href: "/admin/services" },
-      ]}      >
+      ]      }      >
+      {loading ? (
+        <PageSkeleton type="services" />
+      ) : (
+        <>
       <div className="flex flex-wrap items-center gap-3 py-1">
         <p className="text-sm text-muted-foreground">
           Manage your firm's service catalog. You can add new service templates, edit existing
@@ -313,6 +328,8 @@ export default function ServiceManagementPage() {
         onConfirm={handleDelete}
         deleting={deleting}
       />
+        </>
+      )}
     </DashboardLayout>
   )
 }

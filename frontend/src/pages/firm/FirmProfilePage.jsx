@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Save } from "lucide-react"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -7,6 +7,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { cn } from "@/lib/utils"
 
 // import { updateFirmProfile, updateFirmPassword } from "@/services/firmService"
@@ -53,6 +54,13 @@ export default function FirmProfilePage() {
   const [security, setSecurity] = useState(initialSecurity)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  // Simulated load so the shared skeleton system has something to show.
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   const updateProfileField = (event) => {
     const { name, value } = event.target
@@ -116,6 +124,10 @@ export default function FirmProfilePage() {
 
         {/* Same max-width rail as ClientProfilePage, so header, breadcrumb, and cards all share one edge */}
         <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
+          {loading ? (
+            <PageSkeleton type="profile" />
+          ) : (
+            <>
           <div className="flex items-center gap-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
               A
@@ -365,6 +377,8 @@ export default function FirmProfilePage() {
                 </Button>
               </div>
             </form>
+          )}
+            </>
           )}
         </div>
       </SidebarInset>

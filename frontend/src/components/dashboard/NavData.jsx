@@ -12,7 +12,7 @@ import {
 export const firmAdminNav = [
   { title: "Home", url: "/firm-admin/dashboard", icon: LayoutDashboard, items: [] },
   { title: "Clients", url: "/firm-admin/clients", icon: Users, items: [] },
-  { title: "Service Requests", url: "/firm-admin/firm-users", icon: UserCog, items: [] },
+  { title: "Service Requests", url: "/admin/service-requests", icon: UserCog, items: [] },
   { title: "Services", url: "/admin/services", icon: ClipboardList, items: [] },
   { title: "Engagements", url: "/firm-admin/engagements", icon: Briefcase, items: [] },
   { title: "Calendar", url: "/firm-admin/calendar", icon: Calendar, items: [] },
@@ -22,7 +22,7 @@ export const firmAdminNav = [
 
 export const firmUserNav = [
   { title: "Home", url: "/firm-user/dashboard", icon: LayoutDashboard, items: [] },
-  { title: "Service Requests", url: "/firm-admin/firm-users", icon: UserCog, items: [] },
+  { title: "Service Requests", url: "/admin/service-requests", icon: UserCog, items: [] },
   { title: "Services", url: "/admin/services", icon: ClipboardList, items: [] },
   { title: "My Engagements", url: "/firm-user/engagements", icon: Briefcase, items: [] },
   { title: "Calendar", url: "/firm-user/calendar", icon: Calendar, items: [] },

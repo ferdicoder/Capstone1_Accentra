@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Save } from "lucide-react"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -7,6 +7,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { cn } from "@/lib/utils"
 
 // import { updateClientProfile, updateClientPassword } from "@/api/profileService"
@@ -56,6 +57,13 @@ export default function ClientProfilePage() {
   const [security, setSecurity] = useState(initialSecurity)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  // Simulated load so the shared skeleton system has something to show.
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   const updateProfileField = (event) => {
     const { name, value } = event.target
@@ -121,6 +129,10 @@ export default function ClientProfilePage() {
         {/* Single max-width rail shared by every section below, so the header (which spans full width with
             its own px-4) and the page content line up on the same left/right edges. */}
         <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
+          {loading ? (
+            <PageSkeleton type="profile" />
+          ) : (
+            <>
           <div className="flex items-center gap-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
               {currentUser.name
@@ -422,6 +434,8 @@ export default function ClientProfilePage() {
                 </Button>
               </div>
             </form>
+          )}
+            </>
           )}
         </div>
       </SidebarInset>

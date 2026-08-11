@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Ban, CheckCircle2, Pencil } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { DashboardLayout } from "@/layout/DashboardLayout"
 import { FirmUsersToolbar } from "@/components/firm/users/firm-users-toolbar"
 import { FirmUserTable } from "@/components/firm/users/firm-user-table"
@@ -25,6 +25,13 @@ export default function UserManagementPage() {
   const [editingUser, setEditingUser] = useState(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [notice, setNotice] = useState("")
+  const [loading, setLoading] = useState(true)
+
+  // Simulated load so the shared skeleton system has something to show.
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   const { data: users = [], isLoading, error } = useFetchUsers() 
   const updateUser = useUpdateUser()
@@ -81,6 +88,10 @@ export default function UserManagementPage() {
         { label: "User Management", href: "/admin/users" },
       ]}
     >
+      {loading || isLoading ? (
+        <PageSkeleton type="users" />
+      ) : (
+        <>
       <div className="flex flex-wrap items-center gap-3 py-1">
         <p className="text-sm text-muted-foreground">
           Manage your firm's users and their access to the platform.
@@ -137,6 +148,8 @@ export default function UserManagementPage() {
         onSubmit={handleSave}
         submitting={updateUser.isPending}
       />
+        </>
+      )}
     </DashboardLayout>
   )
 }

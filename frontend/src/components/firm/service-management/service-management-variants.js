@@ -51,6 +51,28 @@ export const formatBasePrice = (value) => {
   return `₱${amount.toLocaleString("en-PH")}`
 }
 
+/**
+ * Single source of truth for the service templates (name, price, category).
+ * ServiceManagementPage seeds its mock catalog from here, and the Service
+ * Requests module derives its request pricing from here, so the two modules
+ * can never drift apart. Swap with a real API call later.
+ */
+export const serviceTemplateCatalog = [
+  { name: "Tax Filing - Non VAT", price: 2500, category: "tax-filing" },
+  { name: "Tax Filing - VAT", price: 3500, category: "tax-filing" },
+  {
+    name: "Business Registration - Sole Proprietorship",
+    price: 8000,
+    category: "business-registration",
+  },
+  { name: "Business Registration - Corporation", price: 15000, category: "business-registration" },
+  { name: "Business Registration - Partnership", price: 12000, category: "business-registration" },
+]
+
+/** Returns the configured template price for a service name (0 if unknown). */
+export const getServiceTemplatePrice = (serviceName) =>
+  serviceTemplateCatalog.find((template) => template.name === serviceName)?.price ?? 0
+
 /** Generates a short unique id for client-side records (tasks, services). */
 export const createTaskId = () => Math.random().toString(36).slice(2, 10)
 
