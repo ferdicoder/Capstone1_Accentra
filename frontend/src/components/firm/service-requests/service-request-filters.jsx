@@ -29,6 +29,8 @@ export function ServiceRequestFilters({
   ...props
 }) {
   const activeStatus = statusOptions.find((option) => option.value === statusFilter)
+  // "all" mirrors User Management's empty filter state: neutral until a real filter is picked.
+  const hasActiveFilter = Boolean(statusFilter && statusFilter !== "all")
 
   return (
     <div
@@ -61,7 +63,7 @@ export function ServiceRequestFilters({
                 size="sm"
                 className={cn(
                   "gap-1.5",
-                  activeStatus &&
+                  hasActiveFilter &&
                     "border-forest-900/40 text-forest-900 dark:border-emerald-500/40 dark:text-emerald-300"
                 )}
               />

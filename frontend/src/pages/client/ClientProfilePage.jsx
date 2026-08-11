@@ -44,11 +44,12 @@ const tabs = [
   { key: "security", label: "Security" },
 ]
 
-// Shared classes so every input / select on the page has identical height, border, and focus treatment
-const controlClass = "h-10 w-full bg-background"
+// Shared classes so every input / select on the page matches the shared Input
+// (h-8, rounded-lg, neutral focus ring) used across the User Management module.
+const controlClass = "w-full bg-background"
 const selectClass = cn(
   controlClass,
-  "rounded-lg border border-input px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+  "h-8 rounded-lg border border-input px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 )
 
 export default function ClientProfilePage() {
@@ -134,7 +135,7 @@ export default function ClientProfilePage() {
           ) : (
             <>
           <div className="flex items-center gap-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-forest-900 text-sm font-semibold text-white">
               {currentUser.name
                 .split(" ")
                 .map((n) => n[0])
@@ -173,8 +174,8 @@ export default function ClientProfilePage() {
               className={cn(
                 "rounded-lg px-4 py-2.5 text-sm",
                 saveMessage.type === "success"
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                  : "bg-red-50 text-red-700 border border-red-200"
+                  ? "bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20 ring-inset"
+                  : "bg-red-500/10 text-red-600 ring-1 ring-red-500/20 ring-inset"
               )}
             >
               {saveMessage.text}
@@ -187,7 +188,7 @@ export default function ClientProfilePage() {
                   so the form fills the same rail as the header instead of trailing off into empty space. */}
               <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
                 {/* Mirrors SignupPage.jsx step 1 (Account) fields */}
-                <div className="rounded-xl border bg-background p-6">
+                <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                   <h2 className="mb-5 text-sm font-semibold">
                     Personal Information
                   </h2>
@@ -254,7 +255,7 @@ export default function ClientProfilePage() {
                 </div>
 
                 {/* Mirrors SignupPage.jsx step 2 (Info / Firm Information) fields */}
-                <div className="rounded-xl border bg-background p-6">
+                <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                   <h2 className="mb-5 text-sm font-semibold">
                     Business Information
                   </h2>
@@ -357,7 +358,7 @@ export default function ClientProfilePage() {
                 <Button
                   type="submit"
                   disabled={isSaving}
-                  className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
+                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
                 >
                   <Save className="size-4" />
                   {isSaving ? "Saving..." : "Save Changes"}
@@ -369,7 +370,7 @@ export default function ClientProfilePage() {
           {activeTab === "security" && (
             <form onSubmit={handleSavePassword} className="flex flex-col gap-6">
               <div className="grid gap-6 lg:grid-cols-2">
-                <div className="rounded-xl border bg-background p-6 lg:col-span-2">
+                <div className="rounded-xl border border-border bg-card p-6 shadow-sm lg:col-span-2">
                   <h2 className="mb-5 text-sm font-semibold">
                     Change Password
                   </h2>
@@ -427,7 +428,7 @@ export default function ClientProfilePage() {
                 <Button
                   type="submit"
                   disabled={isSaving}
-                  className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
+                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
                 >
                   <Save className="size-4" />
                   {isSaving ? "Saving..." : "Update Password"}

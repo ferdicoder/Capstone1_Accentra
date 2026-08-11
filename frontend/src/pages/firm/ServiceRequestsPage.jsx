@@ -104,7 +104,7 @@ export default function ServiceRequestsPage() {
             actions={(request) => (
               <Button
                 size="sm"
-                className="h-9 gap-1.5 rounded-lg bg-[#02353c] text-white hover:opacity-90"
+                className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
                 onClick={() => openRequest(request)}
               >
                 <Eye className="size-4" />

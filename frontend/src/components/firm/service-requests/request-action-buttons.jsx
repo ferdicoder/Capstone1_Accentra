@@ -22,6 +22,7 @@ export function RequestActionButtons({
         variant="destructive"
         onClick={onReject}
         disabled={isDecided || isProcessing}
+        title="Reject Request"
         className="h-9 gap-1.5"
       >
         {processing === "reject" ? (
@@ -29,21 +30,22 @@ export function RequestActionButtons({
         ) : (
           <Ban className="size-4" />
         )}
-        {processing === "reject" ? "Rejecting..." : "Reject Request"}
+        {processing === "reject" ? "Rejecting..." : "Reject"}
       </Button>
 
       <Button
         type="button"
         onClick={onApprove}
         disabled={isDecided || isProcessing}
-        className="h-9 gap-1.5 rounded-lg bg-[#02353c] text-white hover:opacity-90"
+        title="Approve & Create Engagement"
+        className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
       >
         {processing === "approve" ? (
           <Loader2 className="size-4 animate-spin" />
         ) : (
           <CheckCircle2 className="size-4" />
         )}
-        {processing === "approve" ? "Approving..." : "Approve & Create Engagement"}
+        {processing === "approve" ? "Approving..." : "Approve"}
       </Button>
     </div>
   )

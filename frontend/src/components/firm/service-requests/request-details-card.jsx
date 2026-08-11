@@ -1,6 +1,8 @@
 import { FileText } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { ServiceRequestStatusBadge } from "./service-request-status-badge"
+import { formatRevenue } from "./service-request-variants"
 
 /** Label/value row shared by the request cards on the detail view. */
 export function RequestDetailRow({ label, children, className }) {
@@ -35,6 +37,14 @@ export function RequestDetailsCard({ request, className, ...props }) {
       <dl className="divide-y divide-border/60">
         <RequestDetailRow label="Requested Service">
           <span className="font-medium">{request?.serviceName}</span>
+        </RequestDetailRow>
+        <RequestDetailRow label="Price">
+          <span className="font-semibold tabular-nums text-foreground">
+            {formatRevenue(request?.revenue)}
+          </span>
+        </RequestDetailRow>
+        <RequestDetailRow label="Status">
+          <ServiceRequestStatusBadge status={request?.status} />
         </RequestDetailRow>
         <RequestDetailRow label="Client Notes">
           <p className="text-sm leading-relaxed break-words text-muted-foreground">{request?.notes}</p>

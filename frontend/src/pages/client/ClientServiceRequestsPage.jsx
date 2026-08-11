@@ -4,6 +4,7 @@ import { Briefcase, Eye, FileText, MessageSquare, Search, X } from "lucide-react
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/AppSidebar"
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { NewServiceRequestForm } from "@/components/new-service-request-form"
 
@@ -133,16 +134,17 @@ export default function ClientServiceRequestsPage() {
           </div>
 
           <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search requests..."
-              className="pl-9"
+              aria-label="Search requests"
+              className="pl-8"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
-          <div className="overflow-hidden rounded-xl border bg-background">
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
             <table className="w-full table-fixed text-sm">
               <colgroup>
                 <col className="w-[26%]" />
@@ -152,20 +154,20 @@ export default function ClientServiceRequestsPage() {
                 <col className="w-[13%]" />
               </colgroup>
               <thead>
-                <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
-                  <th className="px-4 py-3.5 align-middle font-medium">
+                <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+                  <th className="px-4 py-3.5 align-middle font-semibold">
                     Request
                   </th>
-                  <th className="px-4 py-3.5 align-middle font-medium">
+                  <th className="px-4 py-3.5 align-middle font-semibold">
                     Service
                   </th>
-                  <th className="px-4 py-3.5 align-middle font-medium">
+                  <th className="px-4 py-3.5 align-middle font-semibold">
                     Requested
                   </th>
-                  <th className="px-4 py-3.5 text-center align-middle font-medium">
+                  <th className="px-4 py-3.5 text-center align-middle font-semibold">
                     View
                   </th>
-                  <th className="px-4 py-3.5 text-center align-middle font-medium">
+                  <th className="px-4 py-3.5 text-center align-middle font-semibold">
                     Cancel
                   </th>
                 </tr>
@@ -177,7 +179,7 @@ export default function ClientServiceRequestsPage() {
                   return (
                     <tr
                       key={r.code}
-                      className="border-b last:border-b-0 hover:bg-muted/30"
+                      className="border-b border-border/60 last:border-b-0 hover:bg-muted/50"
                     >
                       <td className="px-4 py-4 align-middle">
                         <div className="flex items-center gap-3">
@@ -201,30 +203,36 @@ export default function ClientServiceRequestsPage() {
                         {r.requested}
                       </td>
                       <td className="px-4 py-4 text-center align-middle">
-                        <button
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
                         >
                           <Eye className="size-3.5" />
                           View
-                        </button>
+                        </Button>
                       </td>
                       <td className="px-4 py-4 text-center align-middle">
                         {canCancel ? (
-                          <button
+                          <Button
+                            variant="destructive"
+                            size="sm"
                             onClick={() => handleCancelRequest(r.code)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:border-red-300 hover:bg-red-100"
+                            className="gap-1.5"
                           >
                             <X className="size-3.5" />
                             Cancel
-                          </button>
+                          </Button>
                         ) : (
-                          <button
+                          <Button
+                            variant="outline"
+                            size="sm"
                             disabled
-                            className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-muted-foreground/50"
+                            className="gap-1.5"
                           >
                             <X className="size-3.5" />
                             Cancel
-                          </button>
+                          </Button>
                         )}
                       </td>
                     </tr>
