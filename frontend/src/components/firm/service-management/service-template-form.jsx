@@ -68,6 +68,7 @@ export function ServiceTemplateForm({
 
   const activeCategory = categoryFilterOptions.find((option) => option.value === category)
   const activeStatus = statusFilterOptions.find((option) => option.value === status)
+  const [isRecurring, setIsRecurring] = useState(() => initialValues?.isRecurring ?? false)
 
   // Clear stale task errors whenever the task list changes.
   const handleTasksChange = (nextTasks) => {
@@ -109,6 +110,7 @@ export function ServiceTemplateForm({
       basePrice: parsedPrice,
       estimatedTime: estimatedTime.trim(),
       status,
+      isRecurring,
       workflowTasks: tasks.map((task) => ({ ...task, name: task.name.trim() })),
     })
   }
