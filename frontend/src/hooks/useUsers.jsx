@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getUsers, updateUser, updateUserStatus, createStaff} from "@/services/api/userAPI"
-
+import { queryKeys } from "@/config/queryKeys"
 
 export function useFetchUsers() {
   return useQuery({
-    queryKey: ["users"],
+    queryKey: queryKeys.users,
     queryFn: getUsers,
   })
 }
@@ -15,7 +15,7 @@ export function useUpdateUser() {
   return useMutation({
     mutationFn: updateUser, 
     onSuccess: (updatedUser) => {
-      queryClient.setQueryData(["users"], (old = []) =>
+      queryClient.setQueryData(queryKeys.users, (old = []) =>
         old.map((u) => (u.id === updatedUser.id ? updatedUser : u))
       )
     },
@@ -27,7 +27,7 @@ export function useCreateStaff() {
   return useMutation({
     mutationFn: createStaff, 
     onSuccess: (newUser) => {
-      queryClient.setQueryData(["users"], (old = []) => [...old, newUser] )
+      queryClient.setQueryData(queryKeys.users, (old = []) => [...old, newUser] )
     },
   })
 }
@@ -37,15 +37,15 @@ export function useToggleUserStatus() {
   return useMutation({
     mutationFn: updateUserStatus, 
     onMutate: async ({ id, status }) => {
-      await queryClient.cancelQueries({ queryKey: ["users"] })
-      const previous = queryClient.getQueryData(["users"])
-      queryClient.setQueryData(["users"], (old = []) =>
+      await queryClient.cancelQueries({ queryKey: queryKeys.users })
+      const previous = queryClient.getQueryData(queryKeys.users)
+      queryClient.setQueryData(queryKeys.users, (old = []) =>
         old.map((u) => (u.id === id ? { ...u, status } : u))
       )
       return { previous }
     },
     onError: (_err, _vars, context) => {
-      queryClient.setQueryData(["users"], context.previous)
+      queryClient.setQueryData(queryKeys.users, context.previous)
     },
   })
 }

@@ -40,8 +40,14 @@ async function getUsers() {
   const { data, error } = await supabase
     .from("users")
     .select(`
-      user_id, email, contact_no, first_name, middle_name, last_name,
-      status, user_roles(role)
+      user_id, 
+      email, 
+      contact_no, 
+      first_name, 
+      middle_name, 
+      last_name,
+      status, 
+      user_roles(role)
     `)
   if (error) throw error
 
