@@ -14,6 +14,9 @@ import UserManagementPage from "@/pages/firm/UserManagementPage";
 
 import FirmProfilePage from "@/pages/firm/FirmProfilePage";
 import ServiceManagementPage from "@/pages/firm/ServiceManagementPage";
+import ServiceRequestsPage from "@/pages/firm/ServiceRequestsPage";
+import EngagementsPage from "@/pages/firm/EngagementsPage";
+import EngagementDetailsPage from "@/pages/firm/EngagementDetailsPage";
 
 export const router = createBrowserRouter([
   {
@@ -69,5 +72,17 @@ export const router = createBrowserRouter([
   {
     path: '/admin/services',
     element: <ServiceManagementPage />
+  },
+  {
+    path: '/admin/service-requests',
+    element: <ServiceRequestsPage />
+  },
+  {
+    path: '/firm-admin/engagements',
+    element: <EngagementsPage />
+  },
+  {
+    path: '/admin/engagements/:id',
+    element: <EngagementDetailsPage />
   }
 ]);
