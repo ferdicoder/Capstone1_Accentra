@@ -24,10 +24,6 @@ import {
   getServiceTemplatePrice,
 } from "../service-management/service-management-variants"
 
-/**
- * Mock firm staff list — Admin and Staff only.
- * In a real app this would come from the firm users API.
- */
 const firmStaffOptions = [
   { value: "staff-001", label: "Maria Clara Santos" },
   { value: "staff-002", label: "Juan Dela Cruz" },
@@ -37,9 +33,6 @@ const firmStaffOptions = [
 
 const sectionHeadingClass = "font-heading text-sm font-medium text-foreground"
 
-/**
- * Read-only display row used for the Client Information section.
- */
 function ReadOnlyRow({ label, children }) {
   return (
     <div className="grid min-w-0 grid-cols-[140px_minmax(0,1fr)] gap-4 py-2.5 text-sm">
@@ -49,18 +42,6 @@ function ReadOnlyRow({ label, children }) {
   )
 }
 
-/**
- * Floating "Create Engagement" dialog. Opens on top of the Review Request
- * modal (which closes first). The engagement form is pre-filled from the
- * approved request and the selected service template.
- *
- * @param {boolean}  open          – Whether the dialog is visible.
- * @param {Function} onOpenChange  – (open: boolean) => void.
- * @param {Object}   request       – The approved service request record.
- * @param {Function} onSubmit      – (values) => void.
- * @param {boolean}  submitting    – Disables the form and shows spinner.
- * @param {string}   error         – Optional error message from parent.
- */
 export function CreateEngagementDialog({
   open = false,
   onOpenChange,
@@ -70,37 +51,37 @@ export function CreateEngagementDialog({
   error,
   className,
 }) {
-  // --- Section 1: Engagement Information ---
-  const defaultTitle = request
-    ? `${request.serviceName} — ${request.business?.businessName ?? ""}`
-    : ""
+  const isStandalone = !request
 
   const [serviceName, setServiceName] = useState(() => request?.serviceName ?? "")
-
-  // --- Section 3: Assignment ---
   const [assignedStaff, setAssignedStaff] = useState("")
   const [startDate, setStartDate] = useState("")
   const [targetEndDate, setTargetEndDate] = useState("")
-
-  // --- Section 4: Pricing ---
   const [serviceFee, setServiceFee] = useState(() =>
     request?.serviceName ? String(getServiceTemplatePrice(request.serviceName)) : ""
   )
+
+  const [clientFirstName, setClientFirstName] = useState(() => request?.client?.firstName ?? "")
+  const [clientLastName, setClientLastName] = useState(() => request?.client?.lastName ?? "")
+  const [businessName, setBusinessName] = useState(() => request?.business?.businessName ?? "")
+  const [businessType, setBusinessType] = useState(() => request?.business?.businessType ?? "")
+  const [contactNo, setContactNo] = useState(() => request?.client?.contactNo ?? "")
+  const [clientEmail, setClientEmail] = useState(() => request?.client?.email ?? "")
 
   const [errors, setErrors] = useState({})
 
   const activeStaff = firmStaffOptions.find((s) => s.value === assignedStaff)
 
-  // When service changes, auto-fill the fee from the catalog.
   const handleServiceChange = (value) => {
     setServiceName(value)
     setServiceFee(String(getServiceTemplatePrice(value)))
   }
 
-  // --- Derived read-only client info ---
-  const clientFullName = request?.client
-    ? [request.client.firstName, request.client.lastName].filter(Boolean).join(" ")
-    : "—"
+  const clientFullName = isStandalone
+    ? [clientFirstName, clientLastName].filter(Boolean).join(" ") || "—"
+    : request?.client
+      ? [request.client.firstName, request.client.lastName].filter(Boolean).join(" ")
+      : "—"
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -112,14 +93,29 @@ export function CreateEngagementDialog({
       targetEndDate: !targetEndDate,
       serviceFee: !serviceFee || Number(serviceFee) < 0,
     }
+
+    if (isStandalone) {
+      newErrors.clientFirstName = !clientFirstName.trim()
+      newErrors.clientLastName = !clientLastName.trim()
+      newErrors.businessName = !businessName.trim()
+    }
+
     setErrors(newErrors)
     if (Object.values(newErrors).some(Boolean)) return
 
+    const client = isStandalone
+      ? { firstName: clientFirstName.trim(), lastName: clientLastName.trim(), contactNo: contactNo.trim(), email: clientEmail.trim() }
+      : request?.client
+
+    const business = isStandalone
+      ? { businessName: businessName.trim(), businessType: businessType.trim() }
+      : request?.business
+
     onSubmit?.({
-      requestNumber: request?.requestNumber,
+      requestNumber: request?.requestNumber ?? null,
       serviceName,
-      client: request?.client,
-      business: request?.business,
+      client,
+      business,
       assignedStaff,
       startDate,
       targetEndDate,
@@ -131,25 +127,29 @@ export function CreateEngagementDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         data-slot="create-engagement-dialog"
-        className={cn("max-w-2xl", className)}
+        className={cn("max-w-3xl", className)}
       >
         <DialogHeader>
           <DialogTitle>Create Engagement</DialogTitle>
           <DialogDescription>
-            Set up the engagement details for this approved request.
+            {isStandalone
+              ? "Set up a new engagement for a client."
+              : "Set up the engagement details for this approved request."}
           </DialogDescription>
         </DialogHeader>
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh]"
+          className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh] p-1"
         >
-          {/* ── SECTION 1: ENGAGEMENT INFORMATION ── */}
-          <div className="flex flex-col gap-1">
-            <h3 className={sectionHeadingClass}>Engagement Information</h3>
-            <p className="text-sm text-muted-foreground">
-              Core details about this engagement.
-            </p>
+          <div className="flex items-center gap-2">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
+              <span className="text-xs font-bold">1</span>
+            </div>
+            <div className="flex flex-col">
+              <h3 className={sectionHeadingClass}>Engagement Information</h3>
+              <p className="text-xs text-muted-foreground">Core details about this engagement.</p>
+            </div>
           </div>
 
           <FieldGroup>
@@ -185,41 +185,116 @@ export function CreateEngagementDialog({
               </DropdownMenu>
               {errors.serviceName && <p className="text-sm text-red-500">Select a service.</p>}
             </Field>
-
           </FieldGroup>
 
-          {/* ── SECTION 2: CLIENT INFORMATION (read-only) ── */}
-          <div className="flex flex-col gap-1">
-            <h3 className={sectionHeadingClass}>Client Information</h3>
-            <p className="text-sm text-muted-foreground">
-              Read-only — pulled from the approved request.
-            </p>
+          <div className="flex items-center gap-2">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
+              <span className="text-xs font-bold">2</span>
+            </div>
+            <div className="flex flex-col">
+              <h3 className={sectionHeadingClass}>Client Information</h3>
+              <p className="text-xs text-muted-foreground">
+                {isStandalone ? "Enter the client's details." : "Read-only — pulled from the approved request."}
+              </p>
+            </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-muted/30 px-6">
-            <dl className="divide-y divide-border/60">
-              <ReadOnlyRow label="Client Name">{clientFullName}</ReadOnlyRow>
-              <ReadOnlyRow label="Business Name">
-                {request?.business?.businessName ?? "—"}
-              </ReadOnlyRow>
-              <ReadOnlyRow label="Business Type">
-                {request?.business?.businessType ?? "—"}
-              </ReadOnlyRow>
-              <ReadOnlyRow label="Contact Number">
-                {request?.client?.contactNo ?? "—"}
-              </ReadOnlyRow>
-              <ReadOnlyRow label="Email">
-                {request?.client?.email ?? "—"}
-              </ReadOnlyRow>
-            </dl>
-          </div>
+          {isStandalone ? (
+            <FieldGroup>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel>First Name<span className="text-red-500">*</span></FieldLabel>
+                  <Input
+                    value={clientFirstName}
+                    onChange={(e) => setClientFirstName(e.target.value)}
+                    placeholder="Juan"
+                    disabled={submitting}
+                    className={cn(errors.clientFirstName && "border-red-500 focus-visible:ring-red-500")}
+                  />
+                  {errors.clientFirstName && <p className="text-sm text-red-500">First name is required.</p>}
+                </Field>
+                <Field>
+                  <FieldLabel>Last Name<span className="text-red-500">*</span></FieldLabel>
+                  <Input
+                    value={clientLastName}
+                    onChange={(e) => setClientLastName(e.target.value)}
+                    placeholder="Dela Cruz"
+                    disabled={submitting}
+                    className={cn(errors.clientLastName && "border-red-500 focus-visible:ring-red-500")}
+                  />
+                  {errors.clientLastName && <p className="text-sm text-red-500">Last name is required.</p>}
+                </Field>
+              </div>
+              <Field>
+                <FieldLabel>Business Name<span className="text-red-500">*</span></FieldLabel>
+                <Input
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder="Business name"
+                  disabled={submitting}
+                  className={cn(errors.businessName && "border-red-500 focus-visible:ring-red-500")}
+                />
+                {errors.businessName && <p className="text-sm text-red-500">Business name is required.</p>}
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel>Business Type</FieldLabel>
+                  <Input
+                    value={businessType}
+                    onChange={(e) => setBusinessType(e.target.value)}
+                    placeholder="Sole Proprietorship"
+                    disabled={submitting}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel>Contact Number</FieldLabel>
+                  <Input
+                    value={contactNo}
+                    onChange={(e) => setContactNo(e.target.value)}
+                    placeholder="0917 123 4567"
+                    disabled={submitting}
+                  />
+                </Field>
+              </div>
+              <Field>
+                <FieldLabel>Email</FieldLabel>
+                <Input
+                  type="email"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                  placeholder="client@example.com"
+                  disabled={submitting}
+                />
+              </Field>
+            </FieldGroup>
+          ) : (
+            <div className="rounded-xl border border-border bg-muted/30 px-6">
+              <dl className="divide-y divide-border/60">
+                <ReadOnlyRow label="Client Name">{clientFullName}</ReadOnlyRow>
+                <ReadOnlyRow label="Business Name">
+                  {request?.business?.businessName ?? "—"}
+                </ReadOnlyRow>
+                <ReadOnlyRow label="Business Type">
+                  {request?.business?.businessType ?? "—"}
+                </ReadOnlyRow>
+                <ReadOnlyRow label="Contact Number">
+                  {request?.client?.contactNo ?? "—"}
+                </ReadOnlyRow>
+                <ReadOnlyRow label="Email">
+                  {request?.client?.email ?? "—"}
+                </ReadOnlyRow>
+              </dl>
+            </div>
+          )}
 
-          {/* ── SECTION 3: ASSIGNMENT ── */}
-          <div className="flex flex-col gap-1">
-            <h3 className={sectionHeadingClass}>Assignment</h3>
-            <p className="text-sm text-muted-foreground">
-              Assign a firm staff member and set the timeline.
-            </p>
+          <div className="flex items-center gap-2">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
+              <span className="text-xs font-bold">3</span>
+            </div>
+            <div className="flex flex-col">
+              <h3 className={sectionHeadingClass}>Assignment</h3>
+              <p className="text-xs text-muted-foreground">Assign a firm staff member and set the timeline.</p>
+            </div>
           </div>
 
           <FieldGroup>
@@ -296,12 +371,14 @@ export function CreateEngagementDialog({
             </div>
           </FieldGroup>
 
-          {/* ── SECTION 4: PRICING ── */}
-          <div className="flex flex-col gap-1">
-            <h3 className={sectionHeadingClass}>Pricing</h3>
-            <p className="text-sm text-muted-foreground">
-              Auto-populated from the service template. Edit if needed.
-            </p>
+          <div className="flex items-center gap-2">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
+              <span className="text-xs font-bold">4</span>
+            </div>
+            <div className="flex flex-col">
+              <h3 className={sectionHeadingClass}>Pricing</h3>
+              <p className="text-xs text-muted-foreground">Auto-populated from the service template. Edit if needed.</p>
+            </div>
           </div>
 
           <FieldGroup>
@@ -332,7 +409,6 @@ export function CreateEngagementDialog({
             </p>
           )}
 
-          {/* ── FOOTER ── */}
           <DialogFooter className="flex-row justify-end gap-2">
             <Button
               type="button"
