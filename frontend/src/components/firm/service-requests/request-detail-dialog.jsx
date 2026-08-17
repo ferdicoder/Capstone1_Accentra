@@ -18,15 +18,26 @@ import { formatSubmittedDate } from "./service-request-variants"
  * `open`/`onOpenChange` and the data work (`onApprove`/`onReject`); the dialog
  * owns its transient UI state (internal notes + simulated processing), which
  * resets on every open.
+ *
+ * When the user clicks "Approve & Create Engagement", the dialog calls
+ * `onApproveAndEngage` instead of `onApprove` so the parent can close this
+ * modal and open the Create Engagement modal on top.
  */
-export function RequestDetailDialog({ open = false, onOpenChange, request, onApprove, onReject }) {
+export function RequestDetailDialog({ open = false, onOpenChange, request, onApprove, onReject, onApproveAndEngage }) {
   const [processing, setProcessing] = useState(null) // null | "approve" | "reject"
 
   const handleAction = (action) => {
     setProcessing(action)
     // Simulated request — swap for a real API call later.
     window.setTimeout(() => {
-      if (action === "approve") onApprove?.(request)
+      if (action === "approve") {
+        // If an engagement callback is provided, prefer it (modal-to-modal flow).
+        if (onApproveAndEngage) {
+          onApproveAndEngage(request)
+        } else {
+          onApprove?.(request)
+        }
+      }
       if (action === "reject") onReject?.(request)
       setProcessing(null)
     }, 600)

@@ -45,7 +45,7 @@ export function RequestActionButtons({
         ) : (
           <CheckCircle2 className="size-4" />
         )}
-        {processing === "approve" ? "Approving..." : "Approve"}
+        {processing === "approve" ? "Approving..." : "Approve & Create Engagement"}
       </Button>
     </div>
   )
