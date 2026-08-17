@@ -12,7 +12,6 @@ import { ServiceRequestList } from "@/components/firm/service-requests/service-r
 import { serviceRequestStore } from "@/components/firm/service-requests/service-request-store"
 import { statusFilterOptions } from "@/components/firm/service-requests/service-request-variants"
 
-/** Smart page for the Firm Service Requests module. Owns all list state and renders the review modal. */
 export default function ServiceRequestsPage() {
   const requests = serviceRequestStore((state) => state.requests)
   const setRequestStatus = serviceRequestStore((state) => state.setRequestStatus)
@@ -21,10 +20,9 @@ export default function ServiceRequestsPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedId, setSelectedId] = useState(null)
-  const [engagementRequest, setEngagementRequest] = useState(null) // request for which the Create Engagement modal is open
-  const [activeEngagement, setActiveEngagement] = useState(null) // engagement data passed to Required Documents modal
+  const [engagementRequest, setEngagementRequest] = useState(null)
+  const [activeEngagement, setActiveEngagement] = useState(null)
 
-  // Simulated load so the shared skeleton system has something to show.
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 500)
     return () => clearTimeout(timer)
@@ -60,16 +58,10 @@ export default function ServiceRequestsPage() {
   const openRequest = (request) => setSelectedId(request.id)
   const closeRequest = () => setSelectedId(null)
 
-  /**
-   * Called when the user clicks "Approve & Create Engagement" inside the
-   * Review Request modal. The review modal closes first, then the
-   * Create Engagement modal opens on top with the approved request data.
-   * Status stays "pending" until the engagement is actually created.
-   */
   const handleApproveAndEngage = (request) => {
     if (!request) return
-    closeRequest() // close the review modal
-    setEngagementRequest(request) // open the engagement modal
+    closeRequest()
+    setEngagementRequest(request)
   }
 
   const handleReject = (request) => {
@@ -77,27 +69,24 @@ export default function ServiceRequestsPage() {
     setRequestStatus(request.id, "rejected")
   }
 
-  /** Called after the user successfully creates an engagement from the modal. */
   const handleEngagementSubmit = (values) => {
     console.log("Engagement created:", values)
-    setEngagementRequest(null) // close the engagement modal
-    setActiveEngagement(values) // open the Required Documents modal
+    setEngagementRequest(null)
+    setActiveEngagement(values)
   }
 
-  /** Called when the user clicks Back in the Required Documents modal. */
   const handleBackToEngagement = () => {
-    setEngagementRequest(activeEngagement) // re-open the Create Engagement modal
+    setEngagementRequest(activeEngagement)
     setActiveEngagement(null)
   }
 
-  /** Called when the user clicks Send to Client in the Required Documents modal. */
   const handleSendToClient = (values) => {
     console.log("Documents sent to client:", values)
     if (activeEngagement?.requestNumber) {
       const requestId = requests.find((r) => r.requestNumber === activeEngagement.requestNumber)?.id
       if (requestId) setRequestStatus(requestId, "approved")
     }
-    setActiveEngagement(null) // close the Required Documents modal
+    setActiveEngagement(null)
   }
 
   return (

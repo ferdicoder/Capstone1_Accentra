@@ -3,7 +3,6 @@ import { Ban, CheckCircle2, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
-/** Presentational approve/reject buttons for a service request. Only updates local state. */
 export function RequestActionButtons({
   status = "pending",
   processing = null,
@@ -37,7 +36,7 @@ export function RequestActionButtons({
         type="button"
         onClick={onApprove}
         disabled={isDecided || isProcessing}
-        title="Approve & Create Engagement"
+        title="Approve"
         className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
       >
         {processing === "approve" ? (
@@ -45,13 +44,12 @@ export function RequestActionButtons({
         ) : (
           <CheckCircle2 className="size-4" />
         )}
-        {processing === "approve" ? "Approving..." : "Approve & Create Engagement"}
+        {processing === "approve" ? "Approving..." : "Approve"}
       </Button>
     </div>
   )
 }
 
-/** Presentational approved/rejected notice strip. Renders null while pending. */
 export function RequestActionNotice({ status }) {
   if (status === "approved") {
     return (

@@ -24,10 +24,6 @@ import {
   getServiceTemplatePrice,
 } from "../service-management/service-management-variants"
 
-/**
- * Mock firm staff list — Admin and Staff only.
- * In a real app this would come from the firm users API.
- */
 const firmStaffOptions = [
   { value: "staff-001", label: "Maria Clara Santos" },
   { value: "staff-002", label: "Juan Dela Cruz" },
@@ -35,11 +31,8 @@ const firmStaffOptions = [
   { value: "staff-004", label: "Carlos Mendoza" },
 ]
 
-const sectionHeadingClass = "font-heading text-sm font-medium text-foreground"
+const sectionHeadingClass = "font-heading text-sm font-semibold text-foreground"
 
-/**
- * Read-only display row used for the Client Information section.
- */
 function ReadOnlyRow({ label, children }) {
   return (
     <div className="grid min-w-0 grid-cols-[140px_minmax(0,1fr)] gap-4 py-2.5 text-sm">
@@ -49,18 +42,6 @@ function ReadOnlyRow({ label, children }) {
   )
 }
 
-/**
- * Floating "Create Engagement" dialog. Opens on top of the Review Request
- * modal (which closes first). The engagement form is pre-filled from the
- * approved request and the selected service template.
- *
- * @param {boolean}  open          – Whether the dialog is visible.
- * @param {Function} onOpenChange  – (open: boolean) => void.
- * @param {Object}   request       – The approved service request record.
- * @param {Function} onSubmit      – (values) => void.
- * @param {boolean}  submitting    – Disables the form and shows spinner.
- * @param {string}   error         – Optional error message from parent.
- */
 export function CreateEngagementDialog({
   open = false,
   onOpenChange,
@@ -70,40 +51,48 @@ export function CreateEngagementDialog({
   error,
   className,
 }) {
-  // --- Section 1: Engagement Information ---
-  const defaultTitle = request
-    ? `${request.serviceName} — ${request.business?.businessName ?? ""}`
-    : ""
-
   const [serviceName, setServiceName] = useState(() => request?.serviceName ?? "")
+  const [serviceNameTouched, setServiceNameTouched] = useState(false)
 
-  // --- Section 3: Assignment ---
   const [assignedStaff, setAssignedStaff] = useState("")
+  const [assignedStaffTouched, setAssignedStaffTouched] = useState(false)
   const [startDate, setStartDate] = useState("")
+  const [startDateTouched, setStartDateTouched] = useState(false)
   const [targetEndDate, setTargetEndDate] = useState("")
+  const [targetEndDateTouched, setTargetEndDateTouched] = useState(false)
 
-  // --- Section 4: Pricing ---
   const [serviceFee, setServiceFee] = useState(() =>
     request?.serviceName ? String(getServiceTemplatePrice(request.serviceName)) : ""
   )
+  const [serviceFeeTouched, setServiceFeeTouched] = useState(false)
 
   const [errors, setErrors] = useState({})
 
   const activeStaff = firmStaffOptions.find((s) => s.value === assignedStaff)
 
-  // When service changes, auto-fill the fee from the catalog.
   const handleServiceChange = (value) => {
     setServiceName(value)
+    setServiceNameTouched(true)
     setServiceFee(String(getServiceTemplatePrice(value)))
+    setErrors((prev) => ({ ...prev, serviceName: false }))
   }
 
-  // --- Derived read-only client info ---
+  const clearError = (field) => {
+    setErrors((prev) => ({ ...prev, [field]: false }))
+  }
+
   const clientFullName = request?.client
     ? [request.client.firstName, request.client.lastName].filter(Boolean).join(" ")
     : "—"
 
   const handleSubmit = (event) => {
     event.preventDefault()
+
+    setServiceNameTouched(true)
+    setAssignedStaffTouched(true)
+    setStartDateTouched(true)
+    setTargetEndDateTouched(true)
+    setServiceFeeTouched(true)
 
     const newErrors = {
       serviceName: !serviceName.trim(),
@@ -131,7 +120,7 @@ export function CreateEngagementDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         data-slot="create-engagement-dialog"
-        className={cn("max-w-2xl", className)}
+        className={cn("max-w-3xl", className)}
       >
         <DialogHeader>
           <DialogTitle>Create Engagement</DialogTitle>
@@ -142,14 +131,16 @@ export function CreateEngagementDialog({
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh]"
+          className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh] p-1"
         >
-          {/* ── SECTION 1: ENGAGEMENT INFORMATION ── */}
-          <div className="flex flex-col gap-1">
-            <h3 className={sectionHeadingClass}>Engagement Information</h3>
-            <p className="text-sm text-muted-foreground">
-              Core details about this engagement.
-            </p>
+          <div className="flex items-center gap-2">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
+              <span className="text-xs font-bold">1</span>
+            </div>
+            <div className="flex flex-col">
+              <h3 className={sectionHeadingClass}>Engagement Information</h3>
+              <p className="text-xs text-muted-foreground">Core details about this engagement.</p>
+            </div>
           </div>
 
           <FieldGroup>
@@ -164,7 +155,7 @@ export function CreateEngagementDialog({
                       disabled={submitting}
                       className={cn(
                         "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
-                        errors.serviceName && "border-red-500 focus-visible:ring-red-500"
+                        errors.serviceName && serviceNameTouched && "border-red-500 focus-visible:ring-red-500"
                       )}
                     />
                   }
@@ -183,17 +174,19 @@ export function CreateEngagementDialog({
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              {errors.serviceName && <p className="text-sm text-red-500">Select a service.</p>}
+              {errors.serviceName && serviceNameTouched && <p className="text-sm text-red-500">Select a service.</p>}
             </Field>
 
           </FieldGroup>
 
-          {/* ── SECTION 2: CLIENT INFORMATION (read-only) ── */}
-          <div className="flex flex-col gap-1">
-            <h3 className={sectionHeadingClass}>Client Information</h3>
-            <p className="text-sm text-muted-foreground">
-              Read-only — pulled from the approved request.
-            </p>
+          <div className="flex items-center gap-2">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
+              <span className="text-xs font-bold">2</span>
+            </div>
+            <div className="flex flex-col">
+              <h3 className={sectionHeadingClass}>Client Information</h3>
+              <p className="text-xs text-muted-foreground">Read-only — pulled from the approved request.</p>
+            </div>
           </div>
 
           <div className="rounded-xl border border-border bg-muted/30 px-6">
@@ -214,12 +207,14 @@ export function CreateEngagementDialog({
             </dl>
           </div>
 
-          {/* ── SECTION 3: ASSIGNMENT ── */}
-          <div className="flex flex-col gap-1">
-            <h3 className={sectionHeadingClass}>Assignment</h3>
-            <p className="text-sm text-muted-foreground">
-              Assign a firm staff member and set the timeline.
-            </p>
+          <div className="flex items-center gap-2">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
+              <span className="text-xs font-bold">3</span>
+            </div>
+            <div className="flex flex-col">
+              <h3 className={sectionHeadingClass}>Assignment</h3>
+              <p className="text-xs text-muted-foreground">Assign a firm staff member and set the timeline.</p>
+            </div>
           </div>
 
           <FieldGroup>
@@ -234,7 +229,7 @@ export function CreateEngagementDialog({
                       disabled={submitting}
                       className={cn(
                         "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
-                        errors.assignedStaff && "border-red-500 focus-visible:ring-red-500"
+                        errors.assignedStaff && assignedStaffTouched && "border-red-500 focus-visible:ring-red-500"
                       )}
                     />
                   }
@@ -246,14 +241,18 @@ export function CreateEngagementDialog({
                   {firmStaffOptions.map((option) => (
                     <DropdownMenuItem
                       key={option.value}
-                      onClick={() => setAssignedStaff(option.value)}
+                      onClick={() => {
+                        setAssignedStaff(option.value)
+                        setAssignedStaffTouched(true)
+                        clearError("assignedStaff")
+                      }}
                     >
                       {option.label}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              {errors.assignedStaff && (
+              {errors.assignedStaff && assignedStaffTouched && (
                 <p className="text-sm text-red-500">Assign a firm staff member.</p>
               )}
             </Field>
@@ -267,11 +266,15 @@ export function CreateEngagementDialog({
                   id="start-date"
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => {
+                    setStartDate(e.target.value)
+                    setStartDateTouched(true)
+                    clearError("startDate")
+                  }}
                   disabled={submitting}
-                  className={cn(errors.startDate && "border-red-500 focus-visible:ring-red-500")}
+                  className={cn(errors.startDate && startDateTouched && "border-red-500 focus-visible:ring-red-500")}
                 />
-                {errors.startDate && (
+                {errors.startDate && startDateTouched && (
                   <p className="text-sm text-red-500">Start date is required.</p>
                 )}
               </Field>
@@ -284,24 +287,30 @@ export function CreateEngagementDialog({
                   id="target-end-date"
                   type="date"
                   value={targetEndDate}
-                  onChange={(e) => setTargetEndDate(e.target.value)}
+                  onChange={(e) => {
+                    setTargetEndDate(e.target.value)
+                    setTargetEndDateTouched(true)
+                    clearError("targetEndDate")
+                  }}
                   disabled={submitting}
                   min={startDate || undefined}
-                  className={cn(errors.targetEndDate && "border-red-500 focus-visible:ring-red-500")}
+                  className={cn(errors.targetEndDate && targetEndDateTouched && "border-red-500 focus-visible:ring-red-500")}
                 />
-                {errors.targetEndDate && (
+                {errors.targetEndDate && targetEndDateTouched && (
                   <p className="text-sm text-red-500">Target completion date is required.</p>
                 )}
               </Field>
             </div>
           </FieldGroup>
 
-          {/* ── SECTION 4: PRICING ── */}
-          <div className="flex flex-col gap-1">
-            <h3 className={sectionHeadingClass}>Pricing</h3>
-            <p className="text-sm text-muted-foreground">
-              Auto-populated from the service template. Edit if needed.
-            </p>
+          <div className="flex items-center gap-2">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
+              <span className="text-xs font-bold">4</span>
+            </div>
+            <div className="flex flex-col">
+              <h3 className={sectionHeadingClass}>Pricing</h3>
+              <p className="text-xs text-muted-foreground">Auto-populated from the service template. Edit if needed.</p>
+            </div>
           </div>
 
           <FieldGroup>
@@ -315,12 +324,16 @@ export function CreateEngagementDialog({
                 min="0"
                 step="0.01"
                 value={serviceFee}
-                onChange={(e) => setServiceFee(e.target.value)}
+                onChange={(e) => {
+                  setServiceFee(e.target.value)
+                  setServiceFeeTouched(true)
+                  clearError("serviceFee")
+                }}
                 placeholder="2500"
                 disabled={submitting}
-                className={cn(errors.serviceFee && "border-red-500 focus-visible:ring-red-500")}
+                className={cn(errors.serviceFee && serviceFeeTouched && "border-red-500 focus-visible:ring-red-500")}
               />
-              {errors.serviceFee && (
+              {errors.serviceFee && serviceFeeTouched && (
                 <p className="text-sm text-red-500">Enter a valid service fee.</p>
               )}
             </Field>
@@ -332,7 +345,6 @@ export function CreateEngagementDialog({
             </p>
           )}
 
-          {/* ── FOOTER ── */}
           <DialogFooter className="flex-row justify-end gap-2">
             <Button
               type="button"

@@ -16,9 +16,6 @@ import { formatRevenue } from "./service-request-variants"
 const textareaClass =
   "min-h-20 w-full resize-none rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 dark:bg-input/30 dark:disabled:bg-input/80"
 
-/**
- * Read-only summary row used in the Engagement Summary section.
- */
 function SummaryRow({ label, children, className }) {
   return (
     <div className={cn("grid min-w-0 grid-cols-[160px_minmax(0,1fr)] gap-4 py-2.5 text-sm", className)}>
@@ -28,18 +25,6 @@ function SummaryRow({ label, children, className }) {
   )
 }
 
-/**
- * Floating "Required Documents" dialog. Opens after Create Engagement
- * as the next step in the modal workflow.
- *
- * @param {boolean}  open          – Whether the dialog is visible.
- * @param {Function} onOpenChange  – (open: boolean) => void.
- * @param {Object}   engagement    – The engagement data from the previous step.
- * @param {Function} onBack        – Called when the user clicks "Back".
- * @param {Function} onSubmit      – Called when the user clicks "Send to Client".
- * @param {boolean}  submitting    – Disables the form and shows spinner.
- * @param {string}   error         – Optional error message from parent.
- */
 export function RequiredDocumentsDialog({
   open = false,
   onOpenChange,
@@ -52,7 +37,6 @@ export function RequiredDocumentsDialog({
 }) {
   const [note, setNote] = useState("")
 
-  // Derive display values from the engagement data
   const clientFullName = engagement?.client
     ? [engagement.client.firstName, engagement.client.lastName].filter(Boolean).join(" ")
     : "—"
@@ -84,9 +68,9 @@ export function RequiredDocumentsDialog({
         className={cn("max-w-2xl", className)}
       >
         <DialogHeader>
-          <DialogTitle>Required Documents</DialogTitle>
+          <DialogTitle>Engagement Summary</DialogTitle>
           <DialogDescription>
-            Specify the documents the client must submit before the engagement can proceed.
+            Review the engagement details before sending to the client.
           </DialogDescription>
           {engagement && (
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -102,9 +86,8 @@ export function RequiredDocumentsDialog({
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh]"
+          className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh] p-1"
         >
-          {/* ── SECTION 1: ENGAGEMENT SUMMARY ── */}
           <div className="flex items-center gap-2">
             <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
               <FileText className="size-3.5" />
@@ -138,7 +121,6 @@ export function RequiredDocumentsDialog({
             </dl>
           </div>
 
-          {/* ── SECTION 2: INTERNAL NOTES ── */}
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
               <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
@@ -168,7 +150,6 @@ export function RequiredDocumentsDialog({
             </p>
           )}
 
-          {/* ── FOOTER ── */}
           <DialogFooter className="flex-row justify-between gap-2">
             <Button
               type="button"

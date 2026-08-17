@@ -5,10 +5,6 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-/**
- * Modern on/off toggle switch for Required / Optional state.
- * Clean sliding thumb, no text inside — label sits outside the button.
- */
 function RequiredToggle({ required, onChange, disabled }) {
   return (
     <div className="inline-flex items-center gap-2">
@@ -44,9 +40,6 @@ function RequiredToggle({ required, onChange, disabled }) {
   )
 }
 
-/**
- * Single document row: icon · name · required toggle · delete.
- */
 function DocumentRow({ document, onUpdate, onRemove, disabled }) {
   return (
     <div
@@ -88,13 +81,6 @@ function DocumentRow({ document, onUpdate, onRemove, disabled }) {
   )
 }
 
-/**
- * Reusable list of required documents with add/remove/toggle handling.
- *
- * @param {Array}    documents - [{ id, name, required }]
- * @param {Function} onChange  - (nextDocuments) => void
- * @param {boolean}  disabled  - Disables all interactions
- */
 export function RequiredDocumentsList({ documents = [], onChange, disabled = false }) {
   const [newDocName, setNewDocName] = useState("")
 
