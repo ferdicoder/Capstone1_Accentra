@@ -5,6 +5,8 @@ import LoginPage from "@/pages/client/LoginPage";
 import SignupPage from "@/pages/client/SignupPage";
 import ClientProfilePage from "@/pages/client/ClientProfilePage";
 import ClientServiceRequestsPage from "@/pages/client/ClientServiceRequestsPage";
+import ClientEngagementsPage from "@/pages/client/ClientEngagementsPage";
+import ClientEngagementDetailPage from "@/pages/client/ClientEngagementDetailPage";
 import FirmAdminDashboard from "@/pages/firm/FirmAdminDashboard";
 import FirmLoginPage from "@/pages/firm/FirmLoginPage";
 import FirmStaffDashboard from "@/pages/firm/FirmStaffDashboard";
@@ -33,6 +35,14 @@ export const router = createBrowserRouter([
   {
     path: '/client/service-requests',
     element: <ClientServiceRequestsPage />
+  },
+  {
+    path: '/client/engagements',
+    element: <ClientEngagementsPage />
+  },
+  {
+    path: '/client/engagements/:id',
+    element: <ClientEngagementDetailPage />
   },
 
   {
