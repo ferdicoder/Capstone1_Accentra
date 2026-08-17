@@ -6,6 +6,7 @@ import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { DashboardLayout } from "@/layout/DashboardLayout"
 import { RequestDetailDialog } from "@/components/firm/service-requests/request-detail-dialog"
 import { CreateEngagementDialog } from "@/components/firm/service-requests/create-engagement-dialog"
+import { RequiredDocumentsDialog } from "@/components/firm/service-requests/required-documents-dialog"
 import { ServiceRequestFilters } from "@/components/firm/service-requests/service-request-filters"
 import { ServiceRequestList } from "@/components/firm/service-requests/service-request-list"
 import { serviceRequestStore } from "@/components/firm/service-requests/service-request-store"
@@ -21,6 +22,7 @@ export default function ServiceRequestsPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedId, setSelectedId] = useState(null)
   const [engagementRequest, setEngagementRequest] = useState(null) // request for which the Create Engagement modal is open
+  const [activeEngagement, setActiveEngagement] = useState(null) // engagement data passed to Required Documents modal
 
   // Simulated load so the shared skeleton system has something to show.
   useEffect(() => {
@@ -77,10 +79,25 @@ export default function ServiceRequestsPage() {
 
   /** Called after the user successfully creates an engagement from the modal. */
   const handleEngagementSubmit = (values) => {
-    // Simulated success — in a real app this would hit an API.
     console.log("Engagement created:", values)
-    if (engagementRequest) setRequestStatus(engagementRequest.id, "approved")
     setEngagementRequest(null) // close the engagement modal
+    setActiveEngagement(values) // open the Required Documents modal
+  }
+
+  /** Called when the user clicks Back in the Required Documents modal. */
+  const handleBackToEngagement = () => {
+    setEngagementRequest(activeEngagement) // re-open the Create Engagement modal
+    setActiveEngagement(null)
+  }
+
+  /** Called when the user clicks Send to Client in the Required Documents modal. */
+  const handleSendToClient = (values) => {
+    console.log("Documents sent to client:", values)
+    if (activeEngagement?.requestNumber) {
+      const requestId = requests.find((r) => r.requestNumber === activeEngagement.requestNumber)?.id
+      if (requestId) setRequestStatus(requestId, "approved")
+    }
+    setActiveEngagement(null) // close the Required Documents modal
   }
 
   return (
@@ -150,6 +167,16 @@ export default function ServiceRequestsPage() {
         }}
         request={engagementRequest}
         onSubmit={handleEngagementSubmit}
+      />
+
+      <RequiredDocumentsDialog
+        open={!!activeEngagement}
+        onOpenChange={(open) => {
+          if (!open) setActiveEngagement(null)
+        }}
+        engagement={activeEngagement}
+        onBack={handleBackToEngagement}
+        onSubmit={handleSendToClient}
       />
     </DashboardLayout>
   )

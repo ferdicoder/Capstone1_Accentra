@@ -152,7 +152,7 @@ export const mockServiceRequests = [
     submittedDate: "2025-06-18",
     notes:
       "SEC incorporation for the agricultural arm of the group. Name reservation, articles of incorporation, and bylaws all need to be filed.",
-    status: "approved",
+    status: "pending",
     client: {
       firstName: "Rosa",
       lastName: "Villanueva",
@@ -175,7 +175,7 @@ export const mockServiceRequests = [
     submittedDate: "2025-06-11",
     notes:
       "SEC registration for a partnership that will operate two coffee branches. Partnership agreement is ready for review.",
-    status: "approved",
+    status: "pending",
     client: {
       firstName: "Paolo",
       lastName: "Fernandez",
@@ -198,7 +198,7 @@ export const mockServiceRequests = [
     submittedDate: "2025-06-05",
     notes:
       "SEC registration for a logistics corporation. The intended corporate name is already reserved under a different applicant — requesting guidance on alternatives.",
-    status: "rejected",
+    status: "pending",
     client: {
       firstName: "Dennis",
       lastName: "Aquino",
@@ -221,7 +221,7 @@ export const mockServiceRequests = [
     submittedDate: "2025-05-30",
     notes:
       "Annual income tax return. Previous preparer left incomplete records, so a bit of cleanup may be needed before filing.",
-    status: "rejected",
+    status: "pending",
     client: {
       firstName: "Jose",
       lastName: "Torres",

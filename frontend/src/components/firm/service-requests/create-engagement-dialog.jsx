@@ -4,7 +4,7 @@ import { ChevronDown, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import {
   Dialog,
   DialogContent,
@@ -36,9 +36,6 @@ const firmStaffOptions = [
 ]
 
 const sectionHeadingClass = "font-heading text-sm font-medium text-foreground"
-
-const textareaClass =
-  "min-h-20 w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 dark:bg-input/30 dark:disabled:bg-input/80"
 
 /**
  * Read-only display row used for the Client Information section.
@@ -78,11 +75,7 @@ export function CreateEngagementDialog({
     ? `${request.serviceName} — ${request.business?.businessName ?? ""}`
     : ""
 
-  const [engagementTitle, setEngagementTitle] = useState(() => defaultTitle)
   const [serviceName, setServiceName] = useState(() => request?.serviceName ?? "")
-  const [description, setDescription] = useState(
-    () => request?.notes ?? ""
-  )
 
   // --- Section 3: Assignment ---
   const [assignedStaff, setAssignedStaff] = useState("")
@@ -113,7 +106,6 @@ export function CreateEngagementDialog({
     event.preventDefault()
 
     const newErrors = {
-      engagementTitle: !engagementTitle.trim(),
       serviceName: !serviceName.trim(),
       assignedStaff: !assignedStaff,
       startDate: !startDate,
@@ -125,9 +117,7 @@ export function CreateEngagementDialog({
 
     onSubmit?.({
       requestNumber: request?.requestNumber,
-      engagementTitle: engagementTitle.trim(),
       serviceName,
-      description: description.trim(),
       client: request?.client,
       business: request?.business,
       assignedStaff,
@@ -164,23 +154,6 @@ export function CreateEngagementDialog({
 
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="engagement-title">
-                Engagement Title<span className="text-red-500">*</span>
-              </FieldLabel>
-              <Input
-                id="engagement-title"
-                value={engagementTitle}
-                onChange={(e) => setEngagementTitle(e.target.value)}
-                placeholder="e.g. VAT Filing — Santos Retail"
-                disabled={submitting}
-                className={cn(errors.engagementTitle && "border-red-500 focus-visible:ring-red-500")}
-              />
-              {errors.engagementTitle && (
-                <p className="text-sm text-red-500">Engagement title is required.</p>
-              )}
-            </Field>
-
-            <Field>
               <FieldLabel>Service<span className="text-red-500">*</span></FieldLabel>
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -213,18 +186,6 @@ export function CreateEngagementDialog({
               {errors.serviceName && <p className="text-sm text-red-500">Select a service.</p>}
             </Field>
 
-            <Field>
-              <FieldLabel htmlFor="engagement-description">Description</FieldLabel>
-              <textarea
-                id="engagement-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe the scope of work…"
-                disabled={submitting}
-                rows={3}
-                className={textareaClass}
-              />
-            </Field>
           </FieldGroup>
 
           {/* ── SECTION 2: CLIENT INFORMATION (read-only) ── */}
