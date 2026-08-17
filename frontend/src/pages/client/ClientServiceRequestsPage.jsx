@@ -1,10 +1,12 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Briefcase, Eye, FileText, MessageSquare, Search, X } from "lucide-react"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/AppSidebar"
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { Input } from "@/components/ui/input"
+import { NewServiceRequestForm } from "@/components/new-service-request-form"
+
 
 const currentUser = {
   name: "Maria Santos",
@@ -77,8 +79,20 @@ const CANCELLABLE_STATUSES = ["Pending Review", "Scheduled"]
 export default function ClientServiceRequestsPage() {
   const [search, setSearch] = useState("")
   const [requests, setRequests] = useState(serviceRequests)
+  const [isNewRequestOpen, setIsNewRequestOpen] = useState(false)
+
+  // Close the popup on Escape, same behavior Sheet gave us for free.
+  useEffect(() => {
+    if (!isNewRequestOpen) return
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setIsNewRequestOpen(false)
+    }
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [isNewRequestOpen])
 
   const handleCancelRequest = (code) => {
+
     setRequests((current) =>
       current.map((r) =>
         r.code === code
@@ -107,7 +121,7 @@ export default function ClientServiceRequestsPage() {
           title="Service Requests"
           hasUnreadNotifications
           onNotificationsClick={() => {}}
-          onRequestServiceClick={() => {}}
+          onRequestServiceClick={() => setIsNewRequestOpen(true)}
         />
 
         <div className="flex flex-1 flex-col gap-5 px-6 py-6">
@@ -230,8 +244,41 @@ export default function ClientServiceRequestsPage() {
               </tbody>
             </table>
           </div>
-        </div>
+       </div>
       </SidebarInset>
+
+      {/* Centered popup, inlined directly here instead of a separate Modal component */}
+      {isNewRequestOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setIsNewRequestOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-y-auto rounded-2xl bg-background p-6 shadow-lg"
+          >
+            <div className="mb-2 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">New Service Request</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Tell us what you need and we'll get started.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsNewRequestOpen(false)}
+                className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <NewServiceRequestForm
+              onSubmitted={() => setIsNewRequestOpen(false)}
+              onCancel={() => setIsNewRequestOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </SidebarProvider>
   )
 }
