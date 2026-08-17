@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 
-import { registerClient } from "../../services/authService"; 
+import { registerClient } from "../../services/authService";
 import { useNavigate } from "react-router-dom"
 
 
@@ -21,19 +21,24 @@ const initialFormState = {
   businessType: "",
   tin: "",
   industry: "",
-  address: "",
+  // Normalized address — kept as separate atomic fields instead of one
+  // free-text string, so each part can be validated/queried on its own.
+  street: "",
+  barangay: "",
+  city: "",
+  province: "",
+  zipCode: "",
   contactNumber: ""
-  // otp: ["", "", "", "", "", ""],
 }
 
 
 export default function SignupPage() {
   const signupSteps = ["Account", "Info"]
-  const [currentStep, setCurrentStep] = useState(1); 
+  const [currentStep, setCurrentStep] = useState(1);
 
-  const [formData, setFormData] = useState(initialFormState); 
+  const [formData, setFormData] = useState(initialFormState);
   const navigate = useNavigate()
-  
+
 
   const updateField = (event) => {
     const { name, value } = event.target
@@ -54,14 +59,33 @@ export default function SignupPage() {
     }
 
     try{
-      const newUser = await registerClient(formData); 
+      // authService.registerClient currently expects a single `address`
+      // string (see its options.data.address usage). Until that's updated
+      // to accept the normalized fields directly, we build a display
+      // string from them here for backward compatibility, while still
+      // sending the individual fields too — so they're available the
+      // moment the backend/table is ready to store them separately.
+      const fullAddress = [
+        formData.street,
+        formData.barangay,
+        formData.city,
+        formData.province,
+        formData.zipCode,
+      ]
+        .filter(Boolean)
+        .join(", ")
+
+      const newUser = await registerClient({
+        ...formData,
+        address: fullAddress,
+      });
       if(newUser.error) throw newUser.error;
-      console.log("Registration submitted", formData); 
-      navigate('/client/signin'); 
+      console.log("Registration submitted", formData);
+      navigate('/client/signin');
     }catch(err){
-      console.error(err); 
+      console.error(err);
     }
-    
+
   }
 
   const handleBack = () => {
@@ -305,17 +329,73 @@ export default function SignupPage() {
                 />
               </Field>
 
+              {/* Normalized address — Street, Barangay, City, Province, ZIP
+                  as separate fields instead of one free-text Address input */}
               <Field>
-                <FieldLabel htmlFor="address">Address</FieldLabel>
+                <FieldLabel htmlFor="street">Street Address</FieldLabel>
                 <Input
-                  id="address"
-                  name="address"
-                  placeholder="12 Mercado St. Sta Ana Manila"
-                  value={formData.address}
+                  id="street"
+                  name="street"
+                  placeholder="12 Mercado St., Unit 4B"
+                  value={formData.street}
                   onChange={updateField}
                   className="bg-background"
                 />
               </Field>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="barangay">Barangay</FieldLabel>
+                  <Input
+                    id="barangay"
+                    name="barangay"
+                    placeholder="Sta. Ana"
+                    value={formData.barangay}
+                    onChange={updateField}
+                    className="bg-background"
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="city">City / Municipality</FieldLabel>
+                  <Input
+                    id="city"
+                    name="city"
+                    placeholder="Manila"
+                    value={formData.city}
+                    onChange={updateField}
+                    className="bg-background"
+                  />
+                </Field>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="province">Province</FieldLabel>
+                  <Input
+                    id="province"
+                    name="province"
+                    placeholder="Metro Manila"
+                    value={formData.province}
+                    onChange={updateField}
+                    className="bg-background"
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="zipCode">ZIP Code</FieldLabel>
+                  <Input
+                    id="zipCode"
+                    name="zipCode"
+                    placeholder="1009"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={formData.zipCode}
+                    onChange={updateField}
+                    className="bg-background"
+                  />
+                </Field>
+              </div>
 
               <Field>
                 <div className="flex gap-4">
@@ -330,64 +410,9 @@ export default function SignupPage() {
             </>
           )}
 
-          
+
         </FieldGroup>
       </form>
     </AuthLayout>
   )
 }
-
-
-
-// const updateOtp = (index, value) => {
-  //   const digit = value.replace(/\D/g, "").slice(-1)
-
-  //   setFormData((currentFormData) => {
-  //     const nextOtp = [...currentFormData.otp]
-  //     nextOtp[index] = digit
-
-  //     return {
-  //       ...currentFormData,
-  //       otp: nextOtp,
-  //     }
-  //   })
-  // }
-
-  {/* {currentStep === 3 && (
-            <>
-              <div className="flex flex-col gap-1 text-center">
-                <h1 className="text-3xl font-bold">Verify Your Identity</h1>
-                <p className="text-sm text-muted-foreground">
-                  We sent a 6-digit code to <span className="font-medium">a****a.f*****@gmail.com</span>
-                </p>
-              </div>
-
-              <Field>
-                <label className="text-sm font-medium">Enter the 6-Digit Code Here</label>
-
-                <div className="mt-4 flex justify-center gap-3">
-                  {formData.otp.map((digit, index) => (
-                    <Input
-                      key={index}
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(event) => updateOtp(index, event.target.value)}
-                      className="h-14 w-14 text-center text-xl font-bold"
-                    />
-                  ))}
-                </div>
-              </Field>
-
-              <Field>
-                <div className="mt-4 flex gap-4">
-                  <Button type="button" variant="outline" className="flex-1" onClick={handleBack}>
-                    Back
-                  </Button>
-                  <Button type="submit" className="flex-1 bg-emerald-500 hover:bg-emerald-600">
-                    Register
-                  </Button>
-                </div>
-              </Field>
-            </>
-          )} */}
