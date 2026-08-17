@@ -16,9 +16,7 @@ import { formatRevenue } from "./service-request-variants"
 const textareaClass =
   "min-h-20 w-full resize-none rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 dark:bg-input/30 dark:disabled:bg-input/80"
 
-/**
- * Read-only summary row used in the Engagement Summary section.
- */
+//Read-only summary row used in the Engagement Summary section.
 function SummaryRow({ label, children, className }) {
   return (
     <div className={cn("grid min-w-0 grid-cols-[160px_minmax(0,1fr)] gap-4 py-2.5 text-sm", className)}>
@@ -28,18 +26,6 @@ function SummaryRow({ label, children, className }) {
   )
 }
 
-/**
- * Floating "Required Documents" dialog. Opens after Create Engagement
- * as the next step in the modal workflow.
- *
- * @param {boolean}  open          – Whether the dialog is visible.
- * @param {Function} onOpenChange  – (open: boolean) => void.
- * @param {Object}   engagement    – The engagement data from the previous step.
- * @param {Function} onBack        – Called when the user clicks "Back".
- * @param {Function} onSubmit      – Called when the user clicks "Send to Client".
- * @param {boolean}  submitting    – Disables the form and shows spinner.
- * @param {string}   error         – Optional error message from parent.
- */
 export function RequiredDocumentsDialog({
   open = false,
   onOpenChange,
