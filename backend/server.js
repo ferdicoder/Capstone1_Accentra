@@ -4,6 +4,7 @@ import cors from 'cors'
 
 import { userRouter } from './routes/user.router.js';
 import { serviceRouter } from './routes/service.router.js';
+import templateRouter from './routes/templateDocument.router.js';
 
 const PORT = process.env.PORT;
 const server = express(); 
@@ -16,6 +17,7 @@ async function startServer(){
   try{
     server.use('/api/v1/staffs', userRouter);
     server.use('/api/v1/services', serviceRouter);
+    server.use('/api/v1/documents', templateRouter)
 
     server.listen(PORT, ()=>{
       console.log(`Server running on PORT: ${PORT}`); 

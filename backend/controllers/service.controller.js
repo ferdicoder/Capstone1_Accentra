@@ -28,7 +28,8 @@ async function createService(req, res) {
     const { data: created, error: fetchError } = await supabaseAdmin
       .from('services')
       .select(`
-        service_id, price, 
+        service_id, 
+        price, 
         service_name, 
         category, 
         description,
@@ -37,6 +38,7 @@ async function createService(req, res) {
         template_tasks(template_id, title, has_reference, is_required)
       `)
       .eq('service_id', serviceId)
+      .order('template_id', { foreignTable: 'template_tasks' })  
       .single();
     if (fetchError) throw new Error(fetchError.message);
 
