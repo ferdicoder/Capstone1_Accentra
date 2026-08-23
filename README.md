@@ -10,7 +10,6 @@
 | **Database** | PostgreSQL, Supabase |
 | **Cloud Storage** | BlackBlaze B2 |
 | **Authentication** | Supabase PKCE Auth |
-| **API** | REST API |
 | **State Management** | TanStack Query/React Query(Server-side), Zustand(Client-side) |
 | **Version Control** | Git, GitHub |
 | **Tools** | VS Code, Postman, Figma |
