@@ -22,6 +22,8 @@ import {
   useDeleteService,
 } from "@/hooks/useServices"
 
+import { uploadTemplateDocument } from "@/services/api/documentAPI"
+
 const categoryLabel = (value) =>
   categoryFilterOptions.find((option) => option.value === value)?.label ?? value ?? ""
 
@@ -58,14 +60,44 @@ export default function ServiceManagementPage() {
   }, [services, search, categoryFilter, statusFilter])
 
   const handleCreate = (values) => {
-    createService.mutate(values, {
-      onSuccess: (newService) => {
-        setCreateOpen(false)
-        setNotice({ tone: "success", message: `${newService.name} added` })
-      },
-    })
-  }
-  console.log(services)
+  const tasksWithFiles = values.workflowTasks
+    .map((task, index) => ({ task, index }))
+    .filter(({ task }) => task.hasReferenceDocument && task.referenceDocument?.file)
+
+  createService.mutate(values, {
+    onSuccess: async (newService) => {
+      setCreateOpen(false)
+      setNotice({ tone: "success", message: `${newService.name} added` })
+
+      if (tasksWithFiles.length === 0) return
+
+      const failedUploads = []
+
+      await Promise.all(
+        tasksWithFiles.map(async ({ task, index }) => {
+          const matchedTask = newService.workflowTasks?.[index]
+          if (!matchedTask?.id) {
+            failedUploads.push(task.name)
+            return
+          }
+          try {
+            await uploadTemplateDocument(matchedTask.id, task.referenceDocument.file)
+          } catch (err) {
+            console.error(`Reference document upload failed for "${task.name}":`, err)
+            failedUploads.push(task.name)
+          }
+        })
+      )
+
+      if (failedUploads.length > 0) {
+        setNotice({
+          tone: "danger",
+          message: `Service saved, but reference document(s) failed to upload: ${failedUploads.join(", ")}`,
+        })
+      }
+    },
+  })
+}
   const openEdit = (service) => {
     setEditingService(service)
     setEditOpen(true)
