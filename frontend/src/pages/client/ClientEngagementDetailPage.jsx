@@ -9,19 +9,23 @@ import {
   Upload,
 } from "lucide-react"
 
+
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/AppSidebar"
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
+
 import { getEngagementActivity } from "@/services/engagementActivityService"
+
 
 const currentUser = {
   name: "Maria Santos",
   email: "maria@santosretail.com",
   avatar: "",
 }
+
 
 // Mock — replace with a real fetch keyed off the :id route param
 const engagement = {
@@ -49,6 +53,7 @@ const engagement = {
   },
 }
 
+
 const WORKFLOW_STEPS = [
   "Documentation Collection",
   "Document Verification",
@@ -57,6 +62,7 @@ const WORKFLOW_STEPS = [
   "Payment",
 ]
 const CURRENT_STEP_INDEX = 2 // "Processing" — swap for real workflow state from the API
+
 
 const initialActivityLog = [
   {
@@ -99,6 +105,7 @@ const initialActivityLog = [
   { id: "log-8", title: "Payment Confirmed", done: false },
   { id: "log-9", title: "Service Completed", done: false },
 ]
+
 
 const initialDocuments = [
   {
@@ -147,11 +154,13 @@ const initialDocuments = [
   },
 ]
 
+
 const documentStatusStyles = {
   Approved: "bg-green-50 text-green-700 border border-green-200",
   "For Review": "bg-amber-50 text-amber-700 border border-amber-200",
   Missing: "bg-red-50 text-red-700 border border-red-200",
 }
+
 
 export default function ClientEngagementDetailPage() {
   const { id } = useParams()
@@ -160,19 +169,23 @@ export default function ClientEngagementDetailPage() {
   const [activityLog, setActivityLog] = useState(initialActivityLog)
   const [isActivityLoading, setIsActivityLoading] = useState(false)
 
+
   const filteredDocuments = initialDocuments.filter((doc) =>
     doc.name.toLowerCase().includes(documentSearch.toLowerCase())
   )
 
+
   const flaggedForReview = initialDocuments.filter(
     (d) => d.status === "For Review"
   ).length
+
 
   const isCompleted = engagement.status === "Completed"
   const activeStepIndex = isCompleted
     ? WORKFLOW_STEPS.length - 1
     : CURRENT_STEP_INDEX
   const percentComplete = isCompleted ? 100 : engagement.percentComplete
+
 
   // Read-only: per S4-13, the client sees the activity timeline but never
   // posts or deletes entries — that's S4-11/S4-12, firm-side only. This
@@ -181,11 +194,14 @@ export default function ClientEngagementDetailPage() {
   useEffect(() => {
     let isMounted = true
 
+
     async function loadActivity() {
       setIsActivityLoading(true)
       const { data, error } = await getEngagementActivity(id)
 
+
       if (!isMounted) return
+
 
       if (error) {
         console.error("Failed to load activity log:", error)
@@ -194,15 +210,19 @@ export default function ClientEngagementDetailPage() {
         setActivityLog(data)
       }
 
+
       setIsActivityLoading(false)
     }
 
+
     loadActivity()
+
 
     return () => {
       isMounted = false
     }
   }, [id])
+
 
   return (
     <SidebarProvider>
@@ -221,6 +241,7 @@ export default function ClientEngagementDetailPage() {
           onRequestServiceClick={() => {}}
         />
 
+
         <div className="flex flex-1 flex-col gap-4 px-6 py-6">
           <Link
             to="/client/engagements"
@@ -229,6 +250,7 @@ export default function ClientEngagementDetailPage() {
             <ArrowLeft className="size-4" />
             Back to Engagements
           </Link>
+
 
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -251,6 +273,7 @@ export default function ClientEngagementDetailPage() {
               Due <span className="font-medium text-red-600">{engagement.due}</span>
             </p>
           </div>
+
 
           {/* Workflow progress */}
           <div className="rounded-xl border bg-background p-5">
@@ -297,6 +320,7 @@ export default function ClientEngagementDetailPage() {
             </div>
           </div>
 
+
           {/* Tabs */}
           <div className="flex gap-6 border-b">
             <button
@@ -333,6 +357,7 @@ export default function ClientEngagementDetailPage() {
               Activity
             </button>
           </div>
+
 
           {activeTab === "overview" && (
             <div className="grid gap-4 lg:grid-cols-2">
@@ -375,6 +400,7 @@ export default function ClientEngagementDetailPage() {
                   </div>
                 </dl>
               </div>
+
 
               <div className="rounded-xl border bg-background p-5">
                 <h3 className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
@@ -434,6 +460,7 @@ export default function ClientEngagementDetailPage() {
             </div>
           )}
 
+
           {activeTab === "activity" && (
             <div className="rounded-xl border bg-background p-5">
               <div className="mb-4 flex items-center justify-between">
@@ -442,6 +469,7 @@ export default function ClientEngagementDetailPage() {
                   Read only — updates are posted by your firm
                 </span>
               </div>
+
 
               {isActivityLoading ? (
                 <p className="text-sm text-muted-foreground">Loading...</p>
@@ -478,6 +506,7 @@ export default function ClientEngagementDetailPage() {
                     </li>
                   ))}
 
+
                   {activityLog.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       No activity yet.
@@ -487,6 +516,7 @@ export default function ClientEngagementDetailPage() {
               )}
             </div>
           )}
+
 
           {activeTab === "documents" && (
             <div className="space-y-4">
@@ -504,6 +534,7 @@ export default function ClientEngagementDetailPage() {
                   Review Documents ({flaggedForReview})
                 </Button>
               </div>
+
 
               <div className="overflow-hidden rounded-xl border bg-background">
                 <table className="w-full table-fixed text-sm">
@@ -615,6 +646,7 @@ export default function ClientEngagementDetailPage() {
                       </>
                     ))}
 
+
                     {filteredDocuments.length === 0 && (
                       <tr>
                         <td
@@ -635,3 +667,4 @@ export default function ClientEngagementDetailPage() {
     </SidebarProvider>
   )
 }
+
