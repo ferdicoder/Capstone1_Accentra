@@ -21,14 +21,16 @@ const initialFormState = {
   businessType: "",
   tin: "",
   industry: "",
-  // Normalized address — kept as separate atomic fields instead of one
-  // free-text string, so each part can be validated/queried on its own.
-  street: "",
+  contactNumber: "",
+  // Normalized address — House/Bldg/Unit No. and Street Name are separate
+  // atomic fields (not merged into one free-text line), and Barangay,
+  // District, City, ZIP each get their own column/field too.
+  houseNo: "",
+  streetName: "",
   barangay: "",
+  district: "",
   city: "",
-  province: "",
   zipCode: "",
-  contactNumber: ""
 }
 
 
@@ -50,6 +52,20 @@ export default function SignupPage() {
   }
 
 
+  // Builds a single display string from the atomic fields, for anywhere
+  // downstream that still expects one address string (e.g. an invoice PDF).
+  // The atomic fields themselves are always sent too, so nothing is lossy.
+  const formatAddress = () =>
+    [
+      [formData.houseNo, formData.streetName].filter(Boolean).join(" "),
+      formData.barangay,
+      formData.district,
+      formData.city,
+      formData.zipCode,
+    ]
+      .filter(Boolean)
+      .join(", ")
+
   const handleSubmit = async (event) => {
     event.preventDefault()
 
@@ -59,25 +75,9 @@ export default function SignupPage() {
     }
 
     try{
-      // authService.registerClient currently expects a single `address`
-      // string (see its options.data.address usage). Until that's updated
-      // to accept the normalized fields directly, we build a display
-      // string from them here for backward compatibility, while still
-      // sending the individual fields too — so they're available the
-      // moment the backend/table is ready to store them separately.
-      const fullAddress = [
-        formData.street,
-        formData.barangay,
-        formData.city,
-        formData.province,
-        formData.zipCode,
-      ]
-        .filter(Boolean)
-        .join(", ")
-
       const newUser = await registerClient({
         ...formData,
-        address: fullAddress,
+        addressDisplay: formatAddress(),
       });
       if(newUser.error) throw newUser.error;
       console.log("Registration submitted", formData);
@@ -329,40 +329,29 @@ export default function SignupPage() {
                 />
               </Field>
 
-              {/* Normalized address — Street, Barangay, City, Province, ZIP
-                  as separate fields instead of one free-text Address input */}
-              <Field>
-                <FieldLabel htmlFor="street">Street Address</FieldLabel>
-                <Input
-                  id="street"
-                  name="street"
-                  placeholder="12 Mercado St., Unit 4B"
-                  value={formData.street}
-                  onChange={updateField}
-                  className="bg-background"
-                />
-              </Field>
-
+              {/* Normalized address — House/Unit No. is its own field (not merged
+                  into Street Name), and Barangay/District/City/ZIP each get
+                  their own column. */}
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="barangay">Barangay</FieldLabel>
+                  <FieldLabel htmlFor="houseNo">House/Bldg./Unit No.</FieldLabel>
                   <Input
-                    id="barangay"
-                    name="barangay"
-                    placeholder="Sta. Ana"
-                    value={formData.barangay}
+                    id="houseNo"
+                    name="houseNo"
+                    placeholder="12, Unit 4B"
+                    value={formData.houseNo}
                     onChange={updateField}
                     className="bg-background"
                   />
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="city">City / Municipality</FieldLabel>
+                  <FieldLabel htmlFor="streetName">Street Name</FieldLabel>
                   <Input
-                    id="city"
-                    name="city"
-                    placeholder="Manila"
-                    value={formData.city}
+                    id="streetName"
+                    name="streetName"
+                    placeholder="Mercado St."
+                    value={formData.streetName}
                     onChange={updateField}
                     className="bg-background"
                   />
@@ -371,12 +360,38 @@ export default function SignupPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="province">Province</FieldLabel>
+                  <FieldLabel htmlFor="barangay">Barangay</FieldLabel>
                   <Input
-                    id="province"
-                    name="province"
-                    placeholder="Metro Manila"
-                    value={formData.province}
+                    id="barangay"
+                    name="barangay"
+                    placeholder="Barangay 789"
+                    value={formData.barangay}
+                    onChange={updateField}
+                    className="bg-background"
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="district">District</FieldLabel>
+                  <Input
+                    id="district"
+                    name="district"
+                    placeholder="District 6"
+                    value={formData.district}
+                    onChange={updateField}
+                    className="bg-background"
+                  />
+                </Field>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="city">City / Municipality</FieldLabel>
+                  <Input
+                    id="city"
+                    name="city"
+                    placeholder="Manila"
+                    value={formData.city}
                     onChange={updateField}
                     className="bg-background"
                   />
