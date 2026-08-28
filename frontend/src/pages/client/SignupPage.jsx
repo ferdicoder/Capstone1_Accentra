@@ -22,9 +22,6 @@ const initialFormState = {
   tin: "",
   industry: "",
   contactNumber: "",
-  // Normalized address — House/Bldg/Unit No. and Street Name are separate
-  // atomic fields (not merged into one free-text line), and Barangay,
-  // District, City, ZIP each get their own column/field too.
   houseNo: "",
   streetName: "",
   barangay: "",
@@ -51,21 +48,6 @@ export default function SignupPage() {
     }))
   }
 
-
-  // Builds a single display string from the atomic fields, for anywhere
-  // downstream that still expects one address string (e.g. an invoice PDF).
-  // The atomic fields themselves are always sent too, so nothing is lossy.
-  const formatAddress = () =>
-    [
-      [formData.houseNo, formData.streetName].filter(Boolean).join(" "),
-      formData.barangay,
-      formData.district,
-      formData.city,
-      formData.zipCode,
-    ]
-      .filter(Boolean)
-      .join(", ")
-
   const handleSubmit = async (event) => {
     event.preventDefault()
 
@@ -75,10 +57,7 @@ export default function SignupPage() {
     }
 
     try{
-      const newUser = await registerClient({
-        ...formData,
-        addressDisplay: formatAddress(),
-      });
+      const newUser = await registerClient(formData);
       if(newUser.error) throw newUser.error;
       console.log("Registration submitted", formData);
       navigate('/client/signin');

@@ -41,7 +41,12 @@ async function registerClient(formData) {
         business_type: formData.businessType,
         tin_no: formData.tin,
         industry: formData.industry,
-        address: formData.address
+        house_no: formData.houseNo,
+        street: formData.streetName,
+        barangay: formData.barangay, 
+        district: formData.district, 
+        city: formData.city,
+        zip_code: formData.zipCode
       }
     }
   });
