@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Eye } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
-import { DashboardLayout } from "@/layout/DashboardLayout"
+import { usePageMeta } from "@/hooks/usePageMeta"
 import { RequestDetailDialog } from "@/components/firm/service-requests/request-detail-dialog"
 import { CreateEngagementDialog } from "@/components/firm/service-requests/create-engagement-dialog"
 import { RequiredDocumentsDialog } from "@/components/firm/service-requests/required-documents-dialog"
@@ -17,6 +17,8 @@ import { generateEngagementNumber } from "@/components/firm/engagements/engageme
 
 export default function ServiceRequestsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
   const requests = serviceRequestStore((state) => state.requests)
   const setRequestStatus = serviceRequestStore((state) => state.setRequestStatus)
   const addEngagement = engagementStore((state) => state.addEngagement)
@@ -110,18 +112,19 @@ export default function ServiceRequestsPage() {
 
     addEngagement(newEngagement)
     setActiveEngagement(null)
-    navigate("/firm-admin/engagements")
+    navigate(`${basePath}/engagements`)
   }
 
+  usePageMeta({
+    title: "Service Requests",
+    breadcrumbs: [
+      { label: basePath === "/firm" ? "Firm Staff" : "Firm Admin", href: `${basePath}/dashboard` },
+      { label: "Service Requests", href: `${basePath}/service-requests` },
+    ],
+  })
+
   return (
-    <DashboardLayout
-      role="firm-admin"
-      title="Service Requests"
-      breadcrumbs={[
-        { label: "Firm Admin", href: "/admin/dashboard" },
-        { label: "Service Requests", href: "/admin/service-requests" },
-      ]}
-    >
+    <>
       {loading ? (
         <PageSkeleton type="service-requests" />
       ) : (
@@ -191,6 +194,6 @@ export default function ServiceRequestsPage() {
         onBack={handleBackToEngagement}
         onSubmit={handleSendToClient}
       />
-    </DashboardLayout>
+    </>
   )
 }

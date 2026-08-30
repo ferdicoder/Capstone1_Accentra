@@ -1,7 +1,8 @@
+import { useLocation } from "react-router-dom"
 import { useMemo, useState } from "react"
 import { Ban, CheckCircle2, Pencil, Trash2 } from "lucide-react"
 
-import { DashboardLayout } from "@/layout/DashboardLayout"
+import { usePageMeta } from "@/hooks/usePageMeta"
 import {
   ServiceManagementActionsMenu,
   ServiceManagementTable,
@@ -28,6 +29,8 @@ const categoryLabel = (value) =>
   categoryFilterOptions.find((option) => option.value === value)?.label ?? value ?? ""
 
 export default function ServiceManagementPage() {
+  const location = useLocation()
+  const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
@@ -143,15 +146,16 @@ export default function ServiceManagementPage() {
     })
   }
 
+  usePageMeta({
+    title: "Services",
+    breadcrumbs: [
+      { label: basePath === "/firm" ? "Firm Staff" : "Firm Admin", href: `${basePath}/dashboard` },
+      { label: "Service Management", href: `${basePath}/services` },
+    ],
+  })
+
   return (
-    <DashboardLayout
-      role="firm-admin"
-      title="Services"
-      breadcrumbs={[
-        { label: "Firm Admin", href: "/admin/dashboard" },
-        { label: "Service Management", href: "/admin/services" },
-      ]}
-    >
+    <>
       <div className="flex flex-wrap items-center gap-3 py-1">
         <p className="text-sm text-muted-foreground">
           Manage your firm's service catalog. You can add new service templates, edit existing
@@ -229,6 +233,6 @@ export default function ServiceManagementPage() {
         onConfirm={handleDelete}
         deleting={deleteService.isPending}
       />
-    </DashboardLayout>
+    </>
   )
 }

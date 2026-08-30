@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react"
 import { Save } from "lucide-react"
 
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/dashboard/AppSidebar"
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
+import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
+import { usePageMeta } from "@/hooks/usePageMeta"
+import { cn } from "@/lib/utils"
+
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
-import { cn } from "@/lib/utils"
 
 // import { updateFirmProfile, updateFirmPassword } from "@/services/firmService"
 
@@ -110,21 +109,14 @@ export default function FirmProfilePage() {
     }
   }
 
-  return (
-    <SidebarProvider>
-      <AppSidebar role="firm-admin" user={currentUser} />
-      <SidebarInset>
-        <DashboardHeader
-          role="firm-admin"
-          user={currentUser}
-          breadcrumbs={[{ label: "Home", href: "/firm-admin/dashboard" }]}
-          title="Firm Profile"
-          hasUnreadNotifications
-          onNotificationsClick={() => {}}
-        />
+  usePageMeta({
+    title: "Firm Profile",
+    breadcrumbs: [{ label: "Home", href: "/admin/dashboard" }],
+    hasUnreadNotifications: true,
+  })
 
-        {/* Same max-width rail as ClientProfilePage, so header, breadcrumb, and cards all share one edge */}
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-2">
           {loading ? (
             <PageSkeleton type="profile" />
           ) : (
@@ -382,7 +374,6 @@ export default function FirmProfilePage() {
             </>
           )}
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+    </div>
   )
 }

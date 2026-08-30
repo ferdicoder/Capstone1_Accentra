@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { ChevronRight, MoreHorizontal, Plus, CheckCircle2, Pause, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
-import { DashboardLayout } from "@/layout/DashboardLayout"
+import { usePageMeta } from "@/hooks/usePageMeta"
 import { EngagementFilters } from "@/components/firm/engagements/engagement-filters"
 import { EngagementList } from "@/components/firm/engagements/engagement-list"
 import { engagementStore } from "@/components/firm/engagements/engagement-store"
@@ -20,6 +20,8 @@ import {
 
 export default function EngagementsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
   const engagements = engagementStore((state) => state.engagements)
   const addEngagement = engagementStore((state) => state.addEngagement)
   const setEngagementStatus = engagementStore((state) => state.setEngagementStatus)
@@ -85,7 +87,7 @@ export default function EngagementsPage() {
 
     addEngagement(newEngagement)
     setNewEngagementOpen(false)
-    navigate(`/admin/engagements/${newEngagement.id}`)
+    navigate(`${basePath}/engagements/${newEngagement.id}`)
   }
 
   const handleStatusChange = (engagement, newStatus) => {
@@ -95,15 +97,16 @@ export default function EngagementsPage() {
     setTimeout(() => setNotice(""), 3000)
   }
 
+  usePageMeta({
+    title: "Engagements",
+    breadcrumbs: [
+      { label: basePath === "/firm" ? "Firm Staff" : "Firm Admin", href: `${basePath}/dashboard` },
+      { label: "Engagements", href: `${basePath}/engagements` },
+    ],
+  })
+
   return (
-    <DashboardLayout
-      role="firm-admin"
-      title="Engagements"
-      breadcrumbs={[
-        { label: "Firm Admin", href: "/admin/dashboard" },
-        { label: "Engagements", href: "/firm-admin/engagements" },
-      ]}
-    >
+    <>
       {loading ? (
         <PageSkeleton type="service-requests" />
       ) : (
@@ -147,7 +150,7 @@ export default function EngagementsPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => navigate(`/admin/engagements/${engagement.id}`)}
+                  onClick={() => navigate(`${basePath}/engagements/${engagement.id}`)}
                   className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Details
@@ -166,7 +169,7 @@ export default function EngagementsPage() {
                     <MoreHorizontal className="size-4" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-44">
-                    <DropdownMenuItem onClick={() => navigate(`/admin/engagements/${engagement.id}`)}>
+                    <DropdownMenuItem onClick={() => navigate(`${basePath}/engagements/${engagement.id}`)}>
                       View Details
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -204,6 +207,6 @@ export default function EngagementsPage() {
           />
         </>
       )}
-    </DashboardLayout>
+    </>
   )
 }

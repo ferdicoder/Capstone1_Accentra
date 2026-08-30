@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react"
 import { Save } from "lucide-react"
 
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/dashboard/AppSidebar"
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
+import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
+import { usePageMeta } from "@/hooks/usePageMeta"
+import { cn } from "@/lib/utils"
+
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
-import { cn } from "@/lib/utils"
 
 // import { updateClientProfile, updateClientPassword } from "@/api/profileService"
 
@@ -113,23 +112,14 @@ export default function ClientProfilePage() {
     }
   }
 
-  return (
-    <SidebarProvider>
-      <AppSidebar role="client" user={currentUser} />
-      <SidebarInset>
-        <DashboardHeader
-          role="client"
-          user={currentUser}
-          breadcrumbs={[{ label: "Home", href: "/client/dashboard" }]}
-          title="My Profile"
-          hasUnreadNotifications
-          onNotificationsClick={() => {}}
-          onRequestServiceClick={() => {}}
-        />
+  usePageMeta({
+    title: "My Profile",
+    breadcrumbs: [{ label: "Home", href: "/client/dashboard" }],
+    hasUnreadNotifications: true,
+  })
 
-        {/* Single max-width rail shared by every section below, so the header (which spans full width with
-            its own px-4) and the page content line up on the same left/right edges. */}
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-2">
           {loading ? (
             <PageSkeleton type="profile" />
           ) : (
@@ -439,7 +429,6 @@ export default function ClientProfilePage() {
             </>
           )}
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+    </div>
   )
 }

@@ -1,19 +1,11 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Briefcase, Eye, FileText, MessageSquare, Search, X } from "lucide-react"
 
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/dashboard/AppSidebar"
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { NewServiceRequestForm } from "@/components/new-service-request-form"
+import { usePageMeta } from "@/hooks/usePageMeta"
 
-
-const currentUser = {
-  name: "Maria Santos",
-  email: "maria@santosretail.com",
-  avatar: "",
-}
 
 const serviceRequests = [
   {
@@ -111,21 +103,18 @@ export default function ClientServiceRequestsPage() {
     )
   )
 
-  return (
-    <SidebarProvider>
-      <AppSidebar role="client" user={currentUser} />
-      <SidebarInset>
-        <DashboardHeader
-          role="client"
-          user={currentUser}
-          breadcrumbs={[{ label: "Home", href: "/client/dashboard" }]}
-          title="Service Requests"
-          hasUnreadNotifications
-          onNotificationsClick={() => {}}
-          onRequestServiceClick={() => setIsNewRequestOpen(true)}
-        />
+  const openNewRequest = useCallback(() => setIsNewRequestOpen(true), [])
 
-        <div className="flex flex-1 flex-col gap-5 px-6 py-6">
+  usePageMeta({
+    title: "Service Requests",
+    breadcrumbs: [{ label: "Home", href: "/client/dashboard" }],
+    hasUnreadNotifications: true,
+    onRequestServiceClick: openNewRequest,
+  })
+
+  return (
+    <>
+      <div className="flex flex-1 flex-col gap-5 px-2 py-2">
           <div>
             <h1 className="text-xl font-semibold">My Service Requests</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
@@ -252,10 +241,8 @@ export default function ClientServiceRequestsPage() {
               </tbody>
             </table>
           </div>
-       </div>
-      </SidebarInset>
+      </div>
 
-      {/* Centered popup, inlined directly here instead of a separate Modal component */}
       {isNewRequestOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -287,6 +274,6 @@ export default function ClientServiceRequestsPage() {
           </div>
         </div>
       )}
-    </SidebarProvider>
+    </>
   )
 }

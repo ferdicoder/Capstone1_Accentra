@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom"
 import { Bell, CirclePlus } from "lucide-react"
 
 import {
@@ -44,7 +45,9 @@ export function DashboardHeader({
                     {isLast ? (
                       <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
                     ) : (
-                      <BreadcrumbLink href={crumb.href}>{crumb.label}</BreadcrumbLink>
+                      <BreadcrumbLink asChild>
+                        <Link to={crumb.href}>{crumb.label}</Link>
+                      </BreadcrumbLink>
                     )}
                   </BreadcrumbItem>
                   {!isLast && <BreadcrumbSeparator className="hidden md:block" />}
@@ -91,14 +94,14 @@ export function DashboardHeader({
         </Button>
 
         <Button variant="ghost" size="icon" className="rounded-full" asChild>
-          <a href={profileHref} aria-label="Profile">
+          <Link to={profileHref} aria-label="Profile">
             <Avatar className="size-9">
               <AvatarImage src={user?.avatar} alt={user?.name} />
               <AvatarFallback className="text-xs">
                 {user?.name ? user.name.slice(0, 2).toUpperCase() : "AC"}
               </AvatarFallback>
             </Avatar>
-          </a>
+          </Link>
         </Button>
       </div>
     </header>

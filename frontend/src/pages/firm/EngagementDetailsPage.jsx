@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { ArrowLeft, Check, CheckCircle2, Circle, Pause, StickyNote, XCircle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
-import { DashboardLayout } from "@/layout/DashboardLayout"
+import { usePageMeta } from "@/hooks/usePageMeta"
 import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
 import { engagementStore } from "@/components/firm/engagements/engagement-store"
 import { EngagementDocumentsTab } from "@/components/firm/engagements/engagement-documents-tab"
@@ -136,6 +136,9 @@ function TimelineItem({ item, isLast }) {
 export default function EngagementDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
+  const sectionLabel = basePath === "/firm" ? "Firm Staff" : "Firm Admin"
   const engagements = engagementStore((state) => state.engagements)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
@@ -153,24 +156,23 @@ export default function EngagementDetailsPage() {
 
   useEffect(() => {
     if (!loading && !engagement) {
-      navigate("/firm-admin/engagements")
+      navigate(`${basePath}/engagements`)
     }
-  }, [loading, engagement, navigate])
+  }, [loading, engagement, navigate, basePath])
+
+  usePageMeta({
+    title: engagement?.engagementNumber ?? "Engagement Details",
+    breadcrumbs: [
+      { label: sectionLabel, href: `${basePath}/dashboard` },
+      { label: "Engagements", href: `${basePath}/engagements` },
+      ...(engagement
+        ? [{ label: engagement.engagementNumber, href: `${basePath}/engagements/${engagement.id}` }]
+        : []),
+    ],
+  })
 
   if (loading) {
-    return (
-      <DashboardLayout
-        role="firm-admin"
-        title="Engagement Details"
-        breadcrumbs={[
-          { label: "Firm Admin", href: "/admin/dashboard" },
-          { label: "Engagements", href: "/firm-admin/engagements" },
-          { label: "Details", href: "#" },
-        ]}
-      >
-        <PageSkeleton type="service-requests" />
-      </DashboardLayout>
-    )
+    return <PageSkeleton type="service-requests" />
   }
 
   if (!engagement) return null
@@ -191,20 +193,12 @@ export default function EngagementDetailsPage() {
   ]
 
   return (
-    <DashboardLayout
-      role="firm-admin"
-      title="Engagement Details"
-      breadcrumbs={[
-        { label: "Firm Admin", href: "/admin/dashboard" },
-        { label: "Engagements", href: "/firm-admin/engagements" },
-        { label: engagement.engagementNumber, href: "#" },
-      ]}
-    >
+    <>
       <div className="flex flex-col gap-6">
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => navigate("/firm-admin/engagements")}
+            onClick={() => navigate(`${basePath}/engagements`)}
             className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <ArrowLeft className="size-4" />
@@ -424,6 +418,6 @@ export default function EngagementDetailsPage() {
           setAddNoteOpen(false)
         }}
       />
-    </DashboardLayout>
+    </>
   )
 }

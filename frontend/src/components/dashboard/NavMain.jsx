@@ -1,4 +1,5 @@
 import { ChevronRight } from "lucide-react"
+import { NavLink, useLocation } from "react-router-dom"
 
 import {
   Collapsible,
@@ -7,7 +8,6 @@ import {
 } from "@/components/ui/collapsible"
 import {
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -16,12 +16,21 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 
-export function NavMain({ label = "Platform", items = [] }) {
+function isNavItemActive(pathname, url) {
+  return pathname === url || pathname.startsWith(`${url}/`)
+}
+
+export function NavMain({ items = [] }) {
+  const { pathname } = useLocation()
+
   return (
     <SidebarGroup>
       <SidebarMenu className="gap-1">
         {items.map((item) => {
           const hasChildren = item.items && item.items.length > 0
+          const isActive =
+            isNavItemActive(pathname, item.url) ||
+            item.items?.some((subItem) => isNavItemActive(pathname, subItem.url))
 
           if (!hasChildren) {
             return (
@@ -29,14 +38,13 @@ export function NavMain({ label = "Platform", items = [] }) {
                 <SidebarMenuButton
                   asChild
                   tooltip={item.title}
-                  isActive={item.isActive}
+                  isActive={isActive}
                   className="gap-4"
                 >
-                  <a href={item.url}
-                   className="flex w-full items-center gap-4">
+                  <NavLink to={item.url} className="flex w-full items-center gap-4">
                     {item.icon && <item.icon className="size-4 shrink-0" />}
                     <span className="truncate">{item.title}</span>
-                  </a>
+                  </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )
@@ -46,12 +54,12 @@ export function NavMain({ label = "Platform", items = [] }) {
             <Collapsible
               key={item.title}
               asChild
-              defaultOpen={item.isActive}
+              defaultOpen={isActive}
               className="group/collapsible"
             >
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip={item.title} className="gap-2">
+                  <SidebarMenuButton tooltip={item.title} isActive={isActive} className="gap-2">
                     {item.icon && <item.icon className="size-4 shrink-0" />}
                     <span className="truncate">{item.title}</span>
                     <ChevronRight className="ml-auto size-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
@@ -61,10 +69,13 @@ export function NavMain({ label = "Platform", items = [] }) {
                   <SidebarMenuSub className="gap-1">
                     {item.items.map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton asChild>
-                          <a href={subItem.url}>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={isNavItemActive(pathname, subItem.url)}
+                        >
+                          <NavLink to={subItem.url}>
                             <span className="truncate">{subItem.title}</span>
-                          </a>
+                          </NavLink>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     ))}

@@ -1,18 +1,10 @@
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Briefcase, Eye, FileText, Search } from "lucide-react"
- 
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/dashboard/AppSidebar"
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
+
 import { Input } from "@/components/ui/input"
- 
-const currentUser = {
-  name: "Maria Santos",
-  email: "maria@santosretail.com",
-  avatar: "",
-}
- 
+import { usePageMeta } from "@/hooks/usePageMeta"
+
 const engagements = [
   {
     code: "ENG-2024-0041",
@@ -118,22 +110,15 @@ export default function ClientEngagementsPage() {
     setStatusFilter("All Statuses")
     setTypeFilter("All Services")
   }
- 
+
+  usePageMeta({
+    title: "Engagements",
+    breadcrumbs: [{ label: "Home", href: "/client/dashboard" }],
+    hasUnreadNotifications: true,
+  })
+
   return (
-    <SidebarProvider>
-      <AppSidebar role="client" user={currentUser} />
-      <SidebarInset>
-        <DashboardHeader
-          role="client"
-          user={currentUser}
-          breadcrumbs={[{ label: "Home", href: "/client/dashboard" }]}
-          title="Engagements"
-          hasUnreadNotifications
-          onNotificationsClick={() => {}}
-          onRequestServiceClick={() => {}}
-        />
- 
-        <div className="flex flex-1 flex-col gap-5 px-6 py-6">
+    <div className="flex flex-1 flex-col gap-5 px-2 py-2">
           <div>
             <h1 className="text-xl font-semibold">My Engagements</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
@@ -286,7 +271,6 @@ export default function ClientEngagementsPage() {
             </table>
           </div>
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+    </div>
   )
 }

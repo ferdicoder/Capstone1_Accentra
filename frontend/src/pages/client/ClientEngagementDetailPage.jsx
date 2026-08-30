@@ -11,22 +11,13 @@ import {
   Upload,
 } from "lucide-react"
 
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/dashboard/AppSidebar"
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { Input } from "@/components/ui/input"
+import { usePageMeta } from "@/hooks/usePageMeta"
 import { Button } from "@/components/ui/button"
 
 import { getEngagementActivity } from "@/services/engagementActivityService"
 import { getEngagementDeliverables } from "@/services/engagementDeliverablesService"
 
-const currentUser = {
-  name: "Maria Santos",
-  email: "maria@santosretail.com",
-  avatar: "",
-}
-
-// Mock — replace with a real fetch keyed off the :id route param
 const engagement = {
   code: "ENG-2024-0041",
   status: "Active",
@@ -261,24 +252,17 @@ export default function ClientEngagementDetailPage() {
     }
   }, [id])
 
-  return (
-    <SidebarProvider>
-      <AppSidebar role="client" user={currentUser} />
-      <SidebarInset>
-        <DashboardHeader
-          role="client"
-          user={currentUser}
-          breadcrumbs={[
-            { label: "Home", href: "/client/dashboard" },
-            { label: "Engagements", href: "/client/engagements" },
-          ]}
-          title={engagement.code}
-          hasUnreadNotifications
-          onNotificationsClick={() => {}}
-          onRequestServiceClick={() => {}}
-        />
+  usePageMeta({
+    title: engagement.code,
+    breadcrumbs: [
+      { label: "Home", href: "/client/dashboard" },
+      { label: "Engagements", href: "/client/engagements" },
+    ],
+    hasUnreadNotifications: true,
+  })
 
-        <div className="flex flex-1 flex-col gap-4 px-6 py-6">
+  return (
+    <div className="flex flex-1 flex-col gap-4 px-2 py-2">
           <Link
             to="/client/engagements"
             className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -758,7 +742,6 @@ export default function ClientEngagementDetailPage() {
             </div>
           )}
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+    </div>
   )
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Ban, CheckCircle2, Pencil } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
-import { DashboardLayout } from "@/layout/DashboardLayout"
+import { usePageMeta } from "@/hooks/usePageMeta"
 import { FirmUsersToolbar } from "@/components/firm/users/firm-users-toolbar"
 import { FirmUserTable } from "@/components/firm/users/firm-user-table"
 import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-menu"
@@ -88,15 +88,16 @@ export default function UserManagementPage() {
     })
   }
 
+  usePageMeta({
+    title: "Firm Users",
+    breadcrumbs: [
+      { label: "Firm Admin", href: "/admin/dashboard" },
+      { label: "User Management", href: "/admin/users" },
+    ],
+  })
+
   return (
-    <DashboardLayout
-      role="firm-admin"
-      title="Firm Users"
-      breadcrumbs={[
-        { label: "Firm Admin", href: "/admin/dashboard" },
-        { label: "User Management", href: "/admin/users" },
-      ]}
-    >
+    <>
       {loading || isLoading ? (
         <PageSkeleton type="users" />
       ) : (
@@ -164,6 +165,6 @@ export default function UserManagementPage() {
       />
         </>
       )}
-    </DashboardLayout>
+    </>
   )
 }
