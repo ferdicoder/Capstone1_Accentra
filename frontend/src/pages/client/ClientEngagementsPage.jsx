@@ -271,6 +271,5 @@ export default function ClientEngagementsPage() {
             </table>
           </div>
         </div>
-    </div>
   )
 }

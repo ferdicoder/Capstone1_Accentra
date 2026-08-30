@@ -742,6 +742,5 @@ export default function ClientEngagementDetailPage() {
             </div>
           )}
         </div>
-    </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { Outlet } from "react-router-dom"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -19,6 +19,11 @@ export function DashboardLayout({ role, user = defaultUser }) {
     setPageMeta(meta)
   }, [])
 
+  const outletContext = useMemo(
+    () => ({ setPageMeta: stableSetPageMeta }),
+    [stableSetPageMeta]
+  )
+
   return (
     <SidebarProvider>
       <AppSidebar role={role} user={user} />
@@ -34,7 +39,7 @@ export function DashboardLayout({ role, user = defaultUser }) {
           onRequestServiceClick={pageMeta.onRequestServiceClick}
         />
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-          <Outlet context={{ setPageMeta: stableSetPageMeta }} />
+          <Outlet context={outletContext} />
         </div>
       </SidebarInset>
     </SidebarProvider>

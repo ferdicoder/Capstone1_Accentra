@@ -373,7 +373,6 @@ export default function FirmProfilePage() {
           )}
             </>
           )}
-        </div>
     </div>
   )
 }
