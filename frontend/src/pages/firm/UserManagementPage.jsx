@@ -46,11 +46,6 @@ export default function UserManagementPage() {
     [roles]
   )
 
-  // Toolbar filter needs an "All roles" option in front of the real ones.
-  const roleFilterOptions = useMemo(
-    () => [{ value: "", label: "All roles" }, ...roleOptions],
-    [roleOptions]
-  )
 
   // for searching
   const filteredUsers = useMemo(() => {
@@ -125,7 +120,7 @@ export default function UserManagementPage() {
         onSearchChange={setSearch}
         roleFilter={roleFilter}
         onRoleFilterChange={setRoleFilter}
-        roleOptions={roleFilterOptions}
+        roleOptions={roleOptions}
         onAddUser={() => setDialogOpen(true)}
         resultCount={`${filteredUsers.length} of ${users.length} users`}
       />
