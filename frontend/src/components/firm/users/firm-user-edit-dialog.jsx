@@ -23,7 +23,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { roleFilterOptions } from "./firm-user-variants"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -51,6 +50,7 @@ function EditUserForm({
   submitting,
   error,
   roleOptions,
+  rolesLoading,
   onCancel,
   submitLabel,
   cancelLabel,
@@ -69,10 +69,15 @@ function EditUserForm({
   const [contactNumber, setContactNumber] = useState(() =>
     getField(user, "contactNumber", "contact_number")
   )
+  // The user's current role value is already known from `user.role` (it was
+  // set when the account was created), so unlike the create dialog this
+  // doesn't need to wait on roleOptions to arrive — only the human-readable
+  // *label* depends on roleOptions having loaded.
   const [role, setRole] = useState(() => user?.role ?? "")
   const [errors, setErrors] = useState({})
 
   const activeRole = roleOptions.find((option) => option.value === role)
+  const rolesUnavailable = !rolesLoading && roleOptions.length === 0
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -210,7 +215,7 @@ function EditUserForm({
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={submitting}
+                  disabled={submitting || rolesLoading || rolesUnavailable}
                   className={cn(
                     "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
                     errors.role && "border-red-500 focus-visible:ring-red-500"
@@ -218,7 +223,14 @@ function EditUserForm({
                 />
               }
             >
-              {activeRole?.label ?? "Select role"}
+              {rolesLoading ? (
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Loading roles…
+                </span>
+              ) : (
+                activeRole?.label ?? "Select role"
+              )}
               <ChevronDown className="size-4 opacity-60" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-40">
@@ -233,6 +245,11 @@ function EditUserForm({
             </DropdownMenuContent>
           </DropdownMenu>
           {errors.role && <p className="text-sm text-red-500">Select a role.</p>}
+          {rolesUnavailable && (
+            <p className="text-sm text-muted-foreground">
+              No roles available. Check the roles table.
+            </p>
+          )}
         </Field>
       </FieldGroup>
 
@@ -253,7 +270,7 @@ function EditUserForm({
         </Button>
         <Button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || rolesUnavailable}
           className="bg-forest-900 text-white hover:opacity-90"
         >
           {submitting && <Loader2 className="size-4 animate-spin" />}
@@ -267,7 +284,10 @@ function EditUserForm({
 /**
  * Presentational "Edit User" modal form for the firm user list.
  * Fully controlled: the parent owns `open`/`onOpenChange` and performs any
- * API work after receiving the values from `onSubmit`. No API/auth/routing.
+ * API work after receiving the values from `onSubmit`. No API/auth/routing —
+ * that includes roles: this component no longer imports a static role list,
+ * it renders whatever `roleOptions` the parent hands it (e.g. fetched from
+ * the `roles` table via `useFetchRoles`).
  *
  * The form is pre-filled with the user's current information every time the
  * dialog opens and resets on close. Mirrors FirmUserCreateDialog so both
@@ -283,9 +303,15 @@ function EditUserForm({
  *   (snake_case variants like first_name are also accepted).
  * @param {Function} onSubmit - (values: { id, firstName, middleName, lastName,
  *   extension, email, contactNumber, role }) => void. Values are validated
- *   before being passed up; parent does the actual request.
+ *   before being passed up; parent does the actual request. `role` is the
+ *   selected option's `value` (i.e. `role_id`).
  * @param {Array} roleOptions - [{ value, label }] for the role selector.
- *   Defaults to `roleFilterOptions` from "./firm-user-variants".
+ *   Expected to come from the DB-backed `roles` table (value = role_id,
+ *   label = role_name). No default — pass [] while roles are loading.
+ * @param {boolean} rolesLoading - Shows a loading state on the role selector
+ *   and disables it while `roleOptions` is still being fetched. The user's
+ *   existing role value still pre-fills correctly even before roles finish
+ *   loading — only its display label waits on `roleOptions`.
  * @param {boolean} submitting - Disables the form and shows a spinner on submit.
  * @param {string} error - Optional message from the parent (e.g. failed request).
  * @param {string} title - Dialog title. Default "Edit User".
@@ -299,7 +325,8 @@ export function FirmUserEditDialog({
   onOpenChange,
   onSubmit,
   user,
-  roleOptions = roleFilterOptions,
+  roleOptions = [],
+  rolesLoading = false,
   submitting = false,
   error,
   title = "Edit User",
@@ -323,6 +350,7 @@ export function FirmUserEditDialog({
           submitting={submitting}
           error={error}
           roleOptions={roleOptions}
+          rolesLoading={rolesLoading}
           onCancel={() => onOpenChange?.(false)}
           submitLabel={submitLabel}
           cancelLabel={cancelLabel}

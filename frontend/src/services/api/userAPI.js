@@ -128,10 +128,21 @@ async function createStaff(user) {
   return mapAuthUserRow(createdUser, user)
 }
 
+async function fetchRoleOptions(){
+  const { data, error } = await supabase
+  .from("roles")
+  .select("role_id, role_name, description")
+  .order("role_name")
+
+  if (error) throw error
+  return data
+}
+
 export{
   setUserRole,
   getUsers, 
   updateUser,
   updateUserStatus, 
-  createStaff
+  createStaff,
+  fetchRoleOptions
 }
