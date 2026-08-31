@@ -1,39 +1,33 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Eye } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { RequestDetailDialog } from "@/components/firm/service-requests/request-detail-dialog"
 import { CreateEngagementDialog } from "@/components/firm/service-requests/create-engagement-dialog"
 import { RequiredDocumentsDialog } from "@/components/firm/service-requests/required-documents-dialog"
 import { ServiceRequestFilters } from "@/components/firm/service-requests/service-request-filters"
 import { ServiceRequestList } from "@/components/firm/service-requests/service-request-list"
-import { serviceRequestStore } from "@/components/firm/service-requests/service-request-store"
 import { statusFilterOptions } from "@/components/firm/service-requests/service-request-variants"
-import { engagementStore } from "@/components/firm/engagements/engagement-store"
+import { engagementStore } from "@/components/firm/engagements/engagement-store" // still mocked — no engagements API yet
 import { generateEngagementNumber } from "@/components/firm/engagements/engagement-variants"
+import { useFetchServiceRequests, useUpdateServiceRequestStatus } from "@/hooks/useServiceRequests"
 
 export default function ServiceRequestsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
-  const requests = serviceRequestStore((state) => state.requests)
-  const setRequestStatus = serviceRequestStore((state) => state.setRequestStatus)
+
+  const { data: requests = [], isLoading, error } = useFetchServiceRequests()
+  const updateStatus = useUpdateServiceRequestStatus()
   const addEngagement = engagementStore((state) => state.addEngagement)
 
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedId, setSelectedId] = useState(null)
   const [engagementRequest, setEngagementRequest] = useState(null)
   const [activeEngagement, setActiveEngagement] = useState(null)
-
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500)
-    return () => clearTimeout(timer)
-  }, [])
 
   const selectedRequest = requests.find((request) => request.id === selectedId) ?? null
 
@@ -73,7 +67,7 @@ export default function ServiceRequestsPage() {
 
   const handleReject = (request) => {
     if (!request) return
-    setRequestStatus(request.id, "rejected")
+    updateStatus.mutate({ id: request.id, status: "rejected" })
   }
 
   const handleEngagementSubmit = (values) => {
@@ -88,8 +82,8 @@ export default function ServiceRequestsPage() {
 
   const handleSendToClient = (values) => {
     if (activeEngagement?.requestNumber) {
-      const requestId = requests.find((r) => r.requestNumber === activeEngagement.requestNumber)?.id
-      if (requestId) setRequestStatus(requestId, "approved")
+      const request = requests.find((r) => r.requestNumber === activeEngagement.requestNumber)
+      if (request) updateStatus.mutate({ id: request.id, status: "approved" })
     }
 
     const newEngagement = {
@@ -125,45 +119,41 @@ export default function ServiceRequestsPage() {
 
   return (
     <>
-      {loading ? (
-        <PageSkeleton type="service-requests" />
-      ) : (
-        <>
-          <div className="flex flex-wrap items-center gap-3 py-1">
-            <p className="text-sm text-muted-foreground">
-              Review incoming service requests submitted by clients and decide whether to start an
-              engagement.
-            </p>
-          </div>
+      <div className="flex flex-wrap items-center gap-3 py-1">
+        <p className="text-sm text-muted-foreground">
+          Review incoming service requests submitted by clients and decide whether to start an
+          engagement.
+        </p>
+        {error && <span className="text-xs text-destructive">Failed to load service requests</span>}
+      </div>
 
-          <ServiceRequestFilters
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Search by client, request no., or service..."
-            statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
-            statusOptions={statusOptions}
-            resultCount={`${filteredRequests.length} of ${requests.length} requests`}
-          />
+      <ServiceRequestFilters
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search by client, request no., or service..."
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        statusOptions={statusOptions}
+        resultCount={`${filteredRequests.length} of ${requests.length} requests`}
+      />
 
-          <ServiceRequestList
-            requests={filteredRequests}
-            emptyMessage="No service requests match your filters."
-            emptyDescription="Try clearing the search or changing the status filter."
-            onRowClick={(request) => openRequest(request)}
-            actions={(request) => (
-              <Button
-                size="sm"
-                className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
-                onClick={() => openRequest(request)}
-              >
-                <Eye className="size-4" />
-                Review
-              </Button>
-            )}
-          />
-        </>
-      )}
+      <ServiceRequestList
+        requests={filteredRequests}
+        loading={isLoading}
+        emptyMessage="No service requests match your filters."
+        emptyDescription="Try clearing the search or changing the status filter."
+        onRowClick={(request) => openRequest(request)}
+        actions={(request) => (
+          <Button
+            size="sm"
+            className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
+            onClick={() => openRequest(request)}
+          >
+            <Eye className="size-4" />
+            Review
+          </Button>
+        )}
+      />
 
       <RequestDetailDialog
         open={!!selectedRequest}
