@@ -65,55 +65,58 @@ export const getServiceCategoryLabel = (serviceName) => {
   return serviceName
 }
 
+// ─── Unified 5-Stage Workflow ─────────────────────────────────────────────────
+
 export const workflowStages = [
-  { key: "approved", label: "Approved" },
-  { key: "docs", label: "Docs" },
-  { key: "submitted", label: "Submitted" },
-  { key: "review", label: "Review" },
-  { key: "filing", label: "Filing" },
-  { key: "billing", label: "Billing" },
+  { key: "documentation_collection", label: "Documentation Collection" },
+  { key: "document_verification", label: "Document Verification" },
+  { key: "processing", label: "Processing" },
+  { key: "approval", label: "Approval" },
   { key: "payment", label: "Payment" },
-  { key: "done", label: "Done" },
 ]
+
+export const workflowStageOptions = [
+  { value: "documentation_collection", label: "Documentation Collection" },
+  { value: "document_verification", label: "Document Verification" },
+  { value: "processing", label: "Processing" },
+  { value: "approval", label: "Approval" },
+  { value: "payment", label: "Payment" },
+]
+
+export const getWorkflowStageIndex = (stage) => {
+  const idx = workflowStages.findIndex((s) => s.key === stage)
+  return idx >= 0 ? idx : 0
+}
+
+export const isWorkflowComplete = (stage) => stage === "completed"
+export const isWorkflowCancelled = (stage) => stage === "cancelled"
+
+// ─── Legacy helpers (kept for backward compat in document review, etc.) ────────
+
+const taxFilingServiceNames = [
+  "Tax Filing - Non VAT",
+  "Tax Filing - VAT",
+  "Income Tax Filing",
+  "Withholding Tax Filing",
+]
+
+const isTaxFilingEngagement = (engagement) =>
+  taxFilingServiceNames.includes(engagement?.serviceName)
 
 export const getWorkflowProgress = (engagement) => {
   if (!engagement) return 0
   if (engagement.status === "cancelled") return 0
   if (engagement.status === "on_hold") return 2
-  if (engagement.status === "completed") return 7
+  if (engagement.status === "completed") return 4
 
-  const docs = engagement.documents ?? []
-  if (docs.length === 0) return 1
-
-  const reviewable = docs.filter((d) => d.status !== "pending")
-  if (reviewable.length === 0) return 1
-
-  const approved = reviewable.filter((d) => d.status === "approved")
-  const inReview = reviewable.filter((d) => d.status === "in_review" || d.status === "revision_requested")
-
-  if (approved.length === reviewable.length) return 4
-  if (inReview.length > 0) return 3
-  return 2
+  const stage = engagement.workflowStage
+  if (!stage) return 0
+  if (stage === "completed") return 4
+  if (stage === "cancelled") return 0
+  return getWorkflowStageIndex(stage)
 }
 
-export const getWorkflowTimeline = (engagement) => {
-  const currentStage = getWorkflowProgress(engagement)
-  const docs = engagement.documents ?? []
-  const submitted = docs.filter((d) => d.status !== "pending").length
-  const total = docs.length
-  const approved = docs.filter((d) => d.status === "approved").length
-
-  return [
-    { title: "Request Submitted", date: engagement?.startDate ?? "—", description: "Client submitted via portal", status: "completed" },
-    { title: "Request Approved", date: engagement?.startDate ?? "—", description: `Approved by ${firmStaffMap[engagement?.assignedStaff] ?? "firm staff"}`, status: "completed" },
-    { title: "Document Checklist Sent", date: engagement?.startDate ?? "—", description: total > 0 ? `${total} documents required` : "Awaiting document upload", status: "completed" },
-    { title: "Documents Submitted", date: engagement?.startDate ?? "—", description: total > 0 ? `${submitted} of ${total} submitted` : "No documents submitted yet", status: currentStage >= 3 ? "completed" : currentStage === 2 ? "current" : "pending" },
-    { title: "Documents Reviewed", date: "—", description: total > 0 ? `${approved} of ${total} approved` : "Pending review", status: currentStage >= 4 ? "completed" : currentStage === 3 ? "current" : "pending" },
-    { title: "Processing / Filing", date: "—", description: "Awaiting processing", status: currentStage >= 5 ? "completed" : currentStage === 4 ? "current" : "pending" },
-    { title: "Billing Created", date: "—", description: "Awaiting billing", status: currentStage >= 6 ? "completed" : currentStage === 5 ? "current" : "pending" },
-    { title: "Payment Received", date: "—", description: "Awaiting payment", status: currentStage >= 7 ? "completed" : currentStage === 6 ? "current" : "pending" },
-  ]
-}
+// ─── Document status helpers ──────────────────────────────────────────────────
 
 const documentStatusStyles = {
   in_review: "bg-purple-500/10 text-purple-700 ring-purple-500/25",
@@ -151,6 +154,8 @@ export const getDocumentStatusDots = (status) => documentStatusDots[status] ?? "
 export const getReviewDocuments = (engagement) =>
   (engagement?.documents ?? []).filter((doc) => doc.status !== "pending")
 
+// ─── Mock Data ────────────────────────────────────────────────────────────────
+
 export const mockEngagements = [
   {
     id: "eng-001",
@@ -160,17 +165,19 @@ export const mockEngagements = [
     startDate: "2025-07-10",
     targetEndDate: "2025-08-15",
     status: "active",
+    workflowStage: "document_verification",
     assignedStaff: "staff-001",
     internalNotes: "First engagement for this client. Priority filing.",
     documents: [
-      { id: "doc-001", name: "BIR Form 1702RT (Draft)", uploadedBy: "Bernard Tan", uploadedDate: "2025-07-12", fileType: "PDF", fileSize: "1.1 MB", status: "in_review" },
-      { id: "doc-002", name: "Alphalist of Employees", uploadedBy: "Bernard Tan", uploadedDate: "2025-07-12", fileType: "PDF", fileSize: "856 KB", status: "submitted" },
-      { id: "doc-003", name: "BIR Form 2316", uploadedBy: "Maria Santos", uploadedDate: "2025-07-13", fileType: "PDF", fileSize: "432 KB", status: "submitted" },
-      { id: "doc-004", name: "Schedule 1 Income Computation", uploadedBy: "Bernard Tan", uploadedDate: "2025-07-13", fileType: "XLSX", fileSize: "2.3 MB", status: "approved" },
-      { id: "doc-005", name: "Financial Statements FY2024", uploadedBy: "Maria Santos", uploadedDate: "2025-07-14", fileType: "PDF", fileSize: "4.7 MB", status: "approved" },
+      { id: "doc-001", name: "Monthly Gross Sales Summary", uploadedBy: "Bernard Tan", uploadedDate: "2025-07-12", fileType: "PDF", fileSize: "1.1 MB", status: "in_review" },
+      { id: "doc-002", name: "Sales Record", uploadedBy: "Bernard Tan", uploadedDate: "2025-07-12", fileType: "PDF", fileSize: "856 KB", status: "submitted" },
     ],
     notes: [
       { id: "note-001", type: "internal", content: "Client requested clarification regarding Schedule A income computation.", visibility: "internal", relatedTo: "BIR Form 1702RT (Draft)", createdAt: "2025-07-14T10:35:00", author: "Maria Clara Santos" },
+    ],
+    activityUpdates: [
+      { id: "act-001", title: "Documents submitted for review", description: "Client submitted Monthly Gross Sales Summary and Sales Record for verification.", createdAt: "2025-07-12T10:30:00", author: "Maria Clara Santos" },
+      { id: "act-002", title: "Document verification in progress", description: "Reviewing submitted documents for completeness and accuracy.", createdAt: "2025-07-13T09:00:00", author: "Maria Clara Santos" },
     ],
     reviewHistory: [
       { id: "hist-001", userName: "Maria Clara Santos", action: "submitted", comment: "Documents submitted for review.", timestamp: "2025-07-12T10:30:00" },
@@ -189,6 +196,7 @@ export const mockEngagements = [
     startDate: "2025-07-01",
     targetEndDate: "2025-09-01",
     status: "active",
+    workflowStage: "processing",
     assignedStaff: "staff-002",
     internalNotes: "New business registration. Need DTI, BIR, barangay, and mayor's permit.",
     documents: [
@@ -197,6 +205,10 @@ export const mockEngagements = [
       { id: "doc-013", name: "Business Address Proof", uploadedBy: "Carlos Reyes", uploadedDate: "2025-07-03", fileType: "PDF", fileSize: "1.2 MB", status: "submitted" },
     ],
     notes: [],
+    activityUpdates: [
+      { id: "act-010", title: "Registration processing started", description: "DTI registration submitted. Awaiting confirmation from DTI.", createdAt: "2025-07-05T14:20:00", author: "Juan Dela Cruz" },
+      { id: "act-011", title: "DTI registration approved", description: "DTI confirmed the business name reservation. Proceeding with BIR registration.", createdAt: "2025-07-10T10:00:00", author: "Juan Dela Cruz" },
+    ],
     reviewHistory: [
       { id: "hist-010", userName: "Juan Dela Cruz", action: "submitted", comment: "Initial documents received.", timestamp: "2025-07-02T09:00:00" },
       { id: "hist-011", userName: "Juan Dela Cruz", action: "approved", comment: "ID and TIN verified.", timestamp: "2025-07-03T11:00:00" },
@@ -212,15 +224,23 @@ export const mockEngagements = [
     serviceFee: 3500,
     startDate: "2025-06-15",
     targetEndDate: "2025-07-25",
-    status: "completed",
+    status: "active",
+    workflowStage: "approval",
     assignedStaff: "staff-003",
     internalNotes: "Quarterly VAT return filed on time.",
     documents: [
-      { id: "doc-020", name: "VAT Return 2550M", uploadedBy: "Ana Reyes", uploadedDate: "2025-06-18", fileType: "PDF", fileSize: "2.1 MB", status: "approved" },
-      { id: "doc-021", name: "Official Receipts Summary", uploadedBy: "Ana Reyes", uploadedDate: "2025-06-18", fileType: "PDF", fileSize: "3.4 MB", status: "approved" },
-      { id: "doc-022", name: "Sales Summary Schedule", uploadedBy: "Ana Reyes", uploadedDate: "2025-06-19", fileType: "XLSX", fileSize: "1.2 MB", status: "approved" },
+      { id: "doc-020", name: "Sales Summary", uploadedBy: "Ana Reyes", uploadedDate: "2025-06-18", fileType: "PDF", fileSize: "2.1 MB", status: "approved" },
+      { id: "doc-021", name: "Purchase Summary", uploadedBy: "Ana Reyes", uploadedDate: "2025-06-18", fileType: "PDF", fileSize: "3.4 MB", status: "approved" },
+      { id: "doc-022", name: "VAT Input Summary", uploadedBy: "Ana Reyes", uploadedDate: "2025-06-19", fileType: "XLSX", fileSize: "1.2 MB", status: "approved" },
+      { id: "doc-023", name: "VAT Output Summary", uploadedBy: "Ana Reyes", uploadedDate: "2025-06-19", fileType: "XLSX", fileSize: "980 KB", status: "approved" },
+      { id: "doc-024", name: "BIR Invoices", uploadedBy: "Ana Reyes", uploadedDate: "2025-06-20", fileType: "PDF", fileSize: "4.5 MB", status: "approved" },
+      { id: "doc-025", name: "BIR Receipts", uploadedBy: "Ana Reyes", uploadedDate: "2025-06-20", fileType: "PDF", fileSize: "3.8 MB", status: "approved" },
     ],
     notes: [],
+    activityUpdates: [
+      { id: "act-020", title: "All VAT documents verified", description: "All six required documents have been reviewed and approved.", createdAt: "2025-06-20T15:00:00", author: "Ana Reyes" },
+      { id: "act-021", title: "VAT computation submitted for approval", description: "Tax computation sent to client for review and approval.", createdAt: "2025-06-22T09:30:00", author: "Ana Reyes" },
+    ],
     reviewHistory: [
       { id: "hist-020", userName: "Ana Reyes", action: "submitted", comment: "VAT documents submitted.", timestamp: "2025-06-18T09:00:00" },
       { id: "hist-021", userName: "Ana Reyes", action: "approved", comment: "All documents verified. Filing completed.", timestamp: "2025-06-20T15:00:00" },

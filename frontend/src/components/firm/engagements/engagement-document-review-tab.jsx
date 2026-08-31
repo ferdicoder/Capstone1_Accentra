@@ -1,9 +1,9 @@
 import { useState } from "react"
-import { AlertCircle, CheckCircle2, Download, FileText, Inbox, Paperclip, Plus, Upload, X } from "lucide-react"
+import { useRef } from "react"
+import { AlertCircle, CheckCircle2, Download, FileText, Inbox, Paperclip, Upload, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ReviewStatusBadge } from "./review-status-badge"
 import { engagementStore } from "./engagement-store"
@@ -77,22 +77,11 @@ export function EngagementDocumentReviewTab({ engagement, className, ...props })
   const [remarksError, setRemarksError] = useState("")
   const [actionNotice, setActionNotice] = useState("")
   const [referenceFiles, setReferenceFiles] = useState([])
-  const [newRefName, setNewRefName] = useState("")
+  const fileInputRef = useRef(null)
 
   const updateDocumentStatus = engagementStore((state) => state.updateDocumentStatus)
   const addReviewHistoryEntry = engagementStore((state) => state.addReviewHistoryEntry)
-  const setEngagementStatus = engagementStore((state) => state.setEngagementStatus)
   const staffLabel = firmStaffMap[engagement?.assignedStaff] ?? "You"
-
-  const checkAllApproved = (engagementId) => {
-    const currentEngagement = engagementStore.getState().engagements.find((e) => e.id === engagementId)
-    if (!currentEngagement) return
-    const docs = currentEngagement.documents ?? []
-    const reviewable = docs.filter((d) => d.status !== "pending")
-    if (reviewable.length > 0 && reviewable.every((d) => d.status === "approved")) {
-      setEngagementStatus(engagementId, "completed")
-    }
-  }
 
   const handleApprove = () => {
     if (!selectedDoc) return
@@ -106,7 +95,6 @@ export function EngagementDocumentReviewTab({ engagement, className, ...props })
     setRemarksError("")
     setActionNotice(`${selectedDoc.name} approved`)
     setTimeout(() => setActionNotice(""), 3000)
-    checkAllApproved(engagement.id)
   }
 
   const handleRequestRevision = () => {
@@ -126,11 +114,15 @@ export function EngagementDocumentReviewTab({ engagement, className, ...props })
     setTimeout(() => setActionNotice(""), 3000)
   }
 
-  const addReferenceFile = () => {
-    const name = newRefName.trim()
-    if (!name) return
-    setReferenceFiles((prev) => [...prev, { id: `ref-${Date.now()}`, name, type: "PDF" }])
-    setNewRefName("")
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+    const newFiles = files.map((file) => {
+      const ext = file.name.split(".").pop()?.toUpperCase() ?? ""
+      return { id: `ref-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: file.name, type: ext, size: file.size }
+    })
+    setReferenceFiles((prev) => [...prev, ...newFiles])
+    e.target.value = ""
   }
 
   const removeReferenceFile = (id) => {
@@ -214,6 +206,15 @@ export function EngagementDocumentReviewTab({ engagement, className, ...props })
                 <h4 className="text-sm font-semibold text-foreground">Review Decision</h4>
                 <ReviewStatusBadge status={selectedDoc.status} />
               </div>
+
+              {selectedDoc.status === "approved" ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-3">
+                    <CheckCircle2 className="size-4 text-emerald-600" />
+                    <p className="text-sm font-medium text-emerald-700">This document has already been approved.</p>
+                  </div>
+                </div>
+              ) : (
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <textarea
@@ -243,19 +244,24 @@ export function EngagementDocumentReviewTab({ engagement, className, ...props })
                         </button>
                       </div>
                     ))}
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={newRefName}
-                        onChange={(e) => setNewRefName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addReferenceFile() } }}
-                        placeholder="Reference file name..."
-                        className="h-7 flex-1 text-xs"
-                      />
-                      <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={addReferenceFile} disabled={!newRefName.trim()}>
-                        <Plus className="size-3" />
-                        Add
-                      </Button>
-                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={handleFileSelect}
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.txt,.zip"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1.5 text-xs"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="size-3" />
+                      Upload File
+                    </Button>
                   </div>
                 </div>
 
@@ -268,6 +274,7 @@ export function EngagementDocumentReviewTab({ engagement, className, ...props })
                   </Button>
                 </div>
               </div>
+              )}
             </div>
           </>
         ) : (

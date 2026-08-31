@@ -14,6 +14,20 @@ export const engagementStore = create((set) => ({
         engagement.id === id ? { ...engagement, status } : engagement
       ),
     })),
+  setWorkflowStage: (id, stage) =>
+    set((state) => ({
+      engagements: state.engagements.map((engagement) =>
+        engagement.id === id ? { ...engagement, workflowStage: stage } : engagement
+      ),
+    })),
+  addActivityUpdate: (engagementId, update) =>
+    set((state) => ({
+      engagements: state.engagements.map((engagement) =>
+        engagement.id === engagementId
+          ? { ...engagement, activityUpdates: [update, ...(engagement.activityUpdates ?? [])] }
+          : engagement
+      ),
+    })),
   addNote: (engagementId, note) =>
     set((state) => ({
       engagements: state.engagements.map((engagement) =>
