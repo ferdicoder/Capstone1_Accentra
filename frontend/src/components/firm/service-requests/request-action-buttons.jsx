@@ -11,7 +11,7 @@ export function RequestActionButtons({
   className,
   ...props
 }) {
-  const isDecided = status === "approved" || status === "rejected"
+  const isDecided = status === "approved" || status === "rejected" || status === "cancelled"
   const isProcessing = processing === "approve" || processing === "reject"
 
   return (
@@ -62,6 +62,13 @@ export function RequestActionNotice({ status }) {
     return (
       <div className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 ring-1 ring-red-500/20 ring-inset">
         This request has been rejected.
+      </div>
+    )
+  }
+  if (status === "cancelled") {
+    return (
+      <div className="rounded-lg bg-gray-500/10 px-3 py-2 text-sm text-gray-600 ring-1 ring-gray-500/20 ring-inset">
+        This request was cancelled by the client.
       </div>
     )
   }

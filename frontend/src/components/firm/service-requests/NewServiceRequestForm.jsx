@@ -1,58 +1,58 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
-
-// import { submitServiceRequest } from "@/services/serviceRequestService"
-
-// From the `services` table (service_id, service_name). The select's value becomes
-// `service_id` (FK, INT) on the service_request row.
-const SERVICES = [
-  { value: "1", label: "Annual ITR Filing" },
-  { value: "2", label: "Business Permit Renewal" },
-  { value: "3", label: "Quarterly VAT Filing" },
-  { value: "4", label: "Tax Advisory Consultation" },
-  { value: "5", label: "Barangay Clearance Assistance" },
-]
+import { useFetchServices } from "@/hooks/useServices"
+import { useCreateServiceRequest } from "@/hooks/useServiceRequests"
 
 const initialFormState = {
   serviceId: "",
   description: "",
 }
 
-export function NewServiceRequestForm({ onSubmitted, onCancel }) {
+export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
   const [formData, setFormData] = useState(initialFormState)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState(null)
+
+  const { data: services = [], isLoading: servicesLoading } = useFetchServices()
+  const createRequest = useCreateServiceRequest()
+
+  const activeServices = services.filter((s) => s.status === "active")
 
   const updateField = (event) => {
     const { name, value } = event.target
     setFormData((current) => ({ ...current, [name]: value }))
   }
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault()
     setError(null)
 
+    if (!businessId) {
+      setError("No business found for your account. Please contact support.")
+      return
+    }
     if (!formData.serviceId) {
       setError("Please select a service.")
       return
     }
 
-    setIsSubmitting(true)
-    try {
-      // business_id comes from the authenticated client's session, not the form.
-      // req_status_id defaults to whatever request_statuses row means "Pending" on the backend.
-      // await submitServiceRequest({
-      //   service_id: Number(formData.serviceId),
-      //   description: formData.description,
-      // })
-      onSubmitted?.()
-    } catch (err) {
-      console.error(err)
-      setError("Something went wrong submitting your request. Please try again.")
-    } finally {
-      setIsSubmitting(false)
-    }
+    createRequest.mutate(
+      {
+        businessId,
+        serviceId: formData.serviceId,
+        description: formData.description,
+      },
+      {
+        onSuccess: () => {
+          setFormData(initialFormState)
+          onSubmitted?.()
+        },
+        onError: (err) => {
+          console.error(err)
+          setError("Something went wrong submitting your request. Please try again.")
+        },
+      }
+    )
   }
 
   return (
@@ -73,17 +73,20 @@ export function NewServiceRequestForm({ onSubmitted, onCancel }) {
               value={formData.serviceId}
               onChange={updateField}
               required
+              disabled={servicesLoading}
               className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
             >
-              <option value="">Select a service</option>
-              {SERVICES.map((service) => (
-                <option key={service.value} value={service.value}>
-                  {service.label}
+              <option value="">
+                {servicesLoading ? "Loading services..." : "Select a service"}
+              </option>
+              {activeServices.map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.name}
                 </option>
               ))}
             </select>
             <FieldDescription>
-              Maps to <code>service_id</code> (FK → services.service_id) on the service_request row.
+              Maps to <code>service_id</code> (FK → services.service_id, UUID) on the service_request row.
             </FieldDescription>
           </Field>
 
@@ -111,10 +114,10 @@ export function NewServiceRequestForm({ onSubmitted, onCancel }) {
         </Button>
         <Button
           type="submit"
-          disabled={isSubmitting}
+          disabled={createRequest.isPending}
           className="bg-emerald-600 text-white hover:bg-emerald-700"
         >
-          {isSubmitting ? "Submitting..." : "Submit Request"}
+          {createRequest.isPending ? "Submitting..." : "Submit Request"}
         </Button>
       </div>
     </form>
