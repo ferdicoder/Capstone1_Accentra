@@ -26,16 +26,11 @@ async function getServices() {
   const { data, error } = await supabase
     .from("services")
     .select(`
-      service_id, 
-      price, 
-      service_name, 
-      category, 
-      description,
-      estimated_time, 
-      is_recurring, 
-      status,
+      service_id, price, service_name, category, description,
+      estimated_time, is_recurring, status,
       template_tasks(template_id, title, has_reference, is_required)
     `)
+    
   if (error) throw error
   return (data ?? []).map(mapServiceRow)
 }
@@ -74,6 +69,7 @@ async function updateService(service) {
     `)
     .eq("service_id", serviceId)
     .single()
+    .order('template_id', { foreignTable: 'template_tasks' }) 
   if (fetchError) throw fetchError
 
   return mapServiceRow(updated)
@@ -96,6 +92,7 @@ async function updateServiceStatus({ id, status }) {
       template_tasks(template_id, title, has_reference, is_required)
     `)
     .single()
+    .order('template_id', { foreignTable: 'template_tasks' }) 
   if (error) throw error
   return mapServiceRow(data)
 }
@@ -124,7 +121,6 @@ async function createService(service) {
     }),
   })
   if (!response.ok) throw new Error('Service creation failed')
-
   const { service: createdService } = await response.json()
   return mapServiceRow(createdService)
 }

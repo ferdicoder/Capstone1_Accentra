@@ -1,33 +1,23 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import {
   ArrowLeft,
   CheckCircle2,
   Circle,
+  Download,
   Eye,
+  FileText,
   Search,
-  Trash2,
   Upload,
 } from "lucide-react"
 
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/dashboard/AppSidebar"
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { Input } from "@/components/ui/input"
+import { usePageMeta } from "@/hooks/usePageMeta"
 import { Button } from "@/components/ui/button"
 
-import {
-  postEngagementActivity,
-  deleteEngagementActivity,
-} from "@/services/engagementActivityService"
+import { getEngagementActivity } from "@/services/engagementActivityService"
+import { getEngagementDeliverables } from "@/services/engagementDeliverablesService"
 
-const currentUser = {
-  name: "Maria Santos",
-  email: "maria@santosretail.com",
-  avatar: "",
-}
-
-// Mock — replace with a real fetch keyed off the :id route param
 const engagement = {
   code: "ENG-2024-0041",
   status: "Active",
@@ -54,16 +44,13 @@ const engagement = {
 }
 
 const WORKFLOW_STEPS = [
-  "Approved",
-  "Docs",
-  "Submitted",
-  "Review",
-  "Filing",
-  "Billing",
+  "Documentation Collection",
+  "Document Verification",
+  "Processing",
+  "Approval",
   "Payment",
-  "Done",
 ]
-const CURRENT_STEP_INDEX = 4 // "Filing" — swap for real workflow state from the API
+const CURRENT_STEP_INDEX = 2 // "Processing" — swap for real workflow state from the API
 
 const initialActivityLog = [
   {
@@ -160,11 +147,37 @@ const documentStatusStyles = {
   Missing: "bg-red-50 text-red-700 border border-red-200",
 }
 
+const initialDeliverables = [
+  {
+    id: "del-1",
+    file_name: "Filed_ITR_2024.pdf",
+    file_size: 842000,
+    created_at: "Apr 18, 2025",
+    signedUrl: null,
+  },
+  {
+    id: "del-2",
+    file_name: "BIR_Acknowledgement_Receipt.pdf",
+    file_size: 210000,
+    created_at: "Apr 18, 2025",
+    signedUrl: null,
+  },
+]
+
+function formatBytes(bytes) {
+  if (!bytes) return "—"
+  const kb = bytes / 1024
+  return kb < 1024 ? `${kb.toFixed(0)} KB` : `${(kb / 1024).toFixed(1)} MB`
+}
+
 export default function ClientEngagementDetailPage() {
   const { id } = useParams()
   const [activeTab, setActiveTab] = useState("overview")
   const [documentSearch, setDocumentSearch] = useState("")
   const [activityLog, setActivityLog] = useState(initialActivityLog)
+  const [isActivityLoading, setIsActivityLoading] = useState(false)
+  const [deliverables, setDeliverables] = useState(initialDeliverables)
+  const [isDeliverablesLoading, setIsDeliverablesLoading] = useState(false)
 
   const filteredDocuments = initialDocuments.filter((doc) =>
     doc.name.toLowerCase().includes(documentSearch.toLowerCase())
@@ -174,67 +187,82 @@ export default function ClientEngagementDetailPage() {
     (d) => d.status === "For Review"
   ).length
 
-  // Adds an activity entry both locally (so the UI updates immediately)
-  // and on the backend via postEngagementActivity (Supabase insert).
-  const addActivityEntry = async (title, description) => {
-    const optimisticEntry = {
-      id: `local-${Date.now()}`,
-      title,
-      description,
-      date: new Date().toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
-      done: true,
+  const isCompleted = engagement.status === "Completed"
+  const activeStepIndex = isCompleted
+    ? WORKFLOW_STEPS.length - 1
+    : CURRENT_STEP_INDEX
+  const percentComplete = isCompleted ? 100 : engagement.percentComplete
+
+  // Read-only: per S4-13, the client sees the activity timeline but never
+  // posts or deletes entries — that's S4-11/S4-12, firm-side only. This
+  // just loads the log; falls back to the mock data above if the fetch
+  // fails, so the page still has something to show during development.
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadActivity() {
+      setIsActivityLoading(true)
+      const { data, error } = await getEngagementActivity(id)
+
+      if (!isMounted) return
+
+      if (error) {
+        console.error("Failed to load activity log:", error)
+        // keep showing the mock/initial data as a fallback
+      } else if (data) {
+        setActivityLog(data)
+      }
+
+      setIsActivityLoading(false)
     }
-    setActivityLog((current) => [optimisticEntry, ...current])
 
-    const { error } = await postEngagementActivity(id, {
-      type: title,
-      message: description,
-    })
+    loadActivity()
 
-    if (error) {
-      console.error("Failed to save activity entry:", error)
-      // TODO: surface an error toast and/or roll back the optimistic entry
+    return () => {
+      isMounted = false
     }
-  }
+  }, [id])
 
-  // Removes an activity entry both locally and via deleteEngagementActivity.
-  // See the service file's compliance note before wiring this to a real
-  // button — audit logs for a CPA firm usually shouldn't be user-deletable
-  // without a specific reason (e.g. correcting a duplicate/erroneous entry).
-  const removeActivityEntry = async (logId) => {
-    const previous = activityLog
-    setActivityLog((current) => current.filter((log) => log.id !== logId))
+  // Deliverables: read-only, client-side, per S4-16's DoD ("Client can
+  // see and download deliverables via signed URL"). Uploading/deleting
+  // is S4-14/S4-15, firm-side only.
+  useEffect(() => {
+    let isMounted = true
 
-    const { error } = await deleteEngagementActivity(id, logId)
+    async function loadDeliverables() {
+      setIsDeliverablesLoading(true)
+      const { data, error } = await getEngagementDeliverables(id)
 
-    if (error) {
-      console.error("Failed to delete activity entry:", error)
-      setActivityLog(previous) // roll back on failure
+      if (!isMounted) return
+
+      if (error) {
+        console.error("Failed to load deliverables:", error)
+        // keep showing the mock/initial data as a fallback
+      } else if (data) {
+        setDeliverables(data)
+      }
+
+      setIsDeliverablesLoading(false)
     }
-  }
+
+    loadDeliverables()
+
+    return () => {
+      isMounted = false
+    }
+  }, [id])
+
+  usePageMeta({
+    title: engagement.code,
+    breadcrumbs: [
+      { label: "Home", href: "/client/dashboard" },
+      { label: "Engagements", href: "/client/engagements" },
+    ],
+    hasUnreadNotifications: true,
+  })
 
   return (
-    <SidebarProvider>
-      <AppSidebar role="client" user={currentUser} />
-      <SidebarInset>
-        <DashboardHeader
-          role="client"
-          user={currentUser}
-          breadcrumbs={[
-            { label: "Home", href: "/client/dashboard" },
-            { label: "Engagements", href: "/client/engagements" },
-          ]}
-          title={engagement.code}
-          hasUnreadNotifications
-          onNotificationsClick={() => {}}
-          onRequestServiceClick={() => {}}
-        />
-
-        <div className="flex flex-1 flex-col gap-4 px-6 py-6">
+    <div className="flex flex-1 flex-col gap-4 px-2 py-2">
           <Link
             to="/client/engagements"
             className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -270,12 +298,12 @@ export default function ClientEngagementDetailPage() {
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold">Workflow Progress</h2>
               <span className="text-sm font-medium text-emerald-700">
-                {engagement.percentComplete}% complete
+                {isCompleted ? "Completed" : `${percentComplete}% complete`}
               </span>
             </div>
             <div className="flex items-center">
               {WORKFLOW_STEPS.map((step, i) => {
-                const isDone = i <= CURRENT_STEP_INDEX
+                const isDone = i <= activeStepIndex
                 const isLast = i === WORKFLOW_STEPS.length - 1
                 return (
                   <div key={step} className="flex flex-1 items-center">
@@ -298,7 +326,7 @@ export default function ClientEngagementDetailPage() {
                     {!isLast && (
                       <div
                         className={`mx-1 h-px flex-1 ${
-                          i < CURRENT_STEP_INDEX
+                          i < activeStepIndex
                             ? "bg-emerald-400"
                             : "bg-muted-foreground/20"
                         }`}
@@ -335,10 +363,33 @@ export default function ClientEngagementDetailPage() {
                 {initialDocuments.length}
               </span>
             </button>
+            <button
+              onClick={() => setActiveTab("activity")}
+              className={`-mb-px border-b-2 pb-2 text-sm font-medium transition-colors ${
+                activeTab === "activity"
+                  ? "border-emerald-600 text-emerald-700"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Activity
+            </button>
+            <button
+              onClick={() => setActiveTab("deliverables")}
+              className={`-mb-px flex items-center gap-1.5 border-b-2 pb-2 text-sm font-medium transition-colors ${
+                activeTab === "deliverables"
+                  ? "border-emerald-600 text-emerald-700"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Deliverables
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                {deliverables.length}
+              </span>
+            </button>
           </div>
 
           {activeTab === "overview" && (
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid gap-4 lg:grid-cols-2">
               <div className="rounded-xl border bg-background p-5">
                 <h3 className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
                   Task
@@ -434,14 +485,24 @@ export default function ClientEngagementDetailPage() {
                   </div>
                 </dl>
               </div>
+            </div>
+          )}
 
-              <div className="rounded-xl border bg-background p-5">
-                <h3 className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
-                  Activity Logs
-                </h3>
-                <ul className="space-y-4">
+          {activeTab === "activity" && (
+            <div className="rounded-xl border bg-background p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Activity Timeline</h3>
+                <span className="text-xs text-muted-foreground">
+                  Read only — updates are posted by your firm
+                </span>
+              </div>
+
+              {isActivityLoading ? (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              ) : (
+                <ul className="space-y-5">
                   {activityLog.map((log) => (
-                    <li key={log.id} className="group flex items-start gap-3">
+                    <li key={log.id} className="flex items-start gap-3">
                       {log.done ? (
                         <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
                       ) : (
@@ -468,19 +529,16 @@ export default function ClientEngagementDetailPage() {
                           </p>
                         )}
                       </div>
-                      {log.done && log.id.startsWith("local-") && (
-                        <button
-                          onClick={() => removeActivityEntry(log.id)}
-                          className="opacity-0 transition-opacity group-hover:opacity-100"
-                          title="Delete this entry"
-                        >
-                          <Trash2 className="size-3.5 text-muted-foreground hover:text-red-600" />
-                        </button>
-                      )}
                     </li>
                   ))}
+
+                  {activityLog.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      No activity yet.
+                    </p>
+                  )}
                 </ul>
-              </div>
+              )}
             </div>
           )}
 
@@ -626,8 +684,63 @@ export default function ClientEngagementDetailPage() {
               </div>
             </div>
           )}
+
+          {activeTab === "deliverables" && (
+            <div className="rounded-xl border bg-background p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Final Deliverables</h3>
+                <span className="text-xs text-muted-foreground">
+                  Files uploaded by your firm — download links expire after
+                  10 minutes
+                </span>
+              </div>
+
+              {isDeliverablesLoading ? (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              ) : deliverables.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No deliverables have been uploaded yet.
+                </p>
+              ) : (
+                <ul className="divide-y">
+                  {deliverables.map((file) => (
+                    <li
+                      key={file.id}
+                      className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                    >
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                        <FileText className="size-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {file.file_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {file.created_at} · {formatBytes(file.file_size)}
+                        </p>
+                      </div>
+                      {file.signedUrl ? (
+                        <a
+                          href={file.signedUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
+                        >
+                          <Download className="size-3.5" />
+                          Download
+                        </a>
+                      ) : (
+                        <span className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-muted-foreground/50">
+                          <Download className="size-3.5" />
+                          Unavailable
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
-      </SidebarInset>
-    </SidebarProvider>
   )
 }

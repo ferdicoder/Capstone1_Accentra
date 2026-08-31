@@ -24,15 +24,21 @@ async function createService(req, res) {
     });
     if (error) throw new Error(error.message);
 
-    // RPC only returns the new UUID — fetch the full row (with tasks) to send back
+    // refetch whole row 
     const { data: created, error: fetchError } = await supabaseAdmin
       .from('services')
       .select(`
-        service_id, price, service_name, category, description,
-        estimated_time, is_recurring, status,
+        service_id, 
+        price, 
+        service_name, 
+        category, 
+        description,
+        estimated_time, 
+        is_recurring, status,
         template_tasks(template_id, title, has_reference, is_required)
       `)
       .eq('service_id', serviceId)
+      .order('template_id', { foreignTable: 'template_tasks' })  
       .single();
     if (fetchError) throw new Error(fetchError.message);
 

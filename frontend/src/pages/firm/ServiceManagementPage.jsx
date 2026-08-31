@@ -1,7 +1,8 @@
+import { useLocation } from "react-router-dom"
 import { useMemo, useState } from "react"
 import { Ban, CheckCircle2, Pencil, Trash2 } from "lucide-react"
 
-import { DashboardLayout } from "@/layout/DashboardLayout"
+import { usePageMeta } from "@/hooks/usePageMeta"
 import {
   ServiceManagementActionsMenu,
   ServiceManagementTable,
@@ -22,10 +23,14 @@ import {
   useDeleteService,
 } from "@/hooks/useServices"
 
+import { uploadTemplateDocument } from "@/services/api/documentAPI"
+
 const categoryLabel = (value) =>
   categoryFilterOptions.find((option) => option.value === value)?.label ?? value ?? ""
 
 export default function ServiceManagementPage() {
+  const location = useLocation()
+  const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
@@ -58,14 +63,44 @@ export default function ServiceManagementPage() {
   }, [services, search, categoryFilter, statusFilter])
 
   const handleCreate = (values) => {
-    createService.mutate(values, {
-      onSuccess: (newService) => {
-        setCreateOpen(false)
-        setNotice({ tone: "success", message: `${newService.name} added` })
-      },
-    })
-  }
-  console.log(services)
+  const tasksWithFiles = values.workflowTasks
+    .map((task, index) => ({ task, index }))
+    .filter(({ task }) => task.hasReferenceDocument && task.referenceDocument?.file)
+
+  createService.mutate(values, {
+    onSuccess: async (newService) => {
+      setCreateOpen(false)
+      setNotice({ tone: "success", message: `${newService.name} added` })
+
+      if (tasksWithFiles.length === 0) return
+
+      const failedUploads = []
+
+      await Promise.all(
+        tasksWithFiles.map(async ({ task, index }) => {
+          const matchedTask = newService.workflowTasks?.[index]
+          if (!matchedTask?.id) {
+            failedUploads.push(task.name)
+            return
+          }
+          try {
+            await uploadTemplateDocument(matchedTask.id, task.referenceDocument.file)
+          } catch (err) {
+            console.error(`Reference document upload failed for "${task.name}":`, err)
+            failedUploads.push(task.name)
+          }
+        })
+      )
+
+      if (failedUploads.length > 0) {
+        setNotice({
+          tone: "danger",
+          message: `Service saved, but reference document(s) failed to upload: ${failedUploads.join(", ")}`,
+        })
+      }
+    },
+  })
+}
   const openEdit = (service) => {
     setEditingService(service)
     setEditOpen(true)
@@ -111,15 +146,16 @@ export default function ServiceManagementPage() {
     })
   }
 
+  usePageMeta({
+    title: "Services",
+    breadcrumbs: [
+      { label: basePath === "/firm" ? "Firm Staff" : "Firm Admin", href: `${basePath}/dashboard` },
+      { label: "Service Management", href: `${basePath}/services` },
+    ],
+  })
+
   return (
-    <DashboardLayout
-      role="firm-admin"
-      title="Services"
-      breadcrumbs={[
-        { label: "Firm Admin", href: "/admin/dashboard" },
-        { label: "Service Management", href: "/admin/services" },
-      ]}
-    >
+    <>
       <div className="flex flex-wrap items-center gap-3 py-1">
         <p className="text-sm text-muted-foreground">
           Manage your firm's service catalog. You can add new service templates, edit existing
@@ -197,6 +233,6 @@ export default function ServiceManagementPage() {
         onConfirm={handleDelete}
         deleting={deleteService.isPending}
       />
-    </DashboardLayout>
+    </>
   )
 }

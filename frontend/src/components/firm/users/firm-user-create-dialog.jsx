@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ChevronDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -24,7 +24,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { roleFilterOptions } from "./firm-user-variants"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -34,7 +33,10 @@ const PHONE_PATTERN = /^\+?[0-9\s-]{10,14}$/
 /**
  * Presentational "Add User" modal form for the firm user list.
  * Fully controlled: the parent owns `open`/`onOpenChange` and performs any
- * API work after receiving the values from `onSubmit`. No API/auth/routing.
+ * API work after receiving the values from `onSubmit`. No API/auth/routing —
+ * that includes roles: this component no longer imports a static role list,
+ * it renders whatever `roleOptions` the parent hands it (e.g. fetched from
+ * the `roles` table via `useFetchRoles`).
  *
  * The firm admin creates the account on behalf of the new firm user/staff,
  * so the form includes a temporary password that the new user can change
@@ -45,9 +47,14 @@ const PHONE_PATTERN = /^\+?[0-9\s-]{10,14}$/
  * @param {Function} onSubmit - (values: { firstName, middleName, lastName,
  *   extension, email, contactNumber, temporaryPassword, role }) => void.
  *   Values are validated before being passed up; parent does the actual request.
- * @param {Array} roleOptions - [{ value, label }] for the role selector. Defaults
- *   to `roleFilterOptions` from "./firm-user-variants".
- * @param {string} defaultRole - Role preselected on open. Default "staff".
+ *   `role` is the selected option's `value` (i.e. `role_id`).
+ * @param {Array} roleOptions - [{ value, label }] for the role selector.
+ *   Expected to come from the DB-backed `roles` table (value = role_id,
+ *   label = role_name). No default — pass [] while roles are loading.
+ * @param {boolean} rolesLoading - Shows a loading state on the role selector
+ *   and disables it while `roleOptions` is still being fetched.
+ * @param {string} defaultRole - Role value preselected on open, once available
+ *   in `roleOptions`. Default "staff".
  * @param {boolean} submitting - Disables the form and shows a spinner on submit.
  * @param {string} error - Optional message from the parent (e.g. failed request).
  * @param {string} title - Dialog title. Default "Add User".
@@ -60,7 +67,8 @@ export function FirmUserCreateDialog({
   open = false,
   onOpenChange,
   onSubmit,
-  roleOptions = roleFilterOptions,
+  roleOptions = [],
+  rolesLoading = false,
   defaultRole = "staff",
   submitting = false,
   error,
@@ -84,7 +92,17 @@ export function FirmUserCreateDialog({
   )
   const [errors, setErrors] = useState({})
 
+  // roleOptions often arrives async (fetched from the roles table), so the
+  // dialog can open before it's populated. Apply the default once it lands,
+  // but don't clobber a role the user already picked.
+  useEffect(() => {
+    if (!role && roleOptions.some((option) => option.value === defaultRole)) {
+      setRole(defaultRole)
+    }
+  }, [roleOptions, defaultRole, role])
+
   const activeRole = roleOptions.find((option) => option.value === role)
+  const rolesUnavailable = !rolesLoading && roleOptions.length === 0
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -248,7 +266,7 @@ export function FirmUserCreateDialog({
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={submitting}
+                      disabled={submitting || rolesLoading || rolesUnavailable}
                       className={cn(
                         "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
                         errors.role && "border-red-500 focus-visible:ring-red-500"
@@ -256,7 +274,14 @@ export function FirmUserCreateDialog({
                     />
                   }
                 >
-                  {activeRole?.label ?? "Select role"}
+                  {rolesLoading ? (
+                    <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                      <Loader2 className="size-3.5 animate-spin" />
+                      Loading roles…
+                    </span>
+                  ) : (
+                    activeRole?.label ?? "Select role"
+                  )}
                   <ChevronDown className="size-4 opacity-60" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="min-w-40">
@@ -271,6 +296,11 @@ export function FirmUserCreateDialog({
                 </DropdownMenuContent>
               </DropdownMenu>
               {errors.role && <p className="text-sm text-red-500">Select a role.</p>}
+              {rolesUnavailable && (
+                <p className="text-sm text-muted-foreground">
+                  No roles available. Check the roles table.
+                </p>
+              )}
             </Field>
           </FieldGroup>
 
@@ -291,7 +321,7 @@ export function FirmUserCreateDialog({
             </Button>
             <Button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || rolesUnavailable}
               className="bg-forest-900 text-white hover:opacity-90"
             >
               {submitting && <Loader2 className="size-4 animate-spin" />}

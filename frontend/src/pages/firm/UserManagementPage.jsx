@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from "react"
 import { Ban, CheckCircle2, Pencil } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { DashboardLayout } from "@/layout/DashboardLayout"
+import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
+import { usePageMeta } from "@/hooks/usePageMeta"
 import { FirmUsersToolbar } from "@/components/firm/users/firm-users-toolbar"
 import { FirmUserTable } from "@/components/firm/users/firm-user-table"
 import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-menu"
 import { FirmUserCreateDialog } from "@/components/firm/users/firm-user-create-dialog"
 import { FirmUserEditDialog } from "@/components/firm/users/firm-user-edit-dialog"
 
-import { useFetchUsers,useUpdateUser, useToggleUserStatus, useCreateStaff} from "@/hooks/useUsers"
+import { useFetchUsers,useUpdateUser, useToggleUserStatus, useCreateStaff, useFetchRoleOptions } from "@/hooks/useUsers"
+
 
 
 const buildDisplayName = ({ firstName, middleName, lastName, extension, name }) => {
@@ -25,11 +26,26 @@ export default function UserManagementPage() {
   const [editingUser, setEditingUser] = useState(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [notice, setNotice] = useState("")
+  const [loading, setLoading] = useState(true)
 
-  const { data: users = [], isLoading, error } = useFetchUsers() 
+  // Simulated load so the shared skeleton system has something to show.
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const { data: users = [], isLoading, error } = useFetchUsers()
+  const { data: roles = [], isLoading: rolesLoading } = useFetchRoleOptions()
   const updateUser = useUpdateUser()
   const toggleStatus = useToggleUserStatus()
   const createStaff = useCreateStaff()
+
+  // DB-backed role list, shaped for the dropdowns (value = role_id, label = role_name).
+  const roleOptions = useMemo(
+    () => roles.map((role) => ({ value: role.role_id, label: role.role_name })),
+    [roles]
+  )
+
 
   // for searching
   const filteredUsers = useMemo(() => {
@@ -72,15 +88,20 @@ export default function UserManagementPage() {
     })
   }
 
+  usePageMeta({
+    title: "Firm Users",
+    breadcrumbs: [
+      { label: "Firm Admin", href: "/admin/dashboard" },
+      { label: "User Management", href: "/admin/users" },
+    ],
+  })
+
   return (
-    <DashboardLayout
-      role="firm-admin"
-      title="Firm Users"
-      breadcrumbs={[
-        { label: "Firm Admin", href: "/admin/dashboard" },
-        { label: "User Management", href: "/admin/users" },
-      ]}
-    >
+    <>
+      {loading || isLoading ? (
+        <PageSkeleton type="users" />
+      ) : (
+        <>
       <div className="flex flex-wrap items-center gap-3 py-1">
         <p className="text-sm text-muted-foreground">
           Manage your firm's users and their access to the platform.
@@ -100,6 +121,7 @@ export default function UserManagementPage() {
         onSearchChange={setSearch}
         roleFilter={roleFilter}
         onRoleFilterChange={setRoleFilter}
+        roleOptions={roleOptions}
         onAddUser={() => setDialogOpen(true)}
         resultCount={`${filteredUsers.length} of ${users.length} users`}
       />
@@ -127,6 +149,8 @@ export default function UserManagementPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSubmit={handleCreate}
+        roleOptions={roleOptions}
+        rolesLoading={rolesLoading}
         submitting={createStaff.isPending}
       />
 
@@ -135,8 +159,12 @@ export default function UserManagementPage() {
         onOpenChange={setEditDialogOpen}
         user={editingUser}
         onSubmit={handleSave}
+        roleOptions={roleOptions}
+        rolesLoading={rolesLoading}
         submitting={updateUser.isPending}
       />
-    </DashboardLayout>
+        </>
+      )}
+    </>
   )
 }

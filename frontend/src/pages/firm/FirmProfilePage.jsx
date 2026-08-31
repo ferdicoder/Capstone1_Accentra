@@ -1,13 +1,13 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Save } from "lucide-react"
 
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/dashboard/AppSidebar"
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
+import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
+import { usePageMeta } from "@/hooks/usePageMeta"
+import { cn } from "@/lib/utils"
+
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
 
 // import { updateFirmProfile, updateFirmPassword } from "@/services/firmService"
 
@@ -40,11 +40,12 @@ const tabs = [
   { key: "security", label: "Security" },
 ]
 
-// Shared classes so every input / select on the page has identical height, border, and focus treatment
-const controlClass = "h-10 w-full bg-background"
+// Shared classes so every input / select on the page matches the shared Input
+// (h-8, rounded-lg, neutral focus ring) used across the User Management module.
+const controlClass = "w-full bg-background"
 const selectClass = cn(
   controlClass,
-  "rounded-lg border border-input px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+  "h-8 rounded-lg border border-input px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 )
 
 export default function FirmProfilePage() {
@@ -53,6 +54,13 @@ export default function FirmProfilePage() {
   const [security, setSecurity] = useState(initialSecurity)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  // Simulated load so the shared skeleton system has something to show.
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   const updateProfileField = (event) => {
     const { name, value } = event.target
@@ -101,23 +109,20 @@ export default function FirmProfilePage() {
     }
   }
 
-  return (
-    <SidebarProvider>
-      <AppSidebar role="firm-admin" user={currentUser} />
-      <SidebarInset>
-        <DashboardHeader
-          role="firm-admin"
-          user={currentUser}
-          breadcrumbs={[{ label: "Home", href: "/firm-admin/dashboard" }]}
-          title="Firm Profile"
-          hasUnreadNotifications
-          onNotificationsClick={() => {}}
-        />
+  usePageMeta({
+    title: "Firm Profile",
+    breadcrumbs: [{ label: "Home", href: "/admin/dashboard" }],
+    hasUnreadNotifications: true,
+  })
 
-        {/* Same max-width rail as ClientProfilePage, so header, breadcrumb, and cards all share one edge */}
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-2">
+          {loading ? (
+            <PageSkeleton type="profile" />
+          ) : (
+            <>
           <div className="flex items-center gap-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-forest-900 text-sm font-semibold text-white">
               A
             </div>
             <div>
@@ -155,8 +160,8 @@ export default function FirmProfilePage() {
               className={cn(
                 "rounded-lg px-4 py-2.5 text-sm",
                 saveMessage.type === "success"
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                  : "bg-red-50 text-red-700 border border-red-200"
+                  ? "bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20 ring-inset"
+                  : "bg-red-500/10 text-red-600 ring-1 ring-red-500/20 ring-inset"
               )}
             >
               {saveMessage.text}
@@ -169,7 +174,7 @@ export default function FirmProfilePage() {
                   field content differs slightly — avoids the shorter card trailing off with dead space. */}
               <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
                 {/* Firm Details: 3 field-rows */}
-                <div className="flex flex-col rounded-xl border bg-background p-6">
+                <div className="flex flex-col rounded-xl border border-border bg-card p-6 shadow-sm">
                   <h2 className="mb-5 text-sm font-semibold">
                     Firm Details
                   </h2>
@@ -228,7 +233,7 @@ export default function FirmProfilePage() {
 
                 {/* Admin Contact: 3 field-rows — Contact Number moved here (was previously with Firm
                     Details), so both cards run the same number of rows and finish at the same height. */}
-                <div className="flex flex-col rounded-xl border bg-background p-6">
+                <div className="flex flex-col rounded-xl border border-border bg-card p-6 shadow-sm">
                   <h2 className="mb-5 text-sm font-semibold">
                     Admin Contact
                   </h2>
@@ -286,7 +291,7 @@ export default function FirmProfilePage() {
                 <Button
                   type="submit"
                   disabled={isSaving}
-                  className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
+                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
                 >
                   <Save className="size-4" />
                   {isSaving ? "Saving..." : "Save Changes"}
@@ -300,7 +305,7 @@ export default function FirmProfilePage() {
               {/* Same grid + col-span-2 wrapper pattern as ClientProfilePage's Security tab,
                   so the card sits on the same rail even though it's a single full-width block. */}
               <div className="grid gap-6 lg:grid-cols-2">
-                <div className="rounded-xl border bg-background p-6 lg:col-span-2">
+                <div className="rounded-xl border border-border bg-card p-6 shadow-sm lg:col-span-2">
                   <h2 className="mb-5 text-sm font-semibold">
                     Change Password
                   </h2>
@@ -358,7 +363,7 @@ export default function FirmProfilePage() {
                 <Button
                   type="submit"
                   disabled={isSaving}
-                  className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
+                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
                 >
                   <Save className="size-4" />
                   {isSaving ? "Saving..." : "Update Password"}
@@ -366,8 +371,8 @@ export default function FirmProfilePage() {
               </div>
             </form>
           )}
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+            </>
+          )}
+    </div>
   )
 }

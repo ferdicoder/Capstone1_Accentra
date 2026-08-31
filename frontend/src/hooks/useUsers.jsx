@@ -1,6 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getUsers, updateUser, updateUserStatus, createStaff} from "@/services/api/userAPI"
 import { queryKeys } from "@/config/queryKeys"
+
+import { 
+  getUsers, 
+  updateUser, 
+  updateUserStatus, 
+  createStaff,
+  fetchRoleOptions
+} from "@/services/api/userAPI"
+
 
 export function useFetchUsers() {
   return useQuery({
@@ -9,7 +17,14 @@ export function useFetchUsers() {
   })
 }
 
-// 
+export function useFetchRoleOptions() {
+  return useQuery({
+    queryKey: queryKeys.roles,
+    queryFn: fetchRoleOptions,
+    staleTime: 5 * 60 * 1000
+  })
+}
+
 export function useUpdateUser() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -49,4 +64,5 @@ export function useToggleUserStatus() {
     },
   })
 }
+
 

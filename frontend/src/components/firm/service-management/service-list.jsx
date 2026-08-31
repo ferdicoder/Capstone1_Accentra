@@ -61,36 +61,36 @@ export function ServiceStatsCards({ services = [], className }) {
     {
       label: "Total Services",
       value: total,
-      valueClassName: "text-[#02353c] dark:text-teal-300",
+      valueClassName: "text-forest-900 dark:text-emerald-300",
     },
     {
       label: "Active Services",
       value: active,
-      valueClassName: "text-[#10b981] dark:text-emerald-400",
+      valueClassName: "text-emerald-600 dark:text-emerald-400",
     },
     {
       label: "Active Engagements",
       value: activeEngagements,
-      valueClassName: "text-[#7c3aed] dark:text-violet-400",
+      valueClassName: "text-violet-600 dark:text-violet-400",
     },
     {
       label: "Inactive / Archived",
       value: inactiveArchived,
-      valueClassName: "text-[#6b7280] dark:text-gray-400",
+      valueClassName: "text-muted-foreground",
     },
   ]
 
   return (
     <div
       data-slot="service-stats-cards"
-      className={cn("grid grid-cols-4 gap-4", className)}
+      className={cn("grid grid-cols-2 gap-4 lg:grid-cols-4", className)}
     >
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="rounded-xl border border-[#e5e7eb] bg-card p-5 shadow-sm"
+          className="rounded-xl border border-border bg-card p-5 shadow-sm"
         >
-          <p className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
+          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             {stat.label}
           </p>
           <p className={cn("mt-1.5 text-3xl font-bold", stat.valueClassName)}>

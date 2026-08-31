@@ -1,19 +1,29 @@
+import { useCallback, useMemo, useState } from "react"
+import { Outlet } from "react-router-dom"
+
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
 import { AppSidebar } from "@/components/dashboard/AppSidebar"
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 
-export function DashboardLayout({
-  role,
-  user,
-  title,
-  breadcrumbs = [],
-  actions,
-  hasUnreadNotifications,
-  onNotificationsClick,
-  onRequestServiceClick,
-  children,
-}) {
+const defaultUser = {
+  name: "Jane Doe",
+  email: "jane@accentra.com",
+  avatar: "",
+}
+
+export function DashboardLayout({ role, user = defaultUser }) {
+  const [pageMeta, setPageMeta] = useState({})
+
+  const stableSetPageMeta = useCallback((meta) => {
+    setPageMeta(meta)
+  }, [])
+
+  const outletContext = useMemo(
+    () => ({ setPageMeta: stableSetPageMeta }),
+    [stableSetPageMeta]
+  )
+
   return (
     <SidebarProvider>
       <AppSidebar role={role} user={user} />
@@ -21,14 +31,16 @@ export function DashboardLayout({
         <DashboardHeader
           role={role}
           user={user}
-          title={title}
-          breadcrumbs={breadcrumbs}
-          actions={actions}
-          hasUnreadNotifications={hasUnreadNotifications}
-          onNotificationsClick={onNotificationsClick}
-          onRequestServiceClick={onRequestServiceClick}
+          title={pageMeta.title}
+          breadcrumbs={pageMeta.breadcrumbs ?? []}
+          actions={pageMeta.actions}
+          hasUnreadNotifications={pageMeta.hasUnreadNotifications}
+          onNotificationsClick={pageMeta.onNotificationsClick}
+          onRequestServiceClick={pageMeta.onRequestServiceClick}
         />
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">{children}</div>
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+          <Outlet context={outletContext} />
+        </div>
       </SidebarInset>
     </SidebarProvider>
   )
