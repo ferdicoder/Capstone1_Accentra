@@ -24,8 +24,8 @@ export function WorkflowProgress({ workflowStage, className }) {
     .join(" ")
 
   return (
-    <div className={cn("rounded-xl border bg-background p-5", className)}>
-      <div className="mb-5 flex items-center justify-between">
+    <div className={cn("rounded-xl border bg-background px-5 py-4", className)}>
+      <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-semibold">Workflow Progress</h2>
         <span className="text-sm font-medium text-emerald-700">
           {isCancelled ? "Cancelled" : isComplete ? "Completed" : `${progressPercent}% complete`}
@@ -39,11 +39,11 @@ export function WorkflowProgress({ workflowStage, className }) {
           return (
             <div key={stage.key} className="contents">
               {/* Circle + Label */}
-              <div className="flex flex-col items-center gap-2 px-2">
+              <div className="flex flex-col items-center gap-1.5 px-2">
                 {isDone ? (
-                  <CheckCircle2 className="size-7 text-emerald-600" />
+                  <CheckCircle2 className="size-6 text-emerald-600" />
                 ) : (
-                  <Circle className="size-7 text-muted-foreground/40" />
+                  <Circle className="size-6 text-muted-foreground/40" />
                 )}
                 <span
                   className={`whitespace-nowrap text-xs text-center ${
@@ -56,7 +56,7 @@ export function WorkflowProgress({ workflowStage, className }) {
 
               {/* Connecting line */}
               {!isLast && (
-                <div className="flex items-center self-start pt-[14px] px-0">
+                <div className="flex items-center self-start pt-[11px] px-0">
                   <div
                     className={cn(
                       "h-0.5 w-full",

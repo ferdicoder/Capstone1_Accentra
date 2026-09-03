@@ -21,9 +21,9 @@ import { engagementStore } from "@/components/firm/engagements/engagement-store"
 import { EngagementDocumentReviewTab } from "@/components/firm/engagements/engagement-document-review-tab"
 import { AddNoteDialog } from "@/components/firm/engagements/add-note-dialog"
 import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
-import { ClientServiceInfoCard } from "@/components/firm/engagements/ClientServiceInfoCard"
+import { ClientServiceDetailsDialog } from "@/components/firm/engagements/ClientServiceDetailsDialog"
 import { ActivityUpdates } from "@/components/firm/engagements/ActivityUpdates"
-import { ReviewSummaryCard } from "@/components/firm/engagements/ReviewSummaryCard"
+import { TaskList } from "@/components/firm/engagements/TaskList"
 import {
   workflowStageOptions,
 } from "@/components/firm/engagements/engagement-variants"
@@ -38,6 +38,7 @@ export default function EngagementDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
   const [addNoteOpen, setAddNoteOpen] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const [notice, setNotice] = useState("")
   const addNote = engagementStore((state) => state.addNote)
   const setEngagementStatus = engagementStore((state) => state.setEngagementStatus)
@@ -101,7 +102,7 @@ export default function EngagementDetailsPage() {
 
   return (
     <>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-center gap-2">
           <button
@@ -123,38 +124,25 @@ export default function EngagementDetailsPage() {
           </span>
         </div>
 
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground">
-          {engagement.serviceName}
-        </h1>
-
-        {/* ── Tabs + Actions ─────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex gap-6">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={cn(
-                  "relative pb-3 text-sm font-medium transition-colors",
-                  activeTab === tab.key
-                    ? "text-[#02353C]"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {tab.label}
-                {activeTab === tab.key && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#02353C]" />
-                )}
-              </button>
-            ))}
-          </div>
+        {/* ── Title + Actions Row ────────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
+            {engagement.serviceName}
+          </h1>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 rounded-lg text-xs"
+              onClick={() => setDetailsOpen(true)}
+            >
+              View Details
+            </Button>
             {engagement.status === "active" && (
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
-                    <Button variant="outline" size="sm" className="h-10 gap-1.5 rounded-lg" />
+                    <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-lg text-xs" />
                   }
                 >
                   Actions
@@ -190,12 +178,12 @@ export default function EngagementDetailsPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            <Button variant="outline" size="sm" className="h-10 rounded-lg" onClick={() => setAddNoteOpen(true)}>
+            <Button variant="outline" size="sm" className="h-9 rounded-lg text-xs" onClick={() => setAddNoteOpen(true)}>
               Add Note
             </Button>
             <Button
               size="sm"
-              className="h-10 rounded-lg bg-[#02353C] text-white hover:opacity-90"
+              className="h-9 rounded-lg bg-[#02353C] text-white text-xs hover:opacity-90"
               onClick={() => {
                 setNotice("Billing created successfully")
                 setTimeout(() => setNotice(""), 3000)
@@ -204,6 +192,31 @@ export default function EngagementDetailsPage() {
               Create Billing
             </Button>
           </div>
+        </div>
+
+        {/* ── Workflow Progress ──────────────────────────────────────────── */}
+        <WorkflowProgress workflowStage={engagement.workflowStage} />
+
+        {/* ── Tabs ──────────────────────────────────────────────────────── */}
+        <div className="flex gap-5 border-b border-border pt-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "relative pb-3 text-sm font-medium transition-colors",
+                activeTab === tab.key
+                  ? "text-[#02353C]"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.label}
+              {activeTab === tab.key && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#02353C]" />
+              )}
+            </button>
+          ))}
         </div>
 
         {/* ── Notice ─────────────────────────────────────────────────────── */}
@@ -215,22 +228,10 @@ export default function EngagementDetailsPage() {
 
         {/* ── Overview Tab ───────────────────────────────────────────────── */}
         {activeTab === "overview" && (
-          <>
-            {/* Workflow Progress */}
-            <WorkflowProgress workflowStage={engagement.workflowStage} />
-
-            {/* Client + Service Info (left) + Activity Updates (right) */}
-            <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-              <ClientServiceInfoCard engagement={engagement} />
-              <ActivityUpdates engagement={engagement} />
-            </div>
-
-            {/* Review Summary */}
-            <ReviewSummaryCard
-              engagement={engagement}
-              onViewDetails={() => setActiveTab("document-review")}
-            />
-          </>
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <TaskList engagement={engagement} />
+            <ActivityUpdates engagement={engagement} />
+          </div>
         )}
 
         {/* ── Document Review Tab ────────────────────────────────────────── */}
@@ -248,6 +249,13 @@ export default function EngagementDetailsPage() {
           addNote(engagement.id, note)
           setAddNoteOpen(false)
         }}
+      />
+
+      {/* ── Client + Service Details Dialog ──────────────────────────────── */}
+      <ClientServiceDetailsDialog
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        engagement={engagement}
       />
     </>
   )

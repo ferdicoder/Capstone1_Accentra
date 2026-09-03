@@ -81,8 +81,8 @@ export function ActivityUpdates({ engagement, className }) {
   }
 
   return (
-    <div className={cn("rounded-xl border border-border bg-card p-6 shadow-sm", className)}>
-      <div className="mb-5 flex items-center justify-between">
+    <div className={cn("rounded-xl border border-border bg-card p-5 shadow-sm", className)}>
+      <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">Activity Updates</h3>
         <Button
           type="button"
