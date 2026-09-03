@@ -52,4 +52,5 @@ export const getUserInitials = (name) => {
 export const roleFilterOptions = [
   { value: "admin", label: "Admin" },
   { value: "staff", label: "Staff" },
+  { value: "billing_officer", label: "Billing Officer" }
 ]

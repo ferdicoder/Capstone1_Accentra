@@ -15,8 +15,6 @@ import { Input } from "@/components/ui/input"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { Button } from "@/components/ui/button"
 
-import { getEngagementActivity } from "@/services/engagementActivityService"
-import { getEngagementDeliverables } from "@/services/engagementDeliverablesService"
 
 const engagement = {
   code: "ENG-2024-0041",
