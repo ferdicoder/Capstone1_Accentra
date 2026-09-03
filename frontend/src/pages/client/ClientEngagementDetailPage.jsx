@@ -2,18 +2,94 @@ import { useEffect, useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import {
   ArrowLeft,
-  CheckCircle2,
-  Circle,
+  Clock,
   Download,
   Eye,
   FileText,
   Search,
   Upload,
+  X,
 } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { Button } from "@/components/ui/button"
+import { supabase } from "@/config/supabase.js"
+import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
+
+
+// --- Inline data access (no separate service files) --------------------
+//
+// Table assumption: "engagement_activity"
+//   id, engagement_id, type, message, actor, created_at
+//
+// Table assumption: "metadata_document" (per the ERD), filtered to
+// document_type = 'deliverables' for this engagement:
+//   document_id, engagement_id, business_id, bucket_name, object_key,
+//   file_name, file_size, status, document_type, created_at, updated_at
+//
+// Adjust table/column names below to match your actual schema.
+
+const ACTIVITY_TABLE = "engagement_activity"
+const DOCUMENT_TABLE = "metadata_document"
+const DELIVERABLE_TYPE = "deliverables"
+const SIGNED_URL_EXPIRY_SECONDS = 60 * 10 // matches the "10 minutes" copy in the UI below
+
+async function fetchEngagementActivity(engagementId) {
+  try {
+    const { data, error } = await supabase
+      .from(ACTIVITY_TABLE)
+      .select("*")
+      .eq("engagement_id", engagementId)
+      .order("created_at", { ascending: false })
+
+    if (error) throw new Error(error.message)
+    return { data, error: null }
+  } catch (err) {
+    console.error(err)
+    return { data: null, error: err.message }
+  }
+}
+
+async function fetchEngagementDeliverables(engagementId) {
+  try {
+    const { data, error } = await supabase
+      .from(DOCUMENT_TABLE)
+      .select("*")
+      .eq("engagement_id", engagementId)
+      .eq("document_type", DELIVERABLE_TYPE)
+      .order("created_at", { ascending: false })
+
+    if (error) throw new Error(error.message)
+
+    // Each row only stores where the file lives (bucket_name/object_key), not
+    // a public URL, so mint a short-lived signed URL per file here.
+    const withSignedUrls = await Promise.all(
+      (data ?? []).map(async (doc) => {
+        if (!doc.bucket_name || !doc.object_key) {
+          return { ...doc, signedUrl: null }
+        }
+
+        const { data: signed, error: signError } = await supabase.storage
+          .from(doc.bucket_name)
+          .createSignedUrl(doc.object_key, SIGNED_URL_EXPIRY_SECONDS)
+
+        if (signError) {
+          console.error(`Failed to sign URL for ${doc.object_key}:`, signError)
+          return { ...doc, signedUrl: null }
+        }
+
+        return { ...doc, signedUrl: signed?.signedUrl ?? null }
+      })
+    )
+
+    return { data: withSignedUrls, error: null }
+  } catch (err) {
+    console.error(err)
+    return { data: null, error: err.message }
+  }
+}
+// -------------------------------------------------------------------------
 
 
 const engagement = {
@@ -22,7 +98,7 @@ const engagement = {
   type: "Tax Filing",
   title: "Annual Income Tax Return (BIR Form 1701)",
   due: "Apr 15, 2025",
-  percentComplete: 55,
+  workflowStage: "document-verification", // must match a `key` in workflowStages (engagement-variants)
   task: {
     clientName: "Maria Santos",
     businessName: "Santos Retail Trading",
@@ -41,21 +117,13 @@ const engagement = {
   },
 }
 
-const WORKFLOW_STEPS = [
-  "Documentation Collection",
-  "Document Verification",
-  "Processing",
-  "Approval",
-  "Payment",
-]
-const CURRENT_STEP_INDEX = 2 // "Processing" — swap for real workflow state from the API
-
 const initialActivityLog = [
   {
     id: "log-1",
     title: "Request Submitted",
     date: "Nov 28, 2024",
     description: "Client submitted via portal",
+    actor: "Maria Santos",
     done: true,
   },
   {
@@ -63,6 +131,7 @@ const initialActivityLog = [
     title: "Request Approved",
     date: "Nov 28, 2024",
     description: "Approved by R&A CPA",
+    actor: "Atty. Roland Reyes, CPA",
     done: true,
   },
   {
@@ -70,6 +139,7 @@ const initialActivityLog = [
     title: "Document Checklist Sent",
     date: "Nov 30, 2024",
     description: "5 required documents listed",
+    actor: "Atty. Roland Reyes, CPA",
     done: true,
   },
   {
@@ -77,6 +147,7 @@ const initialActivityLog = [
     title: "Documents Submitted",
     date: "Dec 6, 2024",
     description: "3 of 5 submitted",
+    actor: "Maria Santos",
     done: true,
   },
   {
@@ -84,6 +155,7 @@ const initialActivityLog = [
     title: "Documents Reviewed",
     date: "Dec 8, 2024",
     description: "2 documents flagged for revision",
+    actor: "Atty. Roland Reyes, CPA",
     done: true,
   },
   { id: "log-6", title: "Processing / Filing", done: false },
@@ -100,8 +172,8 @@ const initialDocuments = [
     required: true,
     status: "Approved",
     uploadedBy: "Maria S.",
-    date: "Dec 6, 2024",
     size: "1.2 MB",
+    deadline: "Dec 5, 2024",
   },
   {
     id: "doc-2",
@@ -110,8 +182,8 @@ const initialDocuments = [
     required: true,
     status: "Approved",
     uploadedBy: "Maria S.",
-    date: "Dec 6, 2024",
     size: "4.8 MB",
+    deadline: "Dec 5, 2024",
   },
   {
     id: "doc-3",
@@ -120,8 +192,8 @@ const initialDocuments = [
     required: true,
     status: "For Review",
     uploadedBy: "Maria S.",
-    date: "Dec 6, 2024",
     size: "2.1 MB",
+    deadline: "Dec 10, 2024",
     remark:
       "Incomplete — Jan to Jun ORs are missing. Please upload the complete booklet covering January–December 2024.",
   },
@@ -130,12 +202,14 @@ const initialDocuments = [
     name: "Books of Accounts",
     required: true,
     status: "Missing",
+    deadline: "Dec 12, 2024",
   },
   {
     id: "doc-5",
     name: "Certificate of Withholding Tax (2316)",
     required: true,
     status: "Missing",
+    deadline: "Dec 15, 2024",
   },
 ]
 
@@ -176,6 +250,7 @@ export default function ClientEngagementDetailPage() {
   const [isActivityLoading, setIsActivityLoading] = useState(false)
   const [deliverables, setDeliverables] = useState(initialDeliverables)
   const [isDeliverablesLoading, setIsDeliverablesLoading] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   const filteredDocuments = initialDocuments.filter((doc) =>
     doc.name.toLowerCase().includes(documentSearch.toLowerCase())
@@ -185,28 +260,23 @@ export default function ClientEngagementDetailPage() {
     (d) => d.status === "For Review"
   ).length
 
-  const isCompleted = engagement.status === "Completed"
-  const activeStepIndex = isCompleted
-    ? WORKFLOW_STEPS.length - 1
-    : CURRENT_STEP_INDEX
-  const percentComplete = isCompleted ? 100 : engagement.percentComplete
+  const totalTasks = initialDocuments.length
+  const completedTasks = initialDocuments.filter(
+    (d) => d.status === "Approved"
+  ).length
+  const requiredTasks = initialDocuments.filter((d) => d.required).length
 
-  // Read-only: per S4-13, the client sees the activity timeline but never
-  // posts or deletes entries — that's S4-11/S4-12, firm-side only. This
-  // just loads the log; falls back to the mock data above if the fetch
-  // fails, so the page still has something to show during development.
   useEffect(() => {
     let isMounted = true
 
     async function loadActivity() {
       setIsActivityLoading(true)
-      const { data, error } = await getEngagementActivity(id)
+      const { data, error } = await fetchEngagementActivity(id)
 
       if (!isMounted) return
 
       if (error) {
         console.error("Failed to load activity log:", error)
-        // keep showing the mock/initial data as a fallback
       } else if (data) {
         setActivityLog(data)
       }
@@ -221,21 +291,17 @@ export default function ClientEngagementDetailPage() {
     }
   }, [id])
 
-  // Deliverables: read-only, client-side, per S4-16's DoD ("Client can
-  // see and download deliverables via signed URL"). Uploading/deleting
-  // is S4-14/S4-15, firm-side only.
   useEffect(() => {
     let isMounted = true
 
     async function loadDeliverables() {
       setIsDeliverablesLoading(true)
-      const { data, error } = await getEngagementDeliverables(id)
+      const { data, error } = await fetchEngagementDeliverables(id)
 
       if (!isMounted) return
 
       if (error) {
         console.error("Failed to load deliverables:", error)
-        // keep showing the mock/initial data as a fallback
       } else if (data) {
         setDeliverables(data)
       }
@@ -261,134 +327,412 @@ export default function ClientEngagementDetailPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 px-2 py-2">
-          <Link
-            to="/client/engagements"
-            className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" />
-            Back to Engagements
-          </Link>
+      <Link
+        to="/client/engagements"
+        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+        Back to Engagements
+      </Link>
 
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                  {engagement.code}
-                </span>
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                  {engagement.status}
-                </span>
-                <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-                  {engagement.type}
-                </span>
-              </div>
-              <h1 className="mt-2 text-xl font-semibold">
-                {engagement.title}
-              </h1>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Due <span className="font-medium text-red-600">{engagement.due}</span>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">{engagement.title}</h1>
+        </div>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            Due{" "}
+            <span className="font-medium text-red-600">{engagement.due}</span>
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-lg text-xs"
+            onClick={() => setDetailsOpen(true)}
+          >
+            View Details
+          </Button>
+        </div>
+      </div>
+
+      {/* Workflow progress */}
+      <WorkflowProgress workflowStage={engagement.workflowStage} />
+
+      {/* Tabs */}
+      <div className="flex gap-6 border-b">
+        <button
+          onClick={() => setActiveTab("overview")}
+          className={`-mb-px border-b-2 pb-2 text-sm font-medium transition-colors ${
+            activeTab === "overview"
+              ? "border-emerald-600 text-emerald-700"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Overview
+        </button>
+        <button
+          onClick={() => setActiveTab("documents")}
+          className={`-mb-px flex items-center gap-1.5 border-b-2 pb-2 text-sm font-medium transition-colors ${
+            activeTab === "documents"
+              ? "border-emerald-600 text-emerald-700"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Documents
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+            {initialDocuments.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab("deliverables")}
+          className={`-mb-px flex items-center gap-1.5 border-b-2 pb-2 text-sm font-medium transition-colors ${
+            activeTab === "deliverables"
+              ? "border-emerald-600 text-emerald-700"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Files
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+            {deliverables.length}
+          </span>
+        </button>
+      </div>
+
+      {activeTab === "overview" && (
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+          {/* Task List */}
+          <div className="rounded-xl border bg-background p-5">
+            <h3 className="text-sm font-semibold">Task List</h3>
+            <p className="mb-4 mt-1 text-xs text-muted-foreground">
+              {completedTasks} of {totalTasks} completed · {requiredTasks}{" "}
+              required
             </p>
+
+            <div className="overflow-hidden rounded-lg border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                    <th className="px-4 py-3 font-medium">Task</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Deadline</th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {initialDocuments.map((doc) => (
+                    <tr
+                      key={doc.id}
+                      className="border-b last:border-b-0 hover:bg-muted/30"
+                    >
+                      <td className="px-4 py-3.5">
+                        <span className="font-medium">
+                          {doc.name}
+                          {doc.required && (
+                            <span className="ml-0.5 text-red-500">*</span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span
+                          className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${documentStatusStyles[doc.status]}`}
+                        >
+                          <span className="size-1.5 rounded-full bg-current" />
+                          {doc.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-muted-foreground">
+                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                          <Clock className="size-3.5" />
+                          {doc.deadline ?? "—"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-right">
+                        <button
+                          onClick={() => setActiveTab("documents")}
+                          className="text-xs font-medium text-emerald-700 hover:underline"
+                        >
+                          {doc.status === "Missing" ? "Upload" : "View"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* Workflow progress */}
+          {/* Activity Updates */}
           <div className="rounded-xl border bg-background p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Workflow Progress</h2>
-              <span className="text-sm font-medium text-emerald-700">
-                {isCompleted ? "Completed" : `${percentComplete}% complete`}
-              </span>
-            </div>
-            <div className="flex items-center">
-              {WORKFLOW_STEPS.map((step, i) => {
-                const isDone = i <= activeStepIndex
-                const isLast = i === WORKFLOW_STEPS.length - 1
-                return (
-                  <div key={step} className="flex flex-1 items-center">
-                    <div className="flex flex-col items-center gap-1.5">
-                      {isDone ? (
-                        <CheckCircle2 className="size-5 text-emerald-600" />
-                      ) : (
-                        <Circle className="size-5 text-muted-foreground/40" />
-                      )}
-                      <span
-                        className={`whitespace-nowrap text-xs ${
-                          isDone
+            <h3 className="mb-4 text-sm font-semibold">Activity</h3>
+            {isActivityLoading ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : activityLog.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No activity yet.
+              </p>
+            ) : (
+              <ul>
+                {activityLog.map((log, idx) => (
+                  <li key={log.id} className="relative flex gap-3 pb-5 last:pb-0">
+                    {idx !== activityLog.length - 1 && (
+                      <span className="absolute left-[8px] top-5 h-full w-px bg-border" />
+                    )}
+                    <div
+                      className={`relative z-10 mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full ring-4 ring-background ${
+                        log.done
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "bg-muted text-muted-foreground/40"
+                      }`}
+                    >
+                      <FileText className="size-3" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`text-sm ${
+                          log.done
                             ? "font-medium text-foreground"
                             : "text-muted-foreground"
                         }`}
                       >
-                        {step}
-                      </span>
+                        {log.title}
+                      </p>
+                      {log.date && (
+                        <p className="text-xs text-muted-foreground">
+                          {log.date}
+                        </p>
+                      )}
+                      {log.description && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {log.description}
+                        </p>
+                      )}
+                      {log.actor && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          — {log.actor}
+                        </p>
+                      )}
                     </div>
-                    {!isLast && (
-                      <div
-                        className={`mx-1 h-px flex-1 ${
-                          i < activeStepIndex
-                            ? "bg-emerald-400"
-                            : "bg-muted-foreground/20"
-                        }`}
-                      />
-                    )}
-                  </div>
-                )
-              })}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "documents" && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="relative max-w-sm flex-1 min-w-[220px]">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search documents..."
+                className="pl-9"
+                value={documentSearch}
+                onChange={(e) => setDocumentSearch(e.target.value)}
+              />
             </div>
+            <Button className="bg-emerald-600 text-white hover:bg-emerald-700">
+              Review Documents ({flaggedForReview})
+            </Button>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-6 border-b">
-            <button
-              onClick={() => setActiveTab("overview")}
-              className={`-mb-px border-b-2 pb-2 text-sm font-medium transition-colors ${
-                activeTab === "overview"
-                  ? "border-emerald-600 text-emerald-700"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab("documents")}
-              className={`-mb-px flex items-center gap-1.5 border-b-2 pb-2 text-sm font-medium transition-colors ${
-                activeTab === "documents"
-                  ? "border-emerald-600 text-emerald-700"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Documents
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                {initialDocuments.length}
-              </span>
-            </button>
-            <button
-              onClick={() => setActiveTab("activity")}
-              className={`-mb-px border-b-2 pb-2 text-sm font-medium transition-colors ${
-                activeTab === "activity"
-                  ? "border-emerald-600 text-emerald-700"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Activity
-            </button>
-            <button
-              onClick={() => setActiveTab("deliverables")}
-              className={`-mb-px flex items-center gap-1.5 border-b-2 pb-2 text-sm font-medium transition-colors ${
-                activeTab === "deliverables"
-                  ? "border-emerald-600 text-emerald-700"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Deliverables
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                {deliverables.length}
-              </span>
-            </button>
+          <div className="overflow-hidden rounded-xl border bg-background">
+            <table className="w-full table-fixed text-sm">
+              <colgroup>
+                <col className="w-[34%]" />
+                <col className="w-[16%]" />
+                <col className="w-[16%]" />
+                <col className="w-[10%]" />
+                <col className="w-[24%]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                  <th className="px-4 py-3.5 align-middle font-medium">
+                    Document Name
+                  </th>
+                  <th className="px-4 py-3.5 align-middle font-medium">
+                    Status
+                  </th>
+                  <th className="px-4 py-3.5 align-middle font-medium">
+                    Uploaded By
+                  </th>
+                  <th className="px-4 py-3.5 align-middle font-medium">
+                    Size
+                  </th>
+                  <th className="px-4 py-3.5 text-right align-middle font-medium">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDocuments.map((doc) => (
+                  <>
+                    <tr
+                      key={doc.id}
+                      className="border-b last:border-b-0 hover:bg-muted/30"
+                    >
+                      <td className="px-4 py-4 align-middle">
+                        <p className="truncate font-medium">
+                          {doc.name}
+                          {doc.required && (
+                            <span className="ml-0.5 text-red-500">*</span>
+                          )}
+                        </p>
+                        {doc.file && (
+                          <p className="truncate text-xs text-muted-foreground">
+                            {doc.file}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 align-middle">
+                        <span
+                          className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${documentStatusStyles[doc.status]}`}
+                        >
+                          {doc.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 align-middle text-muted-foreground">
+                        {doc.uploadedBy ?? "—"}
+                      </td>
+                      <td className="px-4 py-4 align-middle text-muted-foreground">
+                        {doc.size ?? "—"}
+                      </td>
+                      <td className="px-4 py-4 align-middle">
+                        <div className="flex items-center justify-end gap-2">
+                          {doc.status === "For Review" && (
+                            <button
+                              title="Preview"
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              <Eye className="size-4" />
+                            </button>
+                          )}
+                          <button
+                            className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                              doc.status === "For Review"
+                                ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                            }`}
+                          >
+                            <Upload className="size-3.5" />
+                            {doc.status === "For Review"
+                              ? "Re-upload"
+                              : "Upload"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {doc.remark && (
+                      <tr key={`${doc.id}-remark`} className="border-b bg-amber-50/60">
+                        <td colSpan={5} className="px-4 py-2.5 text-xs text-amber-800">
+                          <span className="font-medium">
+                            Firm Remark — Revision Required:
+                          </span>{" "}
+                          {doc.remark}
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                ))}
+
+                {filteredDocuments.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-4 py-10 text-center text-sm text-muted-foreground"
+                    >
+                      No documents match "{documentSearch}".
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "deliverables" && (
+        <div className="rounded-xl border bg-background p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Files</h3>
+            <span className="text-xs text-muted-foreground">
+              Files uploaded by your firm — download links expire after 10
+              minutes
+            </span>
           </div>
 
-          {activeTab === "overview" && (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-xl border bg-background p-5">
+          {isDeliverablesLoading ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : deliverables.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No files have been uploaded yet.
+            </p>
+          ) : (
+            <ul className="divide-y">
+              {deliverables.map((file) => (
+                <li
+                  key={file.id}
+                  className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                >
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                    <FileText className="size-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {file.file_name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {file.created_at} · {formatBytes(file.file_size)}
+                    </p>
+                  </div>
+                  {file.signedUrl ? (
+                    <a
+                      href={file.signedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
+                    >
+                      <Download className="size-3.5" />
+                      Download
+                    </a>
+                  ) : (
+                    <span className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-muted-foreground/50">
+                      <Download className="size-3.5" />
+                      Unavailable
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* Client + Service Details modal (kept from the old Overview cards) */}
+      {detailsOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setDetailsOpen(false)}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl bg-background p-6 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-base font-semibold">Engagement Details</h2>
+              <button
+                onClick={() => setDetailsOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div>
                 <h3 className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
                   Task
                 </h3>
@@ -428,7 +772,7 @@ export default function ClientEngagementDetailPage() {
                 </dl>
               </div>
 
-              <div className="rounded-xl border bg-background p-5">
+              <div>
                 <h3 className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
                   Service Information
                 </h3>
@@ -484,261 +828,9 @@ export default function ClientEngagementDetailPage() {
                 </dl>
               </div>
             </div>
-          )}
-
-          {activeTab === "activity" && (
-            <div className="rounded-xl border bg-background p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Activity Timeline</h3>
-                <span className="text-xs text-muted-foreground">
-                  Read only — updates are posted by your firm
-                </span>
-              </div>
-
-              {isActivityLoading ? (
-                <p className="text-sm text-muted-foreground">Loading...</p>
-              ) : (
-                <ul className="space-y-5">
-                  {activityLog.map((log) => (
-                    <li key={log.id} className="flex items-start gap-3">
-                      {log.done ? (
-                        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-                      ) : (
-                        <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground/30" />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className={`text-sm ${
-                            log.done
-                              ? "font-medium text-foreground"
-                              : "text-muted-foreground"
-                          }`}
-                        >
-                          {log.title}
-                        </p>
-                        {log.date && (
-                          <p className="text-xs text-muted-foreground">
-                            {log.date}
-                          </p>
-                        )}
-                        {log.description && (
-                          <p className="text-xs text-muted-foreground">
-                            {log.description}
-                          </p>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-
-                  {activityLog.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      No activity yet.
-                    </p>
-                  )}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {activeTab === "documents" && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="relative max-w-sm flex-1 min-w-[220px]">
-                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search documents..."
-                    className="pl-9"
-                    value={documentSearch}
-                    onChange={(e) => setDocumentSearch(e.target.value)}
-                  />
-                </div>
-                <Button className="bg-emerald-600 text-white hover:bg-emerald-700">
-                  Review Documents ({flaggedForReview})
-                </Button>
-              </div>
-
-              <div className="overflow-hidden rounded-xl border bg-background">
-                <table className="w-full table-fixed text-sm">
-                  <colgroup>
-                    <col className="w-[26%]" />
-                    <col className="w-[10%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[8%]" />
-                    <col className="w-[20%]" />
-                  </colgroup>
-                  <thead>
-                    <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
-                      <th className="px-4 py-3.5 align-middle font-medium">
-                        Document Name
-                      </th>
-                      <th className="px-4 py-3.5 align-middle font-medium">
-                        Required
-                      </th>
-                      <th className="px-4 py-3.5 align-middle font-medium">
-                        Status
-                      </th>
-                      <th className="px-4 py-3.5 align-middle font-medium">
-                        Uploaded By
-                      </th>
-                      <th className="px-4 py-3.5 align-middle font-medium">
-                        Date
-                      </th>
-                      <th className="px-4 py-3.5 align-middle font-medium">
-                        Size
-                      </th>
-                      <th className="px-4 py-3.5 text-right align-middle font-medium">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDocuments.map((doc) => (
-                      <>
-                        <tr
-                          key={doc.id}
-                          className="border-b last:border-b-0 hover:bg-muted/30"
-                        >
-                          <td className="px-4 py-4 align-middle">
-                            <p className="truncate font-medium">{doc.name}</p>
-                            {doc.file && (
-                              <p className="truncate text-xs text-muted-foreground">
-                                {doc.file}
-                              </p>
-                            )}
-                          </td>
-                          <td className="px-4 py-4 align-middle">
-                            <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground">
-                              {doc.required ? "Required" : "Optional"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 align-middle">
-                            <span
-                              className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${documentStatusStyles[doc.status]}`}
-                            >
-                              {doc.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 align-middle text-muted-foreground">
-                            {doc.uploadedBy ?? "—"}
-                          </td>
-                          <td className="px-4 py-4 align-middle text-muted-foreground">
-                            {doc.date ?? "—"}
-                          </td>
-                          <td className="px-4 py-4 align-middle text-muted-foreground">
-                            {doc.size ?? "—"}
-                          </td>
-                          <td className="px-4 py-4 align-middle">
-                            <div className="flex items-center justify-end gap-2">
-                              {doc.status === "For Review" && (
-                                <button
-                                  title="Preview"
-                                  className="text-muted-foreground hover:text-foreground"
-                                >
-                                  <Eye className="size-4" />
-                                </button>
-                              )}
-                              <button
-                                className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                                  doc.status === "For Review"
-                                    ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                                    : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                                }`}
-                              >
-                                <Upload className="size-3.5" />
-                                {doc.status === "For Review"
-                                  ? "Re-upload"
-                                  : "Upload"}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        {doc.remark && (
-                          <tr key={`${doc.id}-remark`} className="border-b bg-amber-50/60">
-                            <td colSpan={7} className="px-4 py-2.5 text-xs text-amber-800">
-                              <span className="font-medium">
-                                Firm Remark — Revision Required:
-                              </span>{" "}
-                              {doc.remark}
-                            </td>
-                          </tr>
-                        )}
-                      </>
-                    ))}
-
-                    {filteredDocuments.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={7}
-                          className="px-4 py-10 text-center text-sm text-muted-foreground"
-                        >
-                          No documents match "{documentSearch}".
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "deliverables" && (
-            <div className="rounded-xl border bg-background p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Final Deliverables</h3>
-                <span className="text-xs text-muted-foreground">
-                  Files uploaded by your firm — download links expire after
-                  10 minutes
-                </span>
-              </div>
-
-              {isDeliverablesLoading ? (
-                <p className="text-sm text-muted-foreground">Loading...</p>
-              ) : deliverables.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No deliverables have been uploaded yet.
-                </p>
-              ) : (
-                <ul className="divide-y">
-                  {deliverables.map((file) => (
-                    <li
-                      key={file.id}
-                      className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
-                    >
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                        <FileText className="size-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {file.file_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {file.created_at} · {formatBytes(file.file_size)}
-                        </p>
-                      </div>
-                      {file.signedUrl ? (
-                        <a
-                          href={file.signedUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
-                        >
-                          <Download className="size-3.5" />
-                          Download
-                        </a>
-                      ) : (
-                        <span className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-muted-foreground/50">
-                          <Download className="size-3.5" />
-                          Unavailable
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
+          </div>
         </div>
+      )}
+    </div>
   )
 }
