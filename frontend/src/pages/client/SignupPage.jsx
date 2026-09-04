@@ -9,11 +9,29 @@ import { registerClient } from "../../services/authService";
 import { useNavigate } from "react-router-dom"
 
 
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+]
+
+const DAYS = Array.from({ length: 31 }, (_, i) => i + 1)
+
+// Most adult users signing up are recent-ish birth years, so listing from
+// (this year - 18) downward means their year is near the top of the list
+// instead of buried at the bottom.
+const CURRENT_YEAR = new Date().getFullYear()
+const YEARS = Array.from(
+  { length: 83 }, // covers ages 18–100
+  (_, i) => CURRENT_YEAR - 18 - i
+)
+
 const initialFormState = {
   firstName: "",
   lastName: "",
   middleName: "",
-  birthDate: "",
+  birthMonth: "",
+  birthDay: "",
+  birthYear: "",
   email: "",
   password: "",
   confirmPassword: "",
@@ -57,7 +75,19 @@ export default function SignupPage() {
     }
 
     try{
-      const newUser = await registerClient(formData);
+      // Combine the three birthdate dropdowns into a single ISO date
+      // string (YYYY-MM-DD) for the backend, same shape the old native
+      // date input used to send.
+      const monthIndex = MONTHS.indexOf(formData.birthMonth) + 1
+      const birthDate =
+        formData.birthYear && monthIndex && formData.birthDay
+          ? `${formData.birthYear}-${String(monthIndex).padStart(2, "0")}-${String(formData.birthDay).padStart(2, "0")}`
+          : ""
+
+      const newUser = await registerClient({
+        ...formData,
+        birthDate,
+      });
       if(newUser.error) throw newUser.error;
       console.log("Registration submitted", formData);
       navigate('/client/signin');
@@ -119,7 +149,9 @@ export default function SignupPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="firstName">First Name</FieldLabel>
+                  <FieldLabel htmlFor="firstName">
+                    First Name<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="firstName"
                     name="firstName"
@@ -146,7 +178,9 @@ export default function SignupPage() {
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="lastName">Last Name</FieldLabel>
+                  <FieldLabel htmlFor="lastName">
+                    Last Name<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="lastName"
                     name="lastName"
@@ -159,23 +193,63 @@ export default function SignupPage() {
                   />
                 </Field>
 
-                  <Field>
-                  <FieldLabel htmlFor="birthDate">Birthdate</FieldLabel>
-                  <Input
-                    id="birthDate"
-                    name="birthDate"
-                    type="date"
-                    placeholder="1990-01-01"
-                    required
-                    value={formData.birthDate}
-                    onChange={updateField}
-                    className="bg-background"
-                  />
+                <Field>
+                  <FieldLabel>
+                    Birthdate<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
+                  <div className="grid grid-cols-3 gap-2">
+                    <select
+                      name="birthMonth"
+                      value={formData.birthMonth}
+                      onChange={updateField}
+                      required
+                      className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
+                    >
+                      <option value="">Month</option>
+                      {MONTHS.map((month) => (
+                        <option key={month} value={month}>
+                          {month}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      name="birthDay"
+                      value={formData.birthDay}
+                      onChange={updateField}
+                      required
+                      className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
+                    >
+                      <option value="">Day</option>
+                      {DAYS.map((day) => (
+                        <option key={day} value={day}>
+                          {day}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      name="birthYear"
+                      value={formData.birthYear}
+                      onChange={updateField}
+                      required
+                      className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
+                    >
+                      <option value="">Year</option>
+                      {YEARS.map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </Field>
               </div>
 
               <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
+                <FieldLabel htmlFor="email">
+                  Email<span className="ml-0.5 text-red-500">*</span>
+                </FieldLabel>
                 <Input
                   id="email"
                   name="email"
@@ -192,7 +266,9 @@ export default function SignupPage() {
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <FieldLabel htmlFor="password">
+                  Password<span className="ml-0.5 text-red-500">*</span>
+                </FieldLabel>
                 <Input
                   id="password"
                   name="password"
@@ -206,7 +282,9 @@ export default function SignupPage() {
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="confirmPassword">Confirm Password</FieldLabel>
+                <FieldLabel htmlFor="confirmPassword">
+                  Confirm Password<span className="ml-0.5 text-red-500">*</span>
+                </FieldLabel>
                 <Input
                   id="confirmPassword"
                   name="confirmPassword"
@@ -236,7 +314,10 @@ export default function SignupPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="businessName">Business Name</FieldLabel>
+                  <FieldLabel htmlFor="businessName"> 
+                    Business Name<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
+                  
                   <Input
                     id="businessName"
                     name="businessName"
