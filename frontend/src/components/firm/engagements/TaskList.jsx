@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { CheckCircle2, Clock, MoreHorizontal, Eye, Send, AlertCircle, Inbox } from "lucide-react"
+import { Clock, MoreHorizontal, Inbox, CircleDashed } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -7,20 +7,32 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { formatDate } from "./engagement-variants"
-import { RequestUploadDialog } from "./RequestUploadDialog"
+import { engagementStore } from "./engagement-store"
 
 // ── Status Helpers ────────────────────────────────────────────────────────────
+
+// Map document statuses → task display statuses
+const docToTaskStatus = {
+  in_review: "for_review",
+  submitted: "for_review",
+  resubmitted: "for_review",
+  approved: "approved",
+  revision_requested: "for_review",
+  rejected: "pending",
+  pending: "pending",
+}
+
+// Map task statuses → document statuses (for writing back)
+const taskToDocStatus = {
+  approved: "approved",
+  for_review: "in_review",
+  pending: "pending",
+  missing: "pending",
+}
 
 const statusConfig = {
   approved: {
@@ -34,7 +46,12 @@ const statusConfig = {
     className: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
   },
   missing: {
-    label: "Missing",
+    label: "Pending",
+    dotColor: "bg-red-500",
+    className: "bg-red-500/10 text-red-600 ring-red-500/25",
+  },
+  pending: {
+    label: "Pending",
     dotColor: "bg-red-500",
     className: "bg-red-500/10 text-red-600 ring-red-500/25",
   },
@@ -55,35 +72,21 @@ function TaskStatusBadge({ status }) {
   )
 }
 
-// ── Mock Task Data Generator ──────────────────────────────────────────────────
+// ── Derive tasks from engagement documents ────────────────────────────────────
 
-function generateMockTasks(engagement) {
-  if (!engagement) return []
-  const serviceName = engagement.serviceName ?? ""
+function deriveTasksFromDocuments(engagement) {
+  const docs = engagement?.documents ?? []
+  if (docs.length === 0) return []
 
-  if (serviceName.toLowerCase().includes("tax filing")) {
-    return [
-      { id: "task-1", name: "Monthly Gross Sales Summary", required: true, status: "for_review", deadline: "2025-07-15" },
-      { id: "task-2", name: "Sales Record", required: true, status: "approved", deadline: "2025-07-15" },
-      { id: "task-3", name: "Valid ID", required: true, status: "missing", deadline: "2025-07-16" },
-      { id: "task-4", name: "Supporting Documents", required: false, status: "for_review", deadline: "2025-07-18" },
-    ]
-  }
-
-  if (serviceName.toLowerCase().includes("business registration")) {
-    return [
-      { id: "task-1", name: "Valid Government-issued ID", required: true, status: "approved", deadline: "2025-07-10" },
-      { id: "task-2", name: "TIN Certificate", required: true, status: "approved", deadline: "2025-07-10" },
-      { id: "task-3", name: "Business Address Proof", required: true, status: "for_review", deadline: "2025-07-15" },
-      { id: "task-4", name: "Barangay Clearance", required: false, status: "missing", deadline: "2025-07-20" },
-    ]
-  }
-
-  return [
-    { id: "task-1", name: "Required Document 1", required: true, status: "for_review", deadline: "2025-07-15" },
-    { id: "task-2", name: "Required Document 2", required: true, status: "approved", deadline: "2025-07-15" },
-    { id: "task-3", name: "Supporting Document", required: false, status: "missing", deadline: "" },
-  ]
+  return docs.map((doc, i) => ({
+    id: doc.id,
+    name: doc.name,
+    required: true,
+    status: docToTaskStatus[doc.status] ?? "pending",
+    deadline: engagement.targetEndDate ?? "",
+    // Keep original doc status for writing back
+    _docStatus: doc.status,
+  }))
 }
 
 // ── Deadline Display / Editor ─────────────────────────────────────────────────
@@ -127,8 +130,6 @@ function DeadlineCell({ deadline, onChange }) {
 function TaskDetailDialog({ open, onOpenChange, task }) {
   if (!task) return null
 
-  const config = statusConfig[task.status] ?? statusConfig.missing
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -160,106 +161,98 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
 // ── Task Row ──────────────────────────────────────────────────────────────────
 
 function TaskRow({ task, onStatusChange, onDeadlineChange, onOpenDetail }) {
-  const [requestOpen, setRequestOpen] = useState(false)
-
   return (
-    <>
-      <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/30">
-        {/* Task Name */}
-        <td className="px-6 py-2.5 pr-4">
-          <button
-            type="button"
-            onClick={onOpenDetail}
-            className="text-sm font-medium text-foreground hover:text-[#02353C] transition-colors"
+    <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/30">
+      {/* Task Name */}
+      <td className="min-w-0 px-6 py-2.5 pr-4">
+        <button
+          type="button"
+          onClick={onOpenDetail}
+          className="text-sm font-medium text-foreground hover:text-[#02353C] transition-colors"
+        >
+          {task.name}
+          {task.required && (
+            <span className="ml-1 text-xs text-red-500 font-semibold">*</span>
+          )}
+        </button>
+      </td>
+
+      {/* Status */}
+      <td className="w-[160px] px-5 py-2.5">
+        <TaskStatusBadge status={task.status} />
+      </td>
+
+      {/* Deadline */}
+      <td className="w-[180px] px-5 py-2.5">
+        <DeadlineCell deadline={task.deadline} onChange={(val) => onDeadlineChange(task.id, val)} />
+      </td>
+
+      {/* Actions */}
+      <td className="w-[72px] px-4 py-2.5 text-right">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="ghost" size="icon-sm" className="size-7 rounded-md ml-auto" />
+            }
           >
-            {task.name}
-            {task.required && (
-              <span className="ml-1 text-xs text-red-500 font-semibold">*</span>
-            )}
-          </button>
-        </td>
-
-        {/* Status */}
-        <td className="w-[120px] py-2.5 pr-4">
-          <TaskStatusBadge status={task.status} />
-        </td>
-
-        {/* Deadline */}
-        <td className="w-[140px] py-2.5 pr-4">
-          <DeadlineCell deadline={task.deadline} onChange={onDeadlineChange} />
-        </td>
-
-        {/* Actions */}
-        <td className="w-[48px] px-4 py-2.5 text-right">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button variant="ghost" size="icon-sm" className="size-7 rounded-md ml-auto" />
-              }
-            >
-              <MoreHorizontal className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-40">
-              <DropdownMenuItem onClick={onOpenDetail}>
-                <Eye className="size-3.5" />
-                View Details
-              </DropdownMenuItem>
-              {task.status === "for_review" && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onStatusChange("approved")}>
-                    <CheckCircle2 className="size-3.5" />
-                    Approve
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onStatusChange("missing")}>
-                    <AlertCircle className="size-3.5" />
-                    Request Revision
-                  </DropdownMenuItem>
-                </>
-              )}
-              {task.status === "missing" && (
-                <DropdownMenuItem onClick={() => setRequestOpen(true)}>
-                  <Send className="size-3.5" />
-                  Request Upload
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </td>
-      </tr>
-
-      <RequestUploadDialog
-        open={requestOpen}
-        onOpenChange={setRequestOpen}
-        taskName={task.name}
-        onSubmit={() => setRequestOpen(false)}
-      />
-    </>
+            <MoreHorizontal className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-40">
+            <DropdownMenuItem onClick={() => onStatusChange(task.id, "pending")}>
+              <CircleDashed className="size-3.5" />
+              Mark as Pending
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </td>
+    </tr>
   )
 }
 
 // ── Main TaskList Component ───────────────────────────────────────────────────
 
-export function TaskList({ engagement, className }) {
+export function TaskList({ engagement, className, onTaskClick, onDeadlineChange }) {
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
-  const [tasks, setTasks] = useState(() => generateMockTasks(engagement))
+  const [deadlineOverrides, setDeadlineOverrides] = useState({})
 
-  const handleStatusChange = (taskId, newStatus) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
-    )
+  const updateDocumentStatus = engagementStore((state) => state.updateDocumentStatus)
+  const addReviewHistoryEntry = engagementStore((state) => state.addReviewHistoryEntry)
+
+  const tasks = deriveTasksFromDocuments(engagement).map((t) =>
+    deadlineOverrides[t.id] !== undefined ? { ...t, deadline: deadlineOverrides[t.id] } : t
+  )
+
+  const handleStatusChange = (taskId, newTaskStatus) => {
+    // Map task status back to document status and update the store
+    const newDocStatus = taskToDocStatus[newTaskStatus] ?? "pending"
+    updateDocumentStatus(engagement.id, taskId, newDocStatus)
+
+    // Add a review history entry for the status change
+    const doc = (engagement.documents ?? []).find((d) => d.id === taskId)
+    if (doc) {
+      addReviewHistoryEntry(engagement.id, {
+        id: `hist-${Date.now()}`,
+        userName: "Firm Admin",
+        action: newDocStatus,
+        comment: `Status changed to ${newTaskStatus === "approved" ? "Approved" : newTaskStatus === "pending" ? "Pending" : "For Review"}.`,
+        timestamp: new Date().toISOString(),
+      })
+    }
   }
 
   const handleDeadlineChange = (taskId, newDeadline) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, deadline: newDeadline } : t))
-    )
+    setDeadlineOverrides((prev) => ({ ...prev, [taskId]: newDeadline }))
+    if (onDeadlineChange) onDeadlineChange(taskId, newDeadline)
   }
 
   const handleOpenDetail = (task) => {
-    setSelectedTask(task)
-    setDetailOpen(true)
+    if (onTaskClick) {
+      onTaskClick(task)
+    } else {
+      setSelectedTask(task)
+      setDetailOpen(true)
+    }
   }
 
   const requiredCount = tasks.filter((t) => t.required).length
@@ -291,13 +284,13 @@ export function TaskList({ engagement, className }) {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[560px]">
             <thead>
               <tr className="border-b border-border text-left">
-                <th className="px-6 py-2.5 text-xs font-medium text-muted-foreground">Task</th>
-                <th className="w-[120px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
-                <th className="w-[140px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Deadline</th>
-                <th className="w-[48px] px-4 py-2.5 text-xs font-medium text-muted-foreground text-right">Actions</th>
+                <th className="min-w-0 px-6 py-2.5 text-xs font-medium text-muted-foreground">Task</th>
+                <th className="w-[160px] px-5 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
+                <th className="w-[180px] px-5 py-2.5 text-xs font-medium text-muted-foreground">Deadline</th>
+                <th className="w-[72px] px-4 py-2.5 text-xs font-medium text-muted-foreground text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -305,8 +298,8 @@ export function TaskList({ engagement, className }) {
                 <TaskRow
                   key={task.id}
                   task={task}
-                  onStatusChange={(status) => handleStatusChange(task.id, status)}
-                  onDeadlineChange={(deadline) => handleDeadlineChange(task.id, deadline)}
+                  onStatusChange={handleStatusChange}
+                  onDeadlineChange={handleDeadlineChange}
                   onOpenDetail={() => handleOpenDetail(task)}
                 />
               ))}

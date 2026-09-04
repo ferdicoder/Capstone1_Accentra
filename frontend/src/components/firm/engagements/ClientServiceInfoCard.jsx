@@ -11,7 +11,7 @@ function InfoField({ label, children, className }) {
   )
 }
 
-export function ClientServiceInfoCard({ engagement, className }) {
+export function ClientServiceInfoCard({ engagement, onViewAll, className }) {
   if (!engagement) return null
 
   const staffLabel = firmStaffMap[engagement.assignedStaff] ?? "—"
@@ -47,6 +47,19 @@ export function ClientServiceInfoCard({ engagement, className }) {
           </InfoField>
         </div>
       </div>
+
+      {/* View all → shortcut at lower-right */}
+      {onViewAll && (
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            View all →
+          </button>
+        </div>
+      )}
     </div>
   )
 }

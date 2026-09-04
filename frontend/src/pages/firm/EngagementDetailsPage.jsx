@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, XCircle } from "lucide-react"
+import { XCircle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -39,6 +39,7 @@ export default function EngagementDetailsPage() {
   const [activeTab, setActiveTab] = useState("overview")
   const [addNoteOpen, setAddNoteOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [preselectedDocName, setPreselectedDocName] = useState(null)
   const [notice, setNotice] = useState("")
   const addNote = engagementStore((state) => state.addNote)
   const setEngagementStatus = engagementStore((state) => state.setEngagementStatus)
@@ -62,9 +63,6 @@ export default function EngagementDetailsPage() {
     breadcrumbs: [
       { label: sectionLabel, href: `${basePath}/dashboard` },
       { label: "Engagements", href: `${basePath}/engagements` },
-      ...(engagement
-        ? [{ label: engagement.engagementNumber, href: `${basePath}/engagements/${engagement.id}` }]
-        : []),
     ],
   })
 
@@ -103,46 +101,47 @@ export default function EngagementDetailsPage() {
   return (
     <>
       <div className="flex flex-col gap-4">
-        {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => navigate(`${basePath}/engagements`)}
-            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" />
-          </button>
+        {/* ── Main Header + Actions ──────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-semibold sm:text-xl text-foreground">
+              {engagement.serviceName}
+            </h1>
+            <EngagementStatusBadge status={engagement.status} />
+          </div>
 
-          <span className="inline-flex items-center rounded-md bg-[#02353C]/10 px-2 py-0.5 text-xs font-medium text-[#02353C] ring-1 ring-inset ring-[#02353C]/20">
-            {engagement.engagementNumber}
-          </span>
-
-          <EngagementStatusBadge status={engagement.status} />
-
-          <span className="inline-flex items-center rounded-md bg-[#02353C]/10 px-2 py-0.5 text-xs font-medium text-[#02353C] ring-1 ring-inset ring-[#02353C]/20">
-            {engagement.serviceName}
-          </span>
-        </div>
-
-        {/* ── Title + Actions Row ────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-bold tracking-tight text-foreground">
-            {engagement.serviceName}
-          </h1>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              className="h-9 gap-1.5 rounded-lg text-xs"
+              className="h-8 rounded-lg text-xs"
               onClick={() => setDetailsOpen(true)}
             >
               View Details
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 rounded-lg text-xs"
+              onClick={() => setAddNoteOpen(true)}
+            >
+              Add Note
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 rounded-lg bg-[#02353C] text-white text-xs hover:opacity-90"
+              onClick={() => {
+                setNotice("Billing created successfully")
+                setTimeout(() => setNotice(""), 3000)
+              }}
+            >
+              Create Billing
             </Button>
             {engagement.status === "active" && (
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
-                    <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-lg text-xs" />
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-lg text-xs" />
                   }
                 >
                   Actions
@@ -178,23 +177,10 @@ export default function EngagementDetailsPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            <Button variant="outline" size="sm" className="h-9 rounded-lg text-xs" onClick={() => setAddNoteOpen(true)}>
-              Add Note
-            </Button>
-            <Button
-              size="sm"
-              className="h-9 rounded-lg bg-[#02353C] text-white text-xs hover:opacity-90"
-              onClick={() => {
-                setNotice("Billing created successfully")
-                setTimeout(() => setNotice(""), 3000)
-              }}
-            >
-              Create Billing
-            </Button>
           </div>
         </div>
 
-        {/* ── Workflow Progress ──────────────────────────────────────────── */}
+        {/* ── Workflow Progress (always visible) ──────────────────────────── */}
         <WorkflowProgress workflowStage={engagement.workflowStage} />
 
         {/* ── Tabs ──────────────────────────────────────────────────────── */}
@@ -203,7 +189,10 @@ export default function EngagementDetailsPage() {
             <button
               key={tab.key}
               type="button"
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => {
+                if (tab.key === "overview") setPreselectedDocName(null)
+                setActiveTab(tab.key)
+              }}
               className={cn(
                 "relative pb-3 text-sm font-medium transition-colors",
                 activeTab === tab.key
@@ -229,14 +218,17 @@ export default function EngagementDetailsPage() {
         {/* ── Overview Tab ───────────────────────────────────────────────── */}
         {activeTab === "overview" && (
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <TaskList engagement={engagement} />
+            <TaskList engagement={engagement} onTaskClick={(task) => {
+              setPreselectedDocName(task.name)
+              setActiveTab("document-review")
+            }} />
             <ActivityUpdates engagement={engagement} />
           </div>
         )}
 
         {/* ── Document Review Tab ────────────────────────────────────────── */}
         {activeTab === "document-review" && (
-          <EngagementDocumentReviewTab engagement={engagement} />
+          <EngagementDocumentReviewTab engagement={engagement} preselectedDocName={preselectedDocName} />
         )}
       </div>
 

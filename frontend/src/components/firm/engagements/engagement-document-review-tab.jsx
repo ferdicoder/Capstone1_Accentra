@@ -69,10 +69,16 @@ function HistoryItem({ item, isLast }) {
   )
 }
 
-export function EngagementDocumentReviewTab({ engagement, className, ...props }) {
+export function EngagementDocumentReviewTab({ engagement, className, preselectedDocName, ...props }) {
   const documents = getReviewDocuments(engagement)
   const history = engagement.reviewHistory ?? []
-  const [selectedDoc, setSelectedDoc] = useState(documents[0] ?? null)
+  const [selectedDoc, setSelectedDoc] = useState(() => {
+    if (preselectedDocName) {
+      const match = documents.find((d) => d.name === preselectedDocName)
+      if (match) return match
+    }
+    return documents[0] ?? null
+  })
   const [remarks, setRemarks] = useState("")
   const [remarksError, setRemarksError] = useState("")
   const [actionNotice, setActionNotice] = useState("")

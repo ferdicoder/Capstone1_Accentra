@@ -152,7 +152,7 @@ export const getDocumentStatusStyles = (status) => documentStatusStyles[status] 
 export const getDocumentStatusDots = (status) => documentStatusDots[status] ?? "bg-muted-foreground"
 
 export const getReviewDocuments = (engagement) =>
-  (engagement?.documents ?? []).filter((doc) => doc.status !== "pending")
+  engagement?.documents ?? []
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -171,6 +171,8 @@ export const mockEngagements = [
     documents: [
       { id: "doc-001", name: "Monthly Gross Sales Summary", uploadedBy: "Bernard Tan", uploadedDate: "2025-07-12", fileType: "PDF", fileSize: "1.1 MB", status: "in_review" },
       { id: "doc-002", name: "Sales Record", uploadedBy: "Bernard Tan", uploadedDate: "2025-07-12", fileType: "PDF", fileSize: "856 KB", status: "submitted" },
+      { id: "doc-003", name: "Valid ID", uploadedBy: "Bernard Tan", uploadedDate: "2025-07-13", fileType: "JPG", fileSize: "2.3 MB", status: "in_review" },
+      { id: "doc-004", name: "Supporting Documents", uploadedBy: "Bernard Tan", uploadedDate: "2025-07-14", fileType: "PDF", fileSize: "1.8 MB", status: "submitted" },
     ],
     notes: [
       { id: "note-001", type: "internal", content: "Client requested clarification regarding Schedule A income computation.", visibility: "internal", relatedTo: "BIR Form 1702RT (Draft)", createdAt: "2025-07-14T10:35:00", author: "Maria Clara Santos" },
