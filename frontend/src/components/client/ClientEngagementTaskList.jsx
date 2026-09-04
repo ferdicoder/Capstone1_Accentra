@@ -1,7 +1,8 @@
 import { useState } from "react"
-import { Clock, Inbox } from "lucide-react"
+import { Clock, FileCheck, Inbox, Upload, UploadCloud } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -110,9 +111,87 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
   )
 }
 
-// ── Task Row (view-only: no status editing, no deadline editing) ──────────────
+// ── Upload Files Dialog ────────────────────────────────────────────────────────
+// Lets the client attach the file(s) a task needs directly from the action
+// table, instead of having to leave the Overview tab to find the right row
+// in Documents.
 
-function TaskRow({ task, onOpenDetail }) {
+function TaskUploadDialog({ open, onOpenChange, task, onUpload }) {
+  const [files, setFiles] = useState([])
+
+  const handleChange = (e) => {
+    setFiles(Array.from(e.target.files ?? []))
+  }
+
+  const handleClose = (next) => {
+    if (!next) setFiles([])
+    onOpenChange(next)
+  }
+
+  const handleSubmit = () => {
+    if (files.length === 0) return
+    onUpload?.(task, files)
+    setFiles([])
+    onOpenChange(false)
+  }
+
+  if (!task) return null
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Upload Files</DialogTitle>
+          <DialogDescription>
+            Attach the file(s) needed for &ldquo;{task.name}&rdquo;. They&rsquo;ll appear in the
+            Documents tab once uploaded.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-3">
+          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-4 py-8 text-center transition-colors hover:border-[#02353C]/40 hover:bg-muted/30">
+            <UploadCloud className="size-6 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">Click to choose file(s)</span>
+            <span className="text-xs text-muted-foreground">PDF, JPG, or PNG — up to 10MB each</span>
+            <input type="file" multiple className="hidden" onChange={handleChange} />
+          </label>
+
+          {files.length > 0 && (
+            <ul className="flex flex-col gap-1.5">
+              {files.map((f, i) => (
+                <li
+                  key={`${f.name}-${i}`}
+                  className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-1.5 text-xs text-foreground"
+                >
+                  <FileCheck className="size-3.5 shrink-0 text-emerald-600" />
+                  <span className="truncate">{f.name}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => handleClose(false)}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            className="bg-emerald-600 text-white hover:bg-emerald-700"
+            disabled={files.length === 0}
+            onClick={handleSubmit}
+          >
+            Upload
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Task Row ────────────────────────────────────────────────────────────────────
+
+function TaskRow({ task, onOpenDetail, onOpenUpload }) {
   return (
     <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/30">
       {/* Task Name */}
@@ -141,20 +220,43 @@ function TaskRow({ task, onOpenDetail }) {
           {task.deadline ? formatDate(task.deadline) : "No deadline"}
         </span>
       </td>
+
+      {/* Actions */}
+      <td className="w-[140px] py-2.5 pr-6">
+        <button
+          type="button"
+          onClick={onOpenUpload}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[#02353C]/20 bg-[#02353C]/5 px-2.5 py-1 text-xs font-medium text-[#02353C] transition-colors hover:bg-[#02353C]/10"
+        >
+          <Upload className="size-3.5" />
+          Upload Files
+        </button>
+      </td>
     </tr>
   )
 }
 
 // ── Main ClientEngagementTaskList Component ────────────────────────────────────
 
-export function TaskList({ engagement, className }) {
+export function TaskList({ engagement, className, onUploadFiles }) {
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
+  const [uploadOpen, setUploadOpen] = useState(false)
+  const [uploadTask, setUploadTask] = useState(null)
   const [tasks] = useState(() => generateMockTasks(engagement))
 
   const handleOpenDetail = (task) => {
     setSelectedTask(task)
     setDetailOpen(true)
+  }
+
+  const handleOpenUpload = (task) => {
+    setUploadTask(task)
+    setUploadOpen(true)
+  }
+
+  const handleUpload = (task, files) => {
+    onUploadFiles?.(task, files)
   }
 
   const requiredCount = tasks.filter((t) => t.required).length
@@ -192,6 +294,7 @@ export function TaskList({ engagement, className }) {
                 <th className="px-6 py-2.5 text-xs font-medium text-muted-foreground">Task</th>
                 <th className="w-[120px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
                 <th className="w-[140px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Deadline</th>
+                <th className="w-[140px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -200,6 +303,7 @@ export function TaskList({ engagement, className }) {
                   key={task.id}
                   task={task}
                   onOpenDetail={() => handleOpenDetail(task)}
+                  onOpenUpload={() => handleOpenUpload(task)}
                 />
               ))}
             </tbody>
@@ -211,6 +315,13 @@ export function TaskList({ engagement, className }) {
         open={detailOpen}
         onOpenChange={setDetailOpen}
         task={selectedTask}
+      />
+
+      <TaskUploadDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        task={uploadTask}
+        onUpload={handleUpload}
       />
     </div>
   )

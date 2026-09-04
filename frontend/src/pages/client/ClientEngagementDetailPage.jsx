@@ -332,13 +332,19 @@ export default function ClientEngagementDetailPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-lg font-semibold sm:text-xl">{engagement.title}</h1>
+          <h1 className="text-lg font-semibold sm:text-xl">
+            {engagement.title}
+          </h1>
         </div>
+
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-muted-foreground">
             Due{" "}
-            <span className="font-medium text-red-600">{engagement.due}</span>
+            <span className="font-medium text-red-600">
+              {engagement.due}
+            </span>
           </p>
+
           <Button
             variant="outline"
             size="sm"
@@ -365,6 +371,7 @@ export default function ClientEngagementDetailPage() {
         >
           Overview
         </button>
+
         <button
           onClick={() => setActiveTab("documents")}
           className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors ${
@@ -374,10 +381,12 @@ export default function ClientEngagementDetailPage() {
           }`}
         >
           Documents
+
           <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             {initialDocuments.length}
           </span>
         </button>
+
         <button
           onClick={() => setActiveTab("deliverables")}
           className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors ${
@@ -387,6 +396,7 @@ export default function ClientEngagementDetailPage() {
           }`}
         >
           Files
+
           <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             {deliverables.length}
           </span>
@@ -396,6 +406,7 @@ export default function ClientEngagementDetailPage() {
       {activeTab === "overview" && (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <TaskList engagement={engagement} />
+
           <ActivityUpdates
             engagement={{ ...engagement, activityUpdates }}
           />
@@ -407,6 +418,7 @@ export default function ClientEngagementDetailPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="relative max-w-sm flex-1 min-w-[220px]">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+
               <Input
                 placeholder="Search documents..."
                 className="pl-9"
@@ -414,6 +426,7 @@ export default function ClientEngagementDetailPage() {
                 onChange={(e) => setDocumentSearch(e.target.value)}
               />
             </div>
+
             <Button className="bg-emerald-600 text-white hover:bg-emerald-700">
               Review Documents ({flaggedForReview})
             </Button>
@@ -429,108 +442,131 @@ export default function ClientEngagementDetailPage() {
                   <col className="w-[10%]" />
                   <col className="w-[24%]" />
                 </colgroup>
-              <thead>
-                <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
-                  <th className="px-4 py-3.5 align-middle font-medium">
-                    Document Name
-                  </th>
-                  <th className="px-4 py-3.5 align-middle font-medium">
-                    Status
-                  </th>
-                  <th className="px-4 py-3.5 align-middle font-medium">
-                    Due Date
-                  </th>
-                  <th className="px-4 py-3.5 align-middle font-medium">
-                    Size
-                  </th>
-                  <th className="px-4 py-3.5 text-right align-middle font-medium">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredDocuments.map((doc) => (
-                  <>
-                    <tr
-                      key={doc.id}
-                      className="border-b last:border-b-0 hover:bg-muted/30"
-                    >
-                      <td className="px-4 py-4 align-middle">
-                        <p className="truncate font-medium">
-                          {doc.name}
-                          {doc.required && (
-                            <span className="ml-0.5 text-red-500">*</span>
-                          )}
-                        </p>
-                        {doc.file && (
-                          <p className="truncate text-xs text-muted-foreground">
-                            {doc.file}
+
+                <thead>
+                  <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                    <th className="px-4 py-3.5 align-middle font-medium">
+                      Document Name
+                    </th>
+
+                    <th className="px-4 py-3.5 align-middle font-medium">
+                      Status
+                    </th>
+
+                    <th className="px-4 py-3.5 align-middle font-medium">
+                      Due Date
+                    </th>
+
+                    <th className="px-4 py-3.5 align-middle font-medium">
+                      Size
+                    </th>
+
+                    <th className="px-4 py-3.5 text-right align-middle font-medium">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {filteredDocuments.map((doc) => (
+                    <>
+                      <tr
+                        key={doc.id}
+                        className="border-b last:border-b-0 hover:bg-muted/30"
+                      >
+                        <td className="px-4 py-4 align-middle">
+                          <p className="truncate font-medium">
+                            {doc.name}
+
+                            {doc.required && (
+                              <span className="ml-0.5 text-red-500">
+                                *
+                              </span>
+                            )}
                           </p>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 align-middle">
-                        <span
-                          className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${documentStatusStyles[doc.status]}`}
-                        >
-                          {doc.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 align-middle text-muted-foreground">
-                        {doc.deadline ?? "—"}
-                      </td>
-                      <td className="px-4 py-4 align-middle text-muted-foreground">
-                        {doc.size ?? "—"}
-                      </td>
-                      <td className="px-4 py-4 align-middle">
-                        <div className="flex items-center justify-end gap-2">
-                          {doc.status === "For Review" && (
-                            <button
-                              title="Preview"
-                              className="text-muted-foreground hover:text-foreground"
-                            >
-                              <Eye className="size-4" />
-                            </button>
+
+                          {doc.file && (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {doc.file}
+                            </p>
                           )}
-                          <button
-                            className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                              doc.status === "For Review"
-                                ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                                : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                            }`}
+                        </td>
+
+                        <td className="px-4 py-4 align-middle">
+                          <span
+                            className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${documentStatusStyles[doc.status]}`}
                           >
-                            <Upload className="size-3.5" />
-                            {doc.status === "For Review"
-                              ? "Re-upload"
-                              : "Upload"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    {doc.remark && (
-                      <tr key={`${doc.id}-remark`} className="border-b bg-amber-50/60">
-                        <td colSpan={5} className="px-4 py-2.5 text-xs text-amber-800">
-                          <span className="font-medium">
-                            Firm Remark — Revision Required:
-                          </span>{" "}
-                          {doc.remark}
+                            {doc.status}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-4 align-middle text-muted-foreground">
+                          {doc.deadline ?? "—"}
+                        </td>
+
+                        <td className="px-4 py-4 align-middle text-muted-foreground">
+                          {doc.size ?? "—"}
+                        </td>
+
+                        <td className="px-4 py-4 align-middle">
+                          <div className="flex items-center justify-end gap-2">
+                            {doc.status === "For Review" && (
+                              <button
+                                title="Preview"
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                <Eye className="size-4" />
+                              </button>
+                            )}
+
+                            <button
+                              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                doc.status === "For Review"
+                                  ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                  : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                              }`}
+                            >
+                              <Upload className="size-3.5" />
+
+                              {doc.status === "For Review"
+                                ? "Re-upload"
+                                : "Upload"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    )}
-                  </>
-                ))}
 
-                {filteredDocuments.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-4 py-10 text-center text-sm text-muted-foreground"
-                    >
-                      No documents match "{documentSearch}".
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      {doc.remark && (
+                        <tr
+                          key={`${doc.id}-remark`}
+                          className="border-b bg-amber-50/60"
+                        >
+                          <td
+                            colSpan={5}
+                            className="px-4 py-2.5 text-xs text-amber-800"
+                          >
+                            <span className="font-medium">
+                              Firm Remark — Revision Required:
+                            </span>{" "}
+                            {doc.remark}
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  ))}
+
+                  {filteredDocuments.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-4 py-10 text-center text-sm text-muted-foreground"
+                      >
+                        No documents match "{documentSearch}".
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -540,6 +576,7 @@ export default function ClientEngagementDetailPage() {
         <div className="rounded-xl border bg-background p-5">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-sm font-semibold">Files</h3>
+
             <span className="text-xs text-muted-foreground">
               Files uploaded by your firm — download links expire after 10
               minutes
@@ -547,7 +584,9 @@ export default function ClientEngagementDetailPage() {
           </div>
 
           {isDeliverablesLoading ? (
-            <p className="text-sm text-muted-foreground">Loading...</p>
+            <p className="text-sm text-muted-foreground">
+              Loading...
+            </p>
           ) : deliverables.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No files have been uploaded yet.
@@ -562,14 +601,17 @@ export default function ClientEngagementDetailPage() {
                   <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                     <FileText className="size-4" />
                   </div>
+
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
                       {file.file_name}
                     </p>
+
                     <p className="text-xs text-muted-foreground">
                       {file.created_at} · {formatBytes(file.file_size)}
                     </p>
                   </div>
+
                   {file.signedUrl ? (
                     <a
                       href={file.signedUrl}
@@ -593,121 +635,216 @@ export default function ClientEngagementDetailPage() {
         </div>
       )}
 
-      {/* Client + Service Details modal (kept from the old Overview cards) */}
+      {/* ================================================================
+          VIEW DETAILS MODAL
+          ================================================================ */}
       {detailsOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-6"
           onClick={() => setDetailsOpen(false)}
         >
           <div
-            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl bg-background p-4 shadow-lg sm:p-6"
+            className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-background shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-base font-semibold">Engagement Details</h2>
+            {/* ----------------------------------------------------------
+                MODAL HEADER
+                ---------------------------------------------------------- */}
+            <div className="flex shrink-0 items-center justify-between border-b px-6 py-5 sm:px-8">
+              <div>
+                <h2 className="text-lg font-semibold sm:text-xl">
+                  Engagement Details
+                </h2>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  View task and service information
+                </p>
+              </div>
+
               <button
+                type="button"
                 onClick={() => setDetailsOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
+                aria-label="Close engagement details"
+                className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
-                <X className="size-4" />
+                <X className="size-5" />
               </button>
             </div>
 
-            <div className="space-y-6">
-              <div>
-                <h3 className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
-                  Task
-                </h3>
-                <dl className="space-y-3 text-sm">
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Client Name
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.task.clientName}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Business Name
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.task.businessName}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">TIN</dt>
-                    <dd className="font-medium">{engagement.task.tin}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">RDO</dt>
-                    <dd className="font-medium">{engagement.task.rdo}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Email</dt>
-                    <dd className="font-medium">{engagement.task.email}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Phone</dt>
-                    <dd className="font-medium">{engagement.task.phone}</dd>
-                  </div>
-                </dl>
-              </div>
+            {/* ----------------------------------------------------------
+                DETAILS CONTENT
+                Desktop: two columns
+                Mobile: one column
+                ---------------------------------------------------------- */}
+            <div className="min-h-0 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2">
 
-              <div>
-                <h3 className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
-                  Service Information
-                </h3>
-                <dl className="space-y-3 text-sm">
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Service Type
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.serviceInfo.serviceType}
-                    </dd>
+                {/* ======================================================
+                    LEFT COLUMN — TASK
+                    ====================================================== */}
+                <section className="border-b px-6 py-7 sm:px-8 sm:py-8 md:border-b-0 md:border-r">
+                  <div className="mb-7">
+                    <h3 className="text-base font-semibold">
+                      Task
+                    </h3>
+
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Client and task information
+                    </p>
                   </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Tax Form
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.serviceInfo.taxForm}
-                    </dd>
+
+                  <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+                    {/* Client Name */}
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Client Name
+                      </dt>
+
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.task.clientName}
+                      </dd>
+                    </div>
+
+                    {/* Business Name */}
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Business Name
+                      </dt>
+
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.task.businessName}
+                      </dd>
+                    </div>
+
+                    {/* TIN */}
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        TIN
+                      </dt>
+
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.task.tin}
+                      </dd>
+                    </div>
+
+                    {/* RDO */}
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        RDO
+                      </dt>
+
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.task.rdo}
+                      </dd>
+                    </div>
+
+                    {/* Email */}
+                    <div className="min-w-0 sm:col-span-2">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Email
+                      </dt>
+
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.task.email}
+                      </dd>
+                    </div>
+
+                    {/* Phone */}
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Phone
+                      </dt>
+
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.task.phone}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+
+                {/* ======================================================
+                    RIGHT COLUMN — SERVICE INFORMATION
+                    ====================================================== */}
+                <section className="px-6 py-7 sm:px-8 sm:py-8">
+                  <div className="mb-7">
+                    <h3 className="text-base font-semibold">
+                      Service Information
+                    </h3>
+
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Details about the selected service
+                    </p>
                   </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Compliance Category
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.serviceInfo.complianceCategory}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Period Covered
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.serviceInfo.periodCovered}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Filing Deadline
-                    </dt>
-                    <dd className="font-medium text-red-600">
-                      {engagement.serviceInfo.filingDeadline}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Assigned CPA
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.serviceInfo.assignedCpa}
-                    </dd>
-                  </div>
-                </dl>
+
+                  <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+                    {/* Service Type */}
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Service Type
+                      </dt>
+
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.serviceInfo.serviceType}
+                      </dd>
+                    </div>
+
+                    {/* Tax Form */}
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Tax Form
+                      </dt>
+
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.serviceInfo.taxForm}
+                      </dd>
+                    </div>
+
+                    {/* Compliance Category */}
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Compliance Category
+                      </dt>
+
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.serviceInfo.complianceCategory}
+                      </dd>
+                    </div>
+
+                    {/* Period Covered */}
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Period Covered
+                      </dt>
+
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.serviceInfo.periodCovered}
+                      </dd>
+                    </div>
+
+                    {/* Filing Deadline */}
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Filing Deadline
+                      </dt>
+
+                      <dd className="mt-1.5 break-words text-sm font-semibold text-red-600">
+                        {engagement.serviceInfo.filingDeadline}
+                      </dd>
+                    </div>
+
+                    {/* Assigned CPA */}
+                    <div className="min-w-0 sm:col-span-2">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Assigned CPA
+                      </dt>
+
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.serviceInfo.assignedCpa}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+
               </div>
             </div>
           </div>
