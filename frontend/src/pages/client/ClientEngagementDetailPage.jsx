@@ -2,7 +2,6 @@ import { useEffect, useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import {
   ArrowLeft,
-  Clock,
   Download,
   Eye,
   FileText,
@@ -15,7 +14,9 @@ import { Input } from "@/components/ui/input"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/config/supabase.js"
-import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
+import { WorkflowProgress } from "@/components/client/ClientEngagementWorkflow"
+import { TaskList } from "@/components/client/ClientEngagementTaskList"
+import { ActivityUpdates } from "@/components/client/ClientEngagementActivityUpdates"
 
 
 // --- Inline data access (no separate service files) --------------------
@@ -44,7 +45,18 @@ async function fetchEngagementActivity(engagementId) {
       .order("created_at", { ascending: false })
 
     if (error) throw new Error(error.message)
-    return { data, error: null }
+
+    // Normalize raw rows into the shape ActivityUpdates expects.
+    // Adjust the field mapping below once the real column names are confirmed.
+    const normalized = (data ?? []).map((row) => ({
+      id: row.id,
+      title: row.type ?? "Activity Update",
+      createdAt: row.created_at,
+      description: row.message ?? "",
+      author: row.actor ?? "—",
+    }))
+
+    return { data: normalized, error: null }
   } catch (err) {
     console.error(err)
     return { data: null, error: err.message }
@@ -93,9 +105,11 @@ async function fetchEngagementDeliverables(engagementId) {
 
 
 const engagement = {
+  id: "eng-2024-0041", // TaskList/ActivityUpdates key off this + serviceName
   code: "ENG-2024-0041",
   status: "Active",
   type: "Tax Filing",
+  serviceName: "Tax Filing", // TaskList.generateMockTasks() matches on this text
   title: "Annual Income Tax Return (BIR Form 1701)",
   due: "Apr 15, 2025",
   workflowStage: "document-verification", // must match a `key` in workflowStages (engagement-variants)
@@ -117,51 +131,42 @@ const engagement = {
   },
 }
 
-const initialActivityLog = [
+const initialActivityUpdates = [
   {
     id: "log-1",
     title: "Request Submitted",
-    date: "Nov 28, 2024",
+    createdAt: "2024-11-28T09:00:00",
     description: "Client submitted via portal",
-    actor: "Maria Santos",
-    done: true,
+    author: "Maria Santos",
   },
   {
     id: "log-2",
     title: "Request Approved",
-    date: "Nov 28, 2024",
+    createdAt: "2024-11-28T14:30:00",
     description: "Approved by R&A CPA",
-    actor: "Atty. Roland Reyes, CPA",
-    done: true,
+    author: "Atty. Roland Reyes, CPA",
   },
   {
     id: "log-3",
     title: "Document Checklist Sent",
-    date: "Nov 30, 2024",
+    createdAt: "2024-11-30T10:00:00",
     description: "5 required documents listed",
-    actor: "Atty. Roland Reyes, CPA",
-    done: true,
+    author: "Atty. Roland Reyes, CPA",
   },
   {
     id: "log-4",
     title: "Documents Submitted",
-    date: "Dec 6, 2024",
+    createdAt: "2024-12-06T11:15:00",
     description: "3 of 5 submitted",
-    actor: "Maria Santos",
-    done: true,
+    author: "Maria Santos",
   },
   {
     id: "log-5",
     title: "Documents Reviewed",
-    date: "Dec 8, 2024",
+    createdAt: "2024-12-08T16:45:00",
     description: "2 documents flagged for revision",
-    actor: "Atty. Roland Reyes, CPA",
-    done: true,
+    author: "Atty. Roland Reyes, CPA",
   },
-  { id: "log-6", title: "Processing / Filing", done: false },
-  { id: "log-7", title: "Billing Issued", done: false },
-  { id: "log-8", title: "Payment Confirmed", done: false },
-  { id: "log-9", title: "Service Completed", done: false },
 ]
 
 const initialDocuments = [
@@ -246,8 +251,7 @@ export default function ClientEngagementDetailPage() {
   const { id } = useParams()
   const [activeTab, setActiveTab] = useState("overview")
   const [documentSearch, setDocumentSearch] = useState("")
-  const [activityLog, setActivityLog] = useState(initialActivityLog)
-  const [isActivityLoading, setIsActivityLoading] = useState(false)
+  const [activityUpdates, setActivityUpdates] = useState(initialActivityUpdates)
   const [deliverables, setDeliverables] = useState(initialDeliverables)
   const [isDeliverablesLoading, setIsDeliverablesLoading] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -260,17 +264,10 @@ export default function ClientEngagementDetailPage() {
     (d) => d.status === "For Review"
   ).length
 
-  const totalTasks = initialDocuments.length
-  const completedTasks = initialDocuments.filter(
-    (d) => d.status === "Approved"
-  ).length
-  const requiredTasks = initialDocuments.filter((d) => d.required).length
-
   useEffect(() => {
     let isMounted = true
 
     async function loadActivity() {
-      setIsActivityLoading(true)
       const { data, error } = await fetchEngagementActivity(id)
 
       if (!isMounted) return
@@ -278,10 +275,8 @@ export default function ClientEngagementDetailPage() {
       if (error) {
         console.error("Failed to load activity log:", error)
       } else if (data) {
-        setActivityLog(data)
+        setActivityUpdates(data)
       }
-
-      setIsActivityLoading(false)
     }
 
     loadActivity()
@@ -326,7 +321,7 @@ export default function ClientEngagementDetailPage() {
   })
 
   return (
-    <div className="flex flex-1 flex-col gap-4 px-2 py-2">
+    <div className="flex flex-1 flex-col gap-4 px-2 py-2 sm:px-4 lg:px-6">
       <Link
         to="/client/engagements"
         className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -335,11 +330,11 @@ export default function ClientEngagementDetailPage() {
         Back to Engagements
       </Link>
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold">{engagement.title}</h1>
+          <h1 className="text-lg font-semibold sm:text-xl">{engagement.title}</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-muted-foreground">
             Due{" "}
             <span className="font-medium text-red-600">{engagement.due}</span>
@@ -359,10 +354,10 @@ export default function ClientEngagementDetailPage() {
       <WorkflowProgress workflowStage={engagement.workflowStage} />
 
       {/* Tabs */}
-      <div className="flex gap-6 border-b">
+      <div className="flex gap-4 overflow-x-auto border-b sm:gap-6">
         <button
           onClick={() => setActiveTab("overview")}
-          className={`-mb-px border-b-2 pb-2 text-sm font-medium transition-colors ${
+          className={`-mb-px shrink-0 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors ${
             activeTab === "overview"
               ? "border-emerald-600 text-emerald-700"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -372,7 +367,7 @@ export default function ClientEngagementDetailPage() {
         </button>
         <button
           onClick={() => setActiveTab("documents")}
-          className={`-mb-px flex items-center gap-1.5 border-b-2 pb-2 text-sm font-medium transition-colors ${
+          className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors ${
             activeTab === "documents"
               ? "border-emerald-600 text-emerald-700"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -385,7 +380,7 @@ export default function ClientEngagementDetailPage() {
         </button>
         <button
           onClick={() => setActiveTab("deliverables")}
-          className={`-mb-px flex items-center gap-1.5 border-b-2 pb-2 text-sm font-medium transition-colors ${
+          className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors ${
             activeTab === "deliverables"
               ? "border-emerald-600 text-emerald-700"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -400,125 +395,10 @@ export default function ClientEngagementDetailPage() {
 
       {activeTab === "overview" && (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-          {/* Task List */}
-          <div className="rounded-xl border bg-background p-5">
-            <h3 className="text-sm font-semibold">Task List</h3>
-            <p className="mb-4 mt-1 text-xs text-muted-foreground">
-              {completedTasks} of {totalTasks} completed · {requiredTasks}{" "}
-              required
-            </p>
-
-            <div className="overflow-hidden rounded-lg border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
-                    <th className="px-4 py-3 font-medium">Task</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Deadline</th>
-                    <th className="px-4 py-3 text-right font-medium">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {initialDocuments.map((doc) => (
-                    <tr
-                      key={doc.id}
-                      className="border-b last:border-b-0 hover:bg-muted/30"
-                    >
-                      <td className="px-4 py-3.5">
-                        <span className="font-medium">
-                          {doc.name}
-                          {doc.required && (
-                            <span className="ml-0.5 text-red-500">*</span>
-                          )}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span
-                          className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${documentStatusStyles[doc.status]}`}
-                        >
-                          <span className="size-1.5 rounded-full bg-current" />
-                          {doc.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 text-muted-foreground">
-                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                          <Clock className="size-3.5" />
-                          {doc.deadline ?? "—"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 text-right">
-                        <button
-                          onClick={() => setActiveTab("documents")}
-                          className="text-xs font-medium text-emerald-700 hover:underline"
-                        >
-                          {doc.status === "Missing" ? "Upload" : "View"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Activity Updates */}
-          <div className="rounded-xl border bg-background p-5">
-            <h3 className="mb-4 text-sm font-semibold">Activity</h3>
-            {isActivityLoading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
-            ) : activityLog.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No activity yet.
-              </p>
-            ) : (
-              <ul>
-                {activityLog.map((log, idx) => (
-                  <li key={log.id} className="relative flex gap-3 pb-5 last:pb-0">
-                    {idx !== activityLog.length - 1 && (
-                      <span className="absolute left-[8px] top-5 h-full w-px bg-border" />
-                    )}
-                    <div
-                      className={`relative z-10 mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full ring-4 ring-background ${
-                        log.done
-                          ? "bg-emerald-50 text-emerald-600"
-                          : "bg-muted text-muted-foreground/40"
-                      }`}
-                    >
-                      <FileText className="size-3" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p
-                        className={`text-sm ${
-                          log.done
-                            ? "font-medium text-foreground"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        {log.title}
-                      </p>
-                      {log.date && (
-                        <p className="text-xs text-muted-foreground">
-                          {log.date}
-                        </p>
-                      )}
-                      {log.description && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {log.description}
-                        </p>
-                      )}
-                      {log.actor && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          — {log.actor}
-                        </p>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <TaskList engagement={engagement} />
+          <ActivityUpdates
+            engagement={{ ...engagement, activityUpdates }}
+          />
         </div>
       )}
 
@@ -540,14 +420,15 @@ export default function ClientEngagementDetailPage() {
           </div>
 
           <div className="overflow-hidden rounded-xl border bg-background">
-            <table className="w-full table-fixed text-sm">
-              <colgroup>
-                <col className="w-[34%]" />
-                <col className="w-[16%]" />
-                <col className="w-[16%]" />
-                <col className="w-[10%]" />
-                <col className="w-[24%]" />
-              </colgroup>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] table-fixed text-sm">
+                <colgroup>
+                  <col className="w-[34%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[24%]" />
+                </colgroup>
               <thead>
                 <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                   <th className="px-4 py-3.5 align-middle font-medium">
@@ -557,7 +438,7 @@ export default function ClientEngagementDetailPage() {
                     Status
                   </th>
                   <th className="px-4 py-3.5 align-middle font-medium">
-                    Uploaded By
+                    Due Date
                   </th>
                   <th className="px-4 py-3.5 align-middle font-medium">
                     Size
@@ -595,7 +476,7 @@ export default function ClientEngagementDetailPage() {
                         </span>
                       </td>
                       <td className="px-4 py-4 align-middle text-muted-foreground">
-                        {doc.uploadedBy ?? "—"}
+                        {doc.deadline ?? "—"}
                       </td>
                       <td className="px-4 py-4 align-middle text-muted-foreground">
                         {doc.size ?? "—"}
@@ -650,6 +531,7 @@ export default function ClientEngagementDetailPage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -718,7 +600,7 @@ export default function ClientEngagementDetailPage() {
           onClick={() => setDetailsOpen(false)}
         >
           <div
-            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl bg-background p-6 shadow-lg"
+            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl bg-background p-4 shadow-lg sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between">
