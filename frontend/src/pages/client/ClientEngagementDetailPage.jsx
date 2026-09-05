@@ -6,7 +6,6 @@ import {
   Eye,
   FileText,
   Search,
-  Upload,
   X,
 } from "lucide-react"
 
@@ -27,22 +26,9 @@ import { ActivityUpdates } from "@/components/client/ClientEngagementActivityUpd
 
 
 // --- Inline data access (no separate service files) --------------------
-//
-// Table assumption: "engagement_activity"
-//   id, engagement_id, type, message, actor, created_at
-//
-// Table assumption: "metadata_document" (per the ERD) — this now covers
-// BOTH client uploads and firm deliverables, distinguished by a
-// `document_type` / `uploaded_by_role` column (guessed name below):
-//   document_id, engagement_id, business_id, bucket_name, object_key,
-//   file_name, file_size, status, document_type, uploaded_by_role,
-//   uploaded_by_name, remark, created_at, updated_at
-//
-// Adjust table/column names below to match your actual schema.
-
 const ACTIVITY_TABLE = "engagement_activity"
 const DOCUMENT_TABLE = "metadata_document"
-const SIGNED_URL_EXPIRY_SECONDS = 60 * 10 // matches the "10 minutes" copy in the UI below
+const SIGNED_URL_EXPIRY_SECONDS = 60 * 10
 
 async function fetchEngagementActivity(engagementId) {
   try {
@@ -69,9 +55,6 @@ async function fetchEngagementActivity(engagementId) {
   }
 }
 
-// Fetches ALL documents for this engagement — both client uploads and firm
-// deliverables — as one consolidated list, per the "merge Documents and
-// Files into one section" requirement.
 async function fetchEngagementDocuments(engagementId) {
   try {
     const { data, error } = await supabase
@@ -115,25 +98,34 @@ const engagement = {
   code: "ENG-2024-0041",
   status: "Active",
   type: "Tax Filing",
-  serviceName: "Tax Filing",
+  serviceName: "Tax Filing", // used by TaskList's mock task generator — do not remove
   title: "Annual Income Tax Return (BIR Form 1701)",
   due: "Apr 15, 2025",
   workflowStage: "document-verification",
-  task: {
-    clientName: "Maria Santos",
-    businessName: "Santos Retail Trading",
-    tin: "123-456-789-000",
-    rdo: "RDO 052 – Pasig City",
+
+  // "Client Information" — mirrors the fields the client fills in on
+  // SignupPage.jsx, instead of engagement-specific fields like RDO.
+  clientInfo: {
+    fullName: "Maria Santos",
     email: "maria.santos@santosretail.com",
-    phone: "+63 917 555 1234",
+    contactNumber: "+63 917 555 1234",
+    businessName: "Santos Retail Trading",
+    businessType: "Sole Proprietorship",
+    tin: "123-456-789-000",
+    industry: "Retail",
+    address: "12 Mercado St., Unit 4B, Brgy. Sta. Ana, District 6, Manila, 1009",
   },
+
+  // Service Information — Tax Form/Compliance Category/Period Covered
+  // removed; Service Name and Notes (from the original service request)
+  // added; Assigned CPA renamed to Assigned Staff.
   serviceInfo: {
     serviceType: "Tax Filing",
-    taxForm: "BIR Form 1701",
-    complianceCategory: "Income Tax",
-    periodCovered: "Taxable Year 2024",
+    serviceName: "Annual ITR Filing",
+    notes:
+      "Please prioritize — client needs this filed before the April 15 deadline.",
     filingDeadline: "April 15, 2025",
-    assignedCpa: "Atty. Roland Reyes, CPA",
+    assignedStaff: "Atty. Roland Reyes, CPA",
   },
 }
 
@@ -175,17 +167,14 @@ const initialActivityUpdates = [
   },
 ]
 
-// Consolidated document list — both client uploads and firm deliverables,
-// each tagged with `owner`. Only files that actually exist show up here;
-// still-missing required items are tracked in the Task List instead
-// (which already has its own "Upload Files" action per task).
+// Consolidated document list — "uploadedBy" is now the actual person's
+// name (used for display), not a role label.
 const initialDocuments = [
   {
     id: "doc-1",
     name: "BIR Form 1701 – Signed Copy",
     file: "BIR_1701_2024.pdf",
-    owner: "Client",
-    uploadedBy: "Maria S.",
+    uploadedBy: "Maria Santos",
     uploadedDate: "Dec 6, 2024",
     reviewStatus: "Approved",
     signedUrl: null,
@@ -194,8 +183,7 @@ const initialDocuments = [
     id: "doc-2",
     name: "Bank Statements (Jan–Dec 2024)",
     file: "BankStatements_2024.pdf",
-    owner: "Client",
-    uploadedBy: "Maria S.",
+    uploadedBy: "Maria Santos",
     uploadedDate: "Dec 6, 2024",
     reviewStatus: "Approved",
     signedUrl: null,
@@ -204,8 +192,7 @@ const initialDocuments = [
     id: "doc-3",
     name: "Official Receipts / Invoice Booklet",
     file: "OR_Booklet.pdf",
-    owner: "Client",
-    uploadedBy: "Maria S.",
+    uploadedBy: "Maria Santos",
     uploadedDate: "Dec 6, 2024",
     reviewStatus: "For Revision",
     remark:
@@ -216,7 +203,6 @@ const initialDocuments = [
     id: "del-1",
     name: "Filed_ITR_2024.pdf",
     file: "Filed_ITR_2024.pdf",
-    owner: "Firm",
     uploadedBy: "Atty. Roland Reyes, CPA",
     uploadedDate: "Apr 18, 2025",
     reviewStatus: "Approved",
@@ -226,7 +212,6 @@ const initialDocuments = [
     id: "del-2",
     name: "BIR_Acknowledgement_Receipt.pdf",
     file: "BIR_Acknowledgement_Receipt.pdf",
-    owner: "Firm",
     uploadedBy: "Atty. Roland Reyes, CPA",
     uploadedDate: "Apr 18, 2025",
     reviewStatus: "Approved",
@@ -239,77 +224,24 @@ const reviewStatusStyles = {
   "For Revision": "bg-amber-50 text-amber-700 border border-amber-200",
 }
 
-function DocumentViewDialog({ open, onOpenChange, document: doc }) {
-  const [showRemarks, setShowRemarks] = useState(false)
-
+function RemarksDialog({ open, onOpenChange, document: doc }) {
   if (!doc) return null
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) setShowRemarks(false)
-        onOpenChange(next)
-      }}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{doc.name}</DialogTitle>
-          <DialogDescription>Document details</DialogDescription>
+          <DialogTitle>Remarks — {doc.name}</DialogTitle>
+          <DialogDescription>
+            Reason this document needs revision
+          </DialogDescription>
         </DialogHeader>
-
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Owner</span>
-            <span className="text-sm font-medium text-foreground">
-              {doc.owner}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              Uploaded Date
-            </span>
-            <span className="text-sm font-medium text-foreground">
-              {doc.uploadedDate}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Status</span>
-            <span
-              className={`rounded-full px-2.5 py-1 text-xs font-medium ${reviewStatusStyles[doc.reviewStatus]}`}
-            >
-              {doc.reviewStatus}
-            </span>
-          </div>
-
-          {doc.reviewStatus === "For Revision" && (
-            <div>
-              {!showRemarks ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setShowRemarks(true)}
-                >
-                  View Remarks
-                </Button>
-              ) : (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
-                  {doc.remark}
-                </div>
-              )}
-            </div>
-          )}
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+          {doc.remark}
         </div>
       </DialogContent>
     </Dialog>
   )
-}
-
-function formatBytes(bytes) {
-  if (!bytes) return "—"
-  const kb = bytes / 1024
-  return kb < 1024 ? `${kb.toFixed(0)} KB` : `${(kb / 1024).toFixed(1)} MB`
 }
 
 export default function ClientEngagementDetailPage() {
@@ -320,8 +252,8 @@ export default function ClientEngagementDetailPage() {
   const [documents, setDocuments] = useState(initialDocuments)
   const [isDocumentsLoading, setIsDocumentsLoading] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
-  const [viewDoc, setViewDoc] = useState(null)
-  const [isDocViewOpen, setIsDocViewOpen] = useState(false)
+  const [remarksDoc, setRemarksDoc] = useState(null)
+  const [isRemarksOpen, setIsRemarksOpen] = useState(false)
 
   const filteredDocuments = documents.filter((doc) =>
     doc.name.toLowerCase().includes(documentSearch.toLowerCase())
@@ -413,7 +345,7 @@ export default function ClientEngagementDetailPage() {
       {/* Workflow progress */}
       <WorkflowProgress workflowStage={engagement.workflowStage} />
 
-      {/* Tabs — Files/Deliverables removed, merged into Documents */}
+      {/* Tabs */}
       <div className="flex gap-4 overflow-x-auto border-b sm:gap-6">
         <button
           onClick={() => setActiveTab("overview")}
@@ -450,32 +382,26 @@ export default function ClientEngagementDetailPage() {
 
       {activeTab === "documents" && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="relative max-w-sm flex-1 min-w-[220px]">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search documents..."
-                className="pl-9"
-                value={documentSearch}
-                onChange={(e) => setDocumentSearch(e.target.value)}
-              />
-            </div>
-
-            {/* Primary action for this tab, per spec */}
-            <Button className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700">
-              <Upload className="size-4" />
-              Document Upload
-            </Button>
+          {/* Document Upload button removed — uploading now happens only
+              through the Task List's per-task "Upload Files" action. */}
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search documents..."
+              className="pl-9"
+              value={documentSearch}
+              onChange={(e) => setDocumentSearch(e.target.value)}
+            />
           </div>
 
           <div className="overflow-hidden rounded-xl border bg-background">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] table-fixed text-sm">
                 <colgroup>
-                  <col className="w-[40%]" />
-                  <col className="w-[16%]" />
+                  <col className="w-[36%]" />
                   <col className="w-[20%]" />
-                  <col className="w-[24%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[28%]" />
                 </colgroup>
                 <thead>
                   <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
@@ -483,7 +409,7 @@ export default function ClientEngagementDetailPage() {
                       Document Name
                     </th>
                     <th className="px-4 py-3.5 align-middle font-medium">
-                      Owner
+                      Uploaded By
                     </th>
                     <th className="px-4 py-3.5 align-middle font-medium">
                       Uploaded Date
@@ -512,40 +438,65 @@ export default function ClientEngagementDetailPage() {
                         className="border-b last:border-b-0 hover:bg-muted/30"
                       >
                         <td className="px-4 py-4 align-middle">
-                          <p className="truncate font-medium">{doc.name}</p>
+                          <p className="truncate font-medium">
+                            {doc.name}
+                            {doc.reviewStatus === "For Revision" && (
+                              <span
+                                className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${reviewStatusStyles["For Revision"]}`}
+                              >
+                                For Revision
+                              </span>
+                            )}
+                          </p>
                           {doc.file && (
                             <p className="truncate text-xs text-muted-foreground">
                               {doc.file}
                             </p>
                           )}
                         </td>
-                        <td className="px-4 py-4 align-middle">
-                          <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground">
-                            {doc.owner}
-                          </span>
+                        {/* Actual person's name — not a "Client"/"Firm" role label */}
+                        <td className="px-4 py-4 align-middle text-muted-foreground">
+                          {doc.uploadedBy}
                         </td>
                         <td className="px-4 py-4 align-middle text-muted-foreground">
                           {doc.uploadedDate ?? "—"}
                         </td>
                         <td className="px-4 py-4 align-middle">
                           <div className="flex items-center justify-end gap-2">
-                            <button
-                              title="View"
-                              onClick={() => {
-                                setViewDoc(doc)
-                                setIsDocViewOpen(true)
-                              }}
-                              className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
-                            >
-                              <Eye className="size-3.5" />
-                              View
-                            </button>
+                            {doc.reviewStatus === "For Revision" && (
+                              <button
+                                onClick={() => {
+                                  setRemarksDoc(doc)
+                                  setIsRemarksOpen(true)
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"
+                              >
+                                View Remarks
+                              </button>
+                            )}
 
+                            {/* View File — opens the actual file, not a metadata dialog */}
                             {doc.signedUrl ? (
                               <a
                                 href={doc.signedUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+                              >
+                                <Eye className="size-3.5" />
+                                View File
+                              </a>
+                            ) : (
+                              <span className="inline-flex cursor-not-allowed items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium text-muted-foreground/50">
+                                <Eye className="size-3.5" />
+                                View File
+                              </span>
+                            )}
+
+                            {doc.signedUrl ? (
+                              <a
+                                href={doc.signedUrl}
+                                download
                                 className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
                               >
                                 <Download className="size-3.5" />
@@ -579,14 +530,14 @@ export default function ClientEngagementDetailPage() {
         </div>
       )}
 
-      <DocumentViewDialog
-        open={isDocViewOpen}
-        onOpenChange={setIsDocViewOpen}
-        document={viewDoc}
+      <RemarksDialog
+        open={isRemarksOpen}
+        onOpenChange={setIsRemarksOpen}
+        document={remarksDoc}
       />
 
       {/* ================================================================
-          VIEW DETAILS MODAL — Left: Task, Right: Service Information
+          VIEW DETAILS MODAL — Left: Client Information, Right: Service Information
           ================================================================ */}
       {detailsOpen && (
         <div
@@ -603,7 +554,7 @@ export default function ClientEngagementDetailPage() {
                   Engagement Details
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  View task and service information
+                  View client and service information
                 </p>
               </div>
               <button
@@ -618,21 +569,38 @@ export default function ClientEngagementDetailPage() {
 
             <div className="min-h-0 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2">
+                {/* LEFT — Client Information (mirrors SignupPage.jsx fields) */}
                 <section className="border-b px-6 py-7 sm:px-8 sm:py-8 md:border-b-0 md:border-r">
                   <div className="mb-7">
-                    <h3 className="text-base font-semibold">Task</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Client and task information
-                    </p>
+                    <h3 className="text-base font-semibold">
+                      Client Information
+                    </h3>
+                   
                   </div>
 
                   <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-                    <div className="min-w-0">
+                    <div className="min-w-0 sm:col-span-2">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Client Name
+                        Full Name
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.task.clientName}
+                        {engagement.clientInfo.fullName}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Email
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.clientInfo.email}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Contact Number
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.clientInfo.contactNumber}
                       </dd>
                     </div>
                     <div className="min-w-0">
@@ -640,7 +608,15 @@ export default function ClientEngagementDetailPage() {
                         Business Name
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.task.businessName}
+                        {engagement.clientInfo.businessName}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Business Type
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.clientInfo.businessType}
                       </dd>
                     </div>
                     <div className="min-w-0">
@@ -648,36 +624,29 @@ export default function ClientEngagementDetailPage() {
                         TIN
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.task.tin}
+                        {engagement.clientInfo.tin}
                       </dd>
                     </div>
                     <div className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        RDO
+                        Industry
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.task.rdo}
+                        {engagement.clientInfo.industry}
                       </dd>
                     </div>
                     <div className="min-w-0 sm:col-span-2">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Email
+                        Address
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.task.email}
-                      </dd>
-                    </div>
-                    <div className="min-w-0">
-                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Phone
-                      </dt>
-                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.task.phone}
+                        {engagement.clientInfo.address}
                       </dd>
                     </div>
                   </dl>
                 </section>
 
+                {/* RIGHT — Service Information */}
                 <section className="px-6 py-7 sm:px-8 sm:py-8">
                   <div className="mb-7">
                     <h3 className="text-base font-semibold">
@@ -699,26 +668,18 @@ export default function ClientEngagementDetailPage() {
                     </div>
                     <div className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Tax Form
+                        Service Name
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.serviceInfo.taxForm}
+                        {engagement.serviceInfo.serviceName}
                       </dd>
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 sm:col-span-2">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Compliance Category
+                        Notes (From Service Request)
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.serviceInfo.complianceCategory}
-                      </dd>
-                    </div>
-                    <div className="min-w-0">
-                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Period Covered
-                      </dt>
-                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.serviceInfo.periodCovered}
+                        {engagement.serviceInfo.notes}
                       </dd>
                     </div>
                     <div className="min-w-0">
@@ -729,12 +690,12 @@ export default function ClientEngagementDetailPage() {
                         {engagement.serviceInfo.filingDeadline}
                       </dd>
                     </div>
-                    <div className="min-w-0 sm:col-span-2">
+                    <div className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Assigned CPA
+                        Assigned Staff
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.serviceInfo.assignedCpa}
+                        {engagement.serviceInfo.assignedStaff}
                       </dd>
                     </div>
                   </dl>
