@@ -1,5 +1,17 @@
-import { useState } from "react"
-import { Clock, FileCheck, Inbox, Upload, UploadCloud } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import {
+  Check,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  FileCheck,
+  FileText,
+  Inbox,
+  RefreshCw,
+  Upload,
+  UploadCloud,
+  X,
+} from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -45,6 +57,12 @@ function TaskStatusBadge({ status }) {
       {config.label}
     </span>
   )
+}
+
+function formatFileSize(bytes) {
+  if (!bytes && bytes !== 0) return null
+  const kb = bytes / 1024
+  return kb < 1024 ? `${kb.toFixed(0)} KB` : `${(kb / 1024).toFixed(1)} MB`
 }
 
 // ── Mock Task Data Generator (same shape as the firm side) ────────────────────
@@ -111,12 +129,13 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
   )
 }
 
-// ── Upload Files Dialog ────────────────────────────────────────────────────────
-// Lets the client attach the file(s) a task needs directly from the action
-// table, instead of having to leave the Overview tab to find the right row
-// in Documents.
+// ── Choose Files Dialog ────────────────────────────────────────────────────────
+// Just lets the client pick file(s) for a task. It doesn't upload anything
+// itself — picking a file here only *stages* it. The actual upload only
+// happens when the client hits the check button inline in the row, so they
+// get a chance to back out (the X button) before anything is sent.
 
-function TaskUploadDialog({ open, onOpenChange, task, onUpload }) {
+function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
   const [files, setFiles] = useState([])
 
   const handleChange = (e) => {
@@ -128,9 +147,9 @@ function TaskUploadDialog({ open, onOpenChange, task, onUpload }) {
     onOpenChange(next)
   }
 
-  const handleSubmit = () => {
+  const handleStage = () => {
     if (files.length === 0) return
-    onUpload?.(task, files)
+    onFilesChosen?.(task, files)
     setFiles([])
     onOpenChange(false)
   }
@@ -143,8 +162,8 @@ function TaskUploadDialog({ open, onOpenChange, task, onUpload }) {
         <DialogHeader>
           <DialogTitle>Upload Files</DialogTitle>
           <DialogDescription>
-            Attach the file(s) needed for &ldquo;{task.name}&rdquo;. They&rsquo;ll appear in the
-            Documents tab once uploaded.
+            Choose the file(s) needed for &ldquo;{task.name}&rdquo;. You&rsquo;ll get a chance to
+            confirm before it&rsquo;s uploaded.
           </DialogDescription>
         </DialogHeader>
 
@@ -179,9 +198,9 @@ function TaskUploadDialog({ open, onOpenChange, task, onUpload }) {
             size="sm"
             className="bg-emerald-600 text-white hover:bg-emerald-700"
             disabled={files.length === 0}
-            onClick={handleSubmit}
+            onClick={handleStage}
           >
-            Upload
+            Choose
           </Button>
         </div>
       </DialogContent>
@@ -189,9 +208,143 @@ function TaskUploadDialog({ open, onOpenChange, task, onUpload }) {
   )
 }
 
-// ── Task Row ────────────────────────────────────────────────────────────────────
+// ── File Preview Dialog ────────────────────────────────────────────────────────
+// Lets the client click an uploaded file chip and see what they actually
+// submitted. These files only exist client-side (not sent to a server yet in
+// this mock), so previewing is done with an object URL — works for images
+// and PDFs inline; anything else falls back to a details view with an
+// "Open in new tab" action. URLs are revoked on close to avoid leaking memory.
 
-function TaskRow({ task, onOpenDetail, onOpenUpload }) {
+function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
+  const [selectedIndex, setSelectedIndex] = useState(0)
+
+  useEffect(() => {
+    if (open) setSelectedIndex(0)
+  }, [open, files])
+
+  const selectedFile = files[selectedIndex] ?? null
+
+  const objectUrl = useMemo(() => {
+    if (!selectedFile) return null
+    return URL.createObjectURL(selectedFile)
+  }, [selectedFile])
+
+  useEffect(() => {
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [objectUrl])
+
+  if (!selectedFile) return null
+
+  const isImage = selectedFile.type?.startsWith("image/")
+  const isPdf = selectedFile.type === "application/pdf"
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="truncate">{selectedFile.name}</DialogTitle>
+          <DialogDescription>
+            {taskName ? `Uploaded for "${taskName}"` : "Uploaded file"}
+            {formatFileSize(selectedFile.size) && ` · ${formatFileSize(selectedFile.size)}`}
+          </DialogDescription>
+        </DialogHeader>
+
+        {files.length > 1 && (
+          <div className="flex flex-wrap gap-1.5 border-b border-border pb-3">
+            {files.map((f, i) => (
+              <button
+                key={`${f.name}-${i}`}
+                type="button"
+                onClick={() => setSelectedIndex(i)}
+                className={cn(
+                  "max-w-[160px] truncate rounded-md border px-2 py-1 text-xs font-medium transition-colors",
+                  i === selectedIndex
+                    ? "border-[#02353C]/30 bg-[#02353C]/10 text-[#02353C]"
+                    : "border-border text-muted-foreground hover:bg-muted"
+                )}
+                title={f.name}
+              >
+                {f.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex max-h-[65vh] min-h-[240px] items-center justify-center overflow-auto rounded-lg border border-border bg-muted/30">
+          {isImage && objectUrl ? (
+            <img
+              src={objectUrl}
+              alt={selectedFile.name}
+              className="max-h-[65vh] w-auto max-w-full object-contain"
+            />
+          ) : isPdf && objectUrl ? (
+            <iframe
+              src={objectUrl}
+              title={selectedFile.name}
+              className="h-[65vh] w-full rounded-lg"
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+              <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                <FileText className="size-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                No inline preview available for this file type.
+              </p>
+              {objectUrl && (
+                <a
+                  href={objectUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#02353C]/20 bg-[#02353C]/5 px-3 py-1.5 text-xs font-medium text-[#02353C] transition-colors hover:bg-[#02353C]/10"
+                >
+                  <ExternalLink className="size-3.5" />
+                  Open in new tab
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Task Row ────────────────────────────────────────────────────────────────────
+//
+// Actions cell has three states:
+//   1. Nothing staged/uploaded yet → plain "Upload Files" button.
+//   2. File(s) picked but not confirmed → filename + check (confirm) / X (discard).
+//   3. Confirmed/uploaded → clickable filename chip (opens preview) + a small
+//      replace icon to stage a new file for that task again.
+
+function TaskRow({
+  task,
+  pendingFiles,
+  uploadedFiles,
+  onOpenDetail,
+  onOpenUpload,
+  onConfirmUpload,
+  onDiscardUpload,
+  onPreviewUploaded,
+}) {
+  const hasPending = pendingFiles && pendingFiles.length > 0
+  const hasUploaded = !hasPending && uploadedFiles && uploadedFiles.length > 0
+
+  const pendingLabel = hasPending
+    ? pendingFiles.length === 1
+      ? pendingFiles[0].name
+      : `${pendingFiles[0].name} +${pendingFiles.length - 1} more`
+    : null
+
+  const uploadedLabel = hasUploaded
+    ? uploadedFiles.length === 1
+      ? uploadedFiles[0].name
+      : `${uploadedFiles[0].name} +${uploadedFiles.length - 1} more`
+    : null
+
   return (
     <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/30">
       {/* Task Name */}
@@ -222,15 +375,63 @@ function TaskRow({ task, onOpenDetail, onOpenUpload }) {
       </td>
 
       {/* Actions */}
-      <td className="w-[140px] py-2.5 pr-6">
-        <button
-          type="button"
-          onClick={onOpenUpload}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-[#02353C]/20 bg-[#02353C]/5 px-2.5 py-1 text-xs font-medium text-[#02353C] transition-colors hover:bg-[#02353C]/10"
-        >
-          <Upload className="size-3.5" />
-          Upload Files
-        </button>
+      <td className="w-[220px] py-2.5 pr-6">
+        {hasPending ? (
+          <div className="flex items-center gap-1.5">
+            <span
+              title={pendingFiles.map((f) => f.name).join(", ")}
+              className="inline-flex min-w-0 max-w-[130px] items-center gap-1 truncate rounded-lg border border-[#02353C]/20 bg-[#02353C]/5 px-2 py-1 text-xs font-medium text-[#02353C]"
+            >
+              <FileCheck className="size-3.5 shrink-0" />
+              <span className="truncate">{pendingLabel}</span>
+            </span>
+            <button
+              type="button"
+              title="Confirm upload"
+              onClick={onConfirmUpload}
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
+            >
+              <Check className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              title="Discard"
+              onClick={onDiscardUpload}
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        ) : hasUploaded ? (
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              title="View uploaded file"
+              onClick={onPreviewUploaded}
+              className="inline-flex min-w-0 max-w-[150px] items-center gap-1 truncate rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+            >
+              <CheckCircle2 className="size-3.5 shrink-0" />
+              <span className="truncate underline-offset-2 hover:underline">{uploadedLabel}</span>
+            </button>
+            <button
+              type="button"
+              title="Replace file"
+              onClick={onOpenUpload}
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <RefreshCw className="size-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpenUpload}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#02353C]/20 bg-[#02353C]/5 px-2.5 py-1 text-xs font-medium text-[#02353C] transition-colors hover:bg-[#02353C]/10"
+          >
+            <Upload className="size-3.5" />
+            Upload Files
+          </button>
+        )}
       </td>
     </tr>
   )
@@ -241,8 +442,12 @@ function TaskRow({ task, onOpenDetail, onOpenUpload }) {
 export function TaskList({ engagement, className, onUploadFiles }) {
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
-  const [uploadOpen, setUploadOpen] = useState(false)
-  const [uploadTask, setUploadTask] = useState(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerTask, setPickerTask] = useState(null)
+  const [pendingByTask, setPendingByTask] = useState({}) // taskId -> File[] (picked, not yet confirmed)
+  const [uploadedByTask, setUploadedByTask] = useState({}) // taskId -> File[] (confirmed/uploaded)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewTask, setPreviewTask] = useState(null)
   const [tasks] = useState(() => generateMockTasks(engagement))
 
   const handleOpenDetail = (task) => {
@@ -251,12 +456,43 @@ export function TaskList({ engagement, className, onUploadFiles }) {
   }
 
   const handleOpenUpload = (task) => {
-    setUploadTask(task)
-    setUploadOpen(true)
+    setPickerTask(task)
+    setPickerOpen(true)
   }
 
-  const handleUpload = (task, files) => {
+  // Picking file(s) only stages them against the task — nothing is uploaded yet.
+  const handleFilesChosen = (task, files) => {
+    setPendingByTask((prev) => ({ ...prev, [task.id]: files }))
+  }
+
+  // Check button — send the staged file(s), move them into "uploaded" so the
+  // row keeps showing what was submitted instead of resetting to the button.
+  const handleConfirmUpload = (task) => {
+    const files = pendingByTask[task.id]
+    if (!files || files.length === 0) return
+
     onUploadFiles?.(task, files)
+
+    setUploadedByTask((prev) => ({ ...prev, [task.id]: files }))
+    setPendingByTask((prev) => {
+      const next = { ...prev }
+      delete next[task.id]
+      return next
+    })
+  }
+
+  // X button — discard the staged file(s) without uploading.
+  const handleDiscardUpload = (task) => {
+    setPendingByTask((prev) => {
+      const next = { ...prev }
+      delete next[task.id]
+      return next
+    })
+  }
+
+  const handlePreviewUploaded = (task) => {
+    setPreviewTask(task)
+    setPreviewOpen(true)
   }
 
   const requiredCount = tasks.filter((t) => t.required).length
@@ -294,7 +530,7 @@ export function TaskList({ engagement, className, onUploadFiles }) {
                 <th className="px-6 py-2.5 text-xs font-medium text-muted-foreground">Task</th>
                 <th className="w-[120px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
                 <th className="w-[140px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Deadline</th>
-                <th className="w-[140px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Actions</th>
+                <th className="w-[220px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -302,8 +538,13 @@ export function TaskList({ engagement, className, onUploadFiles }) {
                 <TaskRow
                   key={task.id}
                   task={task}
+                  pendingFiles={pendingByTask[task.id]}
+                  uploadedFiles={uploadedByTask[task.id]}
                   onOpenDetail={() => handleOpenDetail(task)}
                   onOpenUpload={() => handleOpenUpload(task)}
+                  onConfirmUpload={() => handleConfirmUpload(task)}
+                  onDiscardUpload={() => handleDiscardUpload(task)}
+                  onPreviewUploaded={() => handlePreviewUploaded(task)}
                 />
               ))}
             </tbody>
@@ -317,11 +558,18 @@ export function TaskList({ engagement, className, onUploadFiles }) {
         task={selectedTask}
       />
 
-      <TaskUploadDialog
-        open={uploadOpen}
-        onOpenChange={setUploadOpen}
-        task={uploadTask}
-        onUpload={handleUpload}
+      <TaskFilePickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        task={pickerTask}
+        onFilesChosen={handleFilesChosen}
+      />
+
+      <FilePreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        files={previewTask ? uploadedByTask[previewTask.id] ?? [] : []}
+        taskName={previewTask?.name}
       />
     </div>
   )
