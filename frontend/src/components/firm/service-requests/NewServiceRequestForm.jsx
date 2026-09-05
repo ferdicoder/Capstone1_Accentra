@@ -85,9 +85,7 @@ export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
                 </option>
               ))}
             </select>
-            <FieldDescription>
-              Maps to <code>service_id</code> (FK → services.service_id, UUID) on the service_request row.
-            </FieldDescription>
+            
           </Field>
 
           <Field>
@@ -101,9 +99,7 @@ export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
               onChange={updateField}
               className="w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
             />
-            <FieldDescription>
-              Maps directly to the <code>description</code> column.
-            </FieldDescription>
+            
           </Field>
         </FieldGroup>
       </div>
