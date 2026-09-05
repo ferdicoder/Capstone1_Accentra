@@ -13,6 +13,13 @@ import {
 import { Input } from "@/components/ui/input"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { supabase } from "@/config/supabase.js"
 import { WorkflowProgress } from "@/components/client/ClientEngagementWorkflow"
 import { TaskList } from "@/components/client/ClientEngagementTaskList"
@@ -24,16 +31,17 @@ import { ActivityUpdates } from "@/components/client/ClientEngagementActivityUpd
 // Table assumption: "engagement_activity"
 //   id, engagement_id, type, message, actor, created_at
 //
-// Table assumption: "metadata_document" (per the ERD), filtered to
-// document_type = 'deliverables' for this engagement:
+// Table assumption: "metadata_document" (per the ERD) — this now covers
+// BOTH client uploads and firm deliverables, distinguished by a
+// `document_type` / `uploaded_by_role` column (guessed name below):
 //   document_id, engagement_id, business_id, bucket_name, object_key,
-//   file_name, file_size, status, document_type, created_at, updated_at
+//   file_name, file_size, status, document_type, uploaded_by_role,
+//   uploaded_by_name, remark, created_at, updated_at
 //
 // Adjust table/column names below to match your actual schema.
 
 const ACTIVITY_TABLE = "engagement_activity"
 const DOCUMENT_TABLE = "metadata_document"
-const DELIVERABLE_TYPE = "deliverables"
 const SIGNED_URL_EXPIRY_SECONDS = 60 * 10 // matches the "10 minutes" copy in the UI below
 
 async function fetchEngagementActivity(engagementId) {
@@ -46,8 +54,6 @@ async function fetchEngagementActivity(engagementId) {
 
     if (error) throw new Error(error.message)
 
-    // Normalize raw rows into the shape ActivityUpdates expects.
-    // Adjust the field mapping below once the real column names are confirmed.
     const normalized = (data ?? []).map((row) => ({
       id: row.id,
       title: row.type ?? "Activity Update",
@@ -63,19 +69,19 @@ async function fetchEngagementActivity(engagementId) {
   }
 }
 
-async function fetchEngagementDeliverables(engagementId) {
+// Fetches ALL documents for this engagement — both client uploads and firm
+// deliverables — as one consolidated list, per the "merge Documents and
+// Files into one section" requirement.
+async function fetchEngagementDocuments(engagementId) {
   try {
     const { data, error } = await supabase
       .from(DOCUMENT_TABLE)
       .select("*")
       .eq("engagement_id", engagementId)
-      .eq("document_type", DELIVERABLE_TYPE)
       .order("created_at", { ascending: false })
 
     if (error) throw new Error(error.message)
 
-    // Each row only stores where the file lives (bucket_name/object_key), not
-    // a public URL, so mint a short-lived signed URL per file here.
     const withSignedUrls = await Promise.all(
       (data ?? []).map(async (doc) => {
         if (!doc.bucket_name || !doc.object_key) {
@@ -105,14 +111,14 @@ async function fetchEngagementDeliverables(engagementId) {
 
 
 const engagement = {
-  id: "eng-2024-0041", // TaskList/ActivityUpdates key off this + serviceName
+  id: "eng-2024-0041",
   code: "ENG-2024-0041",
   status: "Active",
   type: "Tax Filing",
-  serviceName: "Tax Filing", // TaskList.generateMockTasks() matches on this text
+  serviceName: "Tax Filing",
   title: "Annual Income Tax Return (BIR Form 1701)",
   due: "Apr 15, 2025",
-  workflowStage: "document-verification", // must match a `key` in workflowStages (engagement-variants)
+  workflowStage: "document-verification",
   task: {
     clientName: "Maria Santos",
     businessName: "Santos Retail Trading",
@@ -169,77 +175,136 @@ const initialActivityUpdates = [
   },
 ]
 
+// Consolidated document list — both client uploads and firm deliverables,
+// each tagged with `owner`. Only files that actually exist show up here;
+// still-missing required items are tracked in the Task List instead
+// (which already has its own "Upload Files" action per task).
 const initialDocuments = [
   {
     id: "doc-1",
     name: "BIR Form 1701 – Signed Copy",
     file: "BIR_1701_2024.pdf",
-    required: true,
-    status: "Approved",
+    owner: "Client",
     uploadedBy: "Maria S.",
-    size: "1.2 MB",
-    deadline: "Dec 5, 2024",
+    uploadedDate: "Dec 6, 2024",
+    reviewStatus: "Approved",
+    signedUrl: null,
   },
   {
     id: "doc-2",
     name: "Bank Statements (Jan–Dec 2024)",
     file: "BankStatements_2024.pdf",
-    required: true,
-    status: "Approved",
+    owner: "Client",
     uploadedBy: "Maria S.",
-    size: "4.8 MB",
-    deadline: "Dec 5, 2024",
+    uploadedDate: "Dec 6, 2024",
+    reviewStatus: "Approved",
+    signedUrl: null,
   },
   {
     id: "doc-3",
     name: "Official Receipts / Invoice Booklet",
     file: "OR_Booklet.pdf",
-    required: true,
-    status: "For Review",
+    owner: "Client",
     uploadedBy: "Maria S.",
-    size: "2.1 MB",
-    deadline: "Dec 10, 2024",
+    uploadedDate: "Dec 6, 2024",
+    reviewStatus: "For Revision",
     remark:
       "Incomplete — Jan to Jun ORs are missing. Please upload the complete booklet covering January–December 2024.",
+    signedUrl: null,
   },
-  {
-    id: "doc-4",
-    name: "Books of Accounts",
-    required: true,
-    status: "Missing",
-    deadline: "Dec 12, 2024",
-  },
-  {
-    id: "doc-5",
-    name: "Certificate of Withholding Tax (2316)",
-    required: true,
-    status: "Missing",
-    deadline: "Dec 15, 2024",
-  },
-]
-
-const documentStatusStyles = {
-  Approved: "bg-green-50 text-green-700 border border-green-200",
-  "For Review": "bg-amber-50 text-amber-700 border border-amber-200",
-  Missing: "bg-red-50 text-red-700 border border-red-200",
-}
-
-const initialDeliverables = [
   {
     id: "del-1",
-    file_name: "Filed_ITR_2024.pdf",
-    file_size: 842000,
-    created_at: "Apr 18, 2025",
+    name: "Filed_ITR_2024.pdf",
+    file: "Filed_ITR_2024.pdf",
+    owner: "Firm",
+    uploadedBy: "Atty. Roland Reyes, CPA",
+    uploadedDate: "Apr 18, 2025",
+    reviewStatus: "Approved",
     signedUrl: null,
   },
   {
     id: "del-2",
-    file_name: "BIR_Acknowledgement_Receipt.pdf",
-    file_size: 210000,
-    created_at: "Apr 18, 2025",
+    name: "BIR_Acknowledgement_Receipt.pdf",
+    file: "BIR_Acknowledgement_Receipt.pdf",
+    owner: "Firm",
+    uploadedBy: "Atty. Roland Reyes, CPA",
+    uploadedDate: "Apr 18, 2025",
+    reviewStatus: "Approved",
     signedUrl: null,
   },
 ]
+
+const reviewStatusStyles = {
+  Approved: "bg-green-50 text-green-700 border border-green-200",
+  "For Revision": "bg-amber-50 text-amber-700 border border-amber-200",
+}
+
+function DocumentViewDialog({ open, onOpenChange, document: doc }) {
+  const [showRemarks, setShowRemarks] = useState(false)
+
+  if (!doc) return null
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setShowRemarks(false)
+        onOpenChange(next)
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{doc.name}</DialogTitle>
+          <DialogDescription>Document details</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Owner</span>
+            <span className="text-sm font-medium text-foreground">
+              {doc.owner}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              Uploaded Date
+            </span>
+            <span className="text-sm font-medium text-foreground">
+              {doc.uploadedDate}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Status</span>
+            <span
+              className={`rounded-full px-2.5 py-1 text-xs font-medium ${reviewStatusStyles[doc.reviewStatus]}`}
+            >
+              {doc.reviewStatus}
+            </span>
+          </div>
+
+          {doc.reviewStatus === "For Revision" && (
+            <div>
+              {!showRemarks ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setShowRemarks(true)}
+                >
+                  View Remarks
+                </Button>
+              ) : (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                  {doc.remark}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 function formatBytes(bytes) {
   if (!bytes) return "—"
@@ -252,26 +317,22 @@ export default function ClientEngagementDetailPage() {
   const [activeTab, setActiveTab] = useState("overview")
   const [documentSearch, setDocumentSearch] = useState("")
   const [activityUpdates, setActivityUpdates] = useState(initialActivityUpdates)
-  const [deliverables, setDeliverables] = useState(initialDeliverables)
-  const [isDeliverablesLoading, setIsDeliverablesLoading] = useState(false)
+  const [documents, setDocuments] = useState(initialDocuments)
+  const [isDocumentsLoading, setIsDocumentsLoading] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [viewDoc, setViewDoc] = useState(null)
+  const [isDocViewOpen, setIsDocViewOpen] = useState(false)
 
-  const filteredDocuments = initialDocuments.filter((doc) =>
+  const filteredDocuments = documents.filter((doc) =>
     doc.name.toLowerCase().includes(documentSearch.toLowerCase())
   )
-
-  const flaggedForReview = initialDocuments.filter(
-    (d) => d.status === "For Review"
-  ).length
 
   useEffect(() => {
     let isMounted = true
 
     async function loadActivity() {
       const { data, error } = await fetchEngagementActivity(id)
-
       if (!isMounted) return
-
       if (error) {
         console.error("Failed to load activity log:", error)
       } else if (data) {
@@ -280,7 +341,6 @@ export default function ClientEngagementDetailPage() {
     }
 
     loadActivity()
-
     return () => {
       isMounted = false
     }
@@ -289,23 +349,19 @@ export default function ClientEngagementDetailPage() {
   useEffect(() => {
     let isMounted = true
 
-    async function loadDeliverables() {
-      setIsDeliverablesLoading(true)
-      const { data, error } = await fetchEngagementDeliverables(id)
-
+    async function loadDocuments() {
+      setIsDocumentsLoading(true)
+      const { data, error } = await fetchEngagementDocuments(id)
       if (!isMounted) return
-
       if (error) {
-        console.error("Failed to load deliverables:", error)
+        console.error("Failed to load documents:", error)
       } else if (data) {
-        setDeliverables(data)
+        setDocuments(data)
       }
-
-      setIsDeliverablesLoading(false)
+      setIsDocumentsLoading(false)
     }
 
-    loadDeliverables()
-
+    loadDocuments()
     return () => {
       isMounted = false
     }
@@ -340,9 +396,7 @@ export default function ClientEngagementDetailPage() {
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-muted-foreground">
             Due{" "}
-            <span className="font-medium text-red-600">
-              {engagement.due}
-            </span>
+            <span className="font-medium text-red-600">{engagement.due}</span>
           </p>
 
           <Button
@@ -359,7 +413,7 @@ export default function ClientEngagementDetailPage() {
       {/* Workflow progress */}
       <WorkflowProgress workflowStage={engagement.workflowStage} />
 
-      {/* Tabs */}
+      {/* Tabs — Files/Deliverables removed, merged into Documents */}
       <div className="flex gap-4 overflow-x-auto border-b sm:gap-6">
         <button
           onClick={() => setActiveTab("overview")}
@@ -381,24 +435,8 @@ export default function ClientEngagementDetailPage() {
           }`}
         >
           Documents
-
           <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-            {initialDocuments.length}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("deliverables")}
-          className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors ${
-            activeTab === "deliverables"
-              ? "border-emerald-600 text-emerald-700"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Files
-
-          <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-            {deliverables.length}
+            {documents.length}
           </span>
         </button>
       </div>
@@ -406,10 +444,7 @@ export default function ClientEngagementDetailPage() {
       {activeTab === "overview" && (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <TaskList engagement={engagement} />
-
-          <ActivityUpdates
-            engagement={{ ...engagement, activityUpdates }}
-          />
+          <ActivityUpdates engagement={{ ...engagement, activityUpdates }} />
         </div>
       )}
 
@@ -418,7 +453,6 @@ export default function ClientEngagementDetailPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="relative max-w-sm flex-1 min-w-[220px]">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-
               <Input
                 placeholder="Search documents..."
                 className="pl-9"
@@ -427,138 +461,111 @@ export default function ClientEngagementDetailPage() {
               />
             </div>
 
-            <Button className="bg-emerald-600 text-white hover:bg-emerald-700">
-              Review Documents ({flaggedForReview})
+            {/* Primary action for this tab, per spec */}
+            <Button className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700">
+              <Upload className="size-4" />
+              Document Upload
             </Button>
           </div>
 
           <div className="overflow-hidden rounded-xl border bg-background">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] table-fixed text-sm">
+              <table className="w-full min-w-[560px] table-fixed text-sm">
                 <colgroup>
-                  <col className="w-[34%]" />
+                  <col className="w-[40%]" />
                   <col className="w-[16%]" />
-                  <col className="w-[16%]" />
-                  <col className="w-[10%]" />
+                  <col className="w-[20%]" />
                   <col className="w-[24%]" />
                 </colgroup>
-
                 <thead>
                   <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                     <th className="px-4 py-3.5 align-middle font-medium">
                       Document Name
                     </th>
-
                     <th className="px-4 py-3.5 align-middle font-medium">
-                      Status
+                      Owner
                     </th>
-
                     <th className="px-4 py-3.5 align-middle font-medium">
-                      Due Date
+                      Uploaded Date
                     </th>
-
-                    <th className="px-4 py-3.5 align-middle font-medium">
-                      Size
-                    </th>
-
                     <th className="px-4 py-3.5 text-right align-middle font-medium">
                       Actions
                     </th>
                   </tr>
                 </thead>
-
                 <tbody>
-                  {filteredDocuments.map((doc) => (
-                    <>
+                  {isDocumentsLoading && (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-10 text-center text-sm text-muted-foreground"
+                      >
+                        Loading documents...
+                      </td>
+                    </tr>
+                  )}
+
+                  {!isDocumentsLoading &&
+                    filteredDocuments.map((doc) => (
                       <tr
                         key={doc.id}
                         className="border-b last:border-b-0 hover:bg-muted/30"
                       >
                         <td className="px-4 py-4 align-middle">
-                          <p className="truncate font-medium">
-                            {doc.name}
-
-                            {doc.required && (
-                              <span className="ml-0.5 text-red-500">
-                                *
-                              </span>
-                            )}
-                          </p>
-
+                          <p className="truncate font-medium">{doc.name}</p>
                           {doc.file && (
                             <p className="truncate text-xs text-muted-foreground">
                               {doc.file}
                             </p>
                           )}
                         </td>
-
                         <td className="px-4 py-4 align-middle">
-                          <span
-                            className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${documentStatusStyles[doc.status]}`}
-                          >
-                            {doc.status}
+                          <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground">
+                            {doc.owner}
                           </span>
                         </td>
-
                         <td className="px-4 py-4 align-middle text-muted-foreground">
-                          {doc.deadline ?? "—"}
+                          {doc.uploadedDate ?? "—"}
                         </td>
-
-                        <td className="px-4 py-4 align-middle text-muted-foreground">
-                          {doc.size ?? "—"}
-                        </td>
-
                         <td className="px-4 py-4 align-middle">
                           <div className="flex items-center justify-end gap-2">
-                            {doc.status === "For Review" && (
-                              <button
-                                title="Preview"
-                                className="text-muted-foreground hover:text-foreground"
-                              >
-                                <Eye className="size-4" />
-                              </button>
-                            )}
-
                             <button
-                              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                                doc.status === "For Review"
-                                  ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                                  : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                              }`}
+                              title="View"
+                              onClick={() => {
+                                setViewDoc(doc)
+                                setIsDocViewOpen(true)
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
                             >
-                              <Upload className="size-3.5" />
-
-                              {doc.status === "For Review"
-                                ? "Re-upload"
-                                : "Upload"}
+                              <Eye className="size-3.5" />
+                              View
                             </button>
+
+                            {doc.signedUrl ? (
+                              <a
+                                href={doc.signedUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+                              >
+                                <Download className="size-3.5" />
+                                Download
+                              </a>
+                            ) : (
+                              <span className="inline-flex cursor-not-allowed items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-muted-foreground/50">
+                                <Download className="size-3.5" />
+                                Download
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>
+                    ))}
 
-                      {doc.remark && (
-                        <tr
-                          key={`${doc.id}-remark`}
-                          className="border-b bg-amber-50/60"
-                        >
-                          <td
-                            colSpan={5}
-                            className="px-4 py-2.5 text-xs text-amber-800"
-                          >
-                            <span className="font-medium">
-                              Firm Remark — Revision Required:
-                            </span>{" "}
-                            {doc.remark}
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  ))}
-
-                  {filteredDocuments.length === 0 && (
+                  {!isDocumentsLoading && filteredDocuments.length === 0 && (
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={4}
                         className="px-4 py-10 text-center text-sm text-muted-foreground"
                       >
                         No documents match "{documentSearch}".
@@ -572,71 +579,14 @@ export default function ClientEngagementDetailPage() {
         </div>
       )}
 
-      {activeTab === "deliverables" && (
-        <div className="rounded-xl border bg-background p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Files</h3>
-
-            <span className="text-xs text-muted-foreground">
-              Files uploaded by your firm — download links expire after 10
-              minutes
-            </span>
-          </div>
-
-          {isDeliverablesLoading ? (
-            <p className="text-sm text-muted-foreground">
-              Loading...
-            </p>
-          ) : deliverables.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No files have been uploaded yet.
-            </p>
-          ) : (
-            <ul className="divide-y">
-              {deliverables.map((file) => (
-                <li
-                  key={file.id}
-                  className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
-                >
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                    <FileText className="size-4" />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {file.file_name}
-                    </p>
-
-                    <p className="text-xs text-muted-foreground">
-                      {file.created_at} · {formatBytes(file.file_size)}
-                    </p>
-                  </div>
-
-                  {file.signedUrl ? (
-                    <a
-                      href={file.signedUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
-                    >
-                      <Download className="size-3.5" />
-                      Download
-                    </a>
-                  ) : (
-                    <span className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-muted-foreground/50">
-                      <Download className="size-3.5" />
-                      Unavailable
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      <DocumentViewDialog
+        open={isDocViewOpen}
+        onOpenChange={setIsDocViewOpen}
+        document={viewDoc}
+      />
 
       {/* ================================================================
-          VIEW DETAILS MODAL
+          VIEW DETAILS MODAL — Left: Task, Right: Service Information
           ================================================================ */}
       {detailsOpen && (
         <div
@@ -647,20 +597,15 @@ export default function ClientEngagementDetailPage() {
             className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-background shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* ----------------------------------------------------------
-                MODAL HEADER
-                ---------------------------------------------------------- */}
             <div className="flex shrink-0 items-center justify-between border-b px-6 py-5 sm:px-8">
               <div>
                 <h2 className="text-lg font-semibold sm:text-xl">
                   Engagement Details
                 </h2>
-
                 <p className="mt-1 text-sm text-muted-foreground">
                   View task and service information
                 </p>
               </div>
-
               <button
                 type="button"
                 onClick={() => setDetailsOpen(false)}
@@ -671,90 +616,61 @@ export default function ClientEngagementDetailPage() {
               </button>
             </div>
 
-            {/* ----------------------------------------------------------
-                DETAILS CONTENT
-                Desktop: two columns
-                Mobile: one column
-                ---------------------------------------------------------- */}
             <div className="min-h-0 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2">
-
-                {/* ======================================================
-                    LEFT COLUMN — TASK
-                    ====================================================== */}
                 <section className="border-b px-6 py-7 sm:px-8 sm:py-8 md:border-b-0 md:border-r">
                   <div className="mb-7">
-                    <h3 className="text-base font-semibold">
-                      Task
-                    </h3>
-
+                    <h3 className="text-base font-semibold">Task</h3>
                     <p className="mt-1 text-sm text-muted-foreground">
                       Client and task information
                     </p>
                   </div>
 
                   <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-                    {/* Client Name */}
                     <div className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Client Name
                       </dt>
-
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
                         {engagement.task.clientName}
                       </dd>
                     </div>
-
-                    {/* Business Name */}
                     <div className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Business Name
                       </dt>
-
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
                         {engagement.task.businessName}
                       </dd>
                     </div>
-
-                    {/* TIN */}
                     <div className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         TIN
                       </dt>
-
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
                         {engagement.task.tin}
                       </dd>
                     </div>
-
-                    {/* RDO */}
                     <div className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         RDO
                       </dt>
-
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
                         {engagement.task.rdo}
                       </dd>
                     </div>
-
-                    {/* Email */}
                     <div className="min-w-0 sm:col-span-2">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Email
                       </dt>
-
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
                         {engagement.task.email}
                       </dd>
                     </div>
-
-                    {/* Phone */}
                     <div className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Phone
                       </dt>
-
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
                         {engagement.task.phone}
                       </dd>
@@ -762,89 +678,67 @@ export default function ClientEngagementDetailPage() {
                   </dl>
                 </section>
 
-                {/* ======================================================
-                    RIGHT COLUMN — SERVICE INFORMATION
-                    ====================================================== */}
                 <section className="px-6 py-7 sm:px-8 sm:py-8">
                   <div className="mb-7">
                     <h3 className="text-base font-semibold">
                       Service Information
                     </h3>
-
                     <p className="mt-1 text-sm text-muted-foreground">
                       Details about the selected service
                     </p>
                   </div>
 
                   <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-                    {/* Service Type */}
                     <div className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Service Type
                       </dt>
-
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
                         {engagement.serviceInfo.serviceType}
                       </dd>
                     </div>
-
-                    {/* Tax Form */}
                     <div className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Tax Form
                       </dt>
-
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
                         {engagement.serviceInfo.taxForm}
                       </dd>
                     </div>
-
-                    {/* Compliance Category */}
                     <div className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Compliance Category
                       </dt>
-
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
                         {engagement.serviceInfo.complianceCategory}
                       </dd>
                     </div>
-
-                    {/* Period Covered */}
                     <div className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Period Covered
                       </dt>
-
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
                         {engagement.serviceInfo.periodCovered}
                       </dd>
                     </div>
-
-                    {/* Filing Deadline */}
                     <div className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Filing Deadline
                       </dt>
-
                       <dd className="mt-1.5 break-words text-sm font-semibold text-red-600">
                         {engagement.serviceInfo.filingDeadline}
                       </dd>
                     </div>
-
-                    {/* Assigned CPA */}
                     <div className="min-w-0 sm:col-span-2">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Assigned CPA
                       </dt>
-
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
                         {engagement.serviceInfo.assignedCpa}
                       </dd>
                     </div>
                   </dl>
                 </section>
-
               </div>
             </div>
           </div>
