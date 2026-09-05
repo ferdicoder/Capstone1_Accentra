@@ -314,14 +314,14 @@ export default function SignupPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="businessName"> 
+                  <FieldLabel htmlFor="businessName">
                     Business Name<span className="ml-0.5 text-red-500">*</span>
                   </FieldLabel>
-                  
                   <Input
                     id="businessName"
                     name="businessName"
                     placeholder="Santos Retail Trading"
+                    required
                     value={formData.businessName}
                     onChange={updateField}
                     className="bg-background"
@@ -329,12 +329,15 @@ export default function SignupPage() {
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="businessType">Type of Business</FieldLabel>
+                  <FieldLabel htmlFor="businessType">
+                    Type of Business<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <select
                     id="businessType"
                     name="businessType"
                     value={formData.businessType}
                     onChange={updateField}
+                    required
                     className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
                   >
                     <option value="">Select Type of Business</option>
@@ -348,11 +351,14 @@ export default function SignupPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="tin">TIN Number</FieldLabel>
+                  <FieldLabel htmlFor="tin">
+                    TIN Number<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="tin"
                     name="tin"
                     placeholder="123-456-789-000"
+                    required
                     value={formData.tin}
                     onChange={updateField}
                     className="bg-background"
@@ -360,12 +366,15 @@ export default function SignupPage() {
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="industry">Industry</FieldLabel>
+                  <FieldLabel htmlFor="industry">
+                    Industry<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <select
                     id="industry"
                     name="industry"
                     value={formData.industry}
                     onChange={updateField}
+                    required
                     className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
                   >
                     <option value="">Select Industry</option>
@@ -378,11 +387,14 @@ export default function SignupPage() {
               </div>
 
                <Field>
-                <FieldLabel htmlFor="contactNumber">Contact Number</FieldLabel>
+                <FieldLabel htmlFor="contactNumber">
+                  Contact Number<span className="ml-0.5 text-red-500">*</span>
+                </FieldLabel>
                 <Input
                   id="contactNumber"
                   name="contactNumber"
                   placeholder="09123456789"
+                  required
                   value={formData.contactNumber}
                   onChange={updateField}
                   className="bg-background"
@@ -394,11 +406,14 @@ export default function SignupPage() {
                   their own column. */}
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="houseNo">House/Bldg./Unit No.</FieldLabel>
+                  <FieldLabel htmlFor="houseNo">
+                    House/Bldg./Unit No.<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="houseNo"
                     name="houseNo"
                     placeholder="12, Unit 4B"
+                    required
                     value={formData.houseNo}
                     onChange={updateField}
                     className="bg-background"
@@ -406,11 +421,14 @@ export default function SignupPage() {
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="streetName">Street Name</FieldLabel>
+                  <FieldLabel htmlFor="streetName">
+                    Street Name<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="streetName"
                     name="streetName"
                     placeholder="Mercado St."
+                    required
                     value={formData.streetName}
                     onChange={updateField}
                     className="bg-background"
@@ -420,11 +438,14 @@ export default function SignupPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="barangay">Barangay</FieldLabel>
+                  <FieldLabel htmlFor="barangay">
+                    Barangay<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="barangay"
                     name="barangay"
                     placeholder="Barangay 789"
+                    required
                     value={formData.barangay}
                     onChange={updateField}
                     className="bg-background"
@@ -432,11 +453,14 @@ export default function SignupPage() {
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="district">District</FieldLabel>
+                  <FieldLabel htmlFor="district">
+                    District<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="district"
                     name="district"
                     placeholder="District 6"
+                    required
                     value={formData.district}
                     onChange={updateField}
                     className="bg-background"
@@ -446,11 +470,14 @@ export default function SignupPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="city">City / Municipality</FieldLabel>
+                  <FieldLabel htmlFor="city">
+                    City / Municipality<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="city"
                     name="city"
                     placeholder="Manila"
+                    required
                     value={formData.city}
                     onChange={updateField}
                     className="bg-background"
@@ -458,13 +485,16 @@ export default function SignupPage() {
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="zipCode">ZIP Code</FieldLabel>
+                  <FieldLabel htmlFor="zipCode">
+                    ZIP Code<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="zipCode"
                     name="zipCode"
                     placeholder="1009"
                     inputMode="numeric"
                     maxLength={4}
+                    required
                     value={formData.zipCode}
                     onChange={updateField}
                     className="bg-background"
