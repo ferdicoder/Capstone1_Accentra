@@ -5,6 +5,7 @@ import {
   Download,
   Eye,
   FileText,
+  HelpCircle,
   Search,
   X,
 } from "lucide-react"
@@ -15,9 +16,6 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog"
 import { supabase } from "@/config/supabase.js"
 import { WorkflowProgress } from "@/components/client/ClientEngagementWorkflow"
@@ -103,8 +101,6 @@ const engagement = {
   due: "Apr 15, 2025",
   workflowStage: "document-verification",
 
-  // "Client Information" — mirrors the fields the client fills in on
-  // SignupPage.jsx, instead of engagement-specific fields like RDO.
   clientInfo: {
     fullName: "Maria Santos",
     email: "maria.santos@santosretail.com",
@@ -116,9 +112,6 @@ const engagement = {
     address: "12 Mercado St., Unit 4B, Brgy. Sta. Ana, District 6, Manila, 1009",
   },
 
-  // Service Information — Tax Form/Compliance Category/Period Covered
-  // removed; Service Name and Notes (from the original service request)
-  // added; Assigned CPA renamed to Assigned Staff.
   serviceInfo: {
     serviceType: "Tax Filing",
     serviceName: "Annual ITR Filing",
@@ -167,8 +160,6 @@ const initialActivityUpdates = [
   },
 ]
 
-// Consolidated document list — "uploadedBy" is now the actual person's
-// name (used for display), not a role label.
 const initialDocuments = [
   {
     id: "doc-1",
@@ -224,20 +215,79 @@ const reviewStatusStyles = {
   "For Revision": "bg-amber-50 text-amber-700 border border-amber-200",
 }
 
-function RemarksDialog({ open, onOpenChange, document: doc }) {
+const reviewStatusHelp = {
+  Approved: "This document has been reviewed and accepted by the firm.",
+  "For Revision": "This document needs changes before it can be accepted. See Validation Remarks for details.",
+}
+
+function DocumentStatusDialog({ open, onOpenChange, document: doc }) {
+  const [showRemarks, setShowRemarks] = useState(false)
+
+  const handleOpenChange = (next) => {
+    if (!next) setShowRemarks(false)
+    onOpenChange(next)
+  }
+
   if (!doc) return null
 
+  const badgeClass = reviewStatusStyles[doc.reviewStatus] ?? reviewStatusStyles.Approved
+  const helpText = reviewStatusHelp[doc.reviewStatus] ?? ""
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Remarks — {doc.name}</DialogTitle>
-          <DialogDescription>
-            Reason this document needs revision
-          </DialogDescription>
-        </DialogHeader>
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
-          {doc.remark}
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-sm gap-0 overflow-hidden p-0">
+        <div className="bg-blue-600 px-6 py-4 text-center">
+          <h2 className="text-base font-semibold text-white">Status</h2>
+        </div>
+
+        <div className="flex flex-col items-center gap-4 px-6 py-6">
+          {!showRemarks ? (
+            <>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`rounded-full px-3 py-1 text-sm font-semibold ${badgeClass}`}
+                >
+                  {doc.reviewStatus}
+                </span>
+                <span title={helpText} className="cursor-help text-blue-500">
+                  <HelpCircle className="size-4" />
+                </span>
+              </div>
+
+              <Button
+                className="w-full bg-blue-600 py-6 text-base font-semibold text-white hover:bg-blue-700"
+                onClick={() => setShowRemarks(true)}
+              >
+                Validation Remarks
+              </Button>
+
+              <p className="text-center text-sm text-muted-foreground">
+                Click "Validation Remarks" for more specific updates
+              </p>
+            </>
+          ) : (
+            <>
+              <div
+                className={`w-full rounded-lg border px-3 py-2.5 text-sm ${
+                  doc.reviewStatus === "For Revision"
+                    ? "border-amber-200 bg-amber-50 text-amber-800"
+                    : "border-green-200 bg-green-50 text-green-800"
+                }`}
+              >
+                {doc.reviewStatus === "For Revision"
+                  ? doc.remark
+                  : "No revisions needed — this document was approved as submitted."}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setShowRemarks(false)}
+              >
+                Back to Status
+              </Button>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -252,8 +302,8 @@ export default function ClientEngagementDetailPage() {
   const [documents, setDocuments] = useState(initialDocuments)
   const [isDocumentsLoading, setIsDocumentsLoading] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
-  const [remarksDoc, setRemarksDoc] = useState(null)
-  const [isRemarksOpen, setIsRemarksOpen] = useState(false)
+  const [statusDoc, setStatusDoc] = useState(null)
+  const [isStatusOpen, setIsStatusOpen] = useState(false)
 
   const filteredDocuments = documents.filter((doc) =>
     doc.name.toLowerCase().includes(documentSearch.toLowerCase())
@@ -307,6 +357,11 @@ export default function ClientEngagementDetailPage() {
     ],
     hasUnreadNotifications: true,
   })
+
+  const openStatus = (doc) => {
+    setStatusDoc(doc)
+    setIsStatusOpen(true)
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-4 px-2 py-2 sm:px-4 lg:px-6">
@@ -382,8 +437,6 @@ export default function ClientEngagementDetailPage() {
 
       {activeTab === "documents" && (
         <div className="space-y-4">
-          {/* Document Upload button removed — uploading now happens only
-              through the Task List's per-task "Upload Files" action. */}
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -398,10 +451,11 @@ export default function ClientEngagementDetailPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] table-fixed text-sm">
                 <colgroup>
-                  <col className="w-[36%]" />
-                  <col className="w-[20%]" />
-                  <col className="w-[16%]" />
-                  <col className="w-[28%]" />
+                  <col className="w-[38%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
                 </colgroup>
                 <thead>
                   <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
@@ -414,7 +468,13 @@ export default function ClientEngagementDetailPage() {
                     <th className="px-4 py-3.5 align-middle font-medium">
                       Uploaded Date
                     </th>
-                    <th className="px-4 py-3.5 text-right align-middle font-medium">
+                    <th className="px-4 py-3.5 align-middle font-medium">
+                      Status
+                    </th>
+                    {/* Left-aligned + narrower now that these are icon-only,
+                        instead of being pushed hard right with two wide
+                        text buttons. */}
+                    <th className="px-4 py-3.5 align-middle font-medium">
                       Actions
                     </th>
                   </tr>
@@ -423,7 +483,7 @@ export default function ClientEngagementDetailPage() {
                   {isDocumentsLoading && (
                     <tr>
                       <td
-                        colSpan={4}
+                        colSpan={5}
                         className="px-4 py-10 text-center text-sm text-muted-foreground"
                       >
                         Loading documents...
@@ -438,23 +498,13 @@ export default function ClientEngagementDetailPage() {
                         className="border-b last:border-b-0 hover:bg-muted/30"
                       >
                         <td className="px-4 py-4 align-middle">
-                          <p className="truncate font-medium">
-                            {doc.name}
-                            {doc.reviewStatus === "For Revision" && (
-                              <span
-                                className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${reviewStatusStyles["For Revision"]}`}
-                              >
-                                For Revision
-                              </span>
-                            )}
-                          </p>
+                          <p className="truncate font-medium">{doc.name}</p>
                           {doc.file && (
                             <p className="truncate text-xs text-muted-foreground">
                               {doc.file}
                             </p>
                           )}
                         </td>
-                        {/* Actual person's name — not a "Client"/"Firm" role label */}
                         <td className="px-4 py-4 align-middle text-muted-foreground">
                           {doc.uploadedBy}
                         </td>
@@ -462,34 +512,35 @@ export default function ClientEngagementDetailPage() {
                           {doc.uploadedDate ?? "—"}
                         </td>
                         <td className="px-4 py-4 align-middle">
-                          <div className="flex items-center justify-end gap-2">
-                            {doc.reviewStatus === "For Revision" && (
-                              <button
-                                onClick={() => {
-                                  setRemarksDoc(doc)
-                                  setIsRemarksOpen(true)
-                                }}
-                                className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"
-                              >
-                                View Remarks
-                              </button>
-                            )}
-
-                            {/* View File — opens the actual file, not a metadata dialog */}
+                          <button
+                            type="button"
+                            onClick={() => openStatus(doc)}
+                            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-opacity hover:opacity-80 ${reviewStatusStyles[doc.reviewStatus]}`}
+                          >
+                            {doc.reviewStatus}
+                          </button>
+                        </td>
+                        {/* Icon-only actions, left-aligned in their own
+                            compact column instead of two wide text buttons
+                            crammed against the right edge. */}
+                        <td className="px-4 py-4 align-middle">
+                          <div className="flex items-center gap-1">
                             {doc.signedUrl ? (
                               <a
                                 href={doc.signedUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+                                title="View File"
+                                className="flex size-8 items-center justify-center rounded-lg border text-muted-foreground transition-colors hover:bg-muted"
                               >
-                                <Eye className="size-3.5" />
-                                View File
+                                <Eye className="size-4" />
                               </a>
                             ) : (
-                              <span className="inline-flex cursor-not-allowed items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium text-muted-foreground/50">
-                                <Eye className="size-3.5" />
-                                View File
+                              <span
+                                title="View File"
+                                className="flex size-8 cursor-not-allowed items-center justify-center rounded-lg border text-muted-foreground/40"
+                              >
+                                <Eye className="size-4" />
                               </span>
                             )}
 
@@ -497,15 +548,17 @@ export default function ClientEngagementDetailPage() {
                               <a
                                 href={doc.signedUrl}
                                 download
-                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+                                title="Download"
+                                className="flex size-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
                               >
-                                <Download className="size-3.5" />
-                                Download
+                                <Download className="size-4" />
                               </a>
                             ) : (
-                              <span className="inline-flex cursor-not-allowed items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-muted-foreground/50">
-                                <Download className="size-3.5" />
-                                Download
+                              <span
+                                title="Download"
+                                className="flex size-8 cursor-not-allowed items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-muted-foreground/40"
+                              >
+                                <Download className="size-4" />
                               </span>
                             )}
                           </div>
@@ -516,7 +569,7 @@ export default function ClientEngagementDetailPage() {
                   {!isDocumentsLoading && filteredDocuments.length === 0 && (
                     <tr>
                       <td
-                        colSpan={4}
+                        colSpan={5}
                         className="px-4 py-10 text-center text-sm text-muted-foreground"
                       >
                         No documents match "{documentSearch}".
@@ -530,10 +583,10 @@ export default function ClientEngagementDetailPage() {
         </div>
       )}
 
-      <RemarksDialog
-        open={isRemarksOpen}
-        onOpenChange={setIsRemarksOpen}
-        document={remarksDoc}
+      <DocumentStatusDialog
+        open={isStatusOpen}
+        onOpenChange={setIsStatusOpen}
+        document={statusDoc}
       />
 
       {/* ================================================================
@@ -569,13 +622,11 @@ export default function ClientEngagementDetailPage() {
 
             <div className="min-h-0 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2">
-                {/* LEFT — Client Information (mirrors SignupPage.jsx fields) */}
                 <section className="border-b px-6 py-7 sm:px-8 sm:py-8 md:border-b-0 md:border-r">
                   <div className="mb-7">
                     <h3 className="text-base font-semibold">
                       Client Information
                     </h3>
-                   
                   </div>
 
                   <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
@@ -646,7 +697,6 @@ export default function ClientEngagementDetailPage() {
                   </dl>
                 </section>
 
-                {/* RIGHT — Service Information */}
                 <section className="px-6 py-7 sm:px-8 sm:py-8">
                   <div className="mb-7">
                     <h3 className="text-base font-semibold">
