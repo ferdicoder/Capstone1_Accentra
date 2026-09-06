@@ -1,17 +1,26 @@
 import { useState } from "react"
-import { Clock, MoreHorizontal, Inbox, CircleDashed } from "lucide-react"
+import { Clock, MoreHorizontal, Inbox } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { ReferenceDocumentUpload } from "@/components/firm/service-management/workflow-tasks"
 import { formatDate } from "./engagement-variants"
-import { engagementStore } from "./engagement-store"
 
 // ── Status Helpers ────────────────────────────────────────────────────────────
 
@@ -24,14 +33,6 @@ const docToTaskStatus = {
   revision_requested: "for_review",
   rejected: "pending",
   pending: "pending",
-}
-
-// Map task statuses → document statuses (for writing back)
-const taskToDocStatus = {
-  approved: "approved",
-  for_review: "in_review",
-  pending: "pending",
-  missing: "pending",
 }
 
 const statusConfig = {
@@ -75,18 +76,30 @@ function TaskStatusBadge({ status }) {
 // ── Derive tasks from engagement documents ────────────────────────────────────
 
 function deriveTasksFromDocuments(engagement) {
-  const docs = engagement?.documents ?? []
-  if (docs.length === 0) return []
-
-  return docs.map((doc, i) => ({
+  return (engagement?.documents ?? []).map((doc) => ({
     id: doc.id,
     name: doc.name,
     required: true,
+    referenceDocument: Boolean(doc.hasReferenceDocument),
+    referenceDocumentFile: null,
     status: docToTaskStatus[doc.status] ?? "pending",
     deadline: engagement.targetEndDate ?? "",
-    // Keep original doc status for writing back
     _docStatus: doc.status,
   }))
+}
+
+function createTaskId() {
+  return `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function createEmptyTaskForm() {
+  return {
+    name: "",
+    required: false,
+    referenceDocument: false,
+    referenceDocumentFile: null,
+    deadline: "",
+  }
 }
 
 // ── Deadline Display / Editor ─────────────────────────────────────────────────
@@ -125,6 +138,89 @@ function DeadlineCell({ deadline, onChange }) {
   )
 }
 
+function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel }) {
+  const updateField = (field, value) => setFormData((current) => ({ ...current, [field]: value }))
+
+  return (
+    <form onSubmit={onSubmit} className="flex min-h-0 flex-col gap-5 overflow-y-auto">
+      <div className="flex flex-col gap-2">
+        <label htmlFor="task-name" className="text-sm font-medium text-foreground">Task name</label>
+        <Input
+          id="task-name"
+          value={formData.name}
+          onChange={(event) => updateField("name", event.target.value)}
+          placeholder="Task name"
+          aria-invalid={errors.name || undefined}
+          autoFocus
+        />
+        {errors.name && <p className="text-xs text-red-500">Task name is required.</p>}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+        <Switch label="Required?" checked={formData.required} onChange={(value) => updateField("required", value)} />
+        <Switch
+          label="Reference Document"
+          checked={formData.referenceDocument}
+          onChange={(value) => setFormData((current) => ({
+            ...current,
+            referenceDocument: value,
+            referenceDocumentFile: value ? current.referenceDocumentFile : null,
+          }))}
+        />
+      </div>
+
+      {formData.referenceDocument && (
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-foreground">Reference Document</span>
+          <ReferenceDocumentUpload
+            file={formData.referenceDocumentFile}
+            onSelect={(file) => updateField("referenceDocumentFile", file)}
+            onRemove={() => updateField("referenceDocumentFile", null)}
+          />
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        <label htmlFor="task-due-date" className="text-sm font-medium text-foreground">Due date</label>
+        <Input
+          id="task-due-date"
+          type="date"
+          value={formData.deadline}
+          onChange={(event) => updateField("deadline", event.target.value)}
+        />
+      </div>
+
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" className="bg-[#02353C] text-white hover:opacity-90">{mode === "edit" ? "Save Changes" : "Add Task"}</Button>
+      </DialogFooter>
+    </form>
+  )
+}
+
+function TaskDialog({ open, mode, formData, setFormData, errors, onOpenChange, onSubmit }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{mode === "edit" ? "Edit Task" : "Add Task"}</DialogTitle>
+          <DialogDescription>
+            {mode === "edit" ? "Update this task for the engagement." : "Create a task for this engagement."}
+          </DialogDescription>
+        </DialogHeader>
+        <TaskForm
+          mode={mode}
+          formData={formData}
+          setFormData={setFormData}
+          errors={errors}
+          onSubmit={onSubmit}
+          onCancel={() => onOpenChange(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ── Task Detail Dialog ────────────────────────────────────────────────────────
 
 function TaskDetailDialog({ open, onOpenChange, task }) {
@@ -160,7 +256,7 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
 
 // ── Task Row ──────────────────────────────────────────────────────────────────
 
-function TaskRow({ task, onStatusChange, onDeadlineChange, onOpenDetail }) {
+function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail }) {
   return (
     <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/30">
       {/* Task Name */}
@@ -198,10 +294,8 @@ function TaskRow({ task, onStatusChange, onDeadlineChange, onOpenDetail }) {
             <MoreHorizontal className="size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-40">
-            <DropdownMenuItem onClick={() => onStatusChange(task.id, "pending")}>
-              <CircleDashed className="size-3.5" />
-              Mark as Pending
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onEdit}>Edit Task</DropdownMenuItem>
+            <DropdownMenuItem onClick={onSendReminder}>Send Reminder</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </td>
@@ -212,38 +306,74 @@ function TaskRow({ task, onStatusChange, onDeadlineChange, onOpenDetail }) {
 // ── Main TaskList Component ───────────────────────────────────────────────────
 
 export function TaskList({ engagement, className, onTaskClick, onDeadlineChange }) {
+  const [tasks, setTasks] = useState(() => deriveTasksFromDocuments(engagement))
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
-  const [deadlineOverrides, setDeadlineOverrides] = useState({})
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false)
+  const [taskDialogMode, setTaskDialogMode] = useState("add")
+  const [taskFormData, setTaskFormData] = useState(createEmptyTaskForm)
+  const [taskFormErrors, setTaskFormErrors] = useState({})
+  const [reminderFeedback, setReminderFeedback] = useState("")
 
-  const updateDocumentStatus = engagementStore((state) => state.updateDocumentStatus)
-  const addReviewHistoryEntry = engagementStore((state) => state.addReviewHistoryEntry)
+  const openAddTask = () => {
+    setTaskDialogMode("add")
+    setTaskFormData(createEmptyTaskForm())
+    setTaskFormErrors({})
+    setTaskDialogOpen(true)
+  }
 
-  const tasks = deriveTasksFromDocuments(engagement).map((t) =>
-    deadlineOverrides[t.id] !== undefined ? { ...t, deadline: deadlineOverrides[t.id] } : t
-  )
+  const openEditTask = (task) => {
+    setTaskDialogMode("edit")
+    setSelectedTask(task)
+    setTaskFormData({
+      name: task.name,
+      required: task.required,
+      referenceDocument: task.referenceDocument,
+      referenceDocumentFile: task.referenceDocumentFile,
+      deadline: task.deadline,
+    })
+    setTaskFormErrors({})
+    setTaskDialogOpen(true)
+  }
 
-  const handleStatusChange = (taskId, newTaskStatus) => {
-    // Map task status back to document status and update the store
-    const newDocStatus = taskToDocStatus[newTaskStatus] ?? "pending"
-    updateDocumentStatus(engagement.id, taskId, newDocStatus)
-
-    // Add a review history entry for the status change
-    const doc = (engagement.documents ?? []).find((d) => d.id === taskId)
-    if (doc) {
-      addReviewHistoryEntry(engagement.id, {
-        id: `hist-${Date.now()}`,
-        userName: "Firm Admin",
-        action: newDocStatus,
-        comment: `Status changed to ${newTaskStatus === "approved" ? "Approved" : newTaskStatus === "pending" ? "Pending" : "For Review"}.`,
-        timestamp: new Date().toISOString(),
-      })
+  const handleTaskDialogChange = (open) => {
+    setTaskDialogOpen(open)
+    if (!open) {
+      setTaskFormData(createEmptyTaskForm())
+      setTaskFormErrors({})
+      setSelectedTask(null)
     }
   }
 
+  const handleTaskSubmit = (event) => {
+    event.preventDefault()
+    const name = taskFormData.name.trim()
+    if (!name) {
+      setTaskFormErrors({ name: true })
+      return
+    }
+
+    const nextTask = {
+      ...taskFormData,
+      name,
+      id: selectedTask?.id ?? createTaskId(),
+      status: selectedTask?.status ?? "pending",
+    }
+
+    setTasks((current) => selectedTask
+      ? current.map((task) => task.id === selectedTask.id ? { ...task, ...nextTask } : task)
+      : [...current, nextTask])
+    handleTaskDialogChange(false)
+  }
+
   const handleDeadlineChange = (taskId, newDeadline) => {
-    setDeadlineOverrides((prev) => ({ ...prev, [taskId]: newDeadline }))
-    if (onDeadlineChange) onDeadlineChange(taskId, newDeadline)
+    setTasks((current) => current.map((task) => task.id === taskId ? { ...task, deadline: newDeadline } : task))
+    onDeadlineChange?.(taskId, newDeadline)
+  }
+
+  const handleSendReminder = (task) => {
+    setReminderFeedback(`Reminder sent to client for "${task.name}".`)
+    window.setTimeout(() => setReminderFeedback(""), 3000)
   }
 
   const handleOpenDetail = (task) => {
@@ -255,13 +385,13 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange 
     }
   }
 
-  const requiredCount = tasks.filter((t) => t.required).length
-  const completedCount = tasks.filter((t) => t.status === "approved").length
+  const requiredCount = tasks.filter((task) => task.required).length
+  const completedCount = tasks.filter((task) => task.status === "approved").length
 
   return (
     <div className={cn("rounded-xl border border-border bg-card shadow-sm", className)}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-6 py-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-3.5">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Task List</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -269,7 +399,21 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange 
             {requiredCount > 0 && ` · ${requiredCount} required`}
           </p>
         </div>
+        <Button
+          type="button"
+          size="sm"
+          className="h-8 rounded-lg bg-[#02353C] px-3 text-xs text-white hover:bg-[#02353C]/90"
+          onClick={openAddTask}
+        >
+          Add Task
+        </Button>
       </div>
+
+      {reminderFeedback && (
+        <p role="status" className="border-b border-border bg-emerald-500/10 px-6 py-2 text-xs text-emerald-700">
+          {reminderFeedback}
+        </p>
+      )}
 
       {/* Table */}
       {tasks.length === 0 ? (
@@ -298,7 +442,8 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange 
                 <TaskRow
                   key={task.id}
                   task={task}
-                  onStatusChange={handleStatusChange}
+                  onEdit={() => openEditTask(task)}
+                  onSendReminder={() => handleSendReminder(task)}
                   onDeadlineChange={handleDeadlineChange}
                   onOpenDetail={() => handleOpenDetail(task)}
                 />
@@ -307,6 +452,16 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange 
           </table>
         </div>
       )}
+
+      <TaskDialog
+        open={taskDialogOpen}
+        mode={taskDialogMode}
+        formData={taskFormData}
+        setFormData={setTaskFormData}
+        errors={taskFormErrors}
+        onOpenChange={handleTaskDialogChange}
+        onSubmit={handleTaskSubmit}
+      />
 
       <TaskDetailDialog
         open={detailOpen}

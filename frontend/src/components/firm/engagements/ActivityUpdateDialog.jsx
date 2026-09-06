@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Clock, FileText, Loader2, Send, StickyNote } from "lucide-react"
+import { FileText, Loader2, Send, StickyNote } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,6 @@ import {
   DialogContent,
   DialogDescription,
   DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { firmStaffMap } from "./engagement-variants"
@@ -25,8 +24,6 @@ export function ActivityUpdateDialog({ open, onOpenChange, engagement, onSubmit 
 
   const staffLabel = firmStaffMap[engagement?.assignedStaff] ?? "You"
   const now = new Date()
-  const previewDate = now.toLocaleDateString("en-US", { month: "long", day: "2-digit", year: "numeric" })
-  const previewTime = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -61,16 +58,16 @@ export function ActivityUpdateDialog({ open, onOpenChange, engagement, onSubmit 
 
   return (
     <Dialog open={open} onOpenChange={handleCancel}>
-      <DialogContent data-slot="activity-update-dialog" className="max-w-lg gap-0 p-0 overflow-hidden">
+      <DialogContent data-slot="activity-update-dialog" showCloseButton={false} className="max-w-lg gap-0 p-0 overflow-hidden">
         {/* Header with icon */}
-        <div className="bg-[#02353C] px-6 py-5">
+        <div className="bg-sidebar px-6 py-5 text-sidebar-foreground">
           <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-white/15">
               <StickyNote className="size-5 text-white" />
             </div>
             <div>
-              <DialogTitle className="text-white">Post Activity Update</DialogTitle>
-              <DialogDescription className="text-white/70 text-xs mt-0.5">
+              <DialogTitle className="text-sidebar-foreground">Post Activity Update</DialogTitle>
+              <DialogDescription className="mt-0.5 text-xs text-sidebar-foreground/70">
                 Share progress on this engagement
               </DialogDescription>
             </div>
@@ -96,8 +93,8 @@ export function ActivityUpdateDialog({ open, onOpenChange, engagement, onSubmit 
                   }}
                   placeholder="e.g. Document verification completed"
                   className={cn(
-                    "h-10 w-full rounded-lg border border-input bg-muted/30 px-3 text-sm outline-none transition-all placeholder:text-muted-foreground focus:border-[#02353C] focus:bg-white focus:ring-2 focus:ring-[#02353C]/20",
-                    errors.title && "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                    "h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                    errors.title && "border-red-500 focus-visible:ring-red-500"
                   )}
                 />
                 <div className="flex items-center justify-between">
@@ -126,8 +123,8 @@ export function ActivityUpdateDialog({ open, onOpenChange, engagement, onSubmit 
                   placeholder="Describe the work update, progress, or status change..."
                   rows={4}
                   className={cn(
-                    "min-h-24 w-full resize-none rounded-lg border border-input bg-muted/30 px-3 py-2.5 text-sm transition-all outline-none placeholder:text-muted-foreground focus:border-[#02353C] focus:bg-white focus:ring-2 focus:ring-[#02353C]/20",
-                    errors.description && "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                    "min-h-24 w-full resize-none rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                    errors.description && "border-red-500 focus-visible:ring-red-500"
                   )}
                 />
                 <div className="flex items-center justify-between">
@@ -139,31 +136,6 @@ export function ActivityUpdateDialog({ open, onOpenChange, engagement, onSubmit 
               </div>
             </Field>
           </FieldGroup>
-
-          {/* Live Preview */}
-          <div className="rounded-xl border border-[#02353C]/10 bg-[#02353C]/[0.03] p-4">
-            <div className="mb-2.5 flex items-center gap-2">
-              <div className="flex size-5 items-center justify-center rounded-md bg-[#02353C]/10">
-                <StickyNote className="size-2.5 text-[#02353C]" />
-              </div>
-              <p className="text-xs font-semibold text-[#02353C]">Live Preview</p>
-            </div>
-            <div className="rounded-lg bg-white p-3 shadow-sm border border-border/50">
-              <p className="text-sm font-medium text-foreground leading-snug">
-                {title || <span className="text-muted-foreground italic">Update title</span>}
-              </p>
-              <div className="mt-1 flex items-center gap-1.5">
-                <Clock className="size-3 text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">
-                  {previewDate} · {previewTime}
-                </p>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                {description || <span className="italic">Description will appear here...</span>}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground/60">— {staffLabel}</p>
-            </div>
-          </div>
 
           <DialogFooter className="flex-row justify-end gap-2.5 sm:flex-row">
             <Button
@@ -178,7 +150,7 @@ export function ActivityUpdateDialog({ open, onOpenChange, engagement, onSubmit 
             <Button
               type="submit"
               disabled={submitting}
-              className="gap-2 rounded-lg bg-[#02353C] text-white hover:bg-[#02353C]/90 shadow-sm"
+              className="gap-2 rounded-lg bg-[#02353C] text-white hover:opacity-90"
             >
               {submitting ? (
                 <Loader2 className="size-4 animate-spin" />

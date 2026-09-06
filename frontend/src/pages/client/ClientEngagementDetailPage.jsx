@@ -17,6 +17,7 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog"
+
 import { supabase } from "@/config/supabase.js"
 import { WorkflowProgress } from "@/components/client/ClientEngagementWorkflow"
 import { TaskList } from "@/components/client/ClientEngagementTaskList"

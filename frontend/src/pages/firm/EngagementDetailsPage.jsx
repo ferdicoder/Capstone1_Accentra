@@ -10,10 +10,15 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
@@ -24,8 +29,10 @@ import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress
 import { ClientServiceDetailsDialog } from "@/components/firm/engagements/ClientServiceDetailsDialog"
 import { ActivityUpdates } from "@/components/firm/engagements/ActivityUpdates"
 import { TaskList } from "@/components/firm/engagements/TaskList"
+import { UploadDeliverables } from "@/components/firm/engagements/UploadDeliverables"
 import {
   workflowStageOptions,
+  formatDate,
 } from "@/components/firm/engagements/engagement-variants"
 
 export default function EngagementDetailsPage() {
@@ -39,6 +46,7 @@ export default function EngagementDetailsPage() {
   const [activeTab, setActiveTab] = useState("overview")
   const [addNoteOpen, setAddNoteOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [preselectedDocName, setPreselectedDocName] = useState(null)
   const [notice, setNotice] = useState("")
   const addNote = engagementStore((state) => state.addNote)
@@ -84,16 +92,10 @@ export default function EngagementDetailsPage() {
     setTimeout(() => setNotice(""), 3000)
   }
 
-  const handleCompleted = () => {
-    setWorkflowStage(engagement.id, "completed")
-    setEngagementStatus(engagement.id, "completed")
-    setNotice("Engagement marked as completed")
-    setTimeout(() => setNotice(""), 3000)
-  }
-
   const handleCancelEngagement = () => {
     setWorkflowStage(engagement.id, "cancelled")
     setEngagementStatus(engagement.id, "cancelled")
+    setCancelDialogOpen(false)
     setNotice("Engagement cancelled")
     setTimeout(() => setNotice(""), 3000)
   }
@@ -103,74 +105,63 @@ export default function EngagementDetailsPage() {
       <div className="flex flex-col gap-4">
         {/* ── Main Header + Actions ──────────────────────────────────────── */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold sm:text-xl text-foreground">
-              {engagement.serviceName}
-            </h1>
-            <EngagementStatusBadge status={engagement.status} />
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-lg font-semibold sm:text-xl text-foreground">
+                {engagement.serviceName}
+              </h1>
+              <EngagementStatusBadge status={engagement.status} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Due <span className="font-medium text-red-600">{formatDate(engagement.targetEndDate)}</span>
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              size="sm"
-              className="h-8 rounded-lg text-xs"
+              size="default"
+              className="h-9 rounded-lg px-3 text-sm"
               onClick={() => setDetailsOpen(true)}
             >
               View Details
             </Button>
             <Button
               variant="outline"
-              size="sm"
-              className="h-8 rounded-lg text-xs"
+              size="default"
+              className="h-9 rounded-lg px-3 text-sm"
               onClick={() => setAddNoteOpen(true)}
             >
               Add Note
-            </Button>
-            <Button
-              size="sm"
-              className="h-8 rounded-lg bg-[#02353C] text-white text-xs hover:opacity-90"
-              onClick={() => {
-                setNotice("Billing created successfully")
-                setTimeout(() => setNotice(""), 3000)
-              }}
-            >
-              Create Billing
             </Button>
             {engagement.status === "active" && (
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-lg text-xs" />
+                    <Button variant="outline" size="default" className="h-9 gap-1.5 rounded-lg px-3 text-sm" />
                   }
                 >
-                  Actions
+                  Change Status
                   <span className="size-3.5 opacity-60">▾</span>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-44">
-                  <DropdownMenuItem onClick={handleCompleted}>
-                    ✓ Completed
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="min-w-52">
-                      {workflowStageOptions.map((option) => (
-                        <DropdownMenuItem
-                          key={option.value}
-                          onClick={() => handleStageChange(option.value)}
-                        >
-                          {engagement.workflowStage === option.value && (
-                            <span className="mr-1.5 text-[#02353C]">✓</span>
-                          )}
-                          {option.label}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
+                <DropdownMenuContent align="end" className="min-w-52">
+                  {workflowStageOptions.map((option) => (
+                    <DropdownMenuItem
+                      key={option.value}
+                      onClick={() => handleStageChange(option.value)}
+                      className={cn(
+                        engagement.workflowStage === option.value && "bg-[#02353C]/10 text-[#02353C] font-medium"
+                      )}
+                    >
+                      {option.label}
+                    </DropdownMenuItem>
+                  ))}
 
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleCancelEngagement} className="text-red-600">
+                  <DropdownMenuItem
+                    onClick={() => setCancelDialogOpen(true)}
+                    className="text-red-600"
+                  >
                     <XCircle className="size-4" />
                     Cancel Engagement
                   </DropdownMenuItem>
@@ -218,10 +209,13 @@ export default function EngagementDetailsPage() {
         {/* ── Overview Tab ───────────────────────────────────────────────── */}
         {activeTab === "overview" && (
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <TaskList engagement={engagement} onTaskClick={(task) => {
-              setPreselectedDocName(task.name)
-              setActiveTab("document-review")
-            }} />
+            <div className="flex min-w-0 flex-col gap-5">
+              <UploadDeliverables engagement={engagement} />
+              <TaskList engagement={engagement} onTaskClick={(task) => {
+                setPreselectedDocName(task.name)
+                setActiveTab("document-review")
+              }} />
+            </div>
             <ActivityUpdates engagement={engagement} />
           </div>
         )}
@@ -249,6 +243,33 @@ export default function EngagementDetailsPage() {
         onOpenChange={setDetailsOpen}
         engagement={engagement}
       />
+
+      {/* ── Cancel Engagement Confirmation Dialog ─────────────────────────── */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel Engagement</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel this engagement?
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This action will mark the engagement as cancelled.
+          </p>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setCancelDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleCancelEngagement}
+            >
+              Confirm Cancellation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
