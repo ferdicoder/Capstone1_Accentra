@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import {
+  AlertTriangle,
   Check,
   CheckCircle2,
   Clock,
@@ -106,7 +107,7 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{task.name}</DialogTitle>
-          <DialogDescription>Task details for this engagement</DialogDescription>
+          <DialogDescription>Requirement details for this engagement</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -130,10 +131,6 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
 }
 
 // ── Choose Files Dialog ────────────────────────────────────────────────────────
-// Just lets the client pick file(s) for a task. It doesn't upload anything
-// itself — picking a file here only *stages* it. The actual upload only
-// happens when the client hits the check button inline in the row, so they
-// get a chance to back out (the X button) before anything is sent.
 
 function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
   const [files, setFiles] = useState([])
@@ -208,12 +205,46 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
   )
 }
 
+// ── Delete Confirmation Dialog ─────────────────────────────────────────────────
+// Confirms before removing an already-uploaded file from a requirement.
+
+function DeleteFileConfirmDialog({ open, onOpenChange, taskName, fileLabel, onConfirm }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-red-50">
+            <AlertTriangle className="size-5 text-red-600" />
+          </div>
+          <DialogTitle className="text-center">Delete this file?</DialogTitle>
+          <DialogDescription className="text-center">
+            Are you sure you want to delete{" "}
+            <span className="font-medium text-foreground">{fileLabel}</span>
+            {taskName ? ` from "${taskName}"` : ""}? This can&rsquo;t be undone.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="mt-2 flex justify-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            className="bg-red-600 text-white hover:bg-red-700"
+            onClick={onConfirm}
+          >
+            Delete File
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ── File Preview Dialog ────────────────────────────────────────────────────────
 // Lets the client click an uploaded file chip and see what they actually
-// submitted. These files only exist client-side (not sent to a server yet in
-// this mock), so previewing is done with an object URL — works for images
-// and PDFs inline; anything else falls back to a details view with an
-// "Open in new tab" action. URLs are revoked on close to avoid leaking memory.
+// submitted. Sized up (max-w-4xl / taller viewer) so images and PDFs are
+// easier to actually read instead of feeling cramped.
 
 function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -242,7 +273,7 @@ function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle className="truncate">{selectedFile.name}</DialogTitle>
           <DialogDescription>
@@ -272,18 +303,18 @@ function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
           </div>
         )}
 
-        <div className="flex max-h-[65vh] min-h-[240px] items-center justify-center overflow-auto rounded-lg border border-border bg-muted/30">
+        <div className="flex max-h-[80vh] min-h-[320px] items-center justify-center overflow-auto rounded-lg border border-border bg-muted/30">
           {isImage && objectUrl ? (
             <img
               src={objectUrl}
               alt={selectedFile.name}
-              className="max-h-[65vh] w-auto max-w-full object-contain"
+              className="max-h-[80vh] w-auto max-w-full object-contain"
             />
           ) : isPdf && objectUrl ? (
             <iframe
               src={objectUrl}
               title={selectedFile.name}
-              className="h-[65vh] w-full rounded-lg"
+              className="h-[80vh] w-full rounded-lg"
             />
           ) : (
             <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
@@ -318,7 +349,7 @@ function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
 //   1. Nothing staged/uploaded yet → plain "Upload Files" button.
 //   2. File(s) picked but not confirmed → filename + check (confirm) / X (discard).
 //   3. Confirmed/uploaded → clickable filename chip (opens preview) + a small
-//      replace icon to stage a new file for that task again.
+//      replace icon + a delete (X) icon that asks for confirmation first.
 
 function TaskRow({
   task,
@@ -329,6 +360,7 @@ function TaskRow({
   onConfirmUpload,
   onDiscardUpload,
   onPreviewUploaded,
+  onRequestDelete,
 }) {
   const hasPending = pendingFiles && pendingFiles.length > 0
   const hasUploaded = !hasPending && uploadedFiles && uploadedFiles.length > 0
@@ -347,7 +379,7 @@ function TaskRow({
 
   return (
     <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/30">
-      {/* Task Name */}
+      {/* Requirement Name */}
       <td className="px-6 py-2.5 pr-4">
         <button
           type="button"
@@ -375,7 +407,7 @@ function TaskRow({
       </td>
 
       {/* Actions */}
-      <td className="w-[220px] py-2.5 pr-6">
+      <td className="w-[250px] py-2.5 pr-6">
         {hasPending ? (
           <div className="flex items-center gap-1.5">
             <span
@@ -421,6 +453,14 @@ function TaskRow({
             >
               <RefreshCw className="size-3.5" />
             </button>
+            <button
+              type="button"
+              title="Delete file"
+              onClick={onRequestDelete}
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
+            >
+              <X className="size-3.5" />
+            </button>
           </div>
         ) : (
           <button
@@ -439,7 +479,7 @@ function TaskRow({
 
 // ── Main ClientEngagementTaskList Component ────────────────────────────────────
 
-export function TaskList({ engagement, className, onUploadFiles }) {
+export function TaskList({ engagement, className, onUploadFiles, onDeleteFile }) {
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -448,6 +488,8 @@ export function TaskList({ engagement, className, onUploadFiles }) {
   const [uploadedByTask, setUploadedByTask] = useState({}) // taskId -> File[] (confirmed/uploaded)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewTask, setPreviewTask] = useState(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleteTask, setDeleteTask] = useState(null)
   const [tasks] = useState(() => generateMockTasks(engagement))
 
   const handleOpenDetail = (task) => {
@@ -460,13 +502,10 @@ export function TaskList({ engagement, className, onUploadFiles }) {
     setPickerOpen(true)
   }
 
-  // Picking file(s) only stages them against the task — nothing is uploaded yet.
   const handleFilesChosen = (task, files) => {
     setPendingByTask((prev) => ({ ...prev, [task.id]: files }))
   }
 
-  // Check button — send the staged file(s), move them into "uploaded" so the
-  // row keeps showing what was submitted instead of resetting to the button.
   const handleConfirmUpload = (task) => {
     const files = pendingByTask[task.id]
     if (!files || files.length === 0) return
@@ -481,7 +520,6 @@ export function TaskList({ engagement, className, onUploadFiles }) {
     })
   }
 
-  // X button — discard the staged file(s) without uploading.
   const handleDiscardUpload = (task) => {
     setPendingByTask((prev) => {
       const next = { ...prev }
@@ -495,15 +533,44 @@ export function TaskList({ engagement, className, onUploadFiles }) {
     setPreviewOpen(true)
   }
 
+  // X on an already-uploaded file — ask for confirmation first, don't
+  // remove anything until the user confirms in the dialog.
+  const handleRequestDelete = (task) => {
+    setDeleteTask(task)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (!deleteTask) return
+
+    onDeleteFile?.(deleteTask, uploadedByTask[deleteTask.id])
+
+    setUploadedByTask((prev) => {
+      const next = { ...prev }
+      delete next[deleteTask.id]
+      return next
+    })
+
+    setDeleteConfirmOpen(false)
+    setDeleteTask(null)
+  }
+
   const requiredCount = tasks.filter((t) => t.required).length
   const completedCount = tasks.filter((t) => t.status === "approved").length
+
+  const deleteFileLabel =
+    deleteTask && uploadedByTask[deleteTask.id]
+      ? uploadedByTask[deleteTask.id].length === 1
+        ? uploadedByTask[deleteTask.id][0].name
+        : `${uploadedByTask[deleteTask.id].length} files`
+      : "this file"
 
   return (
     <div className={cn("rounded-xl border border-border bg-card shadow-sm", className)}>
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-6 py-3.5">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Task List</h3>
+          <h3 className="text-sm font-semibold text-foreground">Requirements</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {completedCount} of {tasks.length} completed
             {requiredCount > 0 && ` · ${requiredCount} required`}
@@ -517,9 +584,9 @@ export function TaskList({ engagement, className, onUploadFiles }) {
           <div className="flex size-8 items-center justify-center rounded-full bg-muted">
             <Inbox className="size-4 text-muted-foreground" />
           </div>
-          <p className="text-xs text-muted-foreground">No tasks available</p>
+          <p className="text-xs text-muted-foreground">No requirements available</p>
           <p className="text-xs text-muted-foreground/70">
-            There are currently no tasks assigned to this engagement.
+            There are currently no requirements assigned to this engagement.
           </p>
         </div>
       ) : (
@@ -527,10 +594,10 @@ export function TaskList({ engagement, className, onUploadFiles }) {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left">
-                <th className="px-6 py-2.5 text-xs font-medium text-muted-foreground">Task</th>
+                <th className="px-6 py-2.5 text-xs font-medium text-muted-foreground">Requirement</th>
                 <th className="w-[120px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
                 <th className="w-[140px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Deadline</th>
-                <th className="w-[220px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Actions</th>
+                <th className="w-[250px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -545,6 +612,7 @@ export function TaskList({ engagement, className, onUploadFiles }) {
                   onConfirmUpload={() => handleConfirmUpload(task)}
                   onDiscardUpload={() => handleDiscardUpload(task)}
                   onPreviewUploaded={() => handlePreviewUploaded(task)}
+                  onRequestDelete={() => handleRequestDelete(task)}
                 />
               ))}
             </tbody>
@@ -570,6 +638,14 @@ export function TaskList({ engagement, className, onUploadFiles }) {
         onOpenChange={setPreviewOpen}
         files={previewTask ? uploadedByTask[previewTask.id] ?? [] : []}
         taskName={previewTask?.name}
+      />
+
+      <DeleteFileConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        taskName={deleteTask?.name}
+        fileLabel={deleteFileLabel}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   )

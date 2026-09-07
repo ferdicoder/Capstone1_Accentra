@@ -118,7 +118,6 @@ const engagement = {
     serviceName: "Annual ITR Filing",
     notes:
       "Please prioritize — client needs this filed before the April 15 deadline.",
-    filingDeadline: "April 15, 2025",
     assignedStaff: "Atty. Roland Reyes, CPA",
   },
 }
@@ -221,6 +220,24 @@ const reviewStatusHelp = {
   "For Revision": "This document needs changes before it can be accepted. See Validation Remarks for details.",
 }
 
+// Per-status theme for the Status card — header banner, tooltip icon, and
+// the Validation Remarks button all switch color together based on
+// doc.reviewStatus, instead of always being green regardless of status.
+const statusDialogTheme = {
+  Approved: {
+    header: "bg-emerald-600",
+    icon: "text-emerald-600",
+    button: "bg-emerald-600 hover:bg-emerald-700",
+    remarkBox: "border-green-200 bg-green-50 text-green-800",
+  },
+  "For Revision": {
+    header: "bg-amber-500",
+    icon: "text-amber-600",
+    button: "bg-amber-500 hover:bg-amber-600",
+    remarkBox: "border-amber-200 bg-amber-50 text-amber-800",
+  },
+}
+
 function DocumentStatusDialog({ open, onOpenChange, document: doc }) {
   const [showRemarks, setShowRemarks] = useState(false)
 
@@ -233,11 +250,12 @@ function DocumentStatusDialog({ open, onOpenChange, document: doc }) {
 
   const badgeClass = reviewStatusStyles[doc.reviewStatus] ?? reviewStatusStyles.Approved
   const helpText = reviewStatusHelp[doc.reviewStatus] ?? ""
+  const theme = statusDialogTheme[doc.reviewStatus] ?? statusDialogTheme.Approved
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-sm gap-0 overflow-hidden p-0">
-        <div className="bg-blue-600 px-6 py-4 text-center">
+        <div className={`px-6 py-4 text-center ${theme.header}`}>
           <h2 className="text-base font-semibold text-white">Status</h2>
         </div>
 
@@ -250,13 +268,13 @@ function DocumentStatusDialog({ open, onOpenChange, document: doc }) {
                 >
                   {doc.reviewStatus}
                 </span>
-                <span title={helpText} className="cursor-help text-blue-500">
+                <span title={helpText} className={`cursor-help ${theme.icon}`}>
                   <HelpCircle className="size-4" />
                 </span>
               </div>
 
               <Button
-                className="w-full bg-blue-600 py-6 text-base font-semibold text-white hover:bg-blue-700"
+                className={`w-full py-6 text-base font-semibold text-white ${theme.button}`}
                 onClick={() => setShowRemarks(true)}
               >
                 Validation Remarks
@@ -268,13 +286,7 @@ function DocumentStatusDialog({ open, onOpenChange, document: doc }) {
             </>
           ) : (
             <>
-              <div
-                className={`w-full rounded-lg border px-3 py-2.5 text-sm ${
-                  doc.reviewStatus === "For Revision"
-                    ? "border-amber-200 bg-amber-50 text-amber-800"
-                    : "border-green-200 bg-green-50 text-green-800"
-                }`}
-              >
+              <div className={`w-full rounded-lg border px-3 py-2.5 text-sm ${theme.remarkBox}`}>
                 {doc.reviewStatus === "For Revision"
                   ? doc.remark
                   : "No revisions needed — this document was approved as submitted."}
@@ -450,13 +462,15 @@ export default function ClientEngagementDetailPage() {
 
           <div className="overflow-hidden rounded-xl border bg-background">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] table-fixed text-sm">
+              {/* Balanced 4-column layout. Actions column stacks the Status
+                  pill on top and the smaller View/Download icon buttons
+                  underneath it, so the row reads status-first. */}
+              <table className="w-full min-w-[600px] table-fixed text-sm">
                 <colgroup>
-                  <col className="w-[38%]" />
-                  <col className="w-[18%]" />
-                  <col className="w-[18%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[12%]" />
+                  <col className="w-[34%]" />
+                  <col className="w-[22%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[24%]" />
                 </colgroup>
                 <thead>
                   <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
@@ -470,12 +484,6 @@ export default function ClientEngagementDetailPage() {
                       Uploaded Date
                     </th>
                     <th className="px-4 py-3.5 align-middle font-medium">
-                      Status
-                    </th>
-                    {/* Left-aligned + narrower now that these are icon-only,
-                        instead of being pushed hard right with two wide
-                        text buttons. */}
-                    <th className="px-4 py-3.5 align-middle font-medium">
                       Actions
                     </th>
                   </tr>
@@ -484,7 +492,7 @@ export default function ClientEngagementDetailPage() {
                   {isDocumentsLoading && (
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={4}
                         className="px-4 py-10 text-center text-sm text-muted-foreground"
                       >
                         Loading documents...
@@ -512,56 +520,58 @@ export default function ClientEngagementDetailPage() {
                         <td className="px-4 py-4 align-middle text-muted-foreground">
                           {doc.uploadedDate ?? "—"}
                         </td>
-                        <td className="px-4 py-4 align-middle">
-                          <button
-                            type="button"
-                            onClick={() => openStatus(doc)}
-                            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-opacity hover:opacity-80 ${reviewStatusStyles[doc.reviewStatus]}`}
-                          >
-                            {doc.reviewStatus}
-                          </button>
-                        </td>
-                        {/* Icon-only actions, left-aligned in their own
-                            compact column instead of two wide text buttons
-                            crammed against the right edge. */}
-                        <td className="px-4 py-4 align-middle">
-                          <div className="flex items-center gap-1">
-                            {doc.signedUrl ? (
-                              <a
-                                href={doc.signedUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="View File"
-                                className="flex size-8 items-center justify-center rounded-lg border text-muted-foreground transition-colors hover:bg-muted"
-                              >
-                                <Eye className="size-4" />
-                              </a>
-                            ) : (
-                              <span
-                                title="View File"
-                                className="flex size-8 cursor-not-allowed items-center justify-center rounded-lg border text-muted-foreground/40"
-                              >
-                                <Eye className="size-4" />
-                              </span>
-                            )}
 
-                            {doc.signedUrl ? (
-                              <a
-                                href={doc.signedUrl}
-                                download
-                                title="Download"
-                                className="flex size-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
-                              >
-                                <Download className="size-4" />
-                              </a>
-                            ) : (
-                              <span
-                                title="Download"
-                                className="flex size-8 cursor-not-allowed items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-muted-foreground/40"
-                              >
-                                <Download className="size-4" />
-                              </span>
-                            )}
+                        {/* Actions — Status pill on top, View + Download
+                            (smaller icon buttons) stacked underneath */}
+                        <td className="px-4 py-3 align-middle">
+                          <div className="flex flex-col items-start gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openStatus(doc)}
+                              title="View Status"
+                              className={`rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-opacity hover:opacity-80 ${reviewStatusStyles[doc.reviewStatus]}`}
+                            >
+                              {doc.reviewStatus}
+                            </button>
+
+                            <div className="flex items-center gap-1">
+                              {doc.signedUrl ? (
+                                <a
+                                  href={doc.signedUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="View File"
+                                  className="flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted"
+                                >
+                                  <Eye className="size-3.5" />
+                                </a>
+                              ) : (
+                                <span
+                                  title="View File"
+                                  className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center rounded-md border text-muted-foreground/40"
+                                >
+                                  <Eye className="size-3.5" />
+                                </span>
+                              )}
+
+                              {doc.signedUrl ? (
+                                <a
+                                  href={doc.signedUrl}
+                                  download
+                                  title="Download"
+                                  className="flex size-6 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
+                                >
+                                  <Download className="size-3.5" />
+                                </a>
+                              ) : (
+                                <span
+                                  title="Download"
+                                  className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-muted-foreground/40"
+                                >
+                                  <Download className="size-3.5" />
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -570,7 +580,7 @@ export default function ClientEngagementDetailPage() {
                   {!isDocumentsLoading && filteredDocuments.length === 0 && (
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={4}
                         className="px-4 py-10 text-center text-sm text-muted-foreground"
                       >
                         No documents match "{documentSearch}".
@@ -731,14 +741,6 @@ export default function ClientEngagementDetailPage() {
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
                         {engagement.serviceInfo.notes}
-                      </dd>
-                    </div>
-                    <div className="min-w-0">
-                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Filing Deadline
-                      </dt>
-                      <dd className="mt-1.5 break-words text-sm font-semibold text-red-600">
-                        {engagement.serviceInfo.filingDeadline}
                       </dd>
                     </div>
                     <div className="min-w-0">
