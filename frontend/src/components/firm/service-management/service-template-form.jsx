@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ChevronDown, Loader2 } from "lucide-react"
+import { ChevronDown, Loader2, Pencil, Plus, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -464,6 +464,154 @@ export function CategoryCreateDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+    </Dialog>
+  )
+}
+
+export function CategoryManagementDialog({
+  open = false,
+  onOpenChange,
+  categories = [],
+  onAdd,
+  onRename,
+  onRemove,
+}) {
+  const [editingValue, setEditingValue] = useState(null)
+  const [editingName, setEditingName] = useState("")
+  const [error, setError] = useState("")
+  const [pendingRemoval, setPendingRemoval] = useState(null)
+
+  const closeDialog = () => {
+    setEditingValue(null)
+    setEditingName("")
+    setError("")
+    onOpenChange?.(false)
+  }
+
+  const startEditing = (category) => {
+    setEditingValue(category.value)
+    setEditingName(category.label)
+    setError("")
+  }
+
+  const saveEdit = () => {
+    const trimmedName = editingName.trim()
+    const duplicate = categories.some(
+      (category) =>
+        category.value !== editingValue &&
+        category.label.trim().toLowerCase() === trimmedName.toLowerCase()
+    )
+
+    if (!trimmedName) {
+      setError("Category name is required.")
+      return
+    }
+    if (duplicate) {
+      setError("This category already exists.")
+      return
+    }
+
+    onRename?.(editingValue, trimmedName)
+    setEditingValue(null)
+    setEditingName("")
+    setError("")
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Categories</DialogTitle>
+          <DialogDescription>Add, rename, or remove service categories.</DialogDescription>
+        </DialogHeader>
+        <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
+          {categories.map((category) => (
+            <div
+              key={category.value}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2"
+            >
+              {editingValue === category.value ? (
+                <Input
+                  value={editingName}
+                  onChange={(event) => setEditingName(event.target.value)}
+                  onKeyDown={(event) => event.key === "Enter" && saveEdit()}
+                  aria-label={`Edit ${category.label}`}
+                  autoFocus
+                  className={cn("h-8 flex-1", error && "border-red-500")}
+                />
+              ) : (
+                <span className="min-w-0 flex-1 truncate text-sm">{category.label}</span>
+              )}
+              {editingValue === category.value ? (
+                <>
+                  <Button type="button" size="sm" onClick={saveEdit}>Save</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => setEditingValue(null)}>
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Edit ${category.label}`}
+                    onClick={() => startEditing(category)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Remove ${category.label}`}
+                    onClick={() => setPendingRemoval(category)}
+                  >
+                    <Trash2 className="size-4 text-red-600" />
+                  </Button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+        {error && <p className="text-sm text-red-500">{error}</p>}
+        <DialogFooter className="flex-row justify-between gap-2">
+          <Button type="button" variant="outline" onClick={onAdd}>
+            <Plus className="size-4" />
+            Add Category
+          </Button>
+          <Button type="button" onClick={closeDialog}>Done</Button>
+        </DialogFooter>
+      </DialogContent>
+
+      <Dialog
+        open={Boolean(pendingRemoval)}
+        onOpenChange={(nextOpen) => !nextOpen && setPendingRemoval(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Category</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove &quot;{pendingRemoval?.label}&quot;? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setPendingRemoval(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                onRemove?.(pendingRemoval.value)
+                setPendingRemoval(null)
+              }}
+            >
+              Remove Category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }

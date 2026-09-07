@@ -1,10 +1,18 @@
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import { FileText, Plus, Upload, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { createTaskId, formatBytes } from "./service-management-variants"
 
 /**
@@ -78,8 +86,11 @@ export function ReferenceDocumentUpload({ file, onSelect, onRemove, disabled = f
 
 /** Presentational row for a single workflow task. Fully controlled. */
 export function WorkflowTaskItem({ task, onTaskChange, onRemove, disabled = false, error }) {
+  const [removeOpen, setRemoveOpen] = useState(false)
+
   return (
-    <div data-slot="workflow-task-item" className="rounded-lg border border-border bg-background p-4">
+    <>
+      <div data-slot="workflow-task-item" className="rounded-lg border border-border bg-background p-4">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <Input
@@ -97,7 +108,7 @@ export function WorkflowTaskItem({ task, onTaskChange, onRemove, disabled = fals
           variant="ghost"
           size="icon-sm"
           disabled={disabled}
-          onClick={onRemove}
+          onClick={() => setRemoveOpen(true)}
           aria-label="Remove task"
           className="rounded-lg text-muted-foreground hover:text-destructive"
         >
@@ -136,7 +147,33 @@ export function WorkflowTaskItem({ task, onTaskChange, onRemove, disabled = fals
           />
         </div>
       )}
-    </div>
+      </div>
+      <Dialog open={removeOpen} onOpenChange={setRemoveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Workflow Task</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove this workflow task?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setRemoveOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                onRemove?.()
+                setRemoveOpen(false)
+              }}
+            >
+              Remove Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 

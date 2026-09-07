@@ -308,6 +308,7 @@ export function ServiceManagementToolbar({
   categoryFilter = "",
   onCategoryFilterChange,
   categoryOptions = categoryFilterOptions,
+  onManageCategories,
   statusFilter = "",
   onStatusFilterChange,
   statusOptions = statusFilterOptions,
@@ -322,7 +323,14 @@ export function ServiceManagementToolbar({
   const activeStatus = statusOptions.find((option) => option.value === statusFilter)
 
   const filters = [
-    { label: "Category", value: categoryFilter, active: activeCategory, options: categoryOptions, onChange: onCategoryFilterChange },
+    {
+      label: "Category",
+      value: categoryFilter,
+      active: activeCategory,
+      options: categoryOptions,
+      onChange: onCategoryFilterChange,
+      onManageCategories,
+    },
     { label: "Status", value: statusFilter, active: activeStatus, options: statusOptions, onChange: onStatusFilterChange },
   ].filter((filter) => filter.options.length > 0)
 
@@ -378,7 +386,7 @@ export function ServiceManagementToolbar({
                   <span className="flex w-4 shrink-0 justify-center">
                     {!filter.value && <Check className="size-4" />}
                   </span>
-                  All {filter.label.toLowerCase()}s
+                  All {filter.label === "Category" ? "categories" : `${filter.label.toLowerCase()}s`}
                 </DropdownMenuItem>
                 {filter.options.map((option) => (
                   <DropdownMenuItem
@@ -392,6 +400,14 @@ export function ServiceManagementToolbar({
                     {option.label}
                   </DropdownMenuItem>
                 ))}
+                {filter.label === "Category" && filter.onManageCategories && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={filter.onManageCategories}>
+                      Edit Categories
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -10,6 +10,7 @@ import { EngagementList } from "@/components/firm/engagements/engagement-list"
 import { engagementStore } from "@/components/firm/engagements/engagement-store"
 import { statusFilterOptions, generateEngagementNumber } from "@/components/firm/engagements/engagement-variants"
 import { CreateEngagementDialog } from "@/components/firm/service-requests/create-engagement-dialog"
+import { CancelEngagementDialog } from "@/components/firm/engagements/cancel-engagement-dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +31,7 @@ export default function EngagementsPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [newEngagementOpen, setNewEngagementOpen] = useState(false)
+  const [cancelEngagement, setCancelEngagement] = useState(null)
   const [notice, setNotice] = useState("")
 
   useEffect(() => {
@@ -96,6 +98,12 @@ export default function EngagementsPage() {
     const labels = { completed: "completed", on_hold: "put on hold", cancelled: "cancelled" }
     setNotice(`${engagement.business?.businessName ?? engagement.engagementNumber} ${labels[newStatus]}`)
     setTimeout(() => setNotice(""), 3000)
+  }
+
+  const handleCancelEngagement = () => {
+    if (!cancelEngagement) return
+    handleStatusChange(cancelEngagement, "cancelled")
+    setCancelEngagement(null)
   }
 
   usePageMeta({
@@ -188,7 +196,7 @@ export default function EngagementsPage() {
                     )}
                     {engagement.status !== "cancelled" && (
                       <DropdownMenuItem
-                        onClick={() => handleStatusChange(engagement, "cancelled")}
+                        onClick={() => setCancelEngagement(engagement)}
                         className="text-red-600"
                       >
                         <XCircle className="size-4" />
@@ -205,6 +213,11 @@ export default function EngagementsPage() {
             open={newEngagementOpen}
             onOpenChange={setNewEngagementOpen}
             onSubmit={handleNewEngagementSubmit}
+          />
+          <CancelEngagementDialog
+            open={Boolean(cancelEngagement)}
+            onOpenChange={(open) => !open && setCancelEngagement(null)}
+            onConfirm={handleCancelEngagement}
           />
         </>
       )}

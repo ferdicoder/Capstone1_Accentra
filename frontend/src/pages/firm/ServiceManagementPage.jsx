@@ -1,6 +1,6 @@
 import { useLocation } from "react-router-dom"
 import { useMemo, useState } from "react"
-import { Ban, CheckCircle2, Pencil, Plus, Trash2 } from "lucide-react"
+import { Ban, CheckCircle2, Pencil, Trash2 } from "lucide-react"
 
 import { usePageMeta } from "@/hooks/usePageMeta"
 import {
@@ -14,6 +14,7 @@ import {
   ServiceCreateDialog,
   ServiceEditDialog,
   CategoryCreateDialog,
+  CategoryManagementDialog,
 } from "@/components/firm/service-management/service-template-form"
 import { categoryFilterOptions } from "@/components/firm/service-management/service-management-variants"
 import {
@@ -26,8 +27,8 @@ import {
 
 import { uploadTemplateDocument } from "@/services/api/documentAPI"
 
-const categoryLabel = (value) =>
-  categoryFilterOptions.find((option) => option.value === value)?.label ?? value ?? ""
+const categoryLabel = (value, options) =>
+  options.find((option) => option.value === value)?.label ?? value ?? ""
 
 export default function ServiceManagementPage() {
   const location = useLocation()
@@ -42,6 +43,7 @@ export default function ServiceManagementPage() {
   const [deletingService, setDeletingService] = useState(null)
   const [notice, setNotice] = useState(null)
   const [categoryCreateOpen, setCategoryCreateOpen] = useState(false)
+  const [categoryManagementOpen, setCategoryManagementOpen] = useState(false)
   const [categoryOptions, setCategoryOptions] = useState(categoryFilterOptions)
 
   const { data: services = [], isLoading, error } = useFetchServices()
@@ -56,6 +58,20 @@ export default function ServiceManagementPage() {
     setNotice({ tone: "success", message: `${name} category created` })
   }
 
+  const renameCategory = (value, name) => {
+    setCategoryOptions((current) =>
+      current.map((category) => (category.value === value ? { ...category, label: name } : category))
+    )
+    setNotice({ tone: "success", message: `${name} category updated` })
+  }
+
+  const removeCategory = (value) => {
+    const category = categoryOptions.find((option) => option.value === value)
+    setCategoryOptions((current) => current.filter((option) => option.value !== value))
+    if (categoryFilter === value) setCategoryFilter("")
+    setNotice({ tone: "success", message: `${category?.label ?? "Category"} removed` })
+  }
+
   const filteredServices = useMemo(() => {
     const query = search.trim().toLowerCase()
     return services.filter((service) => {
@@ -64,12 +80,12 @@ export default function ServiceManagementPage() {
         service.name.toLowerCase().includes(query) ||
         service.description?.toLowerCase().includes(query) ||
         service.category.toLowerCase().includes(query) ||
-        categoryLabel(service.category).toLowerCase().includes(query)
+        categoryLabel(service.category, categoryOptions).toLowerCase().includes(query)
       const matchesCategory = !categoryFilter || service.category === categoryFilter
       const matchesStatus = !statusFilter || service.status === statusFilter
       return matchesSearch && matchesCategory && matchesStatus
     })
-  }, [services, search, categoryFilter, statusFilter])
+  }, [services, search, categoryFilter, statusFilter, categoryOptions])
 
   const handleCreate = (values) => {
   const tasksWithFiles = values.workflowTasks
@@ -194,20 +210,12 @@ export default function ServiceManagementPage() {
         categoryFilter={categoryFilter}
         onCategoryFilterChange={setCategoryFilter}
         categoryOptions={categoryOptions}
+        onManageCategories={() => setCategoryManagementOpen(true)}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         onAddService={() => setCreateOpen(true)}
         resultCount={`${filteredServices.length} of ${services.length} services`}
-      >
-        <button
-          type="button"
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-          onClick={() => setCategoryCreateOpen(true)}
-        >
-          <Plus className="size-4" />
-          <span className="hidden sm:inline">Add Category</span>
-        </button>
-      </ServiceManagementToolbar>
+      />
 
       <ServiceManagementTable
         services={filteredServices}
@@ -260,6 +268,18 @@ export default function ServiceManagementPage() {
         onOpenChange={setCategoryCreateOpen}
         onSubmit={createCategory}
         existingCategories={categoryOptions}
+      />
+
+      <CategoryManagementDialog
+        open={categoryManagementOpen}
+        onOpenChange={setCategoryManagementOpen}
+        categories={categoryOptions}
+        onAdd={() => {
+          setCategoryManagementOpen(false)
+          setCategoryCreateOpen(true)
+        }}
+        onRename={renameCategory}
+        onRemove={removeCategory}
       />
     </>
   )

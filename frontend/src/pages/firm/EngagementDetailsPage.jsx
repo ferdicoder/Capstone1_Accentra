@@ -30,6 +30,7 @@ import { ClientServiceDetailsDialog } from "@/components/firm/engagements/Client
 import { ActivityUpdates } from "@/components/firm/engagements/ActivityUpdates"
 import { TaskList } from "@/components/firm/engagements/TaskList"
 import { UploadDeliverables } from "@/components/firm/engagements/UploadDeliverables"
+import { CancelEngagementDialog } from "@/components/firm/engagements/cancel-engagement-dialog"
 import {
   workflowStageOptions,
   formatDate,
@@ -321,29 +322,11 @@ export default function EngagementDetailsPage() {
         engagement={engagement}
       />
 
-      {/* ── Cancel Engagement Confirmation Dialog ─────────────────────────── */}
-      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-        <DialogContent className="max-w-md p-5 sm:p-6">
-          <DialogHeader className="gap-2">
-            <DialogTitle className="text-base">Cancel Engagement</DialogTitle>
-            <DialogDescription className="text-sm leading-6 text-muted-foreground">
-              Are you sure you want to cancel this engagement?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-1 gap-2">
-            <Button type="button" variant="outline" onClick={() => setCancelDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleCancelEngagement}
-            >
-              Confirm Cancellation
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CancelEngagementDialog
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        onConfirm={handleCancelEngagement}
+      />
     </>
   )
 }
