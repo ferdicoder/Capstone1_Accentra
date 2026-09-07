@@ -42,6 +42,7 @@ const sectionHeadingClass = "font-heading text-sm font-medium text-foreground"
 export function ServiceTemplateForm({
   mode = "create",
   initialValues,
+  categoryOptions = categoryFilterOptions,
   onSubmit,
   submitting = false,
   onCancel,
@@ -66,9 +67,9 @@ export function ServiceTemplateForm({
   })
   const [errors, setErrors] = useState({})
 
-  const activeCategory = categoryFilterOptions.find((option) => option.value === category)
+  const activeCategory = categoryOptions.find((option) => option.value === category)
   const activeStatus = statusFilterOptions.find((option) => option.value === status)
-  const [isRecurring, setIsRecurring] = useState(() => initialValues?.isRecurring ?? false)
+  const [isRecurring] = useState(() => initialValues?.isRecurring ?? false)
 
   // Clear stale task errors whenever the task list changes.
   const handleTasksChange = (nextTasks) => {
@@ -80,6 +81,7 @@ export function ServiceTemplateForm({
     event.preventDefault()
 
     const parsedPrice = Number(basePrice)
+    const parsedEstimatedTime = Number(estimatedTime)
     const taskErrors = tasks.map((task) => ({
       name: !task.name.trim(),
       reference: Boolean(task.hasReferenceDocument) && !task.referenceDocument,
@@ -89,7 +91,10 @@ export function ServiceTemplateForm({
       name: !name.trim(),
       category: !category,
       basePrice: !basePrice.trim() || !Number.isFinite(parsedPrice) || parsedPrice < 0,
-      estimatedTime: !estimatedTime.trim(),
+      estimatedTime:
+        !estimatedTime.trim() ||
+        !Number.isInteger(parsedEstimatedTime) ||
+        parsedEstimatedTime < 0,
       tasks: taskErrors,
     }
     setErrors(newErrors)
@@ -167,7 +172,7 @@ export function ServiceTemplateForm({
                 <ChevronDown className="size-4 opacity-60" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-40">
-                {categoryFilterOptions.map((option) => (
+                {categoryOptions.map((option) => (
                   <DropdownMenuItem
                     key={option.value}
                     onClick={() => setCategory(option.value)}
@@ -240,7 +245,7 @@ export function ServiceTemplateForm({
               min="0"
               step="0.01"
               value={basePrice}
-              onChange={(event) => setBasePrice(event.target.value)}
+              onChange={(event) => setBasePrice(event.target.value.replace(/[^0-9.]/g, ""))}
               placeholder="2500"
               disabled={submitting}
               className={cn(
@@ -258,16 +263,19 @@ export function ServiceTemplateForm({
             </FieldLabel>
             <Input
               id="service-estimated-time"
+              type="number"
+              min="0"
+              step="1"
               value={estimatedTime}
-              onChange={(event) => setEstimatedTime(event.target.value)}
-              placeholder="3 business days"
+              onChange={(event) => setEstimatedTime(event.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="3"
               disabled={submitting}
               className={cn(
                 errors.estimatedTime && "border-red-500 focus-visible:ring-red-500"
               )}
             />
             {errors.estimatedTime && (
-              <p className="text-sm text-red-500">Estimated time is required.</p>
+              <p className="text-sm text-red-500">Enter a valid non-negative number of days.</p>
             )}
           </Field>
         </div>
@@ -309,6 +317,7 @@ export function ServiceCreateDialog({
   open = false,
   onOpenChange,
   onSubmit,
+  categoryOptions = categoryFilterOptions,
   submitting = false,
   error,
   title = "Add Service",
@@ -328,6 +337,7 @@ export function ServiceCreateDialog({
 
         <ServiceTemplateForm
           mode="create"
+          categoryOptions={categoryOptions}
           onSubmit={onSubmit}
           submitting={submitting}
           error={error}
@@ -349,6 +359,7 @@ export function ServiceEditDialog({
   onOpenChange,
   onSubmit,
   service,
+  categoryOptions = categoryFilterOptions,
   submitting = false,
   error,
   title = "Edit Service",
@@ -369,6 +380,7 @@ export function ServiceEditDialog({
         <ServiceTemplateForm
           mode="edit"
           initialValues={service}
+          categoryOptions={categoryOptions}
           onSubmit={onSubmit}
           submitting={submitting}
           error={error}
@@ -376,6 +388,81 @@ export function ServiceEditDialog({
           submitLabel={submitLabel}
           cancelLabel={cancelLabel}
         />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function CategoryCreateDialog({
+  open = false,
+  onOpenChange,
+  onSubmit,
+  existingCategories = [],
+}) {
+  const [name, setName] = useState("")
+  const [error, setError] = useState("")
+
+  const handleOpenChange = (nextOpen) => {
+    if (!nextOpen) {
+      setName("")
+      setError("")
+    }
+    onOpenChange?.(nextOpen)
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    const trimmedName = name.trim()
+    const duplicate = existingCategories.some(
+      (category) => category.label.trim().toLowerCase() === trimmedName.toLowerCase()
+    )
+
+    if (!trimmedName) {
+      setError("Category name is required.")
+      return
+    }
+    if (duplicate) {
+      setError("This category already exists.")
+      return
+    }
+
+    onSubmit?.(trimmedName)
+    handleOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create Category</DialogTitle>
+          <DialogDescription>Add a category for your service catalog.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <Field>
+            <FieldLabel htmlFor="service-category-name">
+              Category Name<span className="text-red-500">*</span>
+            </FieldLabel>
+            <Input
+              id="service-category-name"
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value)
+                if (error) setError("")
+              }}
+              placeholder="Compliance"
+              className={cn(error && "border-red-500 focus-visible:ring-red-500")}
+            />
+            {error && <p className="text-sm text-red-500">{error}</p>}
+          </Field>
+          <DialogFooter className="flex-row justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" className="bg-forest-900 text-white hover:opacity-90">
+              Create Category
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
