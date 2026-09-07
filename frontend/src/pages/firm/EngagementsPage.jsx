@@ -83,6 +83,7 @@ export default function EngagementsPage() {
       requestNumber: values.requestNumber ?? null,
       client: values.client ?? {},
       business: values.business ?? {},
+      clientDescription: values.clientDescription ?? values.client?.description ?? "",
     }
 
     addEngagement(newEngagement)

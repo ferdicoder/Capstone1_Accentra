@@ -62,7 +62,7 @@ export function ReviewSummaryCard({ engagement, onViewDetails, className }) {
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <StatBadge label="Submitted" count={submitted} dotColor="bg-emerald-500" />
-          <StatBadge label="In Review" count={inReview} dotColor="bg-purple-500" />
+          <StatBadge label="In Review" count={inReview} dotColor="bg-amber-500" />
           <StatBadge label="Revision" count={revisionRequested} dotColor="bg-amber-500" />
           <StatBadge label="Approved" count={approved} dotColor="bg-emerald-500" />
         </div>

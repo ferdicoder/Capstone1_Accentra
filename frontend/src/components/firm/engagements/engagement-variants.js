@@ -58,6 +58,69 @@ export const firmStaffMap = {
   "staff-004": "Carlos Mendoza",
 }
 
+export const registeredClients = [
+  {
+    firstName: "Maria",
+    lastName: "Santos",
+    businessName: "Santos Retail Trading",
+    businessType: "Sole Proprietorship",
+    contactNo: "0917 555 1234",
+    email: "maria@santosretail.com",
+    description:
+      "Client requested assistance with annual tax filing and needs the engagement completed before the filing deadline.",
+  },
+  {
+    firstName: "Maria Clara",
+    lastName: "Reyes",
+    businessName: "Reyes & Co. Accounting Services",
+    businessType: "Sole Proprietorship",
+    contactNo: "0917 345 1122",
+    email: "maria@reyesaccounting.com",
+    description:
+      "Client needs support with quarterly VAT filing and documentation review before the BIR submission window closes.",
+  },
+  {
+    firstName: "Mark",
+    lastName: "Dela Cruz",
+    businessName: "Dela Cruz Logistics",
+    businessType: "Partnership",
+    contactNo: "0922 778 4455",
+    email: "mark@delacruzlogistics.ph",
+    description:
+      "Client is preparing for a business registration and wants a complete document package before permit application processing.",
+  },
+  {
+    firstName: "Carlos",
+    lastName: "Reyes",
+    businessName: "Reyes Construction Supply",
+    businessType: "Sole Proprietorship",
+    contactNo: "0917 555 3456",
+    email: "carlos@reyesconstructionsupply.ph",
+    description:
+      "Client needs full registration support for a newly formed construction supply business and expects a faster processing timeline.",
+  },
+  {
+    firstName: "Ana",
+    lastName: "Dela Cruz",
+    businessName: "Dela Cruz Bakery & Pastries",
+    businessType: "Sole Proprietorship",
+    contactNo: "0917 555 2345",
+    email: "ana@delacruzbakery.ph",
+    description:
+      "Client requested VAT filing assistance and wants all compliance documentation reviewed before the quarter closes.",
+  },
+  {
+    firstName: "Rosa",
+    lastName: "Villanueva",
+    businessName: "Villanueva Farms Inc.",
+    businessType: "Corporation",
+    contactNo: "0917 555 4567",
+    email: "rosa@villanuevafarms.ph",
+    description:
+      "Client is undergoing incorporation and needs progress tracking across SEC documents, permits, and compliance filings.",
+  },
+]
+
 export const getServiceCategoryLabel = (serviceName) => {
   if (!serviceName) return "—"
   if (serviceName.toLowerCase().includes("tax")) return "Tax Filing"
@@ -119,7 +182,7 @@ export const getWorkflowProgress = (engagement) => {
 // ─── Document status helpers ──────────────────────────────────────────────────
 
 const documentStatusStyles = {
-  in_review: "bg-purple-500/10 text-purple-700 ring-purple-500/25",
+  in_review: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
   submitted: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
   resubmitted: "bg-blue-500/10 text-blue-700 ring-blue-500/25",
   approved: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
@@ -129,7 +192,7 @@ const documentStatusStyles = {
 }
 
 const documentStatusDots = {
-  in_review: "bg-purple-500",
+  in_review: "bg-amber-500",
   submitted: "bg-emerald-500",
   resubmitted: "bg-blue-500",
   approved: "bg-emerald-500",
@@ -187,6 +250,8 @@ export const mockEngagements = [
       { id: "hist-003", userName: "Maria Clara Santos", action: "approved", comment: "Schedule 1 income computation verified against AFS.", timestamp: "2025-07-13T16:30:00" },
     ],
     requestNumber: "SR-2025-0012",
+    clientDescription:
+      "Client requested assistance with annual tax filing and needs the engagement completed before the filing deadline.",
     client: { firstName: "Maria", lastName: "Santos", contactNo: "0917 555 1234", email: "maria@santosretail.com" },
     business: { businessName: "Santos Retail Trading", businessType: "Sole Proprietorship", tinNo: "123-456-789-000", industry: "Retail", address: "12 Mercado St. Sta Ana Manila 1009" },
   },
@@ -216,6 +281,8 @@ export const mockEngagements = [
       { id: "hist-011", userName: "Juan Dela Cruz", action: "approved", comment: "ID and TIN verified.", timestamp: "2025-07-03T11:00:00" },
     ],
     requestNumber: "SR-2025-0010",
+    clientDescription:
+      "Client needs full registration support for a newly formed construction supply business and expects a faster processing timeline.",
     client: { firstName: "Carlos", lastName: "Reyes", contactNo: "0917 555 3456", email: "carlos@reyesconstructionsupply.ph" },
     business: { businessName: "Reyes Construction Supply", businessType: "Sole Proprietorship", tinNo: "789-123-456-000", industry: "Construction", address: "21 Rizal Ave. San Fernando Pampanga" },
   },
@@ -248,6 +315,8 @@ export const mockEngagements = [
       { id: "hist-021", userName: "Ana Reyes", action: "approved", comment: "All documents verified. Filing completed.", timestamp: "2025-06-20T15:00:00" },
     ],
     requestNumber: "SR-2025-0011",
+    clientDescription:
+      "Client requested VAT filing assistance and wants all compliance documentation reviewed before the quarter closes.",
     client: { firstName: "Ana", lastName: "Dela Cruz", contactNo: "0917 555 2345", email: "ana@delacruzbakery.ph" },
     business: { businessName: "Dela Cruz Bakery & Pastries", businessType: "Sole Proprietorship", tinNo: "456-789-123-000", industry: "Food & Beverage", address: "88 Gen. Luna St. Malolos Bulacan" },
   },

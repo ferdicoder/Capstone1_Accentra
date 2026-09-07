@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { ChevronDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -23,6 +23,7 @@ import {
   serviceTemplateCatalog,
   getServiceTemplatePrice,
 } from "../service-management/service-management-variants"
+import { registeredClients } from "../engagements/engagement-variants"
 
 const firmStaffOptions = [
   { value: "staff-001", label: "Maria Clara Santos" },
@@ -61,16 +62,29 @@ export function CreateEngagementDialog({
     request?.serviceName ? String(getServiceTemplatePrice(request.serviceName)) : ""
   )
 
+  const [clientQuery, setClientQuery] = useState(() =>
+    isStandalone ? "" : `${request?.client?.firstName ?? ""} ${request?.client?.lastName ?? ""}`.trim()
+  )
   const [clientFirstName, setClientFirstName] = useState(() => request?.client?.firstName ?? "")
   const [clientLastName, setClientLastName] = useState(() => request?.client?.lastName ?? "")
   const [businessName, setBusinessName] = useState(() => request?.business?.businessName ?? "")
   const [businessType, setBusinessType] = useState(() => request?.business?.businessType ?? "")
   const [contactNo, setContactNo] = useState(() => request?.client?.contactNo ?? "")
   const [clientEmail, setClientEmail] = useState(() => request?.client?.email ?? "")
+  const [clientDescription, setClientDescription] = useState(() => request?.clientDescription ?? request?.notes ?? "")
 
   const [errors, setErrors] = useState({})
 
   const activeStaff = firmStaffOptions.find((s) => s.value === assignedStaff)
+  const matchingClients = useMemo(() => {
+    const query = clientQuery.trim().toLowerCase()
+    if (!query) return registeredClients.slice(0, 5)
+    return registeredClients.filter((client) => {
+      const fullName = `${client.firstName} ${client.lastName}`.toLowerCase()
+      const businessName = (client.businessName ?? "").toLowerCase()
+      return fullName.includes(query) || businessName.includes(query)
+    })
+  }, [clientQuery])
 
   const handleServiceChange = (value) => {
     setServiceName(value)
@@ -91,7 +105,6 @@ export function CreateEngagementDialog({
       assignedStaff: !assignedStaff,
       startDate: !startDate,
       targetEndDate: !targetEndDate,
-      serviceFee: !serviceFee || Number(serviceFee) < 0,
     }
 
     if (isStandalone) {
@@ -104,7 +117,13 @@ export function CreateEngagementDialog({
     if (Object.values(newErrors).some(Boolean)) return
 
     const client = isStandalone
-      ? { firstName: clientFirstName.trim(), lastName: clientLastName.trim(), contactNo: contactNo.trim(), email: clientEmail.trim() }
+      ? {
+          firstName: clientFirstName.trim(),
+          lastName: clientLastName.trim(),
+          contactNo: contactNo.trim(),
+          email: clientEmail.trim(),
+          description: clientDescription.trim(),
+        }
       : request?.client
 
     const business = isStandalone
@@ -119,8 +138,20 @@ export function CreateEngagementDialog({
       assignedStaff,
       startDate,
       targetEndDate,
-      serviceFee: Number(serviceFee),
+      serviceFee: Number(serviceFee || 0),
+      clientDescription: clientDescription.trim(),
     })
+  }
+
+  const applyClientSuggestion = (client) => {
+    setClientQuery(`${client.firstName} ${client.lastName}`.trim())
+    setClientFirstName(client.firstName)
+    setClientLastName(client.lastName)
+    setBusinessName(client.businessName ?? "")
+    setBusinessType(client.businessType ?? "")
+    setContactNo(client.contactNo ?? "")
+    setClientEmail(client.email ?? "")
+    setClientDescription(client.description ?? "")
   }
 
   return (
@@ -148,7 +179,6 @@ export function CreateEngagementDialog({
             </div>
             <div className="flex flex-col">
               <h3 className={sectionHeadingClass}>Engagement Information</h3>
-              <p className="text-xs text-muted-foreground">Core details about this engagement.</p>
             </div>
           </div>
 
@@ -193,14 +223,49 @@ export function CreateEngagementDialog({
             </div>
             <div className="flex flex-col">
               <h3 className={sectionHeadingClass}>Client Information</h3>
-              <p className="text-xs text-muted-foreground">
-                {isStandalone ? "Enter the client's details." : "Read-only — pulled from the approved request."}
-              </p>
             </div>
           </div>
 
           {isStandalone ? (
             <FieldGroup>
+              <Field>
+                <FieldLabel>Client<span className="text-red-500">*</span></FieldLabel>
+                <div className="relative">
+                  <Input
+                    value={clientQuery}
+                    onChange={(e) => setClientQuery(e.target.value)}
+                    placeholder="Search existing client"
+                    disabled={submitting}
+                    className={cn(
+                      "pr-10",
+                      errors.clientFirstName && "border-red-500 focus-visible:ring-red-500"
+                    )}
+                  />
+                  {clientQuery && matchingClients.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-sm">
+                      {matchingClients.slice(0, 5).map((client) => (
+                        <button
+                          key={`${client.firstName}-${client.lastName}`}
+                          type="button"
+                          onClick={() => applyClientSuggestion(client)}
+                          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                        >
+                          <span className="font-medium text-foreground">
+                            {client.firstName} {client.lastName}
+                          </span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {client.businessName}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {(errors.clientFirstName || errors.clientLastName) && (
+                  <p className="text-sm text-red-500">Client is required.</p>
+                )}
+              </Field>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
                   <FieldLabel>First Name<span className="text-red-500">*</span></FieldLabel>
@@ -266,6 +331,17 @@ export function CreateEngagementDialog({
                   disabled={submitting}
                 />
               </Field>
+              <Field>
+                <FieldLabel>Client Description</FieldLabel>
+                <textarea
+                  value={clientDescription}
+                  onChange={(e) => setClientDescription(e.target.value)}
+                  placeholder="Brief description of the client request or engagement context"
+                  disabled={submitting}
+                  rows={3}
+                  className="min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-xs outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                />
+              </Field>
             </FieldGroup>
           ) : (
             <div className="rounded-xl border border-border bg-muted/30 px-6">
@@ -293,13 +369,12 @@ export function CreateEngagementDialog({
             </div>
             <div className="flex flex-col">
               <h3 className={sectionHeadingClass}>Assignment</h3>
-              <p className="text-xs text-muted-foreground">Assign a firm staff member and set the timeline.</p>
             </div>
           </div>
 
           <FieldGroup>
             <Field>
-              <FieldLabel>Assigned Firm Staff<span className="text-red-500">*</span></FieldLabel>
+              <FieldLabel>Assigned Lead<span className="text-red-500">*</span></FieldLabel>
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
@@ -369,38 +444,6 @@ export function CreateEngagementDialog({
                 )}
               </Field>
             </div>
-          </FieldGroup>
-
-          <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
-              <span className="text-xs font-bold">4</span>
-            </div>
-            <div className="flex flex-col">
-              <h3 className={sectionHeadingClass}>Pricing</h3>
-              <p className="text-xs text-muted-foreground">Auto-populated from the service template. Edit if needed.</p>
-            </div>
-          </div>
-
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="service-fee">
-                Service Fee (₱)<span className="text-red-500">*</span>
-              </FieldLabel>
-              <Input
-                id="service-fee"
-                type="number"
-                min="0"
-                step="0.01"
-                value={serviceFee}
-                onChange={(e) => setServiceFee(e.target.value)}
-                placeholder="2500"
-                disabled={submitting}
-                className={cn(errors.serviceFee && "border-red-500 focus-visible:ring-red-500")}
-              />
-              {errors.serviceFee && (
-                <p className="text-sm text-red-500">Enter a valid service fee.</p>
-              )}
-            </Field>
           </FieldGroup>
 
           {error && (

@@ -14,11 +14,19 @@ export function ClientServiceDetailsDialog({ open, onOpenChange, engagement }) {
   const staffLabel = firmStaffMap[engagement.assignedStaff] ?? "—"
   const serviceCategory = getServiceCategoryLabel(engagement.serviceName)
 
+  const clientDescription =
+    engagement.clientDescription ??
+    engagement.client?.description ??
+    engagement.request?.notes ??
+    engagement.notes?.[0]?.content ??
+    "—"
+
   const clientInfo = {
     fields: [
       { label: "Full Name", value: getClientFullName(engagement.client), fullWidth: true },
       { label: "Email", value: engagement.client?.email ?? "—" },
       { label: "Contact Number", value: engagement.client?.contactNo ?? "—" },
+      { label: "Client Description", value: clientDescription, fullWidth: true, valueClassName: "leading-6 text-foreground/90" },
       { label: "Business Name", value: engagement.business?.businessName ?? "—" },
       { label: "Business Type", value: engagement.business?.businessType ?? "—" },
       { label: "TIN", value: engagement.business?.tinNo ?? "—" },

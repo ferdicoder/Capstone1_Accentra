@@ -47,6 +47,7 @@ export default function EngagementDetailsPage() {
   const [addNoteOpen, setAddNoteOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [auditLogsOpen, setAuditLogsOpen] = useState(false)
   const [preselectedDocName, setPreselectedDocName] = useState(null)
   const [notice, setNotice] = useState("")
   const addNote = engagementStore((state) => state.addNote)
@@ -100,6 +101,32 @@ export default function EngagementDetailsPage() {
     setTimeout(() => setNotice(""), 3000)
   }
 
+  const auditEntries = engagement.auditLogs ?? [
+    {
+      id: "audit-001",
+      timestamp: "2026-09-06T21:32:00",
+      event: "Status changed",
+      detail: "Documentation Collection → Document Verification",
+      author: "Maria Clara Santos",
+    },
+    {
+      id: "audit-002",
+      timestamp: "2026-09-06T21:40:00",
+      event: "Deliverable uploaded",
+      detail: "Monthly Gross Sales Summary.pdf",
+      author: "Maria Clara Santos",
+    },
+    {
+      id: "audit-003",
+      timestamp: "2026-09-06T21:45:00",
+      event: "Activity update posted",
+      detail: '"Document verification completed"',
+      author: "Maria Clara Santos",
+    },
+  ]
+
+  const visibleAuditEntries = auditEntries.slice(-1)
+
   return (
     <>
       <div className="flex flex-col gap-4">
@@ -112,8 +139,8 @@ export default function EngagementDetailsPage() {
               </h1>
               <EngagementStatusBadge status={engagement.status} />
             </div>
-            <p className="text-xs text-muted-foreground">
-              Due <span className="font-medium text-red-600">{formatDate(engagement.targetEndDate)}</span>
+            <p className="text-sm text-muted-foreground">
+              Due <span className="font-semibold text-red-600">{formatDate(engagement.targetEndDate)}</span>
             </p>
           </div>
 
@@ -215,10 +242,60 @@ export default function EngagementDetailsPage() {
                 setPreselectedDocName(task.name)
                 setActiveTab("document-review")
               }} />
+              {basePath === "/admin" && (
+                <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-foreground">Audit Logs</h3>
+                    {auditEntries.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setAuditLogsOpen(true)}
+                        className="cursor-pointer rounded-md text-xs font-medium text-[#02353C] transition-colors hover:text-[#02353C]/80 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#02353C]/50 focus-visible:ring-offset-2"
+                      >
+                        See All
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-4">
+                    {visibleAuditEntries.map((entry) => (
+                      <div key={entry.id} className="border-b border-border/60 pb-3 last:border-b-0 last:pb-0">
+                        <p className="text-xs text-muted-foreground">{formatDate(entry.timestamp.split("T")[0])} · {new Date(entry.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}</p>
+                        <p className="mt-1 text-sm font-medium text-foreground">{entry.event}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{entry.detail}</p>
+                        <p className="mt-1 text-xs text-muted-foreground/80">— {entry.author}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <ActivityUpdates engagement={engagement} />
+            <div className="flex flex-col gap-5">
+              <ActivityUpdates engagement={engagement} />
+            </div>
           </div>
         )}
+
+        <Dialog open={auditLogsOpen} onOpenChange={setAuditLogsOpen}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Audit Logs</DialogTitle>
+              <DialogDescription>Full engagement activity record.</DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+              {auditEntries.map((entry) => (
+                <div key={entry.id} className="border-b border-border/60 pb-3 last:border-b-0 last:pb-0">
+                  <p className="text-xs text-muted-foreground">{formatDate(entry.timestamp.split("T")[0])} · {new Date(entry.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{entry.event}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{entry.detail}</p>
+                  <p className="mt-1 text-xs text-muted-foreground/80">— {entry.author}</p>
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAuditLogsOpen(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* ── Document Review Tab ────────────────────────────────────────── */}
         {activeTab === "document-review" && (
@@ -246,17 +323,14 @@ export default function EngagementDetailsPage() {
 
       {/* ── Cancel Engagement Confirmation Dialog ─────────────────────────── */}
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Cancel Engagement</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-md p-5 sm:p-6">
+          <DialogHeader className="gap-2">
+            <DialogTitle className="text-base">Cancel Engagement</DialogTitle>
+            <DialogDescription className="text-sm leading-6 text-muted-foreground">
               Are you sure you want to cancel this engagement?
             </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            This action will mark the engagement as cancelled.
-          </p>
-          <DialogFooter>
+          <DialogFooter className="mt-1 gap-2">
             <Button type="button" variant="outline" onClick={() => setCancelDialogOpen(false)}>
               Cancel
             </Button>
