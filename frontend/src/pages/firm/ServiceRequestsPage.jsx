@@ -13,6 +13,7 @@ import { statusFilterOptions } from "@/components/firm/service-requests/service-
 import { engagementStore } from "@/components/firm/engagements/engagement-store" // still mocked — no engagements API yet
 import { generateEngagementNumber } from "@/components/firm/engagements/engagement-variants"
 import { useFetchServiceRequests, useUpdateServiceRequestStatus } from "@/hooks/useServiceRequests"
+import { useCreateEngagementFromRequest } from "@/hooks/useEngagements"
 
 export default function ServiceRequestsPage() {
   const navigate = useNavigate()
@@ -22,6 +23,8 @@ export default function ServiceRequestsPage() {
   const { data: requests = [], isLoading, error } = useFetchServiceRequests()
   const updateStatus = useUpdateServiceRequestStatus()
   const addEngagement = engagementStore((state) => state.addEngagement)
+
+  const createEngagement = useCreateEngagementFromRequest();
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -71,40 +74,30 @@ export default function ServiceRequestsPage() {
   }
 
   const handleEngagementSubmit = (values) => {
-    setEngagementRequest(null)
-    setActiveEngagement(values)
+    if (!engagementRequest) return
+
+    createEngagement.mutate(
+      {
+        serviceRequestId: engagementRequest.id,
+        assignedStaff: values.assignedStaff,
+        startDate: values.startDate,
+        dueDate: values.targetEndDate,
+        fee: values.serviceFee,
+      },
+      {
+        onSuccess: (newEngagement) => {
+          setEngagementRequest(null)
+          setActiveEngagement(newEngagement) // real engagement, with real copied tasks
+        },
+      }
+    )
   }
 
-  const handleBackToEngagement = () => {
-    setEngagementRequest(activeEngagement)
+  const handleBackToEngagement = () => { // cannot reedit
     setActiveEngagement(null)
   }
 
-  const handleSendToClient = (values) => {
-    if (activeEngagement?.requestNumber) {
-      const request = requests.find((r) => r.requestNumber === activeEngagement.requestNumber)
-      if (request) updateStatus.mutate({ id: request.id, status: "approved" })
-    }
-
-    const newEngagement = {
-      id: `eng-${Date.now()}`,
-      engagementNumber: generateEngagementNumber(),
-      serviceName: activeEngagement?.serviceName ?? "—",
-      serviceFee: activeEngagement?.serviceFee ?? 0,
-      startDate: activeEngagement?.startDate ?? "",
-      targetEndDate: activeEngagement?.targetEndDate ?? "",
-      status: "active",
-      assignedStaff: activeEngagement?.assignedStaff ?? "",
-      internalNotes: values?.note ?? "",
-      documents: [],
-      notes: [],
-      reviewHistory: [],
-      requestNumber: activeEngagement?.requestNumber ?? "",
-      client: activeEngagement?.client ?? {},
-      business: activeEngagement?.business ?? {},
-    }
-
-    addEngagement(newEngagement)
+  const handleSendToClient = () => {
     setActiveEngagement(null)
     navigate(`${basePath}/engagements`)
   }

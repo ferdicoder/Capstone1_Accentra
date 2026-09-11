@@ -24,13 +24,8 @@ import {
   getServiceTemplatePrice,
 } from "../service-management/service-management-variants"
 import { registeredClients } from "../engagements/engagement-variants"
+import { useFetchUsers } from "@/hooks/useUsers"
 
-const firmStaffOptions = [
-  { value: "staff-001", label: "Maria Clara Santos" },
-  { value: "staff-002", label: "Juan Dela Cruz" },
-  { value: "staff-003", label: "Ana Reyes" },
-  { value: "staff-004", label: "Carlos Mendoza" },
-]
 
 const sectionHeadingClass = "font-heading text-sm font-medium text-foreground"
 
@@ -74,6 +69,12 @@ export function CreateEngagementDialog({
   const [clientDescription, setClientDescription] = useState(() => request?.clientDescription ?? request?.notes ?? "")
 
   const [errors, setErrors] = useState({})
+
+
+  const { data: users = [] } = useFetchUsers()
+  const firmStaffOptions = users
+    .filter((u) => u.role === "staff")
+    .map((u) => ({ value: u.id, label: u.name }))
 
   const activeStaff = firmStaffOptions.find((s) => s.value === assignedStaff)
   const matchingClients = useMemo(() => {
@@ -185,6 +186,7 @@ export function CreateEngagementDialog({
           <FieldGroup>
             <Field>
               <FieldLabel>Service<span className="text-red-500">*</span></FieldLabel>
+              
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
@@ -389,7 +391,7 @@ export function CreateEngagementDialog({
                     />
                   }
                 >
-                  {activeStaff?.label ?? "Select staff member"}
+                  {activeStaff?.label ?? "Select Staff"}
                   <ChevronDown className="size-4 opacity-60" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="min-w-56">
