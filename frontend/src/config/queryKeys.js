@@ -6,4 +6,6 @@ export const queryKeys = {
   serviceRequests: ["serviceRequests"],
   myServiceRequests: (businessId) => ["serviceRequests", businessId],
   myBusiness: (userId) => ["business", "me", userId],
+  engagements: ["engagements"],
+  engagement: (id) => ["engagements", id],
 }
