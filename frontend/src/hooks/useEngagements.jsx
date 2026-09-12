@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   getEngagements,
+  getMyEngagements,
   getEngagement,
   createEngagementFromRequest,
   updateEngagementStatus,
@@ -12,6 +13,14 @@ export function useFetchEngagements() {
   return useQuery({
     queryKey: queryKeys.engagements,
     queryFn: getEngagements,
+  })
+}
+
+export function useFetchMyEngagements(businessId) {
+  return useQuery({
+    queryKey: queryKeys.myEngagements(businessId),
+    queryFn: () => getMyEngagements(businessId),
+    enabled: !!businessId,
   })
 }
 

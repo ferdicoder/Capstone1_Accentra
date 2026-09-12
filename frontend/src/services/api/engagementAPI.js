@@ -16,6 +16,7 @@ function mapEngagementRow(row) {
     createdAt: row.created_at,
     serviceId: row.service_id,
     serviceName: row.services?.service_name ?? "",
+    category: row.services?.category ?? "",
     assignedStaffId: row.assigned_staff,
     assignedStaff: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "",
     business: business
@@ -67,6 +68,17 @@ export async function getEngagements() {
   const { data, error } = await supabase
     .from("engagements")
     .select(ENGAGEMENT_SELECT)
+    .order("created_at", { ascending: false })
+  if (error) throw error
+
+  return (data ?? []).map(mapEngagementRow)
+}
+
+export async function getMyEngagements(businessId) {
+  const { data, error } = await supabase
+    .from("engagements")
+    .select(ENGAGEMENT_SELECT)
+    .eq("business_id", businessId)
     .order("created_at", { ascending: false })
   if (error) throw error
 

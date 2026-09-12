@@ -1,63 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Briefcase, Eye, FileText, Search } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { usePageMeta } from "@/hooks/usePageMeta"
+import { useFetchMyBusiness } from "@/hooks/useBusinesses"
+import { useFetchMyEngagements } from "@/hooks/useEngagements"
+import { authStore } from "@/store/authStore"
 
-const engagements = [
-  {
-    code: "ENG-2024-0041",
-    type: "Tax Filing",
-    icon: FileText,
-    service: "Annual ITR Filing",
-    status: "Documents Needed",
-    statusTone: "amber",
-    created: "Nov 28, 2024",
-    due: "Apr 15, 2025",
-  },
-  {
-    code: "ENG-2024-0038",
-    type: "Business Permit",
-    icon: Briefcase,
-    service: "Business Permit Renewal",
-    status: "Under Review",
-    statusTone: "blue",
-    created: "Nov 15, 2024",
-    due: "Jan 20, 2025",
-  },
-  {
-    code: "ENG-2024-0031",
-    type: "Tax Filing",
-    icon: FileText,
-    service: "Quarterly VAT Return Q4",
-    status: "For Payment",
-    statusTone: "purple",
-    created: "Nov 01, 2024",
-    due: "Dec 31, 2024",
-  },
-  {
-    code: "ENG-2024-0027",
-    type: "Tax Filing",
-    icon: FileText,
-    service: "Quarterly ITR Q3",
-    status: "Completed",
-    statusTone: "green",
-    created: "Sep 15, 2024",
-    due: "Oct 31, 2024",
-  },
-  {
-    code: "ENG-2024-0022",
-    type: "Business Permit",
-    icon: Briefcase,
-    service: "Business Permit Renewal",
-    status: "Completed",
-    statusTone: "green",
-    created: "Jan 05, 2024",
-    due: "Jan 31, 2024",
-  },
-]
- 
 const statusStyles = {
   amber: "bg-amber-50 text-amber-700 border border-amber-200",
   blue: "bg-blue-50 text-blue-700 border border-blue-200",
@@ -70,17 +20,33 @@ const iconToneStyles = {
   "Business Permit": "bg-blue-50 text-blue-600",
 }
  
-const STATUS_OPTIONS = [
-  "All Statuses",
-  "Documents Needed",
-  "Under Review",
-  "For Payment",
-  "Completed",
-]
- 
+const statusMeta = {
+  pending: { label: "Under Review", tone: "blue" },
+  active: { label: "Documents Needed", tone: "amber" },
+  completed: { label: "Completed", tone: "green" },
+  cancelled: { label: "Cancelled", tone: "gray" },
+}
+
+const statusOptions = ["All Statuses", ...Object.values(statusMeta).map(({ label }) => label)]
 const TYPE_OPTIONS = ["All Services", "Tax Filing", "Business Permit"]
+
+const formatDate = (date) =>
+  date
+    ? new Date(date).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "—"
+
+const getStatusMeta = (status) =>
+  statusMeta[status] ?? { label: status || "Unknown", tone: "gray" }
  
 export default function ClientEngagementsPage() {
+  const user = authStore((state) => state.user)
+  const { data: business } = useFetchMyBusiness(user?.id)
+  const businessId = business?.id
+  const { data: engagements = [], isLoading, error } = useFetchMyEngagements(businessId)
   const navigate = useNavigate()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("All Statuses")
@@ -88,13 +54,14 @@ export default function ClientEngagementsPage() {
  
   const filteredEngagements = useMemo(() => {
     return engagements.filter((e) => {
-      const matchesSearch = [e.code, e.service, e.type].some((field) =>
-        field.toLowerCase().includes(search.toLowerCase())
+      const status = getStatusMeta(e.status)
+      const matchesSearch = [e.engagementNumber, e.serviceName, e.category].some((field) =>
+        field?.toLowerCase().includes(search.toLowerCase())
       )
       const matchesStatus =
-        statusFilter === "All Statuses" || e.status === statusFilter
+        statusFilter === "All Statuses" || status.label === statusFilter
       const matchesType =
-        typeFilter === "All Services" || e.type === typeFilter
+        typeFilter === "All Services" || e.category === typeFilter
  
       return matchesSearch && matchesStatus && matchesType
     })
@@ -127,7 +94,7 @@ export default function ClientEngagementsPage() {
           </div>
  
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative max-w-sm flex-1 min-w-[220px]">
+            <div className="relative min-w-55 max-w-sm flex-1">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search engagements..."
@@ -142,7 +109,7 @@ export default function ClientEngagementsPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
             >
-              {STATUS_OPTIONS.map((status) => (
+              {statusOptions.map((status) => (
                 <option key={status} value={status}>
                   {status}
                 </option>
@@ -170,6 +137,12 @@ export default function ClientEngagementsPage() {
               </button>
             )}
           </div>
+
+          {error && (
+            <p className="text-sm text-destructive">
+              Failed to load your engagements.
+            </p>
+          )}
  
           <div className="overflow-hidden rounded-xl border bg-background">
             <table className="w-full table-fixed text-sm">
@@ -204,49 +177,59 @@ export default function ClientEngagementsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredEngagements.map((e) => {
-                  const Icon = e.icon
+                {isLoading && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                      Loading your engagements...
+                    </td>
+                  </tr>
+                )}
+
+                {!isLoading && filteredEngagements.map((e) => {
+                  const type = e.category || "Service"
+                  const Icon = type === "Tax Filing" ? FileText : Briefcase
+                  const status = getStatusMeta(e.status)
                   return (
                     <tr
-                      key={e.code}
+                      key={e.id}
                       className="border-b last:border-b-0 hover:bg-muted/30"
                     >
                       <td className="px-4 py-4 align-middle">
                         <div className="flex items-center gap-3">
                           <div
-                            className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${iconToneStyles[e.type]}`}
+                            className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${iconToneStyles[type] ?? "bg-blue-50 text-blue-600"}`}
                           >
                             <Icon className="size-4" />
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate font-medium">{e.code}</p>
+                            <p className="truncate font-medium">{e.engagementNumber}</p>
                             <p className="truncate text-xs text-muted-foreground">
-                              {e.type}
+                              {type}
                             </p>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-4 align-middle font-medium">
-                        <span className="line-clamp-2">{e.service}</span>
+                        <span className="line-clamp-2">{e.serviceName}</span>
                       </td>
                       <td className="px-4 py-4 align-middle">
                         <span
                           className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${
-                            statusStyles[e.statusTone]
+                            statusStyles[status.tone] ?? "bg-gray-100 text-gray-600 border border-gray-200"
                           }`}
                         >
-                          {e.status}
+                          {status.label}
                         </span>
                       </td>
                       <td className="px-4 py-4 align-middle text-muted-foreground">
-                        {e.created}
+                        {formatDate(e.createdAt)}
                       </td>
                       <td className="px-4 py-4 align-middle text-muted-foreground">
-                        {e.due}
+                        {formatDate(e.targetEndDate)}
                       </td>
                       <td className="px-4 py-4 text-center align-middle">
                         <button
-                          onClick={() => navigate(`/client/engagements/${e.code}`)}
+                          onClick={() => navigate(`/client/engagements/${e.id}`)}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
                         >
                           <Eye className="size-3.5" />
@@ -257,7 +240,7 @@ export default function ClientEngagementsPage() {
                   )
                 })}
  
-                {filteredEngagements.length === 0 && (
+                {!isLoading && filteredEngagements.length === 0 && (
                   <tr>
                     <td
                       colSpan={6}
