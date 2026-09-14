@@ -457,6 +457,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
   const [previewTask, setPreviewTask] = useState(null)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deleteTask, setDeleteTask] = useState(null)
+  const [uploadError, setUploadError] = useState("")
   const tasks = engagement?.tasks ?? []
   const persistedFilesByTask = useMemo(() => documents.reduce((filesByTask, document) => {
     const files = filesByTask[document.engagementTaskId] ?? []
@@ -482,14 +483,19 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
     const files = pendingByTask[task.id]
     if (!files || files.length === 0) return
 
-    const uploadedFiles = await onUploadFiles?.(task, files)
+    setUploadError("")
+    try {
+      const uploadedFiles = await onUploadFiles?.(task, files)
 
-    setUploadedByTask((prev) => ({ ...prev, [task.id]: uploadedFiles ?? files }))
-    setPendingByTask((prev) => {
-      const next = { ...prev }
-      delete next[task.id]
-      return next
-    })
+      setUploadedByTask((prev) => ({ ...prev, [task.id]: uploadedFiles ?? files }))
+      setPendingByTask((prev) => {
+        const next = { ...prev }
+        delete next[task.id]
+        return next
+      })
+    } catch (error) {
+      setUploadError(error.message || "File upload failed")
+    }
   }
 
   const handleDiscardUpload = (task) => {
@@ -549,6 +555,12 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
           </p>
         </div>
       </div>
+
+      {uploadError && (
+        <p className="border-b border-red-200 bg-red-50 px-6 py-2.5 text-sm text-red-700">
+          {uploadError}
+        </p>
+      )}
 
       {/* Table */}
       {tasks.length === 0 ? (
