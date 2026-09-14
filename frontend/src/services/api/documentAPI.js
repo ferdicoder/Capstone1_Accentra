@@ -62,7 +62,7 @@ async function uploadEngagementDocument({ engagementTaskId, file, uploadedBy }) 
 }
 
 export{
-  uploadTemplateDocument
-  , getEngagementDocuments
-  , uploadEngagementDocument
+  uploadTemplateDocument,
+  getEngagementDocuments,
+  uploadEngagementDocument
 }

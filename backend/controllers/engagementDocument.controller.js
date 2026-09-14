@@ -5,7 +5,11 @@ import { supabaseAdmin } from '../config/supabaseAdmin.js';
 
 export async function uploadEngagementDocument(req, res) {
   const { engagementTaskId } = req.params;
-  const { uploadedBy } = req.body;
+  const { uploadedBy } = req.body ?? {};
+  if (!req.file) {
+    return res.status(400).json({ error: 'No document file was provided' });
+  }
+  const uploadStartedAt = new Date().toISOString();
   const storageKey = `engagements/${engagementTaskId}/${Date.now()}-${req.file.originalname}`;
 
   let b2Result;
@@ -43,16 +47,28 @@ export async function uploadEngagementDocument(req, res) {
 
     if (taskError) throw taskError;
 
-    const { error: activityError } = await supabaseAdmin
+    const { data: activity, error: activityError } = await supabaseAdmin
       .from('engagement_activity')
       .insert({
         engagement_id: task.engagement_id,
         type: 'document_uploaded',
         message: req.file.originalname,
         actor_id: uploadedBy || null,
-      });
+      })
+      .select('activity_id')
+      .single();
 
     if (activityError) throw activityError;
+
+    await supabaseAdmin
+      .from('engagement_activity')
+      .delete()
+      .eq('engagement_id', task.engagement_id)
+      .eq('type', 'document_uploaded')
+      .eq('message', req.file.originalname)
+      .is('actor_id', null)
+      .gte('created_at', uploadStartedAt)
+      .neq('activity_id', activity.activity_id);
 
     return res.status(201).json(data);
   } catch (err) {

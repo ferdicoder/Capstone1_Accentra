@@ -65,6 +65,18 @@ const ENGAGEMENT_SELECT = `
   engagement_tasks(engagement_task_id, title, has_reference, is_required, is_completed)
 `
 
+async function logEngagementActivity(engagementId, type, message) {
+  const { data: { user } } = await supabase.auth.getUser()
+  const { error } = await supabase.from("engagement_activity").insert({
+    engagement_id: engagementId,
+    type,
+    message,
+    actor_id: user?.id ?? null,
+  })
+
+  if (error) console.error("Failed to log engagement activity:", error)
+}
+
 export async function getEngagements() {
   const { data, error } = await supabase
     .from("engagements")
@@ -122,7 +134,9 @@ export async function updateEngagementStatus({ id, status }) {
     .single()
   if (error) throw error
 
-  return mapEngagementRow(data)
+  const updated = mapEngagementRow(data)
+  await logEngagementActivity(id, "stage_change", status)
+  return updated
 }
 
 export async function toggleEngagementTask({ taskId, completed }) {
@@ -134,7 +148,7 @@ export async function toggleEngagementTask({ taskId, completed }) {
     .single()
   if (error) throw error
 
-  return {
+  const updatedTask = {
     id: data.engagement_task_id,
     name: data.title,
     hasReferenceDocument: data.has_reference ?? false,
@@ -142,6 +156,17 @@ export async function toggleEngagementTask({ taskId, completed }) {
     completed: data.is_completed ?? false,
     status: data.is_completed ? "approved" : "missing",
   }
+
+  const { data: task } = await supabase
+    .from("engagement_tasks")
+    .select("engagement_id")
+    .eq("engagement_task_id", taskId)
+    .single()
+  if (task?.engagement_id && data.is_completed) {
+    await logEngagementActivity(task.engagement_id, "task_completed", data.title)
+  }
+
+  return updatedTask
 }
 
 function mapActivityRow(row) {
