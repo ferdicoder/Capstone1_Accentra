@@ -238,9 +238,15 @@ export default function ClientEngagementDetailPage() {
       </div>
 
       {activeTab === "overview" && (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <TaskList engagement={engagement} documents={documents} onUploadFiles={handleUploadFiles} />
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0">
+            <TaskList
+              engagement={engagement}
+              documents={documents}
+              onUploadFiles={handleUploadFiles}
+            />
+          </div>
+          <div className="min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm">
             <h3 className="mb-4 text-sm font-semibold text-foreground">Activity Log</h3>
             {activityLoading && <p className="text-sm text-muted-foreground">Loading activity...</p>}
             {!activityLoading && activity.length === 0 && <p className="text-sm text-muted-foreground">No activity yet.</p>}

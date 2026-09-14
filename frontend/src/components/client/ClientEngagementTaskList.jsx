@@ -544,7 +544,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
       : "this file"
 
   return (
-    <div className={cn("rounded-xl border border-border bg-card shadow-sm", className)}>
+    <div className={cn("min-w-0 rounded-xl border border-border bg-card shadow-sm", className)}>
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-6 py-3.5">
         <div>
@@ -574,8 +574,8 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="min-w-0 overflow-x-auto">
+          <table className="w-full min-w-[650px] table-fixed">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-6 py-2.5 text-xs font-medium text-muted-foreground">Requirement</th>
