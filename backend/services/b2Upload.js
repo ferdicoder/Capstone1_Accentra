@@ -1,13 +1,17 @@
 import axios from 'axios';
 import crypto from 'crypto';
-import { authorizeB2 } from '../config/b2Client.js';
+import { authorizeB2, b2HttpsAgent } from '../config/b2Client.js';
 
 async function getUploadUrl() {
   const { apiUrl, authorizationToken } = await authorizeB2();
   const res = await axios.post(
     `${apiUrl}/b2api/v3/b2_get_upload_url`,
     { bucketId: process.env.B2_BUCKET_ID },
-    { headers: { Authorization: authorizationToken } }
+    {
+      headers: { Authorization: authorizationToken },
+      httpsAgent: b2HttpsAgent,
+      timeout: 15000,
+    }
   );
   return res.data; // { uploadUrl, authorizationToken }
 }
@@ -24,6 +28,8 @@ export async function uploadFile(fileBuffer, fileName, contentType) {
       'Content-Length': fileBuffer.length,
       'X-Bz-Content-Sha1': sha1,
     },
+    httpsAgent: b2HttpsAgent,
+    timeout: 15000,
     maxBodyLength: Infinity,
   });
 
