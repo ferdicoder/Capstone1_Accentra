@@ -204,14 +204,12 @@ export default function ClientEngagementDetailPage() {
         </div>
       </div>
 
-      {/* Workflow progress */}
       <WorkflowProgress
         stages={workflowStages}
         currentStageOrder={getWorkflowStageIndex(engagement.status)}
         engagementStatus={engagement.status}
       />
 
-      {/* Tabs */}
       <div className="flex gap-4 overflow-x-auto border-b sm:gap-6">
         <button
           onClick={() => setActiveTab("overview")}
@@ -269,9 +267,6 @@ export default function ClientEngagementDetailPage() {
 
           <div className="overflow-hidden rounded-xl border bg-background">
             <div className="overflow-x-auto">
-              {/* Balanced 4-column layout. Actions column stacks the Status
-                  pill on top and the smaller View/Download icon buttons
-                  underneath it, so the row reads status-first. */}
               <table className="w-full min-w-[600px] table-fixed text-sm">
                 <colgroup>
                   <col className="w-[34%]" />
@@ -323,8 +318,6 @@ export default function ClientEngagementDetailPage() {
                           {doc.uploadedDate ?? "—"}
                         </td>
 
-                        {/* Actions — Status pill on top, View + Download
-                            (smaller icon buttons) stacked underneath */}
                         <td className="px-4 py-3 align-middle">
                           <div className="flex flex-col items-start gap-1.5">
                             <button

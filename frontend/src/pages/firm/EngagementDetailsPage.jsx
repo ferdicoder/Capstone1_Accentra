@@ -2,11 +2,13 @@ import { useState } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { XCircle } from "lucide-react"
 
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
@@ -16,8 +18,16 @@ import { ClientServiceDetailsDialog } from "@/components/firm/engagements/Client
 import { TaskList } from "@/components/firm/engagements/TaskList"
 import { UploadDeliverables } from "@/components/firm/engagements/UploadDeliverables"
 import { CancelEngagementDialog } from "@/components/firm/engagements/cancel-engagement-dialog"
+import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
+import { ActivityLogItem } from "@/components/firm/engagements/ActivityLogItem"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
-import { useFetchEngagement, useUpdateEngagementStatus, useToggleEngagementTask } from "@/hooks/useEngagements"
+import { workflowStages, getWorkflowStageIndex, isEngagementActive } from "@/lib/workflow-stages"
+import {
+  useFetchEngagement,
+  useUpdateEngagementStatus,
+  useToggleEngagementTask,
+  useFetchEngagementActivity,
+} from "@/hooks/useEngagements"
 
 export default function EngagementDetailsPage() {
   const { id } = useParams()
@@ -27,6 +37,7 @@ export default function EngagementDetailsPage() {
   const sectionLabel = basePath === "/firm" ? "Firm Staff" : "Firm Admin"
 
   const { data: engagement, isLoading, error } = useFetchEngagement(id)
+  const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(id)
   const updateStatus = useUpdateEngagementStatus()
   const toggleTask = useToggleEngagementTask(id)
 
@@ -45,14 +56,18 @@ export default function EngagementDetailsPage() {
   if (isLoading) return <PageSkeleton type="service-requests" />
   if (error || !engagement) return null
 
-  const handleCancelEngagement = () => {
+  const showNotice = (message) => {
+    setNotice(message)
+    setTimeout(() => setNotice(""), 3000)
+  }
+
+  const handleStageChange = (stageKey) => {
     updateStatus.mutate(
-      { id: engagement.id, status: "cancelled" },
+      { id: engagement.id, status: stageKey },
       {
         onSuccess: () => {
-          setCancelDialogOpen(false)
-          setNotice("Engagement cancelled")
-          setTimeout(() => setNotice(""), 3000)
+          const label = workflowStages.find((s) => s.key === stageKey)?.label ?? stageKey
+          showNotice(`Status updated to "${label}"`)
         },
       }
     )
@@ -61,10 +76,17 @@ export default function EngagementDetailsPage() {
   const handleMarkCompleted = () => {
     updateStatus.mutate(
       { id: engagement.id, status: "completed" },
+      { onSuccess: () => showNotice("Engagement marked completed") }
+    )
+  }
+
+  const handleCancelEngagement = () => {
+    updateStatus.mutate(
+      { id: engagement.id, status: "cancelled" },
       {
         onSuccess: () => {
-          setNotice("Engagement marked completed")
-          setTimeout(() => setNotice(""), 3000)
+          setCancelDialogOpen(false)
+          showNotice("Engagement cancelled")
         },
       }
     )
@@ -77,6 +99,7 @@ export default function EngagementDetailsPage() {
   return (
     <>
       <div className="flex flex-col gap-4">
+        {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-3">
@@ -91,10 +114,16 @@ export default function EngagementDetailsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="default" className="h-9 rounded-lg px-3 text-sm" onClick={() => setDetailsOpen(true)}>
+            <Button
+              variant="outline"
+              size="default"
+              className="h-9 rounded-lg px-3 text-sm"
+              onClick={() => setDetailsOpen(true)}
+            >
               View Details
             </Button>
-            {engagement.status === "active" && (
+
+            {isEngagementActive(engagement.status) && (
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={<Button variant="outline" size="default" className="h-9 gap-1.5 rounded-lg px-3 text-sm" />}
@@ -103,6 +132,18 @@ export default function EngagementDetailsPage() {
                   <span className="size-3.5 opacity-60">▾</span>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-52">
+                  {workflowStages.map((stage) => (
+                    <DropdownMenuItem
+                      key={stage.key}
+                      onClick={() => handleStageChange(stage.key)}
+                      className={cn(
+                        engagement.status === stage.key && "bg-[#02353C]/10 text-[#02353C] font-medium"
+                      )}
+                    >
+                      {stage.label}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleMarkCompleted}>Mark Completed</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setCancelDialogOpen(true)} className="text-red-600">
                     <XCircle className="size-4" />
@@ -114,15 +155,48 @@ export default function EngagementDetailsPage() {
           </div>
         </div>
 
+        {/* ── Workflow Progress ─────────────────────────────────────────── */}
+        <WorkflowProgress
+          stages={workflowStages}
+          currentStageOrder={getWorkflowStageIndex(engagement.status)}
+          engagementStatus={engagement.status}
+        />
+
+        {/* ── Notice ────────────────────────────────────────────────────── */}
         {notice && (
           <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
             {notice}
           </div>
         )}
 
-        <div className="flex min-w-0 flex-col gap-5">
-          <UploadDeliverables engagement={engagement} />
-          <TaskList engagement={engagement} onTaskToggle={handleToggleTask} />
+        {/* ── Main content ──────────────────────────────────────────────── */}
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="flex min-w-0 flex-col gap-5">
+            <UploadDeliverables engagement={engagement} />
+            <TaskList engagement={engagement} onTaskToggle={handleToggleTask} />
+          </div>
+
+          <div className="flex flex-col gap-5">
+            <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+              <h3 className="mb-4 text-sm font-semibold text-foreground">Activity Log</h3>
+
+              {activityLoading && (
+                <p className="text-sm text-muted-foreground">Loading activity…</p>
+              )}
+
+              {!activityLoading && activity.length === 0 && (
+                <p className="text-sm text-muted-foreground">No activity yet.</p>
+              )}
+
+              {!activityLoading && activity.length > 0 && (
+                <div className="space-y-4">
+                  {activity.map((entry) => (
+                    <ActivityLogItem key={entry.id} entry={entry} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
