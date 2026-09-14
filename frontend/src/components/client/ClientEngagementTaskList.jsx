@@ -518,29 +518,35 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
     setDeleteConfirmOpen(true)
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteTask) return
 
-    onDeleteFile?.(deleteTask, uploadedByTask[deleteTask.id])
+    const files = uploadedByTask[deleteTask.id] ?? persistedFilesByTask[deleteTask.id] ?? []
+    setUploadError("")
+    try {
+      await onDeleteFile?.(deleteTask, files)
 
-    setUploadedByTask((prev) => {
-      const next = { ...prev }
-      delete next[deleteTask.id]
-      return next
-    })
+      setUploadedByTask((prev) => {
+        const next = { ...prev }
+        delete next[deleteTask.id]
+        return next
+      })
 
-    setDeleteConfirmOpen(false)
-    setDeleteTask(null)
+      setDeleteConfirmOpen(false)
+      setDeleteTask(null)
+    } catch (error) {
+      setUploadError(error.message || "File deletion failed")
+    }
   }
 
   const requiredCount = tasks.filter((t) => t.required).length
   const completedCount = tasks.filter((t) => t.status === "approved").length
 
   const deleteFileLabel =
-    deleteTask && uploadedByTask[deleteTask.id]
-      ? uploadedByTask[deleteTask.id].length === 1
-        ? uploadedByTask[deleteTask.id][0].name
-        : `${uploadedByTask[deleteTask.id].length} files`
+    deleteTask && (uploadedByTask[deleteTask.id] ?? persistedFilesByTask[deleteTask.id])
+      ? (uploadedByTask[deleteTask.id] ?? persistedFilesByTask[deleteTask.id]).length === 1
+        ? (uploadedByTask[deleteTask.id] ?? persistedFilesByTask[deleteTask.id])[0].name
+        : `${(uploadedByTask[deleteTask.id] ?? persistedFilesByTask[deleteTask.id]).length} files`
       : "this file"
 
   return (

@@ -8,7 +8,11 @@ import {
   toggleEngagementTask,
   getEngagementActivity,
 } from "@/services/api/engagementAPI"
-import { getEngagementDocuments, uploadEngagementDocument } from "@/services/api/documentAPI"
+import {
+  getEngagementDocuments,
+  uploadEngagementDocument,
+  deleteEngagementDocument,
+} from "@/services/api/documentAPI"
 import { queryKeys } from "@/config/queryKeys"
 
 export function useFetchEngagements() {
@@ -93,6 +97,17 @@ export function useUploadEngagementDocument(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: uploadEngagementDocument,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementDocuments(engagementId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(engagementId) })
+    },
+  })
+}
+
+export function useDeleteEngagementDocument(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteEngagementDocument,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.engagementDocuments(engagementId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(engagementId) })

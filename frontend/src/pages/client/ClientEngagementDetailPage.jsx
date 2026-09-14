@@ -28,6 +28,7 @@ import {
   useFetchEngagement,
   useFetchEngagementActivity,
   useFetchEngagementDocuments,
+  useDeleteEngagementDocument,
   useUploadEngagementDocument,
 } from "@/hooks/useEngagements"
 
@@ -141,6 +142,7 @@ export default function ClientEngagementDetailPage() {
   const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(id)
   const { data: documents = [], isLoading: isDocumentsLoading } = useFetchEngagementDocuments(id)
   const uploadDocument = useUploadEngagementDocument(id)
+  const deleteDocument = useDeleteEngagementDocument(id)
 
   const filteredDocuments = documents.filter((doc) =>
     (doc.name ?? "").toLowerCase().includes(documentSearch.toLowerCase())
@@ -170,6 +172,10 @@ export default function ClientEngagementDetailPage() {
       uploadedBy: user?.id,
     }))
   )
+
+  const handleDeleteFile = async (task, files) => {
+    await Promise.all((files ?? []).map((file) => deleteDocument.mutateAsync(file.id)))
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-4 px-2 py-2 sm:px-4 lg:px-6">
@@ -244,6 +250,7 @@ export default function ClientEngagementDetailPage() {
               engagement={engagement}
               documents={documents}
               onUploadFiles={handleUploadFiles}
+              onDeleteFile={handleDeleteFile}
             />
           </div>
           <div className="min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm">

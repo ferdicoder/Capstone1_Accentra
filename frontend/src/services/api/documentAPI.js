@@ -61,8 +61,20 @@ async function uploadEngagementDocument({ engagementTaskId, file, uploadedBy }) 
   return mapDocumentRow({ ...(await response.json()), uploader: null })
 }
 
+async function deleteEngagementDocument(docId) {
+  const response = await fetch(
+    `${import.meta.env.VITE_API_BASE_URL}/documents/${docId}`,
+    { method: "DELETE" }
+  )
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.error || "Document deletion failed")
+  }
+}
+
 export{
   uploadTemplateDocument,
   getEngagementDocuments,
-  uploadEngagementDocument
+  uploadEngagementDocument,
+  deleteEngagementDocument,
 }
