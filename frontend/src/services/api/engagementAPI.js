@@ -47,6 +47,7 @@ function mapEngagementRow(row) {
       hasReferenceDocument: t.has_reference ?? false,
       required: t.is_required ?? false,
       completed: t.is_completed ?? false,
+      status: t.is_completed ? "approved" : "missing",
     })),
   }
 }
@@ -139,5 +140,27 @@ export async function toggleEngagementTask({ taskId, completed }) {
     hasReferenceDocument: data.has_reference ?? false,
     required: data.is_required ?? false,
     completed: data.is_completed ?? false,
+    status: data.is_completed ? "approved" : "missing",
   }
+}
+
+function mapActivityRow(row) {
+  const actor = row.actor
+  return {
+    id: row.activity_id,
+    type: row.type,
+    message: row.message,
+    createdAt: row.created_at,
+    actorName: actor ? [actor.first_name, actor.last_name].filter(Boolean).join(" ") : "Unknown user",
+  }
+}
+
+export async function getEngagementActivity(engagementId) {
+  const { data, error } = await supabase
+    .from("engagement_activity")
+    .select("activity_id, type, message, created_at, actor:users(user_id, first_name, last_name)")
+    .eq("engagement_id", engagementId)
+    .order("created_at", { ascending: false })
+  if (error) throw error
+  return (data ?? []).map(mapActivityRow)
 }

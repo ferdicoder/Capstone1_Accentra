@@ -6,7 +6,9 @@ import {
   createEngagementFromRequest,
   updateEngagementStatus,
   toggleEngagementTask,
+  getEngagementActivity,
 } from "@/services/api/engagementAPI"
+import { getEngagementDocuments, uploadEngagementDocument } from "@/services/api/documentAPI"
 import { queryKeys } from "@/config/queryKeys"
 
 export function useFetchEngagements() {
@@ -67,6 +69,33 @@ export function useToggleEngagementTask(engagementId) {
           ? { ...old, tasks: old.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t)) }
           : old
       )
+    },
+  })
+}
+
+export function useFetchEngagementActivity(engagementId) {
+  return useQuery({
+    queryKey: queryKeys.engagementActivity(engagementId),
+    queryFn: () => getEngagementActivity(engagementId),
+    enabled: !!engagementId,
+  })
+}
+
+export function useFetchEngagementDocuments(engagementId) {
+  return useQuery({
+    queryKey: queryKeys.engagementDocuments(engagementId),
+    queryFn: () => getEngagementDocuments(engagementId),
+    enabled: !!engagementId,
+  })
+}
+
+export function useUploadEngagementDocument(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: uploadEngagementDocument,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementDocuments(engagementId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(engagementId) })
     },
   })
 }

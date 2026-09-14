@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import {
   ArrowLeft,
   Download,
   Eye,
-  FileText,
   HelpCircle,
   Search,
   X,
@@ -17,198 +16,21 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog"
+import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 
-import { supabase } from "@/config/supabase.js"
-import { WorkflowProgress } from "@/components/client/ClientEngagementWorkflow"
+import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
+import { ActivityLogItem } from "@/components/firm/engagements/ActivityLogItem"
 import { TaskList } from "@/components/client/ClientEngagementTaskList"
-import { ActivityUpdates } from "@/components/client/ClientEngagementActivityUpdates"
+import { authStore } from "@/store/authStore"
+import { formatDate } from "@/components/firm/engagements/engagement-variants"
+import { workflowStages, getWorkflowStageIndex } from "@/lib/workflow-stages"
+import {
+  useFetchEngagement,
+  useFetchEngagementActivity,
+  useFetchEngagementDocuments,
+  useUploadEngagementDocument,
+} from "@/hooks/useEngagements"
 
-
-// --- Inline data access (no separate service files) --------------------
-const ACTIVITY_TABLE = "engagement_activity"
-const DOCUMENT_TABLE = "metadata_document"
-const SIGNED_URL_EXPIRY_SECONDS = 60 * 10
-
-async function fetchEngagementActivity(engagementId) {
-  try {
-    const { data, error } = await supabase
-      .from(ACTIVITY_TABLE)
-      .select("*")
-      .eq("engagement_id", engagementId)
-      .order("created_at", { ascending: false })
-
-    if (error) throw new Error(error.message)
-
-    const normalized = (data ?? []).map((row) => ({
-      id: row.id,
-      title: row.type ?? "Activity Update",
-      createdAt: row.created_at,
-      description: row.message ?? "",
-      author: row.actor ?? "—",
-    }))
-
-    return { data: normalized, error: null }
-  } catch (err) {
-    console.error(err)
-    return { data: null, error: err.message }
-  }
-}
-
-async function fetchEngagementDocuments(engagementId) {
-  try {
-    const { data, error } = await supabase
-      .from(DOCUMENT_TABLE)
-      .select("*")
-      .eq("engagement_id", engagementId)
-      .order("created_at", { ascending: false })
-
-    if (error) throw new Error(error.message)
-
-    const withSignedUrls = await Promise.all(
-      (data ?? []).map(async (doc) => {
-        if (!doc.bucket_name || !doc.object_key) {
-          return { ...doc, signedUrl: null }
-        }
-
-        const { data: signed, error: signError } = await supabase.storage
-          .from(doc.bucket_name)
-          .createSignedUrl(doc.object_key, SIGNED_URL_EXPIRY_SECONDS)
-
-        if (signError) {
-          console.error(`Failed to sign URL for ${doc.object_key}:`, signError)
-          return { ...doc, signedUrl: null }
-        }
-
-        return { ...doc, signedUrl: signed?.signedUrl ?? null }
-      })
-    )
-
-    return { data: withSignedUrls, error: null }
-  } catch (err) {
-    console.error(err)
-    return { data: null, error: err.message }
-  }
-}
-// -------------------------------------------------------------------------
-
-
-const engagement = {
-  id: "eng-2024-0041",
-  code: "ENG-2024-0041",
-  status: "Active",
-  type: "Tax Filing",
-  serviceName: "Tax Filing", // used by TaskList's mock task generator — do not remove
-  title: "Annual Income Tax Return (BIR Form 1701)",
-  due: "Apr 15, 2025",
-  workflowStage: "document-verification",
-
-  clientInfo: {
-    fullName: "Maria Santos",
-    email: "maria.santos@santosretail.com",
-    contactNumber: "+63 917 555 1234",
-    businessName: "Santos Retail Trading",
-    businessType: "Sole Proprietorship",
-    tin: "123-456-789-000",
-    industry: "Retail",
-    address: "12 Mercado St., Unit 4B, Brgy. Sta. Ana, District 6, Manila, 1009",
-  },
-
-  serviceInfo: {
-    serviceType: "Tax Filing",
-    serviceName: "Annual ITR Filing",
-    notes:
-      "Please prioritize — client needs this filed before the April 15 deadline.",
-    assignedStaff: "Atty. Roland Reyes, CPA",
-  },
-}
-
-const initialActivityUpdates = [
-  {
-    id: "log-1",
-    title: "Request Submitted",
-    createdAt: "2024-11-28T09:00:00",
-    description: "Client submitted via portal",
-    author: "Maria Santos",
-  },
-  {
-    id: "log-2",
-    title: "Request Approved",
-    createdAt: "2024-11-28T14:30:00",
-    description: "Approved by R&A CPA",
-    author: "Atty. Roland Reyes, CPA",
-  },
-  {
-    id: "log-3",
-    title: "Document Checklist Sent",
-    createdAt: "2024-11-30T10:00:00",
-    description: "5 required documents listed",
-    author: "Atty. Roland Reyes, CPA",
-  },
-  {
-    id: "log-4",
-    title: "Documents Submitted",
-    createdAt: "2024-12-06T11:15:00",
-    description: "3 of 5 submitted",
-    author: "Maria Santos",
-  },
-  {
-    id: "log-5",
-    title: "Documents Reviewed",
-    createdAt: "2024-12-08T16:45:00",
-    description: "2 documents flagged for revision",
-    author: "Atty. Roland Reyes, CPA",
-  },
-]
-
-const initialDocuments = [
-  {
-    id: "doc-1",
-    name: "BIR Form 1701 – Signed Copy",
-    file: "BIR_1701_2024.pdf",
-    uploadedBy: "Maria Santos",
-    uploadedDate: "Dec 6, 2024",
-    reviewStatus: "Approved",
-    signedUrl: null,
-  },
-  {
-    id: "doc-2",
-    name: "Bank Statements (Jan–Dec 2024)",
-    file: "BankStatements_2024.pdf",
-    uploadedBy: "Maria Santos",
-    uploadedDate: "Dec 6, 2024",
-    reviewStatus: "Approved",
-    signedUrl: null,
-  },
-  {
-    id: "doc-3",
-    name: "Official Receipts / Invoice Booklet",
-    file: "OR_Booklet.pdf",
-    uploadedBy: "Maria Santos",
-    uploadedDate: "Dec 6, 2024",
-    reviewStatus: "For Revision",
-    remark:
-      "Incomplete — Jan to Jun ORs are missing. Please upload the complete booklet covering January–December 2024.",
-    signedUrl: null,
-  },
-  {
-    id: "del-1",
-    name: "Filed_ITR_2024.pdf",
-    file: "Filed_ITR_2024.pdf",
-    uploadedBy: "Atty. Roland Reyes, CPA",
-    uploadedDate: "Apr 18, 2025",
-    reviewStatus: "Approved",
-    signedUrl: null,
-  },
-  {
-    id: "del-2",
-    name: "BIR_Acknowledgement_Receipt.pdf",
-    file: "BIR_Acknowledgement_Receipt.pdf",
-    uploadedBy: "Atty. Roland Reyes, CPA",
-    uploadedDate: "Apr 18, 2025",
-    reviewStatus: "Approved",
-    signedUrl: null,
-  },
-]
 
 const reviewStatusStyles = {
   Approved: "bg-green-50 text-green-700 border border-green-200",
@@ -309,61 +131,23 @@ function DocumentStatusDialog({ open, onOpenChange, document: doc }) {
 
 export default function ClientEngagementDetailPage() {
   const { id } = useParams()
+  const user = authStore((state) => state.user)
   const [activeTab, setActiveTab] = useState("overview")
   const [documentSearch, setDocumentSearch] = useState("")
-  const [activityUpdates, setActivityUpdates] = useState(initialActivityUpdates)
-  const [documents, setDocuments] = useState(initialDocuments)
-  const [isDocumentsLoading, setIsDocumentsLoading] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [statusDoc, setStatusDoc] = useState(null)
   const [isStatusOpen, setIsStatusOpen] = useState(false)
+  const { data: engagement, isLoading, error } = useFetchEngagement(id)
+  const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(id)
+  const { data: documents = [], isLoading: isDocumentsLoading } = useFetchEngagementDocuments(id)
+  const uploadDocument = useUploadEngagementDocument(id)
 
   const filteredDocuments = documents.filter((doc) =>
-    doc.name.toLowerCase().includes(documentSearch.toLowerCase())
+    (doc.name ?? "").toLowerCase().includes(documentSearch.toLowerCase())
   )
 
-  useEffect(() => {
-    let isMounted = true
-
-    async function loadActivity() {
-      const { data, error } = await fetchEngagementActivity(id)
-      if (!isMounted) return
-      if (error) {
-        console.error("Failed to load activity log:", error)
-      } else if (data) {
-        setActivityUpdates(data)
-      }
-    }
-
-    loadActivity()
-    return () => {
-      isMounted = false
-    }
-  }, [id])
-
-  useEffect(() => {
-    let isMounted = true
-
-    async function loadDocuments() {
-      setIsDocumentsLoading(true)
-      const { data, error } = await fetchEngagementDocuments(id)
-      if (!isMounted) return
-      if (error) {
-        console.error("Failed to load documents:", error)
-      } else if (data) {
-        setDocuments(data)
-      }
-      setIsDocumentsLoading(false)
-    }
-
-    loadDocuments()
-    return () => {
-      isMounted = false
-    }
-  }, [id])
-
   usePageMeta({
-    title: engagement.code,
+    title: engagement?.engagementNumber ?? "Engagement Details",
     breadcrumbs: [
       { label: "Home", href: "/client/dashboard" },
       { label: "Engagements", href: "/client/engagements" },
@@ -371,10 +155,21 @@ export default function ClientEngagementDetailPage() {
     hasUnreadNotifications: true,
   })
 
+  if (isLoading) return <PageSkeleton type="service-requests" />
+  if (error || !engagement) return null
+
   const openStatus = (doc) => {
     setStatusDoc(doc)
     setIsStatusOpen(true)
   }
+
+  const handleUploadFiles = async (task, files) => Promise.all(
+    files.map((file) => uploadDocument.mutateAsync({
+      engagementTaskId: task.id,
+      file,
+      uploadedBy: user?.id,
+    }))
+  )
 
   return (
     <div className="flex flex-1 flex-col gap-4 px-2 py-2 sm:px-4 lg:px-6">
@@ -389,14 +184,13 @@ export default function ClientEngagementDetailPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold sm:text-xl">
-            {engagement.title}
+            {engagement.serviceName}
           </h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-muted-foreground">
-            Due{" "}
-            <span className="font-medium text-red-600">{engagement.due}</span>
+            Due <span className="font-medium text-red-600">{formatDate(engagement.targetEndDate)}</span>
           </p>
 
           <Button
@@ -411,7 +205,11 @@ export default function ClientEngagementDetailPage() {
       </div>
 
       {/* Workflow progress */}
-      <WorkflowProgress workflowStage={engagement.workflowStage} />
+      <WorkflowProgress
+        stages={workflowStages}
+        currentStageOrder={getWorkflowStageIndex(engagement.status)}
+        engagementStatus={engagement.status}
+      />
 
       {/* Tabs */}
       <div className="flex gap-4 overflow-x-auto border-b sm:gap-6">
@@ -443,8 +241,17 @@ export default function ClientEngagementDetailPage() {
 
       {activeTab === "overview" && (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <TaskList engagement={engagement} />
-          <ActivityUpdates engagement={{ ...engagement, activityUpdates }} />
+          <TaskList engagement={engagement} documents={documents} onUploadFiles={handleUploadFiles} />
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <h3 className="mb-4 text-sm font-semibold text-foreground">Activity Log</h3>
+            {activityLoading && <p className="text-sm text-muted-foreground">Loading activity...</p>}
+            {!activityLoading && activity.length === 0 && <p className="text-sm text-muted-foreground">No activity yet.</p>}
+            {!activityLoading && activity.length > 0 && (
+              <div className="space-y-4">
+                {activity.map((entry) => <ActivityLogItem key={entry.id} entry={entry} />)}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -508,11 +315,6 @@ export default function ClientEngagementDetailPage() {
                       >
                         <td className="px-4 py-4 align-middle">
                           <p className="truncate font-medium">{doc.name}</p>
-                          {doc.file && (
-                            <p className="truncate text-xs text-muted-foreground">
-                              {doc.file}
-                            </p>
-                          )}
                         </td>
                         <td className="px-4 py-4 align-middle text-muted-foreground">
                           {doc.uploadedBy}
@@ -535,9 +337,9 @@ export default function ClientEngagementDetailPage() {
                             </button>
 
                             <div className="flex items-center gap-1">
-                              {doc.signedUrl ? (
+                              {doc.downloadUrl ? (
                                 <a
-                                  href={doc.signedUrl}
+                                  href={doc.downloadUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   title="View File"
@@ -554,10 +356,10 @@ export default function ClientEngagementDetailPage() {
                                 </span>
                               )}
 
-                              {doc.signedUrl ? (
+                              {doc.downloadUrl ? (
                                 <a
-                                  href={doc.signedUrl}
-                                  download
+                                  href={doc.downloadUrl}
+                                  download={doc.name}
                                   title="Download"
                                   className="flex size-6 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
                                 >
@@ -646,7 +448,7 @@ export default function ClientEngagementDetailPage() {
                         Full Name
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.clientInfo.fullName}
+                        {[engagement.client?.firstName, engagement.client?.middleName, engagement.client?.lastName].filter(Boolean).join(" ") || "—"}
                       </dd>
                     </div>
                     <div className="min-w-0">
@@ -654,7 +456,7 @@ export default function ClientEngagementDetailPage() {
                         Email
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.clientInfo.email}
+                        {engagement.client?.email || "—"}
                       </dd>
                     </div>
                     <div className="min-w-0">
@@ -662,7 +464,7 @@ export default function ClientEngagementDetailPage() {
                         Contact Number
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.clientInfo.contactNumber}
+                        {engagement.client?.contactNo || "—"}
                       </dd>
                     </div>
                     <div className="min-w-0">
@@ -670,7 +472,7 @@ export default function ClientEngagementDetailPage() {
                         Business Name
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.clientInfo.businessName}
+                        {engagement.business?.businessName || "—"}
                       </dd>
                     </div>
                     <div className="min-w-0">
@@ -678,7 +480,7 @@ export default function ClientEngagementDetailPage() {
                         Business Type
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.clientInfo.businessType}
+                        {engagement.business?.businessType || "—"}
                       </dd>
                     </div>
                     <div className="min-w-0">
@@ -686,7 +488,7 @@ export default function ClientEngagementDetailPage() {
                         TIN
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.clientInfo.tin}
+                        {engagement.business?.tinNo || "—"}
                       </dd>
                     </div>
                     <div className="min-w-0">
@@ -694,7 +496,7 @@ export default function ClientEngagementDetailPage() {
                         Industry
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.clientInfo.industry}
+                        {engagement.business?.industry || "—"}
                       </dd>
                     </div>
                     <div className="min-w-0 sm:col-span-2">
@@ -702,7 +504,7 @@ export default function ClientEngagementDetailPage() {
                         Address
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.clientInfo.address}
+                        {engagement.business?.address || "—"}
                       </dd>
                     </div>
                   </dl>
@@ -724,7 +526,7 @@ export default function ClientEngagementDetailPage() {
                         Service Type
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.serviceInfo.serviceType}
+                        {engagement.category || "—"}
                       </dd>
                     </div>
                     <div className="min-w-0">
@@ -732,7 +534,7 @@ export default function ClientEngagementDetailPage() {
                         Service Name
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.serviceInfo.serviceName}
+                        {engagement.serviceName || "—"}
                       </dd>
                     </div>
                     <div className="min-w-0 sm:col-span-2">
@@ -740,7 +542,7 @@ export default function ClientEngagementDetailPage() {
                         Notes (From Service Request)
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.serviceInfo.notes}
+                        {"—"}
                       </dd>
                     </div>
                     <div className="min-w-0">
@@ -748,7 +550,7 @@ export default function ClientEngagementDetailPage() {
                         Assigned Staff
                       </dt>
                       <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
-                        {engagement.serviceInfo.assignedStaff}
+                        {engagement.assignedStaff || "—"}
                       </dd>
                     </div>
                   </dl>

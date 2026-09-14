@@ -66,37 +66,6 @@ function formatFileSize(bytes) {
   return kb < 1024 ? `${kb.toFixed(0)} KB` : `${(kb / 1024).toFixed(1)} MB`
 }
 
-// ── Mock Task Data Generator (same shape as the firm side) ────────────────────
-
-function generateMockTasks(engagement) {
-  if (!engagement) return []
-  const serviceName = engagement.serviceName ?? ""
-
-  if (serviceName.toLowerCase().includes("tax filing")) {
-    return [
-      { id: "task-1", name: "Monthly Gross Sales Summary", required: true, status: "for_review", deadline: "2025-07-15" },
-      { id: "task-2", name: "Sales Record", required: true, status: "approved", deadline: "2025-07-15" },
-      { id: "task-3", name: "Valid ID", required: true, status: "missing", deadline: "2025-07-16" },
-      { id: "task-4", name: "Supporting Documents", required: false, status: "for_review", deadline: "2025-07-18" },
-    ]
-  }
-
-  if (serviceName.toLowerCase().includes("business registration")) {
-    return [
-      { id: "task-1", name: "Valid Government-issued ID", required: true, status: "approved", deadline: "2025-07-10" },
-      { id: "task-2", name: "TIN Certificate", required: true, status: "approved", deadline: "2025-07-10" },
-      { id: "task-3", name: "Business Address Proof", required: true, status: "for_review", deadline: "2025-07-15" },
-      { id: "task-4", name: "Barangay Clearance", required: false, status: "missing", deadline: "2025-07-20" },
-    ]
-  }
-
-  return [
-    { id: "task-1", name: "Required Document 1", required: true, status: "for_review", deadline: "2025-07-15" },
-    { id: "task-2", name: "Required Document 2", required: true, status: "approved", deadline: "2025-07-15" },
-    { id: "task-3", name: "Supporting Document", required: false, status: "missing", deadline: "" },
-  ]
-}
-
 // ── Task Detail Dialog (view-only) ─────────────────────────────────────────────
 
 function TaskDetailDialog({ open, onOpenChange, task }) {
@@ -249,14 +218,10 @@ function DeleteFileConfirmDialog({ open, onOpenChange, taskName, fileLabel, onCo
 function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  useEffect(() => {
-    if (open) setSelectedIndex(0)
-  }, [open, files])
-
-  const selectedFile = files[selectedIndex] ?? null
+  const selectedFile = files[selectedIndex] ?? files[0] ?? null
 
   const objectUrl = useMemo(() => {
-    if (!selectedFile) return null
+    if (!selectedFile || selectedFile.downloadUrl) return null
     return URL.createObjectURL(selectedFile)
   }, [selectedFile])
 
@@ -268,8 +233,10 @@ function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
 
   if (!selectedFile) return null
 
-  const isImage = selectedFile.type?.startsWith("image/")
-  const isPdf = selectedFile.type === "application/pdf"
+  const fileType = selectedFile.mimeType ?? selectedFile.type
+  const fileUrl = selectedFile.downloadUrl ?? objectUrl
+  const isImage = fileType?.startsWith("image/")
+  const isPdf = fileType === "application/pdf"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -304,15 +271,15 @@ function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
         )}
 
         <div className="flex max-h-[80vh] min-h-[320px] items-center justify-center overflow-auto rounded-lg border border-border bg-muted/30">
-          {isImage && objectUrl ? (
+          {isImage && fileUrl ? (
             <img
-              src={objectUrl}
+              src={fileUrl}
               alt={selectedFile.name}
               className="max-h-[80vh] w-auto max-w-full object-contain"
             />
-          ) : isPdf && objectUrl ? (
+          ) : isPdf && fileUrl ? (
             <iframe
-              src={objectUrl}
+              src={fileUrl}
               title={selectedFile.name}
               className="h-[80vh] w-full rounded-lg"
             />
@@ -324,9 +291,9 @@ function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
               <p className="text-sm text-muted-foreground">
                 No inline preview available for this file type.
               </p>
-              {objectUrl && (
+              {fileUrl && (
                 <a
-                  href={objectUrl}
+                  href={fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-lg border border-[#02353C]/20 bg-[#02353C]/5 px-3 py-1.5 text-xs font-medium text-[#02353C] transition-colors hover:bg-[#02353C]/10"
@@ -479,7 +446,7 @@ function TaskRow({
 
 // ── Main ClientEngagementTaskList Component ────────────────────────────────────
 
-export function TaskList({ engagement, className, onUploadFiles, onDeleteFile }) {
+export function TaskList({ engagement, documents = [], className, onUploadFiles, onDeleteFile }) {
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -490,7 +457,12 @@ export function TaskList({ engagement, className, onUploadFiles, onDeleteFile })
   const [previewTask, setPreviewTask] = useState(null)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deleteTask, setDeleteTask] = useState(null)
-  const [tasks] = useState(() => generateMockTasks(engagement))
+  const tasks = engagement?.tasks ?? []
+  const persistedFilesByTask = useMemo(() => documents.reduce((filesByTask, document) => {
+    const files = filesByTask[document.engagementTaskId] ?? []
+    filesByTask[document.engagementTaskId] = [...files, document]
+    return filesByTask
+  }, {}), [documents])
 
   const handleOpenDetail = (task) => {
     setSelectedTask(task)
@@ -506,13 +478,13 @@ export function TaskList({ engagement, className, onUploadFiles, onDeleteFile })
     setPendingByTask((prev) => ({ ...prev, [task.id]: files }))
   }
 
-  const handleConfirmUpload = (task) => {
+  const handleConfirmUpload = async (task) => {
     const files = pendingByTask[task.id]
     if (!files || files.length === 0) return
 
-    onUploadFiles?.(task, files)
+    const uploadedFiles = await onUploadFiles?.(task, files)
 
-    setUploadedByTask((prev) => ({ ...prev, [task.id]: files }))
+    setUploadedByTask((prev) => ({ ...prev, [task.id]: uploadedFiles ?? files }))
     setPendingByTask((prev) => {
       const next = { ...prev }
       delete next[task.id]
@@ -606,7 +578,7 @@ export function TaskList({ engagement, className, onUploadFiles, onDeleteFile })
                   key={task.id}
                   task={task}
                   pendingFiles={pendingByTask[task.id]}
-                  uploadedFiles={uploadedByTask[task.id]}
+                  uploadedFiles={uploadedByTask[task.id] ?? persistedFilesByTask[task.id]}
                   onOpenDetail={() => handleOpenDetail(task)}
                   onOpenUpload={() => handleOpenUpload(task)}
                   onConfirmUpload={() => handleConfirmUpload(task)}
@@ -636,7 +608,7 @@ export function TaskList({ engagement, className, onUploadFiles, onDeleteFile })
       <FilePreviewDialog
         open={previewOpen}
         onOpenChange={setPreviewOpen}
-        files={previewTask ? uploadedByTask[previewTask.id] ?? [] : []}
+        files={previewTask ? uploadedByTask[previewTask.id] ?? persistedFilesByTask[previewTask.id] ?? [] : []}
         taskName={previewTask?.name}
       />
 

@@ -9,4 +9,6 @@ export const queryKeys = {
   engagements: ["engagements"],
   myEngagements: (businessId) => ["engagements", businessId],
   engagement: (id) => ["engagements", id],
+  engagementActivity: (engagementId) => ["engagementActivity", engagementId],
+  engagementDocuments: (engagementId) => ["engagementDocuments", engagementId],
 }
