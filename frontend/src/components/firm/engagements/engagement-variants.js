@@ -128,23 +128,20 @@ export const getServiceCategoryLabel = (serviceName) => {
   return serviceName
 }
 
-// ─── Unified 5-Stage Workflow ─────────────────────────────────────────────────
+// ─── Engagement status workflow ──────────────────────────────────────────────
 
 export const workflowStages = [
-  { key: "documentation_collection", label: "Documentation Collection" },
-  { key: "document_verification", label: "Document Verification" },
-  { key: "processing", label: "Processing" },
-  { key: "approval", label: "Approval" },
-  { key: "payment", label: "Payment" },
+  { key: "document_collection", label: "Document Collection", order: 0 },
+  { key: "for_validation", label: "For Validation", order: 1 },
+  { key: "in_progress", label: "In Progress", order: 2 },
+  { key: "for_approval", label: "For Approval", order: 3 },
+  { key: "payment", label: "Payment", order: 4 },
 ]
 
-export const workflowStageOptions = [
-  { value: "documentation_collection", label: "Documentation Collection" },
-  { value: "document_verification", label: "Document Verification" },
-  { value: "processing", label: "Processing" },
-  { value: "approval", label: "Approval" },
-  { value: "payment", label: "Payment" },
-]
+export const workflowStageOptions = workflowStages.map((stage) => ({
+  value: stage.key,
+  label: stage.label,
+}))
 
 export const getWorkflowStageIndex = (stage) => {
   const idx = workflowStages.findIndex((s) => s.key === stage)

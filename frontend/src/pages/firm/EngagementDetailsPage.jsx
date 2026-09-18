@@ -21,7 +21,7 @@ import { CancelEngagementDialog } from "@/components/firm/engagements/cancel-eng
 import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
 import { ActivityLogItem } from "@/components/firm/engagements/ActivityLogItem"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
-import { workflowStages, getWorkflowStageIndex, isEngagementActive } from "@/lib/workflow-stages"
+import { workflowStages, isEngagementActive } from "@/lib/workflow-stages"
 import {
   useFetchEngagement,
   useUpdateEngagementStatus,
@@ -157,9 +157,7 @@ export default function EngagementDetailsPage() {
 
         {/* ── Workflow Progress ─────────────────────────────────────────── */}
         <WorkflowProgress
-          stages={workflowStages}
-          currentStageOrder={getWorkflowStageIndex(engagement.status)}
-          engagementStatus={engagement.status}
+          workflowStage={engagement.status}
         />
 
         {/* ── Notice ────────────────────────────────────────────────────── */}

@@ -23,7 +23,6 @@ import { ActivityLogItem } from "@/components/firm/engagements/ActivityLogItem"
 import { TaskList } from "@/components/client/ClientEngagementTaskList"
 import { authStore } from "@/store/authStore"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
-import { workflowStages, getWorkflowStageIndex } from "@/lib/workflow-stages"
 import {
   useFetchEngagement,
   useFetchEngagementActivity,
@@ -211,9 +210,7 @@ export default function ClientEngagementDetailPage() {
       </div>
 
       <WorkflowProgress
-        stages={workflowStages}
-        currentStageOrder={getWorkflowStageIndex(engagement.status)}
-        engagementStatus={engagement.status}
+        workflowStage={engagement.status}
       />
 
       <div className="flex gap-4 overflow-x-auto border-b sm:gap-6">
