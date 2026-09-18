@@ -37,6 +37,7 @@ export default function EngagementDetailsPage() {
   const sectionLabel = basePath === "/firm" ? "Firm Staff" : "Firm Admin"
 
   const { data: engagement, isLoading, error } = useFetchEngagement(id)
+  console.log("engagement.tasks:", engagement?.tasks)
   const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(id)
   const updateStatus = useUpdateEngagementStatus()
   const toggleTask = useToggleEngagementTask(id)

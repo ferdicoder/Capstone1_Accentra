@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Clock, MoreHorizontal, Inbox } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Clock, MoreHorizontal, Inbox, Check } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -23,17 +23,6 @@ import { ReferenceDocumentUpload } from "@/components/firm/service-management/wo
 import { formatDate } from "./engagement-variants"
 
 // ── Status Helpers ────────────────────────────────────────────────────────────
-
-// Map document statuses → task display statuses
-const docToTaskStatus = {
-  in_review: "for_review",
-  submitted: "for_review",
-  resubmitted: "for_review",
-  approved: "approved",
-  revision_requested: "for_review",
-  rejected: "pending",
-  pending: "pending",
-}
 
 const statusConfig = {
   approved: {
@@ -73,18 +62,21 @@ function TaskStatusBadge({ status }) {
   )
 }
 
-// ── Derive tasks from engagement documents ────────────────────────────────────
+// ── Derive display tasks from the engagement's real task list ─────────────────
+// engagement.tasks comes from engagementAPI's mapEngagementRow (engagement_tasks
+// table), already shaped as { id, name, required, hasReferenceDocument, completed, status }.
 
-function deriveTasksFromDocuments(engagement) {
-  return (engagement?.documents ?? []).map((doc) => ({
-    id: doc.id,
-    name: doc.name,
-    required: true,
-    referenceDocument: Boolean(doc.hasReferenceDocument),
+function deriveTasks(engagement) {
+  return (engagement?.tasks ?? []).map((task) => ({
+    id: task.id,
+    name: task.name,
+    required: task.required,
+    completed: task.completed,
+    referenceDocument: task.hasReferenceDocument,
     referenceDocumentFile: null,
-    status: docToTaskStatus[doc.status] ?? "pending",
-    deadline: engagement.targetEndDate ?? "",
-    _docStatus: doc.status,
+    status: task.status, // "approved" | "missing" from mapEngagementRow
+    deadline: engagement?.targetEndDate ?? "",
+    _persisted: true, // came from the server, vs. a locally-added task not yet saved
   }))
 }
 
@@ -256,21 +248,38 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
 
 // ── Task Row ──────────────────────────────────────────────────────────────────
 
-function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail }) {
+function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail, onToggleComplete }) {
   return (
     <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/30">
-      {/* Task Name */}
+      {/* Complete toggle + Task Name */}
       <td className="min-w-0 px-6 py-2.5 pr-4">
-        <button
-          type="button"
-          onClick={onOpenDetail}
-          className="text-sm font-medium text-foreground hover:text-[#02353C] transition-colors"
-        >
-          {task.name}
-          {task.required && (
-            <span className="ml-1 text-xs text-red-500 font-semibold">*</span>
-          )}
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={task.completed}
+            title={task.completed ? "Mark incomplete" : "Mark complete"}
+            onClick={() => onToggleComplete(task)}
+            className={cn(
+              "flex size-4 shrink-0 items-center justify-center rounded border transition-colors",
+              task.completed
+                ? "border-[#02353C] bg-[#02353C] text-white"
+                : "border-input bg-transparent hover:border-[#02353C]/50"
+            )}
+          >
+            {task.completed && <Check className="size-3" />}
+          </button>
+          <button
+            type="button"
+            onClick={onOpenDetail}
+            className="text-sm font-medium text-foreground hover:text-[#02353C] transition-colors"
+          >
+            {task.name}
+            {task.required && (
+              <span className="ml-1 text-xs text-red-500 font-semibold">*</span>
+            )}
+          </button>
+        </div>
       </td>
 
       {/* Status */}
@@ -305,8 +314,8 @@ function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail 
 
 // ── Main TaskList Component ───────────────────────────────────────────────────
 
-export function TaskList({ engagement, className, onTaskClick, onDeadlineChange }) {
-  const [tasks, setTasks] = useState(() => deriveTasksFromDocuments(engagement))
+export function TaskList({ engagement, className, onTaskClick, onDeadlineChange, onTaskToggle }) {
+  const [tasks, setTasks] = useState(() => deriveTasks(engagement))
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
@@ -314,6 +323,19 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange 
   const [taskFormData, setTaskFormData] = useState(createEmptyTaskForm)
   const [taskFormErrors, setTaskFormErrors] = useState({})
   const [reminderFeedback, setReminderFeedback] = useState("")
+
+  // Re-derive whenever the underlying engagement tasks change (initial load,
+  // refetch after a mutation, cache update from useToggleEngagementTask, etc).
+  // Locally-added tasks that haven't been persisted (_persisted !== true) are
+  // preserved across this resync so an in-progress "Add Task" draft isn't lost.
+  useEffect(() => {
+    setTasks((current) => {
+      const serverTasks = deriveTasks(engagement)
+      const localOnly = current.filter((task) => !task._persisted)
+      return [...serverTasks, ...localOnly]
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engagement?.tasks])
 
   const openAddTask = () => {
     setTaskDialogMode("add")
@@ -353,11 +375,16 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange 
       return
     }
 
+    // NOTE: this still only updates local component state — it does not call
+    // a mutation to insert into engagement_tasks, so a newly added task will
+    // disappear on refresh until a createEngagementTask API + hook exists.
     const nextTask = {
       ...taskFormData,
       name,
       id: selectedTask?.id ?? createTaskId(),
       status: selectedTask?.status ?? "pending",
+      completed: selectedTask?.completed ?? false,
+      _persisted: selectedTask?._persisted ?? false,
     }
 
     setTasks((current) => selectedTask
@@ -369,6 +396,15 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange 
   const handleDeadlineChange = (taskId, newDeadline) => {
     setTasks((current) => current.map((task) => task.id === taskId ? { ...task, deadline: newDeadline } : task))
     onDeadlineChange?.(taskId, newDeadline)
+  }
+
+  const handleToggleComplete = (task) => {
+    if (!task._persisted) {
+      // Locally-added, not-yet-saved task — just flip it in place, nothing to persist yet.
+      setTasks((current) => current.map((t) => t.id === task.id ? { ...t, completed: !t.completed } : t))
+      return
+    }
+    onTaskToggle?.(task)
   }
 
   const handleSendReminder = (task) => {
@@ -386,7 +422,7 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange 
   }
 
   const requiredCount = tasks.filter((task) => task.required).length
-  const completedCount = tasks.filter((task) => task.status === "approved").length
+  const completedCount = tasks.filter((task) => task.status === "approved" || task.completed).length
 
   return (
     <div className={cn("rounded-xl border border-border bg-card shadow-sm", className)}>
@@ -446,6 +482,7 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange 
                   onSendReminder={() => handleSendReminder(task)}
                   onDeadlineChange={handleDeadlineChange}
                   onOpenDetail={() => handleOpenDetail(task)}
+                  onToggleComplete={handleToggleComplete}
                 />
               ))}
             </tbody>
