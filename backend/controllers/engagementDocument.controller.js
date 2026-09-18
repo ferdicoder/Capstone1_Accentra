@@ -9,7 +9,6 @@ export async function uploadEngagementDocument(req, res) {
   if (!req.file) {
     return res.status(400).json({ error: 'No document file was provided' });
   }
-  const uploadStartedAt = new Date().toISOString();
   const storageKey = `engagements/${engagementTaskId}/${Date.now()}-${req.file.originalname}`;
 
   let b2Result;
@@ -38,37 +37,6 @@ export async function uploadEngagementDocument(req, res) {
 
     if (error) throw error;
     documentId = data.doc_id;
-
-    const { data: task, error: taskError } = await supabaseAdmin
-      .from('engagement_tasks')
-      .select('engagement_id')
-      .eq('engagement_task_id', engagementTaskId)
-      .single();
-
-    if (taskError) throw taskError;
-
-    const { data: activity, error: activityError } = await supabaseAdmin
-      .from('engagement_activity')
-      .insert({
-        engagement_id: task.engagement_id,
-        type: 'document_uploaded',
-        message: req.file.originalname,
-        actor_id: uploadedBy || null,
-      })
-      .select('activity_id')
-      .single();
-
-    if (activityError) throw activityError;
-
-    await supabaseAdmin
-      .from('engagement_activity')
-      .delete()
-      .eq('engagement_id', task.engagement_id)
-      .eq('type', 'document_uploaded')
-      .eq('message', req.file.originalname)
-      .is('actor_id', null)
-      .gte('created_at', uploadStartedAt)
-      .neq('activity_id', activity.activity_id);
 
     return res.status(201).json(data);
   } catch (err) {

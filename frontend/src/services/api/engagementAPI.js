@@ -134,9 +134,7 @@ export async function updateEngagementStatus({ id, status }) {
     .single()
   if (error) throw error
 
-  const updated = mapEngagementRow(data)
-  await logEngagementActivity(id, "stage_change", status)
-  return updated
+  return mapEngagementRow(data)
 }
 
 export async function toggleEngagementTask({ taskId, completed }) {
