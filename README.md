@@ -12,5 +12,4 @@
 | **Authentication** | Supabase PKCE Auth |
 | **State Management** | TanStack Query/React Query(Server-side), Zustand(Client-side) |
 | **Version Control** | Git, GitHub |
-| **Tools** | VS Code, Postman, Figma |
-| **Test** | Vitest |
+| **Test** | Vitest, Postman, Playwright |
