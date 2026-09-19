@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Clock, MoreHorizontal, Inbox, Check } from "lucide-react"
+import { Clock, MoreHorizontal, Inbox, Check, X, MessageSquareWarning } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -35,12 +35,12 @@ const statusConfig = {
     dotColor: "bg-amber-500",
     className: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
   },
-  missing: {
-    label: "Pending",
-    dotColor: "bg-red-500",
-    className: "bg-red-500/10 text-red-600 ring-red-500/25",
+  for_revision: {
+    label: "For Revision",
+    dotColor: "bg-orange-500",
+    className: "bg-orange-500/10 text-orange-700 ring-orange-500/25",
   },
-  pending: {
+  missing: {
     label: "Pending",
     dotColor: "bg-red-500",
     className: "bg-red-500/10 text-red-600 ring-red-500/25",
@@ -63,20 +63,21 @@ function TaskStatusBadge({ status }) {
 }
 
 // ── Derive display tasks from the engagement's real task list ─────────────────
-// engagement.tasks comes from engagementAPI's mapEngagementRow (engagement_tasks
-// table), already shaped as { id, name, required, hasReferenceDocument, completed, status }.
+// engagement.tasks comes from engagementAPI's mapEngagementRow, already carrying
+// the server-computed status/remark — no client-side derivation needed anymore.
 
 function deriveTasks(engagement) {
   return (engagement?.tasks ?? []).map((task) => ({
     id: task.id,
     name: task.name,
     required: task.required,
+    hasReferenceDocument: task.hasReferenceDocument,
     completed: task.completed,
-    referenceDocument: task.hasReferenceDocument,
+    status: task.status,
+    remark: task.remark,
     referenceDocumentFile: null,
-    status: task.status, // "approved" | "missing" from mapEngagementRow
     deadline: engagement?.targetEndDate ?? "",
-    _persisted: true, // came from the server, vs. a locally-added task not yet saved
+    _persisted: true,
   }))
 }
 
@@ -213,6 +214,57 @@ function TaskDialog({ open, mode, formData, setFormData, errors, onOpenChange, o
   )
 }
 
+// ── Request Revision Dialog ────────────────────────────────────────────────────
+
+function RequestRevisionDialog({ open, onOpenChange, task, onSubmit }) {
+  const [remark, setRemark] = useState("")
+
+  useEffect(() => {
+    if (open) setRemark("")
+  }, [open, task?.id])
+
+  if (!task) return null
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    if (!remark.trim()) return
+    onSubmit(remark.trim())
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Request Revision</DialogTitle>
+          <DialogDescription>
+            Tell the client what needs to change for &ldquo;{task.name}&rdquo;.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <label htmlFor="revision-remark" className="text-sm font-medium text-foreground">Remark</label>
+            <textarea
+              id="revision-remark"
+              value={remark}
+              onChange={(e) => setRemark(e.target.value)}
+              rows={4}
+              autoFocus
+              placeholder="e.g. The scanned copy is missing page 2."
+              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" className="bg-orange-600 text-white hover:bg-orange-700" disabled={!remark.trim()}>
+              Send Back for Revision
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ── Task Detail Dialog ────────────────────────────────────────────────────────
 
 function TaskDetailDialog({ open, onOpenChange, task }) {
@@ -240,6 +292,12 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
               {task.deadline ? formatDate(task.deadline) : "No deadline"}
             </span>
           </div>
+          {task.status === "for_revision" && task.remark && (
+            <div className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2.5 text-sm text-orange-800">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-orange-600">Revision remark</p>
+              {task.remark}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -248,27 +306,32 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
 
 // ── Task Row ──────────────────────────────────────────────────────────────────
 
-function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail, onToggleComplete }) {
+function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail, onToggleComplete, onApprove, onRequestRevision }) {
+  const isDocBacked = task.hasReferenceDocument
+  const canReview = isDocBacked && (task.status === "for_review" || task.status === "for_revision")
+
   return (
     <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/30">
-      {/* Complete toggle + Task Name */}
+      {/* Complete toggle (docless only) + Task Name */}
       <td className="min-w-0 px-6 py-2.5 pr-4">
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={task.completed}
-            title={task.completed ? "Mark incomplete" : "Mark complete"}
-            onClick={() => onToggleComplete(task)}
-            className={cn(
-              "flex size-4 shrink-0 items-center justify-center rounded border transition-colors",
-              task.completed
-                ? "border-[#02353C] bg-[#02353C] text-white"
-                : "border-input bg-transparent hover:border-[#02353C]/50"
-            )}
-          >
-            {task.completed && <Check className="size-3" />}
-          </button>
+          {!isDocBacked && (
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={task.completed}
+              title={task.completed ? "Mark incomplete" : "Mark complete"}
+              onClick={() => onToggleComplete(task)}
+              className={cn(
+                "flex size-4 shrink-0 items-center justify-center rounded border transition-colors",
+                task.completed
+                  ? "border-[#02353C] bg-[#02353C] text-white"
+                  : "border-input bg-transparent hover:border-[#02353C]/50"
+              )}
+            >
+              {task.completed && <Check className="size-3" />}
+            </button>
+          )}
           <button
             type="button"
             onClick={onOpenDetail}
@@ -293,20 +356,42 @@ function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail,
       </td>
 
       {/* Actions */}
-      <td className="w-[72px] px-4 py-2.5 text-right">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button variant="ghost" size="icon-sm" className="size-7 rounded-md ml-auto" />
-            }
-          >
-            <MoreHorizontal className="size-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-40">
-            <DropdownMenuItem onClick={onEdit}>Edit Task</DropdownMenuItem>
-            <DropdownMenuItem onClick={onSendReminder}>Send Reminder</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <td className="w-[100px] px-4 py-2.5 text-right">
+        <div className="flex items-center justify-end gap-1">
+          {canReview && (
+            <>
+              <button
+                type="button"
+                title="Approve"
+                onClick={() => onApprove(task)}
+                className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
+              >
+                <Check className="size-4" />
+              </button>
+              <button
+                type="button"
+                title="Request Revision"
+                onClick={() => onRequestRevision(task)}
+                className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-orange-200 bg-orange-50 text-orange-700 transition-colors hover:bg-orange-100"
+              >
+                <MessageSquareWarning className="size-4" />
+              </button>
+            </>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" className="size-7 rounded-md" />
+              }
+            >
+              <MoreHorizontal className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-40">
+              <DropdownMenuItem onClick={onEdit}>Edit Task</DropdownMenuItem>
+              <DropdownMenuItem onClick={onSendReminder}>Send Reminder</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </td>
     </tr>
   )
@@ -314,7 +399,7 @@ function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail,
 
 // ── Main TaskList Component ───────────────────────────────────────────────────
 
-export function TaskList({ engagement, className, onTaskClick, onDeadlineChange, onTaskToggle }) {
+export function TaskList({ engagement, className, onTaskClick, onDeadlineChange, onTaskComplete, onTaskReview }) {
   const [tasks, setTasks] = useState(() => deriveTasks(engagement))
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
@@ -323,11 +408,9 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange,
   const [taskFormData, setTaskFormData] = useState(createEmptyTaskForm)
   const [taskFormErrors, setTaskFormErrors] = useState({})
   const [reminderFeedback, setReminderFeedback] = useState("")
+  const [revisionDialogOpen, setRevisionDialogOpen] = useState(false)
+  const [revisionTask, setRevisionTask] = useState(null)
 
-  // Re-derive whenever the underlying engagement tasks change (initial load,
-  // refetch after a mutation, cache update from useToggleEngagementTask, etc).
-  // Locally-added tasks that haven't been persisted (_persisted !== true) are
-  // preserved across this resync so an in-progress "Add Task" draft isn't lost.
   useEffect(() => {
     setTasks((current) => {
       const serverTasks = deriveTasks(engagement)
@@ -350,7 +433,7 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange,
     setTaskFormData({
       name: task.name,
       required: task.required,
-      referenceDocument: task.referenceDocument,
+      referenceDocument: task.hasReferenceDocument,
       referenceDocumentFile: task.referenceDocumentFile,
       deadline: task.deadline,
     })
@@ -375,15 +458,17 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange,
       return
     }
 
-    // NOTE: this still only updates local component state — it does not call
-    // a mutation to insert into engagement_tasks, so a newly added task will
-    // disappear on refresh until a createEngagementTask API + hook exists.
+    // Still local-only — see the earlier note about wiring a createEngagementTask mutation.
     const nextTask = {
-      ...taskFormData,
       name,
+      required: taskFormData.required,
+      hasReferenceDocument: taskFormData.referenceDocument,
+      referenceDocumentFile: taskFormData.referenceDocumentFile,
+      deadline: taskFormData.deadline,
       id: selectedTask?.id ?? createTaskId(),
-      status: selectedTask?.status ?? "pending",
+      status: selectedTask?.status ?? "missing",
       completed: selectedTask?.completed ?? false,
+      remark: selectedTask?.remark ?? null,
       _persisted: selectedTask?._persisted ?? false,
     }
 
@@ -400,11 +485,28 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange,
 
   const handleToggleComplete = (task) => {
     if (!task._persisted) {
-      // Locally-added, not-yet-saved task — just flip it in place, nothing to persist yet.
       setTasks((current) => current.map((t) => t.id === task.id ? { ...t, completed: !t.completed } : t))
       return
     }
-    onTaskToggle?.(task)
+    onTaskComplete?.(task.id, !task.completed)
+  }
+
+  const handleApprove = (task) => {
+    if (!task._persisted) return
+    onTaskReview?.(task.id, "approved", null)
+  }
+
+  const openRequestRevision = (task) => {
+    setRevisionTask(task)
+    setRevisionDialogOpen(true)
+  }
+
+  const handleSubmitRevision = (remark) => {
+    if (revisionTask?._persisted) {
+      onTaskReview?.(revisionTask.id, "for_revision", remark)
+    }
+    setRevisionDialogOpen(false)
+    setRevisionTask(null)
   }
 
   const handleSendReminder = (task) => {
@@ -422,7 +524,7 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange,
   }
 
   const requiredCount = tasks.filter((task) => task.required).length
-  const completedCount = tasks.filter((task) => task.status === "approved" || task.completed).length
+  const completedCount = tasks.filter((task) => task.status === "approved").length
 
   return (
     <div className={cn("rounded-xl border border-border bg-card shadow-sm", className)}>
@@ -470,7 +572,7 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange,
                 <th className="min-w-0 px-6 py-2.5 text-xs font-medium text-muted-foreground">Task</th>
                 <th className="w-[160px] px-5 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
                 <th className="w-[180px] px-5 py-2.5 text-xs font-medium text-muted-foreground">Deadline</th>
-                <th className="w-[72px] px-4 py-2.5 text-xs font-medium text-muted-foreground text-right">Actions</th>
+                <th className="w-[100px] px-4 py-2.5 text-xs font-medium text-muted-foreground text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -483,6 +585,8 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange,
                   onDeadlineChange={handleDeadlineChange}
                   onOpenDetail={() => handleOpenDetail(task)}
                   onToggleComplete={handleToggleComplete}
+                  onApprove={handleApprove}
+                  onRequestRevision={openRequestRevision}
                 />
               ))}
             </tbody>
@@ -504,6 +608,13 @@ export function TaskList({ engagement, className, onTaskClick, onDeadlineChange,
         open={detailOpen}
         onOpenChange={setDetailOpen}
         task={selectedTask}
+      />
+
+      <RequestRevisionDialog
+        open={revisionDialogOpen}
+        onOpenChange={setRevisionDialogOpen}
+        task={revisionTask}
+        onSubmit={handleSubmitRevision}
       />
     </div>
   )

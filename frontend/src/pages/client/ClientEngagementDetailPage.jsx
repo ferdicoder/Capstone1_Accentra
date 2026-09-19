@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import {
   ArrowLeft,
@@ -32,35 +32,58 @@ import {
 } from "@/hooks/useEngagements"
 
 
-const reviewStatusStyles = {
-  Approved: "bg-green-50 text-green-700 border border-green-200",
-  "For Revision": "bg-amber-50 text-amber-700 border border-amber-200",
+const statusLabels = {
+  approved: "Approved",
+  for_review: "For Review",
+  for_revision: "For Revision",
+  missing: "Missing",
 }
 
-const reviewStatusHelp = {
-  Approved: "This document has been reviewed and accepted by the firm.",
-  "For Revision": "This document needs changes before it can be accepted. See Validation Remarks for details.",
+const statusBadgeStyles = {
+  approved: "bg-green-50 text-green-700 border border-green-200",
+  for_review: "bg-amber-50 text-amber-700 border border-amber-200",
+  for_revision: "bg-orange-50 text-orange-700 border border-orange-200",
+  missing: "bg-red-50 text-red-700 border border-red-200",
+}
+
+const statusHelp = {
+  approved: "This document has been reviewed and accepted by the firm.",
+  for_review: "This document has been submitted and is waiting for the firm to review it.",
+  for_revision: "This document needs changes before it can be accepted. See Validation Remarks for details.",
+  missing: "This requirement hasn't been submitted yet.",
 }
 
 // Per-status theme for the Status card — header banner, tooltip icon, and
-// the Validation Remarks button all switch color together based on
-// doc.reviewStatus, instead of always being green regardless of status.
+// the Validation Remarks button all switch color together based on the
+// parent task's status.
 const statusDialogTheme = {
-  Approved: {
+  approved: {
     header: "bg-emerald-600",
     icon: "text-emerald-600",
     button: "bg-emerald-600 hover:bg-emerald-700",
     remarkBox: "border-green-200 bg-green-50 text-green-800",
   },
-  "For Revision": {
+  for_review: {
     header: "bg-amber-500",
     icon: "text-amber-600",
     button: "bg-amber-500 hover:bg-amber-600",
     remarkBox: "border-amber-200 bg-amber-50 text-amber-800",
   },
+  for_revision: {
+    header: "bg-orange-500",
+    icon: "text-orange-600",
+    button: "bg-orange-500 hover:bg-orange-600",
+    remarkBox: "border-orange-200 bg-orange-50 text-orange-800",
+  },
+  missing: {
+    header: "bg-red-500",
+    icon: "text-red-600",
+    button: "bg-red-500 hover:bg-red-600",
+    remarkBox: "border-red-200 bg-red-50 text-red-800",
+  },
 }
 
-function DocumentStatusDialog({ open, onOpenChange, document: doc }) {
+function DocumentStatusDialog({ open, onOpenChange, status, remark }) {
   const [showRemarks, setShowRemarks] = useState(false)
 
   const handleOpenChange = (next) => {
@@ -68,11 +91,12 @@ function DocumentStatusDialog({ open, onOpenChange, document: doc }) {
     onOpenChange(next)
   }
 
-  if (!doc) return null
+  if (!status) return null
 
-  const badgeClass = reviewStatusStyles[doc.reviewStatus] ?? reviewStatusStyles.Approved
-  const helpText = reviewStatusHelp[doc.reviewStatus] ?? ""
-  const theme = statusDialogTheme[doc.reviewStatus] ?? statusDialogTheme.Approved
+  const label = statusLabels[status] ?? statusLabels.missing
+  const badgeClass = statusBadgeStyles[status] ?? statusBadgeStyles.missing
+  const helpText = statusHelp[status] ?? ""
+  const theme = statusDialogTheme[status] ?? statusDialogTheme.missing
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -85,10 +109,8 @@ function DocumentStatusDialog({ open, onOpenChange, document: doc }) {
           {!showRemarks ? (
             <>
               <div className="flex items-center gap-1.5">
-                <span
-                  className={`rounded-full px-3 py-1 text-sm font-semibold ${badgeClass}`}
-                >
-                  {doc.reviewStatus}
+                <span className={`rounded-full px-3 py-1 text-sm font-semibold ${badgeClass}`}>
+                  {label}
                 </span>
                 <span title={helpText} className={`cursor-help ${theme.icon}`}>
                   <HelpCircle className="size-4" />
@@ -109,8 +131,8 @@ function DocumentStatusDialog({ open, onOpenChange, document: doc }) {
           ) : (
             <>
               <div className={`w-full rounded-lg border px-3 py-2.5 text-sm ${theme.remarkBox}`}>
-                {doc.reviewStatus === "For Revision"
-                  ? doc.remark
+                {status === "for_revision" && remark
+                  ? remark
                   : "No revisions needed — this document was approved as submitted."}
               </div>
               <Button
@@ -143,6 +165,13 @@ export default function ClientEngagementDetailPage() {
   const uploadDocument = useUploadEngagementDocument(id)
   const deleteDocument = useDeleteEngagementDocument(id)
 
+  // Documents no longer carry their own review status — it lives on the
+  // parent task now. Look each document's task up once per render.
+  const taskById = useMemo(
+    () => new Map((engagement?.tasks ?? []).map((t) => [t.id, t])),
+    [engagement?.tasks]
+  )
+
   const filteredDocuments = documents.filter((doc) =>
     (doc.name ?? "").toLowerCase().includes(documentSearch.toLowerCase())
   )
@@ -163,6 +192,8 @@ export default function ClientEngagementDetailPage() {
     setStatusDoc(doc)
     setIsStatusOpen(true)
   }
+
+  const statusDocTask = statusDoc ? taskById.get(statusDoc.engagementTaskId) : null
 
   const handleUploadFiles = async (task, files) => Promise.all(
     files.map((file) => uploadDocument.mutateAsync({
@@ -313,74 +344,78 @@ export default function ClientEngagementDetailPage() {
                   )}
 
                   {!isDocumentsLoading &&
-                    filteredDocuments.map((doc) => (
-                      <tr
-                        key={doc.id}
-                        className="border-b last:border-b-0 hover:bg-muted/30"
-                      >
-                        <td className="px-4 py-4 align-middle">
-                          <p className="truncate font-medium">{doc.name}</p>
-                        </td>
-                        <td className="px-4 py-4 align-middle text-muted-foreground">
-                          {doc.uploadedBy}
-                        </td>
-                        <td className="px-4 py-4 align-middle text-muted-foreground">
-                          {doc.uploadedDate ?? "—"}
-                        </td>
+                    filteredDocuments.map((doc) => {
+                      const task = taskById.get(doc.engagementTaskId)
+                      const status = task?.status ?? "missing"
+                      return (
+                        <tr
+                          key={doc.id}
+                          className="border-b last:border-b-0 hover:bg-muted/30"
+                        >
+                          <td className="px-4 py-4 align-middle">
+                            <p className="truncate font-medium">{doc.name}</p>
+                          </td>
+                          <td className="px-4 py-4 align-middle text-muted-foreground">
+                            {doc.uploadedBy}
+                          </td>
+                          <td className="px-4 py-4 align-middle text-muted-foreground">
+                            {doc.uploadedDate ?? "—"}
+                          </td>
 
-                        <td className="px-4 py-3 align-middle">
-                          <div className="flex flex-col items-start gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => openStatus(doc)}
-                              title="View Status"
-                              className={`rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-opacity hover:opacity-80 ${reviewStatusStyles[doc.reviewStatus]}`}
-                            >
-                              {doc.reviewStatus}
-                            </button>
+                          <td className="px-4 py-3 align-middle">
+                            <div className="flex flex-col items-start gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => openStatus(doc)}
+                                title="View Status"
+                                className={`rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-opacity hover:opacity-80 ${statusBadgeStyles[status]}`}
+                              >
+                                {statusLabels[status]}
+                              </button>
 
-                            <div className="flex items-center gap-1">
-                              {doc.downloadUrl ? (
-                                <a
-                                  href={doc.downloadUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title="View File"
-                                  className="flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted"
-                                >
-                                  <Eye className="size-3.5" />
-                                </a>
-                              ) : (
-                                <span
-                                  title="View File"
-                                  className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center rounded-md border text-muted-foreground/40"
-                                >
-                                  <Eye className="size-3.5" />
-                                </span>
-                              )}
+                              <div className="flex items-center gap-1">
+                                {doc.downloadUrl ? (
+                                  <a
+                                    href={doc.downloadUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="View File"
+                                    className="flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted"
+                                  >
+                                    <Eye className="size-3.5" />
+                                  </a>
+                                ) : (
+                                  <span
+                                    title="View File"
+                                    className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center rounded-md border text-muted-foreground/40"
+                                  >
+                                    <Eye className="size-3.5" />
+                                  </span>
+                                )}
 
-                              {doc.downloadUrl ? (
-                                <a
-                                  href={doc.downloadUrl}
-                                  download={doc.name}
-                                  title="Download"
-                                  className="flex size-6 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
-                                >
-                                  <Download className="size-3.5" />
-                                </a>
-                              ) : (
-                                <span
-                                  title="Download"
-                                  className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-muted-foreground/40"
-                                >
-                                  <Download className="size-3.5" />
-                                </span>
-                              )}
+                                {doc.downloadUrl ? (
+                                  <a
+                                    href={doc.downloadUrl}
+                                    download={doc.name}
+                                    title="Download"
+                                    className="flex size-6 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
+                                  >
+                                    <Download className="size-3.5" />
+                                  </a>
+                                ) : (
+                                  <span
+                                    title="Download"
+                                    className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-muted-foreground/40"
+                                  >
+                                    <Download className="size-3.5" />
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                        </tr>
+                      )
+                    })}
 
                   {!isDocumentsLoading && filteredDocuments.length === 0 && (
                     <tr>
@@ -402,7 +437,8 @@ export default function ClientEngagementDetailPage() {
       <DocumentStatusDialog
         open={isStatusOpen}
         onOpenChange={setIsStatusOpen}
-        document={statusDoc}
+        status={statusDocTask?.status}
+        remark={statusDocTask?.remark}
       />
 
       {/* ================================================================

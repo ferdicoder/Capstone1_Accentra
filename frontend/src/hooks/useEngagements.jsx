@@ -5,7 +5,8 @@ import {
   getEngagement,
   createEngagementFromRequest,
   updateEngagementStatus,
-  toggleEngagementTask,
+  setTaskCompleted,
+  reviewEngagementTask,
   getEngagementActivity,
 } from "@/services/api/engagementAPI"
 import {
@@ -44,7 +45,6 @@ export function useCreateEngagementFromRequest() {
     mutationFn: createEngagementFromRequest,
     onSuccess: (newEngagement) => {
       queryClient.setQueryData(queryKeys.engagements, (old = []) => [newEngagement, ...old])
-      // The originating service_request flipped to "approved" server-side — refresh that list too.
       queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests })
     },
   })
@@ -63,10 +63,26 @@ export function useUpdateEngagementStatus() {
   })
 }
 
-export function useToggleEngagementTask(engagementId) {
+// Docless checklist tasks (hasReferenceDocument: false) — firm marks done directly.
+export function useSetTaskCompleted(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: toggleEngagementTask,
+    mutationFn: setTaskCompleted,
+    onSuccess: (updatedTask) => {
+      queryClient.setQueryData(queryKeys.engagement(engagementId), (old) =>
+        old
+          ? { ...old, tasks: old.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t)) }
+          : old
+      )
+    },
+  })
+}
+
+// Document-backed tasks — firm approves the submission or sends it back with a remark.
+export function useReviewEngagementTask(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: reviewEngagementTask,
     onSuccess: (updatedTask) => {
       queryClient.setQueryData(queryKeys.engagement(engagementId), (old) =>
         old
@@ -93,6 +109,8 @@ export function useFetchEngagementDocuments(engagementId) {
   })
 }
 
+// A new upload flips the task to "for_review" via the DB trigger — refresh
+      // the engagement so the task list picks up the new status.
 export function useUploadEngagementDocument(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -100,6 +118,7 @@ export function useUploadEngagementDocument(engagementId) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.engagementDocuments(engagementId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(engagementId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagement(engagementId) })
     },
   })
 }

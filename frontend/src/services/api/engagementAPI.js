@@ -1,4 +1,5 @@
-import { supabase } from "@/config/supabase"
+import { supabase } from "@/config/supabase";
+
 
 function mapEngagementRow(row) {
   const business = row.businesses
@@ -46,8 +47,9 @@ function mapEngagementRow(row) {
       name: t.title,
       hasReferenceDocument: t.has_reference ?? false,
       required: t.is_required ?? false,
-      completed: t.is_completed ?? false,
-      status: t.is_completed ? "approved" : "missing",
+      status: t.status,
+      completed: t.status === "approved",
+      remark: t.remark,
     })),
   }
 }
@@ -62,7 +64,7 @@ const ENGAGEMENT_SELECT = `
     owner:users(user_id, first_name, middle_name, last_name, email, contact_no)
   ),
   assignedStaffUser:users!engagements_assigned_staff_fkey(user_id, first_name, last_name),
-  engagement_tasks(engagement_task_id, title, has_reference, is_required, is_completed)
+  engagement_tasks(engagement_task_id, title, has_reference, is_required, status, remark)
 `
 
 async function logEngagementActivity(engagementId, type, message) {
@@ -73,43 +75,27 @@ async function logEngagementActivity(engagementId, type, message) {
     message,
     actor_id: user?.id ?? null,
   })
-
   if (error) console.error("Failed to log engagement activity:", error)
 }
 
 export async function getEngagements() {
-  const { data, error } = await supabase
-    .from("engagements")
-    .select(ENGAGEMENT_SELECT)
-    .order("created_at", { ascending: false })
+  const { data, error } = await supabase.from("engagements").select(ENGAGEMENT_SELECT).order("created_at", { ascending: false })
   if (error) throw error
-
   return (data ?? []).map(mapEngagementRow)
 }
 
 export async function getMyEngagements(businessId) {
-  const { data, error } = await supabase
-    .from("engagements")
-    .select(ENGAGEMENT_SELECT)
-    .eq("business_id", businessId)
-    .order("created_at", { ascending: false })
+  const { data, error } = await supabase.from("engagements").select(ENGAGEMENT_SELECT).eq("business_id", businessId).order("created_at", { ascending: false })
   if (error) throw error
-
   return (data ?? []).map(mapEngagementRow)
 }
 
 export async function getEngagement(id) {
-  const { data, error } = await supabase
-    .from("engagements")
-    .select(ENGAGEMENT_SELECT)
-    .eq("engagement_id", id)
-    .single()
+  const { data, error } = await supabase.from("engagements").select(ENGAGEMENT_SELECT).eq("engagement_id", id).single()
   if (error) throw error
-
   return mapEngagementRow(data)
 }
 
-// Approves a pending service_request into an active engagement (see create_engagement RPC).
 export async function createEngagementFromRequest({ serviceRequestId, assignedStaff, startDate, dueDate, fee }) {
   const { data: engagementId, error } = await supabase.rpc("create_engagement", {
     p_service_request_id: serviceRequestId,
@@ -119,28 +105,21 @@ export async function createEngagementFromRequest({ serviceRequestId, assignedSt
     p_fee: fee,
   })
   if (error) throw error
-
-  // RPC only returns the new engagement_id — same pattern as create/update service,
-  // fetch the full row (with joins + tasks) before handing it back.
   return getEngagement(engagementId)
 }
 
 export async function updateEngagementStatus({ id, status }) {
-  const { data, error } = await supabase
-    .from("engagements")
-    .update({ status })
-    .eq("engagement_id", id)
-    .select(ENGAGEMENT_SELECT)
-    .single()
+  const { data, error } = await supabase.from("engagements").update({ status }).eq("engagement_id", id).select(ENGAGEMENT_SELECT).single()
   if (error) throw error
-
   return mapEngagementRow(data)
 }
 
-export async function toggleEngagementTask({ taskId, completed }) {
+// For checklist-style tasks with no document to review (hasReferenceDocument: false) —
+// firm just marks them done directly, no review step applies.
+export async function setTaskCompleted({ taskId, completed }) {
   const { data, error } = await supabase
     .from("engagement_tasks")
-    .update({ is_completed: completed })
+    .update({ status: completed ? "approved" : "missing" })
     .eq("engagement_task_id", taskId)
     .select()
     .single()
@@ -151,18 +130,49 @@ export async function toggleEngagementTask({ taskId, completed }) {
     name: data.title,
     hasReferenceDocument: data.has_reference ?? false,
     required: data.is_required ?? false,
-    completed: data.is_completed ?? false,
-    status: data.is_completed ? "approved" : "missing",
+    status: data.status,
+    completed: data.status === "approved",
+    remark: data.remark,
   }
 
-  const { data: task } = await supabase
-    .from("engagement_tasks")
-    .select("engagement_id")
-    .eq("engagement_task_id", taskId)
-    .single()
-  if (task?.engagement_id && data.is_completed) {
-    await logEngagementActivity(task.engagement_id, "task_completed", data.title)
+  if (data.status === "approved") {
+    await logEngagementActivity(data.engagement_id, "task_completed", data.title)
   }
+
+  return updatedTask
+}
+
+// For document-backed tasks — firm approves or sends the submission back for revision.
+export async function reviewEngagementTask({ taskId, status, remark }) {
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from("engagement_tasks")
+    .update({
+      status,
+      remark: remark ?? null,
+      reviewed_by: user?.id ?? null,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("engagement_task_id", taskId)
+    .select()
+    .single()
+  if (error) throw error
+
+  const updatedTask = {
+    id: data.engagement_task_id,
+    name: data.title,
+    hasReferenceDocument: data.has_reference ?? false,
+    required: data.is_required ?? false,
+    status: data.status,
+    completed: data.status === "approved",
+    remark: data.remark,
+  }
+
+  await logEngagementActivity(
+    data.engagement_id,
+    status === "approved" ? "task_approved" : "task_revision_requested",
+    data.title
+  )
 
   return updatedTask
 }

@@ -25,7 +25,8 @@ import { workflowStages, isEngagementActive } from "@/lib/workflow-stages"
 import {
   useFetchEngagement,
   useUpdateEngagementStatus,
-  useToggleEngagementTask,
+  useSetTaskCompleted,
+  useReviewEngagementTask,
   useFetchEngagementActivity,
 } from "@/hooks/useEngagements"
 
@@ -37,10 +38,10 @@ export default function EngagementDetailsPage() {
   const sectionLabel = basePath === "/firm" ? "Firm Staff" : "Firm Admin"
 
   const { data: engagement, isLoading, error } = useFetchEngagement(id)
-  console.log("engagement.tasks:", engagement?.tasks)
   const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(id)
   const updateStatus = useUpdateEngagementStatus()
-  const toggleTask = useToggleEngagementTask(id)
+  const setTaskCompleted = useSetTaskCompleted(id)
+  const reviewTask = useReviewEngagementTask(id)
 
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
@@ -93,8 +94,15 @@ export default function EngagementDetailsPage() {
     )
   }
 
-  const handleToggleTask = (task) => {
-    toggleTask.mutate({ taskId: task.id, completed: !task.completed })
+  const handleTaskComplete = (taskId, completed) => {
+    setTaskCompleted.mutate({ taskId, completed })
+  }
+
+  const handleTaskReview = (taskId, status, remark) => {
+    reviewTask.mutate(
+      { taskId, status, remark },
+      { onSuccess: () => showNotice(status === "approved" ? "Task approved" : "Revision requested") }
+    )
   }
 
   return (
@@ -172,7 +180,11 @@ export default function EngagementDetailsPage() {
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-w-0 flex-col gap-5">
             <UploadDeliverables engagement={engagement} />
-            <TaskList engagement={engagement} onTaskToggle={handleToggleTask} />
+            <TaskList
+              engagement={engagement}
+              onTaskComplete={handleTaskComplete}
+              onTaskReview={handleTaskReview}
+            />
           </div>
 
           <div className="flex flex-col gap-5">

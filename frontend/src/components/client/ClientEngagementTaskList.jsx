@@ -27,6 +27,7 @@ import { formatDate } from "@/components/firm/engagements/engagement-variants"
 
 // ── Status Helpers ────────────────────────────────────────────────────────────
 
+
 const statusConfig = {
   approved: {
     label: "Approved",
@@ -37,6 +38,11 @@ const statusConfig = {
     label: "For Review",
     dotColor: "bg-amber-500",
     className: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
+  },
+  for_revision: {
+    label: "For Revision",
+    dotColor: "bg-orange-500",
+    className: "bg-orange-500/10 text-orange-700 ring-orange-500/25",
   },
   missing: {
     label: "Missing",
@@ -93,6 +99,12 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
               {task.deadline ? formatDate(task.deadline) : "No deadline"}
             </span>
           </div>
+          {task.status === "for_revision" && task.remark && (
+            <div className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2.5 text-sm text-orange-800">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-orange-600">What needs to change</p>
+              {task.remark}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
