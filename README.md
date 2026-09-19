@@ -2,6 +2,14 @@
 ## About: 
 - Accentra is a centralized practice management system tailored to accounting firms within the Philippines. Its goal is to streamline the workflows in the firm such as document management, remark-based communication, milesstone update for their services, and payment handling. 
 
+## User Roles & Access
+| Role | Access |
+|---|---|
+| **Admin** | Service Management, User Management, Engagement Monitoring|
+| **Staff** | Service Request Management, Engagement Creation, Report Generation |
+| **Billing Officer** | Billing Management, Invoice Creation, Payment Lifecycle |
+| **Client** | Service Request, Engagement Tracking, Document Uploads, Personal Summary |
+
 ## Tech Stack
 | Category | Technologies |
 |---|---|
