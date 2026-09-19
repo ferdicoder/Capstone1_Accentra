@@ -27,6 +27,9 @@ import {
   useUpdateEngagementStatus,
   useSetTaskCompleted,
   useReviewEngagementTask,
+  useCreateEngagementTask,
+  useUpdateEngagementTask,
+  useUpdateEngagementTaskDeadline,
   useFetchEngagementActivity,
 } from "@/hooks/useEngagements"
 
@@ -42,6 +45,10 @@ export default function EngagementDetailsPage() {
   const updateStatus = useUpdateEngagementStatus()
   const setTaskCompleted = useSetTaskCompleted(id)
   const reviewTask = useReviewEngagementTask(id)
+
+  const createTask = useCreateEngagementTask(id)
+  const updateTask = useUpdateEngagementTask(id)
+  const updateDeadline = useUpdateEngagementTaskDeadline(id)
 
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
@@ -104,6 +111,19 @@ export default function EngagementDetailsPage() {
       { onSuccess: () => showNotice(status === "approved" ? "Task approved" : "Revision requested") }
     )
   }
+
+  const handleTaskCreate = (fields) =>
+  createTask.mutateAsync({ engagementId: engagement.id, ...fields })
+    .then(() => showNotice(`Task "${fields.title}" added`))
+
+  const handleTaskUpdate = (taskId, fields) =>
+    updateTask.mutateAsync({ taskId, ...fields })
+      .then(() => showNotice("Task updated"))
+
+  const handleDeadlineChange = (taskId, dueDate) => {
+    updateDeadline.mutate({ taskId, dueDate })
+  }
+
 
   return (
     <>
@@ -184,6 +204,9 @@ export default function EngagementDetailsPage() {
               engagement={engagement}
               onTaskComplete={handleTaskComplete}
               onTaskReview={handleTaskReview}
+              onTaskCreate={handleTaskCreate}
+              onTaskUpdate={handleTaskUpdate}
+              onDeadlineChange={handleDeadlineChange}
             />
           </div>
 

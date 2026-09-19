@@ -7,6 +7,9 @@ import {
   updateEngagementStatus,
   setTaskCompleted,
   reviewEngagementTask,
+  createEngagementTask,
+  updateEngagementTask,
+  updateEngagementTaskDeadline,
   getEngagementActivity,
 } from "@/services/api/engagementAPI"
 import {
@@ -17,10 +20,7 @@ import {
 import { queryKeys } from "@/config/queryKeys"
 
 export function useFetchEngagements() {
-  return useQuery({
-    queryKey: queryKeys.engagements,
-    queryFn: getEngagements,
-  })
+  return useQuery({ queryKey: queryKeys.engagements, queryFn: getEngagements })
 }
 
 export function useFetchMyEngagements(businessId) {
@@ -55,41 +55,60 @@ export function useUpdateEngagementStatus() {
   return useMutation({
     mutationFn: updateEngagementStatus,
     onSuccess: (updated) => {
-      queryClient.setQueryData(queryKeys.engagements, (old = []) =>
-        old.map((e) => (e.id === updated.id ? updated : e))
-      )
+      queryClient.setQueryData(queryKeys.engagements, (old = []) => old.map((e) => (e.id === updated.id ? updated : e)))
       queryClient.setQueryData(queryKeys.engagement(updated.id), updated)
     },
   })
 }
 
-// Docless checklist tasks (hasReferenceDocument: false) — firm marks done directly.
+function patchTaskInCache(queryClient, engagementId, updatedTask) {
+  queryClient.setQueryData(queryKeys.engagement(engagementId), (old) =>
+    old ? { ...old, tasks: old.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t)) } : old
+  )
+}
+
 export function useSetTaskCompleted(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: setTaskCompleted,
-    onSuccess: (updatedTask) => {
-      queryClient.setQueryData(queryKeys.engagement(engagementId), (old) =>
-        old
-          ? { ...old, tasks: old.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t)) }
-          : old
-      )
-    },
+    onSuccess: (updatedTask) => patchTaskInCache(queryClient, engagementId, updatedTask),
   })
 }
 
-// Document-backed tasks — firm approves the submission or sends it back with a remark.
 export function useReviewEngagementTask(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: reviewEngagementTask,
-    onSuccess: (updatedTask) => {
+    onSuccess: (updatedTask) => patchTaskInCache(queryClient, engagementId, updatedTask),
+  })
+}
+
+export function useCreateEngagementTask(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createEngagementTask,
+    onSuccess: (newTask) => {
       queryClient.setQueryData(queryKeys.engagement(engagementId), (old) =>
-        old
-          ? { ...old, tasks: old.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t)) }
-          : old
+        old ? { ...old, tasks: [...old.tasks, newTask] } : old
       )
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(engagementId) })
     },
+  })
+}
+
+export function useUpdateEngagementTask(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: updateEngagementTask,
+    onSuccess: (updatedTask) => patchTaskInCache(queryClient, engagementId, updatedTask),
+  })
+}
+
+export function useUpdateEngagementTaskDeadline(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: updateEngagementTaskDeadline,
+    onSuccess: (updatedTask) => patchTaskInCache(queryClient, engagementId, updatedTask),
   })
 }
 
@@ -109,8 +128,6 @@ export function useFetchEngagementDocuments(engagementId) {
   })
 }
 
-// A new upload flips the task to "for_review" via the DB trigger — refresh
-      // the engagement so the task list picks up the new status.
 export function useUploadEngagementDocument(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({

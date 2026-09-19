@@ -1,5 +1,18 @@
-import { supabase } from "@/config/supabase";
+import { supabase } from "@/config/supabase"
 
+function mapTaskRow(t) {
+  return {
+    id: t.engagement_task_id,
+    engagementId: t.engagement_id,
+    name: t.title,
+    hasReferenceDocument: t.has_reference ?? false,
+    required: t.is_required ?? false,
+    status: t.status,
+    completed: t.status === "approved",
+    remark: t.remark,
+    deadline: t.due_date,
+  }
+}
 
 function mapEngagementRow(row) {
   const business = row.businesses
@@ -42,15 +55,7 @@ function mapEngagementRow(row) {
           contactNo: owner.contact_no ?? "",
         }
       : {},
-    tasks: tasks.map((t) => ({
-      id: t.engagement_task_id,
-      name: t.title,
-      hasReferenceDocument: t.has_reference ?? false,
-      required: t.is_required ?? false,
-      status: t.status,
-      completed: t.status === "approved",
-      remark: t.remark,
-    })),
+    tasks: tasks.map((t) => mapTaskRow({ ...t, engagement_id: row.engagement_id })),
   }
 }
 
@@ -64,7 +69,7 @@ const ENGAGEMENT_SELECT = `
     owner:users(user_id, first_name, middle_name, last_name, email, contact_no)
   ),
   assignedStaffUser:users!engagements_assigned_staff_fkey(user_id, first_name, last_name),
-  engagement_tasks(engagement_task_id, title, has_reference, is_required, status, remark)
+  engagement_tasks(engagement_task_id, title, has_reference, is_required, status, remark, due_date)
 `
 
 async function logEngagementActivity(engagementId, type, message) {
@@ -114,8 +119,7 @@ export async function updateEngagementStatus({ id, status }) {
   return mapEngagementRow(data)
 }
 
-// For checklist-style tasks with no document to review (hasReferenceDocument: false) —
-// firm just marks them done directly, no review step applies.
+// Docless checklist tasks — firm marks done directly.
 export async function setTaskCompleted({ taskId, completed }) {
   const { data, error } = await supabase
     .from("engagement_tasks")
@@ -125,24 +129,13 @@ export async function setTaskCompleted({ taskId, completed }) {
     .single()
   if (error) throw error
 
-  const updatedTask = {
-    id: data.engagement_task_id,
-    name: data.title,
-    hasReferenceDocument: data.has_reference ?? false,
-    required: data.is_required ?? false,
-    status: data.status,
-    completed: data.status === "approved",
-    remark: data.remark,
-  }
-
   if (data.status === "approved") {
     await logEngagementActivity(data.engagement_id, "task_completed", data.title)
   }
-
-  return updatedTask
+  return mapTaskRow(data)
 }
 
-// For document-backed tasks — firm approves or sends the submission back for revision.
+// Document-backed tasks — firm approves or sends back with a remark.
 export async function reviewEngagementTask({ taskId, status, remark }) {
   const { data: { user } } = await supabase.auth.getUser()
   const { data, error } = await supabase
@@ -158,23 +151,61 @@ export async function reviewEngagementTask({ taskId, status, remark }) {
     .single()
   if (error) throw error
 
-  const updatedTask = {
-    id: data.engagement_task_id,
-    name: data.title,
-    hasReferenceDocument: data.has_reference ?? false,
-    required: data.is_required ?? false,
-    status: data.status,
-    completed: data.status === "approved",
-    remark: data.remark,
-  }
-
   await logEngagementActivity(
     data.engagement_id,
     status === "approved" ? "task_approved" : "task_revision_requested",
     data.title
   )
+  return mapTaskRow(data)
+}
 
-  return updatedTask
+// Firm adds a custom task to an existing engagement.
+export async function createEngagementTask({ engagementId, title, hasReferenceDocument, required, dueDate }) {
+  const { data, error } = await supabase
+    .from("engagement_tasks")
+    .insert({
+      engagement_id: engagementId,
+      title,
+      has_reference: hasReferenceDocument,
+      is_required: required,
+      due_date: dueDate || null,
+      status: "missing",
+    })
+    .select()
+    .single()
+  if (error) throw error
+
+  await logEngagementActivity(engagementId, "task_added", title)
+  return mapTaskRow(data)
+}
+
+// Firm edits an existing task's definition (name/required/reference/deadline).
+export async function updateEngagementTask({ taskId, title, hasReferenceDocument, required, dueDate }) {
+  const { data, error } = await supabase
+    .from("engagement_tasks")
+    .update({
+      title,
+      has_reference: hasReferenceDocument,
+      is_required: required,
+      due_date: dueDate || null,
+    })
+    .eq("engagement_task_id", taskId)
+    .select()
+    .single()
+  if (error) throw error
+  return mapTaskRow(data)
+}
+
+// Lightweight single-field update for the inline deadline editor.
+export async function updateEngagementTaskDeadline({ taskId, dueDate }) {
+  const { data, error } = await supabase
+    .from("engagement_tasks")
+    .update({ due_date: dueDate || null })
+    .eq("engagement_task_id", taskId)
+    .select()
+    .single()
+  if (error) throw error
+  return mapTaskRow(data)
 }
 
 function mapActivityRow(row) {
