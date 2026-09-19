@@ -9,11 +9,29 @@ import { registerClient } from "../../services/authService";
 import { useNavigate } from "react-router-dom"
 
 
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+]
+
+const DAYS = Array.from({ length: 31 }, (_, i) => i + 1)
+
+// Most adult users signing up are recent-ish birth years, so listing from
+// (this year - 18) downward means their year is near the top of the list
+// instead of buried at the bottom.
+const CURRENT_YEAR = new Date().getFullYear()
+const YEARS = Array.from(
+  { length: 83 }, // covers ages 18–100
+  (_, i) => CURRENT_YEAR - 18 - i
+)
+
 const initialFormState = {
   firstName: "",
   lastName: "",
   middleName: "",
-  birthDate: "",
+  birthMonth: "",
+  birthDay: "",
+  birthYear: "",
   email: "",
   password: "",
   confirmPassword: "",
@@ -57,7 +75,19 @@ export default function SignupPage() {
     }
 
     try{
-      const newUser = await registerClient(formData);
+      // Combine the three birthdate dropdowns into a single ISO date
+      // string (YYYY-MM-DD) for the backend, same shape the old native
+      // date input used to send.
+      const monthIndex = MONTHS.indexOf(formData.birthMonth) + 1
+      const birthDate =
+        formData.birthYear && monthIndex && formData.birthDay
+          ? `${formData.birthYear}-${String(monthIndex).padStart(2, "0")}-${String(formData.birthDay).padStart(2, "0")}`
+          : ""
+
+      const newUser = await registerClient({
+        ...formData,
+        birthDate,
+      });
       if(newUser.error) throw newUser.error;
       console.log("Registration submitted", formData);
       navigate('/client/signin');
@@ -119,7 +149,9 @@ export default function SignupPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="firstName">First Name</FieldLabel>
+                  <FieldLabel htmlFor="firstName">
+                    First Name<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="firstName"
                     name="firstName"
@@ -146,7 +178,9 @@ export default function SignupPage() {
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="lastName">Last Name</FieldLabel>
+                  <FieldLabel htmlFor="lastName">
+                    Last Name<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="lastName"
                     name="lastName"
@@ -159,23 +193,63 @@ export default function SignupPage() {
                   />
                 </Field>
 
-                  <Field>
-                  <FieldLabel htmlFor="birthDate">Birthdate</FieldLabel>
-                  <Input
-                    id="birthDate"
-                    name="birthDate"
-                    type="date"
-                    placeholder="1990-01-01"
-                    required
-                    value={formData.birthDate}
-                    onChange={updateField}
-                    className="bg-background"
-                  />
+                <Field>
+                  <FieldLabel>
+                    Birthdate<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
+                  <div className="grid grid-cols-3 gap-2">
+                    <select
+                      name="birthMonth"
+                      value={formData.birthMonth}
+                      onChange={updateField}
+                      required
+                      className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
+                    >
+                      <option value="">Month</option>
+                      {MONTHS.map((month) => (
+                        <option key={month} value={month}>
+                          {month}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      name="birthDay"
+                      value={formData.birthDay}
+                      onChange={updateField}
+                      required
+                      className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
+                    >
+                      <option value="">Day</option>
+                      {DAYS.map((day) => (
+                        <option key={day} value={day}>
+                          {day}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      name="birthYear"
+                      value={formData.birthYear}
+                      onChange={updateField}
+                      required
+                      className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
+                    >
+                      <option value="">Year</option>
+                      {YEARS.map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </Field>
               </div>
 
               <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
+                <FieldLabel htmlFor="email">
+                  Email<span className="ml-0.5 text-red-500">*</span>
+                </FieldLabel>
                 <Input
                   id="email"
                   name="email"
@@ -192,7 +266,9 @@ export default function SignupPage() {
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <FieldLabel htmlFor="password">
+                  Password<span className="ml-0.5 text-red-500">*</span>
+                </FieldLabel>
                 <Input
                   id="password"
                   name="password"
@@ -206,7 +282,9 @@ export default function SignupPage() {
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="confirmPassword">Confirm Password</FieldLabel>
+                <FieldLabel htmlFor="confirmPassword">
+                  Confirm Password<span className="ml-0.5 text-red-500">*</span>
+                </FieldLabel>
                 <Input
                   id="confirmPassword"
                   name="confirmPassword"
@@ -236,11 +314,14 @@ export default function SignupPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="businessName">Business Name</FieldLabel>
+                  <FieldLabel htmlFor="businessName">
+                    Business Name<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="businessName"
                     name="businessName"
                     placeholder="Santos Retail Trading"
+                    required
                     value={formData.businessName}
                     onChange={updateField}
                     className="bg-background"
@@ -248,12 +329,15 @@ export default function SignupPage() {
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="businessType">Type of Business</FieldLabel>
+                  <FieldLabel htmlFor="businessType">
+                    Type of Business<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <select
                     id="businessType"
                     name="businessType"
                     value={formData.businessType}
                     onChange={updateField}
+                    required
                     className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
                   >
                     <option value="">Select Type of Business</option>
@@ -267,11 +351,14 @@ export default function SignupPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="tin">TIN Number</FieldLabel>
+                  <FieldLabel htmlFor="tin">
+                    TIN Number<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="tin"
                     name="tin"
                     placeholder="123-456-789-000"
+                    required
                     value={formData.tin}
                     onChange={updateField}
                     className="bg-background"
@@ -279,12 +366,15 @@ export default function SignupPage() {
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="industry">Industry</FieldLabel>
+                  <FieldLabel htmlFor="industry">
+                    Industry<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <select
                     id="industry"
                     name="industry"
                     value={formData.industry}
                     onChange={updateField}
+                    required
                     className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
                   >
                     <option value="">Select Industry</option>
@@ -297,11 +387,14 @@ export default function SignupPage() {
               </div>
 
                <Field>
-                <FieldLabel htmlFor="contactNumber">Contact Number</FieldLabel>
+                <FieldLabel htmlFor="contactNumber">
+                  Contact Number<span className="ml-0.5 text-red-500">*</span>
+                </FieldLabel>
                 <Input
                   id="contactNumber"
                   name="contactNumber"
                   placeholder="09123456789"
+                  required
                   value={formData.contactNumber}
                   onChange={updateField}
                   className="bg-background"
@@ -313,11 +406,14 @@ export default function SignupPage() {
                   their own column. */}
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="houseNo">House/Bldg./Unit No.</FieldLabel>
+                  <FieldLabel htmlFor="houseNo">
+                    House/Bldg./Unit No.<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="houseNo"
                     name="houseNo"
                     placeholder="12, Unit 4B"
+                    required
                     value={formData.houseNo}
                     onChange={updateField}
                     className="bg-background"
@@ -325,11 +421,14 @@ export default function SignupPage() {
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="streetName">Street Name</FieldLabel>
+                  <FieldLabel htmlFor="streetName">
+                    Street Name<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="streetName"
                     name="streetName"
                     placeholder="Mercado St."
+                    required
                     value={formData.streetName}
                     onChange={updateField}
                     className="bg-background"
@@ -339,11 +438,14 @@ export default function SignupPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="barangay">Barangay</FieldLabel>
+                  <FieldLabel htmlFor="barangay">
+                    Barangay<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="barangay"
                     name="barangay"
                     placeholder="Barangay 789"
+                    required
                     value={formData.barangay}
                     onChange={updateField}
                     className="bg-background"
@@ -351,11 +453,14 @@ export default function SignupPage() {
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="district">District</FieldLabel>
+                  <FieldLabel htmlFor="district">
+                    District<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="district"
                     name="district"
                     placeholder="District 6"
+                    required
                     value={formData.district}
                     onChange={updateField}
                     className="bg-background"
@@ -365,11 +470,14 @@ export default function SignupPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="city">City / Municipality</FieldLabel>
+                  <FieldLabel htmlFor="city">
+                    City / Municipality<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="city"
                     name="city"
                     placeholder="Manila"
+                    required
                     value={formData.city}
                     onChange={updateField}
                     className="bg-background"
@@ -377,13 +485,16 @@ export default function SignupPage() {
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="zipCode">ZIP Code</FieldLabel>
+                  <FieldLabel htmlFor="zipCode">
+                    ZIP Code<span className="ml-0.5 text-red-500">*</span>
+                  </FieldLabel>
                   <Input
                     id="zipCode"
                     name="zipCode"
                     placeholder="1009"
                     inputMode="numeric"
                     maxLength={4}
+                    required
                     value={formData.zipCode}
                     onChange={updateField}
                     className="bg-background"

@@ -1,257 +1,183 @@
-import { useEffect, useState } from "react"
+import { useMemo, useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import {
   ArrowLeft,
-  CheckCircle2,
-  Circle,
   Download,
   Eye,
-  FileText,
+  HelpCircle,
   Search,
-  Upload,
+  X,
 } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog"
+import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
+
+import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
+import { ActivityLogItem } from "@/components/firm/engagements/ActivityLogItem"
+import { TaskList } from "@/components/client/ClientEngagementTaskList"
+import { authStore } from "@/store/authStore"
+import { formatDate } from "@/components/firm/engagements/engagement-variants"
+import {
+  useFetchEngagement,
+  useFetchEngagementActivity,
+  useFetchEngagementDocuments,
+  useDeleteEngagementDocument,
+  useUploadEngagementDocument,
+} from "@/hooks/useEngagements"
 
 
-const engagement = {
-  code: "ENG-2024-0041",
-  status: "Active",
-  type: "Tax Filing",
-  title: "Annual Income Tax Return (BIR Form 1701)",
-  due: "Apr 15, 2025",
-  percentComplete: 55,
-  task: {
-    clientName: "Maria Santos",
-    businessName: "Santos Retail Trading",
-    tin: "123-456-789-000",
-    rdo: "RDO 052 – Pasig City",
-    email: "maria.santos@santosretail.com",
-    phone: "+63 917 555 1234",
+const statusLabels = {
+  approved: "Approved",
+  for_review: "For Review",
+  for_revision: "For Revision",
+  missing: "Missing",
+}
+
+const statusBadgeStyles = {
+  approved: "bg-green-50 text-green-700 border border-green-200",
+  for_review: "bg-amber-50 text-amber-700 border border-amber-200",
+  for_revision: "bg-orange-50 text-orange-700 border border-orange-200",
+  missing: "bg-red-50 text-red-700 border border-red-200",
+}
+
+const statusHelp = {
+  approved: "This document has been reviewed and accepted by the firm.",
+  for_review: "This document has been submitted and is waiting for the firm to review it.",
+  for_revision: "This document needs changes before it can be accepted. See Validation Remarks for details.",
+  missing: "This requirement hasn't been submitted yet.",
+}
+
+// Per-status theme for the Status card — header banner, tooltip icon, and
+// the Validation Remarks button all switch color together based on the
+// parent task's status.
+const statusDialogTheme = {
+  approved: {
+    header: "bg-emerald-600",
+    icon: "text-emerald-600",
+    button: "bg-emerald-600 hover:bg-emerald-700",
+    remarkBox: "border-green-200 bg-green-50 text-green-800",
   },
-  serviceInfo: {
-    serviceType: "Tax Filing",
-    taxForm: "BIR Form 1701",
-    complianceCategory: "Income Tax",
-    periodCovered: "Taxable Year 2024",
-    filingDeadline: "April 15, 2025",
-    assignedCpa: "Atty. Roland Reyes, CPA",
+  for_review: {
+    header: "bg-amber-500",
+    icon: "text-amber-600",
+    button: "bg-amber-500 hover:bg-amber-600",
+    remarkBox: "border-amber-200 bg-amber-50 text-amber-800",
+  },
+  for_revision: {
+    header: "bg-orange-500",
+    icon: "text-orange-600",
+    button: "bg-orange-500 hover:bg-orange-600",
+    remarkBox: "border-orange-200 bg-orange-50 text-orange-800",
+  },
+  missing: {
+    header: "bg-red-500",
+    icon: "text-red-600",
+    button: "bg-red-500 hover:bg-red-600",
+    remarkBox: "border-red-200 bg-red-50 text-red-800",
   },
 }
 
-const WORKFLOW_STEPS = [
-  "Documentation Collection",
-  "Document Verification",
-  "Processing",
-  "Approval",
-  "Payment",
-]
-const CURRENT_STEP_INDEX = 2 // "Processing" — swap for real workflow state from the API
+function DocumentStatusDialog({ open, onOpenChange, status, remark }) {
+  const [showRemarks, setShowRemarks] = useState(false)
 
-const initialActivityLog = [
-  {
-    id: "log-1",
-    title: "Request Submitted",
-    date: "Nov 28, 2024",
-    description: "Client submitted via portal",
-    done: true,
-  },
-  {
-    id: "log-2",
-    title: "Request Approved",
-    date: "Nov 28, 2024",
-    description: "Approved by R&A CPA",
-    done: true,
-  },
-  {
-    id: "log-3",
-    title: "Document Checklist Sent",
-    date: "Nov 30, 2024",
-    description: "5 required documents listed",
-    done: true,
-  },
-  {
-    id: "log-4",
-    title: "Documents Submitted",
-    date: "Dec 6, 2024",
-    description: "3 of 5 submitted",
-    done: true,
-  },
-  {
-    id: "log-5",
-    title: "Documents Reviewed",
-    date: "Dec 8, 2024",
-    description: "2 documents flagged for revision",
-    done: true,
-  },
-  { id: "log-6", title: "Processing / Filing", done: false },
-  { id: "log-7", title: "Billing Issued", done: false },
-  { id: "log-8", title: "Payment Confirmed", done: false },
-  { id: "log-9", title: "Service Completed", done: false },
-]
+  const handleOpenChange = (next) => {
+    if (!next) setShowRemarks(false)
+    onOpenChange(next)
+  }
 
-const initialDocuments = [
-  {
-    id: "doc-1",
-    name: "BIR Form 1701 – Signed Copy",
-    file: "BIR_1701_2024.pdf",
-    required: true,
-    status: "Approved",
-    uploadedBy: "Maria S.",
-    date: "Dec 6, 2024",
-    size: "1.2 MB",
-  },
-  {
-    id: "doc-2",
-    name: "Bank Statements (Jan–Dec 2024)",
-    file: "BankStatements_2024.pdf",
-    required: true,
-    status: "Approved",
-    uploadedBy: "Maria S.",
-    date: "Dec 6, 2024",
-    size: "4.8 MB",
-  },
-  {
-    id: "doc-3",
-    name: "Official Receipts / Invoice Booklet",
-    file: "OR_Booklet.pdf",
-    required: true,
-    status: "For Review",
-    uploadedBy: "Maria S.",
-    date: "Dec 6, 2024",
-    size: "2.1 MB",
-    remark:
-      "Incomplete — Jan to Jun ORs are missing. Please upload the complete booklet covering January–December 2024.",
-  },
-  {
-    id: "doc-4",
-    name: "Books of Accounts",
-    required: true,
-    status: "Missing",
-  },
-  {
-    id: "doc-5",
-    name: "Certificate of Withholding Tax (2316)",
-    required: true,
-    status: "Missing",
-  },
-]
+  if (!status) return null
 
-const documentStatusStyles = {
-  Approved: "bg-green-50 text-green-700 border border-green-200",
-  "For Review": "bg-amber-50 text-amber-700 border border-amber-200",
-  Missing: "bg-red-50 text-red-700 border border-red-200",
-}
+  const label = statusLabels[status] ?? statusLabels.missing
+  const badgeClass = statusBadgeStyles[status] ?? statusBadgeStyles.missing
+  const helpText = statusHelp[status] ?? ""
+  const theme = statusDialogTheme[status] ?? statusDialogTheme.missing
 
-const initialDeliverables = [
-  {
-    id: "del-1",
-    file_name: "Filed_ITR_2024.pdf",
-    file_size: 842000,
-    created_at: "Apr 18, 2025",
-    signedUrl: null,
-  },
-  {
-    id: "del-2",
-    file_name: "BIR_Acknowledgement_Receipt.pdf",
-    file_size: 210000,
-    created_at: "Apr 18, 2025",
-    signedUrl: null,
-  },
-]
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-sm gap-0 overflow-hidden p-0">
+        <div className={`px-6 py-4 text-center ${theme.header}`}>
+          <h2 className="text-base font-semibold text-white">Status</h2>
+        </div>
 
-function formatBytes(bytes) {
-  if (!bytes) return "—"
-  const kb = bytes / 1024
-  return kb < 1024 ? `${kb.toFixed(0)} KB` : `${(kb / 1024).toFixed(1)} MB`
+        <div className="flex flex-col items-center gap-4 px-6 py-6">
+          {!showRemarks ? (
+            <>
+              <div className="flex items-center gap-1.5">
+                <span className={`rounded-full px-3 py-1 text-sm font-semibold ${badgeClass}`}>
+                  {label}
+                </span>
+                <span title={helpText} className={`cursor-help ${theme.icon}`}>
+                  <HelpCircle className="size-4" />
+                </span>
+              </div>
+
+              <Button
+                className={`w-full py-6 text-base font-semibold text-white ${theme.button}`}
+                onClick={() => setShowRemarks(true)}
+              >
+                Validation Remarks
+              </Button>
+
+              <p className="text-center text-sm text-muted-foreground">
+                Click "Validation Remarks" for more specific updates
+              </p>
+            </>
+          ) : (
+            <>
+              <div className={`w-full rounded-lg border px-3 py-2.5 text-sm ${theme.remarkBox}`}>
+                {status === "for_revision" && remark
+                  ? remark
+                  : "No revisions needed — this document was approved as submitted."}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setShowRemarks(false)}
+              >
+                Back to Status
+              </Button>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 export default function ClientEngagementDetailPage() {
   const { id } = useParams()
+  const user = authStore((state) => state.user)
   const [activeTab, setActiveTab] = useState("overview")
   const [documentSearch, setDocumentSearch] = useState("")
-  const [activityLog, setActivityLog] = useState(initialActivityLog)
-  const [isActivityLoading, setIsActivityLoading] = useState(false)
-  const [deliverables, setDeliverables] = useState(initialDeliverables)
-  const [isDeliverablesLoading, setIsDeliverablesLoading] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [statusDoc, setStatusDoc] = useState(null)
+  const [isStatusOpen, setIsStatusOpen] = useState(false)
+  const { data: engagement, isLoading, error } = useFetchEngagement(id)
+  const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(id)
+  const { data: documents = [], isLoading: isDocumentsLoading } = useFetchEngagementDocuments(id)
+  const uploadDocument = useUploadEngagementDocument(id)
+  const deleteDocument = useDeleteEngagementDocument(id)
 
-  const filteredDocuments = initialDocuments.filter((doc) =>
-    doc.name.toLowerCase().includes(documentSearch.toLowerCase())
+  // Documents no longer carry their own review status — it lives on the
+  // parent task now. Look each document's task up once per render.
+  const taskById = useMemo(
+    () => new Map((engagement?.tasks ?? []).map((t) => [t.id, t])),
+    [engagement?.tasks]
   )
 
-  const flaggedForReview = initialDocuments.filter(
-    (d) => d.status === "For Review"
-  ).length
-
-  const isCompleted = engagement.status === "Completed"
-  const activeStepIndex = isCompleted
-    ? WORKFLOW_STEPS.length - 1
-    : CURRENT_STEP_INDEX
-  const percentComplete = isCompleted ? 100 : engagement.percentComplete
-
-  // Read-only: per S4-13, the client sees the activity timeline but never
-  // posts or deletes entries — that's S4-11/S4-12, firm-side only. This
-  // just loads the log; falls back to the mock data above if the fetch
-  // fails, so the page still has something to show during development.
-  useEffect(() => {
-    let isMounted = true
-
-    async function loadActivity() {
-      setIsActivityLoading(true)
-      const { data, error } = await getEngagementActivity(id)
-
-      if (!isMounted) return
-
-      if (error) {
-        console.error("Failed to load activity log:", error)
-        // keep showing the mock/initial data as a fallback
-      } else if (data) {
-        setActivityLog(data)
-      }
-
-      setIsActivityLoading(false)
-    }
-
-    loadActivity()
-
-    return () => {
-      isMounted = false
-    }
-  }, [id])
-
-  // Deliverables: read-only, client-side, per S4-16's DoD ("Client can
-  // see and download deliverables via signed URL"). Uploading/deleting
-  // is S4-14/S4-15, firm-side only.
-  useEffect(() => {
-    let isMounted = true
-
-    async function loadDeliverables() {
-      setIsDeliverablesLoading(true)
-      const { data, error } = await getEngagementDeliverables(id)
-
-      if (!isMounted) return
-
-      if (error) {
-        console.error("Failed to load deliverables:", error)
-        // keep showing the mock/initial data as a fallback
-      } else if (data) {
-        setDeliverables(data)
-      }
-
-      setIsDeliverablesLoading(false)
-    }
-
-    loadDeliverables()
-
-    return () => {
-      isMounted = false
-    }
-  }, [id])
+  const filteredDocuments = documents.filter((doc) =>
+    (doc.name ?? "").toLowerCase().includes(documentSearch.toLowerCase())
+  )
 
   usePageMeta({
-    title: engagement.code,
+    title: engagement?.engagementNumber ?? "Engagement Details",
     breadcrumbs: [
       { label: "Home", href: "/client/dashboard" },
       { label: "Engagements", href: "/client/engagements" },
@@ -259,486 +185,420 @@ export default function ClientEngagementDetailPage() {
     hasUnreadNotifications: true,
   })
 
+  if (isLoading) return <PageSkeleton type="service-requests" />
+  if (error || !engagement) return null
+
+  const openStatus = (doc) => {
+    setStatusDoc(doc)
+    setIsStatusOpen(true)
+  }
+
+  const statusDocTask = statusDoc ? taskById.get(statusDoc.engagementTaskId) : null
+
+  const handleUploadFiles = async (task, files) => Promise.all(
+    files.map((file) => uploadDocument.mutateAsync({
+      engagementTaskId: task.id,
+      file,
+      uploadedBy: user?.id,
+    }))
+  )
+
+  const handleDeleteFile = async (task, files) => {
+    await Promise.all((files ?? []).map((file) => deleteDocument.mutateAsync(file.id)))
+  }
+
   return (
-    <div className="flex flex-1 flex-col gap-4 px-2 py-2">
-          <Link
-            to="/client/engagements"
-            className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+    <div className="flex flex-1 flex-col gap-4 px-2 py-2 sm:px-4 lg:px-6">
+      <Link
+        to="/client/engagements"
+        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+        Back to Engagements
+      </Link>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-lg font-semibold sm:text-xl">
+            {engagement.serviceName}
+          </h1>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            Due <span className="font-medium text-red-600">{formatDate(engagement.targetEndDate)}</span>
+          </p>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-lg text-xs"
+            onClick={() => setDetailsOpen(true)}
           >
-            <ArrowLeft className="size-4" />
-            Back to Engagements
-          </Link>
+            View Details
+          </Button>
+        </div>
+      </div>
 
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                  {engagement.code}
-                </span>
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                  {engagement.status}
-                </span>
-                <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-                  {engagement.type}
-                </span>
+      <WorkflowProgress
+        workflowStage={engagement.status}
+      />
+
+      <div className="flex gap-4 overflow-x-auto border-b sm:gap-6">
+        <button
+          onClick={() => setActiveTab("overview")}
+          className={`-mb-px shrink-0 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors ${
+            activeTab === "overview"
+              ? "border-emerald-600 text-emerald-700"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Overview
+        </button>
+
+        <button
+          onClick={() => setActiveTab("documents")}
+          className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors ${
+            activeTab === "documents"
+              ? "border-emerald-600 text-emerald-700"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Documents
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+            {documents.length}
+          </span>
+        </button>
+      </div>
+
+      {activeTab === "overview" && (
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0">
+            <TaskList
+              engagement={engagement}
+              documents={documents}
+              onUploadFiles={handleUploadFiles}
+              onDeleteFile={handleDeleteFile}
+            />
+          </div>
+          <div className="min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm">
+            <h3 className="mb-4 text-sm font-semibold text-foreground">Activity Log</h3>
+            {activityLoading && <p className="text-sm text-muted-foreground">Loading activity...</p>}
+            {!activityLoading && activity.length === 0 && <p className="text-sm text-muted-foreground">No activity yet.</p>}
+            {!activityLoading && activity.length > 0 && (
+              <div className="space-y-4">
+                {activity.map((entry) => <ActivityLogItem key={entry.id} entry={entry} />)}
               </div>
-              <h1 className="mt-2 text-xl font-semibold">
-                {engagement.title}
-              </h1>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Due <span className="font-medium text-red-600">{engagement.due}</span>
-            </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "documents" && (
+        <div className="space-y-4">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search documents..."
+              className="pl-9"
+              value={documentSearch}
+              onChange={(e) => setDocumentSearch(e.target.value)}
+            />
           </div>
 
-          {/* Workflow progress */}
-          <div className="rounded-xl border bg-background p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Workflow Progress</h2>
-              <span className="text-sm font-medium text-emerald-700">
-                {isCompleted ? "Completed" : `${percentComplete}% complete`}
-              </span>
-            </div>
-            <div className="flex items-center">
-              {WORKFLOW_STEPS.map((step, i) => {
-                const isDone = i <= activeStepIndex
-                const isLast = i === WORKFLOW_STEPS.length - 1
-                return (
-                  <div key={step} className="flex flex-1 items-center">
-                    <div className="flex flex-col items-center gap-1.5">
-                      {isDone ? (
-                        <CheckCircle2 className="size-5 text-emerald-600" />
-                      ) : (
-                        <Circle className="size-5 text-muted-foreground/40" />
-                      )}
-                      <span
-                        className={`whitespace-nowrap text-xs ${
-                          isDone
-                            ? "font-medium text-foreground"
-                            : "text-muted-foreground"
-                        }`}
+          <div className="overflow-hidden rounded-xl border bg-background">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px] table-fixed text-sm">
+                <colgroup>
+                  <col className="w-[34%]" />
+                  <col className="w-[22%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[24%]" />
+                </colgroup>
+                <thead>
+                  <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                    <th className="px-4 py-3.5 align-middle font-medium">
+                      Document Name
+                    </th>
+                    <th className="px-4 py-3.5 align-middle font-medium">
+                      Uploaded By
+                    </th>
+                    <th className="px-4 py-3.5 align-middle font-medium">
+                      Uploaded Date
+                    </th>
+                    <th className="px-4 py-3.5 align-middle font-medium">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isDocumentsLoading && (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-10 text-center text-sm text-muted-foreground"
                       >
-                        {step}
-                      </span>
-                    </div>
-                    {!isLast && (
-                      <div
-                        className={`mx-1 h-px flex-1 ${
-                          i < activeStepIndex
-                            ? "bg-emerald-400"
-                            : "bg-muted-foreground/20"
-                        }`}
-                      />
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-6 border-b">
-            <button
-              onClick={() => setActiveTab("overview")}
-              className={`-mb-px border-b-2 pb-2 text-sm font-medium transition-colors ${
-                activeTab === "overview"
-                  ? "border-emerald-600 text-emerald-700"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab("documents")}
-              className={`-mb-px flex items-center gap-1.5 border-b-2 pb-2 text-sm font-medium transition-colors ${
-                activeTab === "documents"
-                  ? "border-emerald-600 text-emerald-700"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Documents
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                {initialDocuments.length}
-              </span>
-            </button>
-            <button
-              onClick={() => setActiveTab("activity")}
-              className={`-mb-px border-b-2 pb-2 text-sm font-medium transition-colors ${
-                activeTab === "activity"
-                  ? "border-emerald-600 text-emerald-700"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Activity
-            </button>
-            <button
-              onClick={() => setActiveTab("deliverables")}
-              className={`-mb-px flex items-center gap-1.5 border-b-2 pb-2 text-sm font-medium transition-colors ${
-                activeTab === "deliverables"
-                  ? "border-emerald-600 text-emerald-700"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Deliverables
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                {deliverables.length}
-              </span>
-            </button>
-          </div>
-
-          {activeTab === "overview" && (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-xl border bg-background p-5">
-                <h3 className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
-                  Task
-                </h3>
-                <dl className="space-y-3 text-sm">
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Client Name
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.task.clientName}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Business Name
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.task.businessName}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">TIN</dt>
-                    <dd className="font-medium">{engagement.task.tin}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">RDO</dt>
-                    <dd className="font-medium">{engagement.task.rdo}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Email</dt>
-                    <dd className="font-medium">{engagement.task.email}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Phone</dt>
-                    <dd className="font-medium">{engagement.task.phone}</dd>
-                  </div>
-                </dl>
-              </div>
-
-              <div className="rounded-xl border bg-background p-5">
-                <h3 className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
-                  Service Information
-                </h3>
-                <dl className="space-y-3 text-sm">
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Service Type
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.serviceInfo.serviceType}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Tax Form
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.serviceInfo.taxForm}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Compliance Category
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.serviceInfo.complianceCategory}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Period Covered
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.serviceInfo.periodCovered}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Filing Deadline
-                    </dt>
-                    <dd className="font-medium text-red-600">
-                      {engagement.serviceInfo.filingDeadline}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Assigned CPA
-                    </dt>
-                    <dd className="font-medium">
-                      {engagement.serviceInfo.assignedCpa}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "activity" && (
-            <div className="rounded-xl border bg-background p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Activity Timeline</h3>
-                <span className="text-xs text-muted-foreground">
-                  Read only — updates are posted by your firm
-                </span>
-              </div>
-
-              {isActivityLoading ? (
-                <p className="text-sm text-muted-foreground">Loading...</p>
-              ) : (
-                <ul className="space-y-5">
-                  {activityLog.map((log) => (
-                    <li key={log.id} className="flex items-start gap-3">
-                      {log.done ? (
-                        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-                      ) : (
-                        <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground/30" />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className={`text-sm ${
-                            log.done
-                              ? "font-medium text-foreground"
-                              : "text-muted-foreground"
-                          }`}
-                        >
-                          {log.title}
-                        </p>
-                        {log.date && (
-                          <p className="text-xs text-muted-foreground">
-                            {log.date}
-                          </p>
-                        )}
-                        {log.description && (
-                          <p className="text-xs text-muted-foreground">
-                            {log.description}
-                          </p>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-
-                  {activityLog.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      No activity yet.
-                    </p>
-                  )}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {activeTab === "documents" && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="relative max-w-sm flex-1 min-w-[220px]">
-                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search documents..."
-                    className="pl-9"
-                    value={documentSearch}
-                    onChange={(e) => setDocumentSearch(e.target.value)}
-                  />
-                </div>
-                <Button className="bg-emerald-600 text-white hover:bg-emerald-700">
-                  Review Documents ({flaggedForReview})
-                </Button>
-              </div>
-
-              <div className="overflow-hidden rounded-xl border bg-background">
-                <table className="w-full table-fixed text-sm">
-                  <colgroup>
-                    <col className="w-[26%]" />
-                    <col className="w-[10%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[8%]" />
-                    <col className="w-[20%]" />
-                  </colgroup>
-                  <thead>
-                    <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
-                      <th className="px-4 py-3.5 align-middle font-medium">
-                        Document Name
-                      </th>
-                      <th className="px-4 py-3.5 align-middle font-medium">
-                        Required
-                      </th>
-                      <th className="px-4 py-3.5 align-middle font-medium">
-                        Status
-                      </th>
-                      <th className="px-4 py-3.5 align-middle font-medium">
-                        Uploaded By
-                      </th>
-                      <th className="px-4 py-3.5 align-middle font-medium">
-                        Date
-                      </th>
-                      <th className="px-4 py-3.5 align-middle font-medium">
-                        Size
-                      </th>
-                      <th className="px-4 py-3.5 text-right align-middle font-medium">
-                        Actions
-                      </th>
+                        Loading documents...
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDocuments.map((doc) => (
-                      <>
+                  )}
+
+                  {!isDocumentsLoading &&
+                    filteredDocuments.map((doc) => {
+                      const task = taskById.get(doc.engagementTaskId)
+                      const status = task?.status ?? "missing"
+                      return (
                         <tr
                           key={doc.id}
                           className="border-b last:border-b-0 hover:bg-muted/30"
                         >
                           <td className="px-4 py-4 align-middle">
                             <p className="truncate font-medium">{doc.name}</p>
-                            {doc.file && (
-                              <p className="truncate text-xs text-muted-foreground">
-                                {doc.file}
-                              </p>
-                            )}
-                          </td>
-                          <td className="px-4 py-4 align-middle">
-                            <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground">
-                              {doc.required ? "Required" : "Optional"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 align-middle">
-                            <span
-                              className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${documentStatusStyles[doc.status]}`}
-                            >
-                              {doc.status}
-                            </span>
                           </td>
                           <td className="px-4 py-4 align-middle text-muted-foreground">
-                            {doc.uploadedBy ?? "—"}
+                            {doc.uploadedBy}
                           </td>
                           <td className="px-4 py-4 align-middle text-muted-foreground">
-                            {doc.date ?? "—"}
+                            {doc.uploadedDate ?? "—"}
                           </td>
-                          <td className="px-4 py-4 align-middle text-muted-foreground">
-                            {doc.size ?? "—"}
-                          </td>
-                          <td className="px-4 py-4 align-middle">
-                            <div className="flex items-center justify-end gap-2">
-                              {doc.status === "For Review" && (
-                                <button
-                                  title="Preview"
-                                  className="text-muted-foreground hover:text-foreground"
-                                >
-                                  <Eye className="size-4" />
-                                </button>
-                              )}
+
+                          <td className="px-4 py-3 align-middle">
+                            <div className="flex flex-col items-start gap-1.5">
                               <button
-                                className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                                  doc.status === "For Review"
-                                    ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                                    : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                                }`}
+                                type="button"
+                                onClick={() => openStatus(doc)}
+                                title="View Status"
+                                className={`rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-opacity hover:opacity-80 ${statusBadgeStyles[status]}`}
                               >
-                                <Upload className="size-3.5" />
-                                {doc.status === "For Review"
-                                  ? "Re-upload"
-                                  : "Upload"}
+                                {statusLabels[status]}
                               </button>
+
+                              <div className="flex items-center gap-1">
+                                {doc.downloadUrl ? (
+                                  <a
+                                    href={doc.downloadUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="View File"
+                                    className="flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted"
+                                  >
+                                    <Eye className="size-3.5" />
+                                  </a>
+                                ) : (
+                                  <span
+                                    title="View File"
+                                    className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center rounded-md border text-muted-foreground/40"
+                                  >
+                                    <Eye className="size-3.5" />
+                                  </span>
+                                )}
+
+                                {doc.downloadUrl ? (
+                                  <a
+                                    href={doc.downloadUrl}
+                                    download={doc.name}
+                                    title="Download"
+                                    className="flex size-6 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
+                                  >
+                                    <Download className="size-3.5" />
+                                  </a>
+                                ) : (
+                                  <span
+                                    title="Download"
+                                    className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-muted-foreground/40"
+                                  >
+                                    <Download className="size-3.5" />
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
                         </tr>
-                        {doc.remark && (
-                          <tr key={`${doc.id}-remark`} className="border-b bg-amber-50/60">
-                            <td colSpan={7} className="px-4 py-2.5 text-xs text-amber-800">
-                              <span className="font-medium">
-                                Firm Remark — Revision Required:
-                              </span>{" "}
-                              {doc.remark}
-                            </td>
-                          </tr>
-                        )}
-                      </>
-                    ))}
+                      )
+                    })}
 
-                    {filteredDocuments.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={7}
-                          className="px-4 py-10 text-center text-sm text-muted-foreground"
-                        >
-                          No documents match "{documentSearch}".
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                  {!isDocumentsLoading && filteredDocuments.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-10 text-center text-sm text-muted-foreground"
+                      >
+                        No documents match "{documentSearch}".
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
-
-          {activeTab === "deliverables" && (
-            <div className="rounded-xl border bg-background p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Final Deliverables</h3>
-                <span className="text-xs text-muted-foreground">
-                  Files uploaded by your firm — download links expire after
-                  10 minutes
-                </span>
-              </div>
-
-              {isDeliverablesLoading ? (
-                <p className="text-sm text-muted-foreground">Loading...</p>
-              ) : deliverables.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No deliverables have been uploaded yet.
-                </p>
-              ) : (
-                <ul className="divide-y">
-                  {deliverables.map((file) => (
-                    <li
-                      key={file.id}
-                      className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
-                    >
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                        <FileText className="size-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {file.file_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {file.created_at} · {formatBytes(file.file_size)}
-                        </p>
-                      </div>
-                      {file.signedUrl ? (
-                        <a
-                          href={file.signedUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
-                        >
-                          <Download className="size-3.5" />
-                          Download
-                        </a>
-                      ) : (
-                        <span className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-muted-foreground/50">
-                          <Download className="size-3.5" />
-                          Unavailable
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
+          </div>
         </div>
+      )}
+
+      <DocumentStatusDialog
+        open={isStatusOpen}
+        onOpenChange={setIsStatusOpen}
+        status={statusDocTask?.status}
+        remark={statusDocTask?.remark}
+      />
+
+      {/* ================================================================
+          VIEW DETAILS MODAL — Left: Client Information, Right: Service Information
+          ================================================================ */}
+      {detailsOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-6"
+          onClick={() => setDetailsOpen(false)}
+        >
+          <div
+            className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-background shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b px-6 py-5 sm:px-8">
+              <div>
+                <h2 className="text-lg font-semibold sm:text-xl">
+                  Engagement Details
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  View client and service information
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailsOpen(false)}
+                aria-label="Close engagement details"
+                className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="min-h-0 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2">
+                <section className="border-b px-6 py-7 sm:px-8 sm:py-8 md:border-b-0 md:border-r">
+                  <div className="mb-7">
+                    <h3 className="text-base font-semibold">
+                      Client Information
+                    </h3>
+                  </div>
+
+                  <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+                    <div className="min-w-0 sm:col-span-2">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Full Name
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {[engagement.client?.firstName, engagement.client?.middleName, engagement.client?.lastName].filter(Boolean).join(" ") || "—"}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Email
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.client?.email || "—"}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Contact Number
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.client?.contactNo || "—"}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Business Name
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.business?.businessName || "—"}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Business Type
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.business?.businessType || "—"}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        TIN
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.business?.tinNo || "—"}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Industry
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.business?.industry || "—"}
+                      </dd>
+                    </div>
+                    <div className="min-w-0 sm:col-span-2">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Address
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.business?.address || "—"}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section className="px-6 py-7 sm:px-8 sm:py-8">
+                  <div className="mb-7">
+                    <h3 className="text-base font-semibold">
+                      Service Information
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Details about the selected service
+                    </p>
+                  </div>
+
+                  <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Service Type
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.category || "—"}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Service Name
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.serviceName || "—"}
+                      </dd>
+                    </div>
+                    <div className="min-w-0 sm:col-span-2">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Notes (From Service Request)
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {"—"}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Assigned Staff
+                      </dt>
+                      <dd className="mt-1.5 break-words text-sm font-medium text-foreground">
+                        {engagement.assignedStaff || "—"}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

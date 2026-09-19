@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { authorizeB2 } from '../config/b2Client.js';
+import { authorizeB2, b2HttpsAgent } from '../config/b2Client.js';
 
 export async function downloadFile(fileName) {
   const { downloadUrl, authorizationToken } = await authorizeB2();
@@ -8,6 +8,8 @@ export async function downloadFile(fileName) {
     {
       headers: { Authorization: authorizationToken },
       responseType: 'arraybuffer',
+      httpsAgent: b2HttpsAgent,
+      timeout: 15000,
     }
   );
   return res.data;

@@ -13,6 +13,8 @@ import {
 import {
   ServiceCreateDialog,
   ServiceEditDialog,
+  CategoryCreateDialog,
+  CategoryManagementDialog,
 } from "@/components/firm/service-management/service-template-form"
 import { categoryFilterOptions } from "@/components/firm/service-management/service-management-variants"
 import {
@@ -25,8 +27,8 @@ import {
 
 import { uploadTemplateDocument } from "@/services/api/documentAPI"
 
-const categoryLabel = (value) =>
-  categoryFilterOptions.find((option) => option.value === value)?.label ?? value ?? ""
+const categoryLabel = (value, options) =>
+  options.find((option) => option.value === value)?.label ?? value ?? ""
 
 export default function ServiceManagementPage() {
   const location = useLocation()
@@ -40,12 +42,35 @@ export default function ServiceManagementPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deletingService, setDeletingService] = useState(null)
   const [notice, setNotice] = useState(null)
+  const [categoryCreateOpen, setCategoryCreateOpen] = useState(false)
+  const [categoryManagementOpen, setCategoryManagementOpen] = useState(false)
+  const [categoryOptions, setCategoryOptions] = useState(categoryFilterOptions)
 
   const { data: services = [], isLoading, error } = useFetchServices()
   const createService = useCreateService()
   const updateService = useUpdateService()
   const toggleStatus = useToggleServiceStatus()
   const deleteService = useDeleteService()
+
+  const createCategory = (name) => {
+    const value = name.toLowerCase().trim().replace(/\s+/g, "-")
+    setCategoryOptions((current) => [...current, { value, label: name }])
+    setNotice({ tone: "success", message: `${name} category created` })
+  }
+
+  const renameCategory = (value, name) => {
+    setCategoryOptions((current) =>
+      current.map((category) => (category.value === value ? { ...category, label: name } : category))
+    )
+    setNotice({ tone: "success", message: `${name} category updated` })
+  }
+
+  const removeCategory = (value) => {
+    const category = categoryOptions.find((option) => option.value === value)
+    setCategoryOptions((current) => current.filter((option) => option.value !== value))
+    if (categoryFilter === value) setCategoryFilter("")
+    setNotice({ tone: "success", message: `${category?.label ?? "Category"} removed` })
+  }
 
   const filteredServices = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -55,12 +80,12 @@ export default function ServiceManagementPage() {
         service.name.toLowerCase().includes(query) ||
         service.description?.toLowerCase().includes(query) ||
         service.category.toLowerCase().includes(query) ||
-        categoryLabel(service.category).toLowerCase().includes(query)
+        categoryLabel(service.category, categoryOptions).toLowerCase().includes(query)
       const matchesCategory = !categoryFilter || service.category === categoryFilter
       const matchesStatus = !statusFilter || service.status === statusFilter
       return matchesSearch && matchesCategory && matchesStatus
     })
-  }, [services, search, categoryFilter, statusFilter])
+  }, [services, search, categoryFilter, statusFilter, categoryOptions])
 
   const handleCreate = (values) => {
   const tasksWithFiles = values.workflowTasks
@@ -184,6 +209,8 @@ export default function ServiceManagementPage() {
         onSearchChange={setSearch}
         categoryFilter={categoryFilter}
         onCategoryFilterChange={setCategoryFilter}
+        categoryOptions={categoryOptions}
+        onManageCategories={() => setCategoryManagementOpen(true)}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         onAddService={() => setCreateOpen(true)}
@@ -215,6 +242,7 @@ export default function ServiceManagementPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         onSubmit={handleCreate}
+        categoryOptions={categoryOptions}
         submitting={createService.isPending}
       />
 
@@ -223,6 +251,7 @@ export default function ServiceManagementPage() {
         onOpenChange={setEditOpen}
         service={editingService}
         onSubmit={handleSave}
+        categoryOptions={categoryOptions}
         submitting={updateService.isPending}
       />
 
@@ -232,6 +261,25 @@ export default function ServiceManagementPage() {
         service={deletingService}
         onConfirm={handleDelete}
         deleting={deleteService.isPending}
+      />
+
+      <CategoryCreateDialog
+        open={categoryCreateOpen}
+        onOpenChange={setCategoryCreateOpen}
+        onSubmit={createCategory}
+        existingCategories={categoryOptions}
+      />
+
+      <CategoryManagementDialog
+        open={categoryManagementOpen}
+        onOpenChange={setCategoryManagementOpen}
+        categories={categoryOptions}
+        onAdd={() => {
+          setCategoryManagementOpen(false)
+          setCategoryCreateOpen(true)
+        }}
+        onRename={renameCategory}
+        onRemove={removeCategory}
       />
     </>
   )

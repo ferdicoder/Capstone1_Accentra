@@ -120,7 +120,7 @@ export function EngagementList({
                 </th>
               ))}
               {showActions && (
-                <th scope="col" className="px-4 py-3 text-right font-semibold">
+                <th scope="col" className="w-[180px] px-4 py-3 text-left font-semibold">
                   Actions
                 </th>
               )}
@@ -180,10 +180,12 @@ export function EngagementList({
                       ))}
                       {showActions && (
                         <td
-                          className="px-4 py-3 text-right align-middle"
+                          className="w-[180px] px-4 py-3 align-middle"
                           onClick={(event) => event.stopPropagation()}
                         >
-                          {actions(engagement)}
+                          <div className="flex items-center justify-start gap-2">
+                            {actions(engagement)}
+                          </div>
                         </td>
                       )}
                     </tr>

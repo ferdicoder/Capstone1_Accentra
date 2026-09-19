@@ -1,4 +1,7 @@
 import axios from 'axios';
+import https from 'https';
+
+export const b2HttpsAgent = new https.Agent({ family: 4 });
 
 let authCache = null;
 let authCacheExpiry = 0;
@@ -13,7 +16,11 @@ export async function authorizeB2() {
 
   const res = await axios.get(
     'https://api.backblazeb2.com/b2api/v3/b2_authorize_account',
-    { headers: { Authorization: `Basic ${credentials}` } }
+    {
+      headers: { Authorization: `Basic ${credentials}` },
+      httpsAgent: b2HttpsAgent,
+      timeout: 15000,
+    }
   );
 
   authCache = {
