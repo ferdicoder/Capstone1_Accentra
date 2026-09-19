@@ -249,8 +249,8 @@ The root command runs the backend in watch mode and the frontend through Vite. T
 To run either part separately:
 
 ```bash
-npm run dev --prefix backend
-npm run dev --prefix frontend
+cd backend && npm run dev --prefix backend
+cd frontend && npm run dev --prefix frontend
 ```
 
 The frontend also supports:
