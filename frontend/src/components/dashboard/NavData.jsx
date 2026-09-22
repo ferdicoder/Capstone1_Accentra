@@ -4,6 +4,7 @@ import {
   Briefcase,
   Settings,
   ClipboardList,
+  Receipt,
 } from "lucide-react"
 
 export const firmAdminNav = [
@@ -33,6 +34,7 @@ export const clientNav = [
   { title: "Home", url: "/client/dashboard", icon: LayoutDashboard, items: [] },
   { title: "Service Requests", url: "/client/service-requests", icon: UserCog, items: [] },
   { title: "My Engagements", url: "/client/engagements", icon: Briefcase, items: [] },
+  { title: "Billing", url: "/client/billing", icon: Receipt, items: [] },
   {
     title: "Settings",
     url: "/client/profile",
