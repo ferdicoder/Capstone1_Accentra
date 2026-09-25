@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { EngagementStatusBadge } from "./engagement-status-badge"
-import { formatRevenue, formatDate, getClientFullName, firmStaffMap } from "./engagement-variants"
+import { formatRevenue, formatDate, getClientFullName } from "./engagement-variants"
 
 const getInitials = (name) => {
   if (!name) return "AC"
@@ -54,7 +54,7 @@ const defaultEngagementColumns = [
     label: "Assigned To",
     render: (engagement) => (
       <span className="text-sm text-foreground">
-        {firmStaffMap[engagement?.assignedStaff] ?? "—"}
+        {engagement?.assignedStaff || "—"}
       </span>
     ),
   },
