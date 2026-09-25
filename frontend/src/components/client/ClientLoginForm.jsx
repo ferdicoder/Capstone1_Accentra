@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {useState} from "react"
+import { useState } from "react"
 import {
   Field,
   FieldDescription,
@@ -9,6 +9,7 @@ import {
   FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
 
 import { signinUser } from "../../services/authService";
 import { useNavigate } from "react-router-dom";
@@ -18,13 +19,15 @@ export function ClientLoginForm({
   ...props
 }) {
     const [errors, setErrors] = useState({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [credentialsError, setCredentialsError] = useState("");
 
     const navigate = useNavigate(); 
 
     const handleSubmit = async (event) => {
       event.preventDefault()
 
-      const email= event.target.email.value
+      const email = event.target.email.value
       const password = event.target.password.value
 
       const newErrors = {
@@ -32,16 +35,26 @@ export function ClientLoginForm({
         password: !password,
       } 
       setErrors(newErrors)
-      if (!newErrors.email && !newErrors.password) {
-        console.log("Login Successful:")
+      setCredentialsError("")
+      if (newErrors.email || newErrors.password) return
+
+      setIsSubmitting(true)
+
+      try {
+        const user = await signinUser(email, password);
+
+        if (user.error) {
+          setCredentialsError("The email or password you entered is incorrect.")
+          return
+        }
+
+        navigate(`/${user.role}/dashboard`);
+      } catch (err) {
+        console.error(err)
+        setCredentialsError("Invalid Credentials. Please try again.")
+      } finally {
+        setIsSubmitting(false)
       }
-
-       // login 
-      const user = await signinUser(email, password); 
-      if(user.error) console.log('ERRRO:', user.error)
-     
-
-      navigate(`/${user.role}/dashboard`);
     }
     
   return (
@@ -63,11 +76,30 @@ export function ClientLoginForm({
           id="email" 
           type="email" 
           placeholder="m@example.com" 
-          className={cn(errors.email &&  "border-red-500 focus-visible:ring-red-500")}
+          disabled={isSubmitting}
+          className={cn((errors.email || credentialsError) &&  "border-red-500 focus-visible:ring-red-500")}
+          onChange={() => credentialsError && setCredentialsError("")}
           />
 
           {errors.email && (
             <p className="text-sm p-0 text-red-500">Email is required.</p>
+          )}
+
+          {credentialsError && (
+            <p className="flex items-center gap-1.5 text-sm text-red-500">
+              <svg
+                className="size-4 shrink-0"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              {credentialsError}
+            </p>
           )}
         </Field>
 
@@ -85,7 +117,9 @@ export function ClientLoginForm({
           <Input 
           id="password" 
           type="password" 
-          className={cn(errors.password && "border-red-500 focus-visible:ring-red-500")}
+          disabled={isSubmitting}
+          className={cn((errors.password || credentialsError) && "border-red-500 focus-visible:ring-red-500")}
+          onChange={() => credentialsError && setCredentialsError("")}
           />
           {errors.password && (
             <p className="text-sm text-red-500">Password is required.</p>
@@ -93,7 +127,9 @@ export function ClientLoginForm({
         </Field>
 
         <Field> {/* this component represents the submit button and the sign-up link */}
-          <Button type="submit"
+          <Button 
+          type="submit"
+          disabled={isSubmitting}
           className="
           mt-4
           w-full
@@ -107,8 +143,19 @@ export function ClientLoginForm({
           transition-all
           focus-visible:ring-2
           focus-visible:ring-emerald-500
+          disabled:opacity-70
+          disabled:cursor-not-allowed
           "
-          >Login</Button>
+          >
+            {isSubmitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="size-5 animate-spin" />
+                Logging in...
+              </span>
+            ) : (
+              "Login"
+            )}
+          </Button>
 
           <FieldDescription className="text-center">
             Don&apos;t have an account?{" "}
