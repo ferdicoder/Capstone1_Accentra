@@ -9,12 +9,17 @@ import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchMyServiceRequests, useCancelServiceRequest } from "@/hooks/useServiceRequests"
 
-// Only pending requests can still be cancelled by the client.
-const CANCELLABLE_STATUSES = ["pending"]
+// Requests can still be cancelled by the client while pending, approved,
+// or actively in progress. Once declined, there's nothing left to cancel.
+const CANCELLABLE_STATUSES = ["pending", "approved", "in-progress"]
+
+// Declined requests never show a Cancel action at all.
+const DECLINED_STATUS = "rejected"
 
 const statusMeta = {
   pending: { label: "Pending Review", tone: "amber" },
   approved: { label: "Approved", tone: "blue" },
+  "in-progress": { label: "In Progress", tone: "blue" },
   rejected: { label: "Declined", tone: "red" },
   cancelled: { label: "Cancelled", tone: "gray" },
 }
@@ -101,7 +106,7 @@ export default function ClientServiceRequestsPage() {
                 <th className="px-4 py-3.5 align-middle font-semibold">Service</th>
                 <th className="px-4 py-3.5 align-middle font-semibold">Requested</th>
                 <th className="px-4 py-3.5 text-center align-middle font-semibold">View</th>
-                <th className="px-4 py-3.5 text-center align-middle font-semibold">Cancel</th>
+                <th className="px-4 py-3.5 text-center align-middle font-semibold">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -117,6 +122,7 @@ export default function ClientServiceRequestsPage() {
                 filteredRequests.map((r) => {
                   const meta = statusMeta[r.status] ?? { label: r.status, tone: "gray" }
                   const canCancel = CANCELLABLE_STATUSES.includes(r.status)
+                  const isDeclined = r.status === DECLINED_STATUS
                   return (
                     <tr
                       key={r.id}
@@ -151,16 +157,20 @@ export default function ClientServiceRequestsPage() {
                         </Button>
                       </td>
                       <td className="px-4 py-4 text-center align-middle">
-                        <Button
-                          variant={canCancel ? "destructive" : "outline"}
-                          size="sm"
-                          disabled={!canCancel || cancelRequest.isPending}
-                          onClick={() => canCancel && handleCancelRequest(r.id)}
-                          className="gap-1.5"
-                        >
-                          <X className="size-3.5" />
-                          Cancel
-                        </Button>
+                        {isDeclined ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : (
+                          <Button
+                            variant={canCancel ? "destructive" : "outline"}
+                            size="sm"
+                            disabled={!canCancel || cancelRequest.isPending}
+                            onClick={() => canCancel && handleCancelRequest(r.id)}
+                            className="gap-1.5"
+                          >
+                            <X className="size-3.5" />
+                            Cancel
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   )
