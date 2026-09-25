@@ -6,6 +6,7 @@ import {
 } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { supabase } from "@/config/supabase"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,14 @@ import {
 
 export function NavUser({ user }) {
   const { isMobile } = useSidebar()
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      console.error("Logout failed:", error)
+    }
+  }
 
   if (!user) return null
 
@@ -95,7 +104,7 @@ export function NavUser({ user }) {
 
                     <DropdownMenuSeparator />
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>
                       <LogOut />
                       Log out
                     </DropdownMenuItem>
