@@ -6,7 +6,6 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
-  FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input";
 
@@ -19,30 +18,41 @@ export function FirmLoginForm({
   ...props
 }) {
     const [errors, setErrors] = useState({})
+  const [loginError, setLoginError] = useState("")
 
     const navigate = useNavigate(); 
 
     const handleSubmit = async (event) => {
       event.preventDefault()
 
-      const email= event.target.email.value
-      const password = event.target.password.value
+      const formData = new FormData(event.currentTarget)
+      const email = formData.get("email")?.toString().trim() ?? ""
+      const password = formData.get("password")?.toString() ?? ""
 
       const newErrors = {
         email: !email,
         password: !password,
       } 
       setErrors(newErrors)
-      if (!newErrors.email && !newErrors.password) {
-        console.log("Login Successful:")
+      setLoginError("")
+      if (newErrors.email || newErrors.password) return
+
+      try {
+        const { role } = await signinUser(email, password)
+        const dashboardPath = ["admin", "firm-admin"].includes(role)
+          ? "/admin/dashboard"
+          : ["staff", "billing_officer"].includes(role)
+            ? "/firm/dashboard"
+            : null
+
+        if (!dashboardPath) {
+          throw new Error("Your account does not have a valid firm role assigned.")
+        }
+
+        navigate(dashboardPath)
+      } catch (error) {
+        setLoginError(error.message || "Unable to sign in. Check your credentials.")
       }
-
-       // login 
-      const user = await signinUser(email, password); 
-      if(user.error) console.log('ERRRO:', user.error)
-     
-
-      navigate(`/${user.role}/dashboard`);
     }
 
   return (
@@ -62,6 +72,7 @@ export function FirmLoginForm({
             Email<span className=" text-red-500">*</span></FieldLabel>
           <Input 
           id="email" 
+          name="email"
           type="email" 
           placeholder="m@example.com" 
           className={cn(errors.email &&  "border-red-500 focus-visible:ring-red-500")}
@@ -85,6 +96,7 @@ export function FirmLoginForm({
           </div>
           <Input 
           id="password" 
+          name="password"
           type="password" 
           className={cn(errors.password && "border-red-500 focus-visible:ring-red-500")}
           />
@@ -92,6 +104,10 @@ export function FirmLoginForm({
             <p className="text-sm text-red-500">Password is required.</p>
           )}
         </Field>
+
+        {loginError && (
+          <p role="alert" className="text-sm text-red-500">{loginError}</p>
+        )}
 
         <Field> {/* this component represents the submit button and the sign-up link */}
           <Button type="submit"

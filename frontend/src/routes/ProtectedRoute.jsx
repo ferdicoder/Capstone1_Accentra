@@ -2,10 +2,11 @@ import { Navigate, Outlet } from "react-router-dom"
 
 import { authStore } from "@/store/authStore"
 
-const roleAliases = {
+// Route groups map to the actual roles stored in the database.
+const routeRoleAccess = {
   client: ["client"],
-  "firm-admin": ["firm-admin", "admin"],
-  "firm-staff": ["firm-staff", "staff"],
+  "firm-admin": ["admin"],
+  "firm-staff": ["staff", "billing_officer"],
 }
 
 const roleHome = {
@@ -15,7 +16,7 @@ const roleHome = {
 }
 
 function getCanonicalRole(role) {
-  return Object.entries(roleAliases).find(([, aliases]) => aliases.includes(role))?.[0]
+  return Object.entries(routeRoleAccess).find(([, roles]) => roles.includes(role))?.[0]
 }
 
 export function ProtectedRoute({ role }) {
@@ -27,7 +28,7 @@ export function ProtectedRoute({ role }) {
     return <Navigate to={role === "client" ? "/client/signin" : "/firm/signin"} replace />
   }
 
-  if (!roleAliases[role]?.includes(currentRole)) {
+  if (!routeRoleAccess[role]?.includes(currentRole)) {
     const canonicalRole = getCanonicalRole(currentRole)
     return <Navigate to={roleHome[canonicalRole] ?? "/firm/signin"} replace />
   }
