@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { AlertCircle, CheckCircle2, FileText } from "lucide-react"
+import { AlertCircle, CheckCircle2, FileText, Loader2 } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -41,10 +41,11 @@ export default function ClientBillingPage() {
   const [referenceNumber, setReferenceNumber] = useState("")
   const [submitError, setSubmitError] = useState("")
   const [submitSuccess, setSubmitSuccess] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const selectedInvoice =
     invoices.find((inv) => inv.id === selectedInvoiceId) ?? null
-
+  const isSelectedUnpaid = selectedInvoice?.status === "Unpaid"
   const unpaidCount = invoices.filter((inv) => inv.status === "Unpaid").length
 
   usePageMeta({
@@ -54,12 +55,12 @@ export default function ClientBillingPage() {
     onRequestServiceClick: () => navigate("/client/service-requests"),
   })
 
-  const handleSubmitPayment = (e) => {
+  const handleSubmitPayment = async (e) => {
     e.preventDefault()
     setSubmitError("")
     setSubmitSuccess("")
 
-    if (!selectedInvoice || selectedInvoice.status !== "Unpaid") {
+    if (!selectedInvoice || !isSelectedUnpaid) {
       setSubmitError("Select an unpaid invoice before submitting a reference.")
       return
     }
@@ -68,11 +69,25 @@ export default function ClientBillingPage() {
       return
     }
 
-    // TODO: replace with real insert into the payments table.
-    setSubmitSuccess(
-      `Payment reference for ${selectedInvoice.id} submitted. The firm will confirm it shortly.`
-    )
-    setReferenceNumber("")
+    setIsSubmitting(true)
+    try {
+      // TODO: replace with real insert into the payments table.
+      console.log("Submitting payment reference", {
+        invoiceId: selectedInvoice.id,
+        referenceNumber: referenceNumber.trim(),
+      })
+
+      setSubmitSuccess(
+        `Payment reference for ${selectedInvoice.id} submitted. The firm will confirm it shortly.`
+      )
+      setReferenceNumber("")
+    } catch (err) {
+      setSubmitError(
+        err?.message ?? "Something went wrong submitting your reference."
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -197,8 +212,8 @@ export default function ClientBillingPage() {
               Submit Payment Reference
             </h3>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Transfer to the firm&rsquo;s account, then submit your reference
-              number.
+              Transfer to the firm&rsquo;s account, then submit the reference
+              number your bank or e-wallet gave you.
             </p>
 
             <div className="mt-4 rounded-lg border bg-muted/30 p-3.5 text-xs text-muted-foreground">
@@ -215,13 +230,14 @@ export default function ClientBillingPage() {
                 htmlFor="referenceNumber"
                 className="text-xs font-medium text-foreground"
               >
-                Reference Number <span className="text-red-500">(Required)</span>
+                Reference Number <span className="text-red-500">*</span>
               </label>
               <Input
                 id="referenceNumber"
                 placeholder="e.g. GCash Ref. #1234567890"
                 value={referenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
+                disabled={!isSelectedUnpaid || isSubmitting}
               />
             </div>
 
@@ -237,12 +253,24 @@ export default function ClientBillingPage() {
 
             <Button
               type="submit"
-              disabled={!selectedInvoice || selectedInvoice.status !== "Unpaid"}
+              disabled={!selectedInvoice || !isSelectedUnpaid || isSubmitting}
               className="mt-4 w-full bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
             >
-              Submit Reference
-              {selectedInvoice ? ` — ${formatCurrency(selectedInvoice.amount)}` : ""}
+              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+              {isSubmitting
+                ? "Submitting..."
+                : `Submit Reference${
+                    selectedInvoice
+                      ? ` — ${formatCurrency(selectedInvoice.amount)}`
+                      : ""
+                  }`}
             </Button>
+
+            {!isSelectedUnpaid && (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                No unpaid invoice selected — nothing to submit right now.
+              </p>
+            )}
           </form>
         </div>
       </div>
