@@ -23,8 +23,13 @@ import ServiceManagementPage from "@/pages/firm/ServiceManagementPage";
 import ServiceRequestsPage from "@/pages/firm/ServiceRequestsPage";
 import EngagementsPage from "@/pages/firm/EngagementsPage";
 import EngagementDetailsPage from "@/pages/firm/EngagementDetailsPage";
+import LandingPage from "@/pages/LandingPage";
 
 export const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <LandingPage />,
+  },
   {
     path: "/client/signup",
     element: <SignupPage />,
