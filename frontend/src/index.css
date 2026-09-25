@@ -156,3 +156,129 @@
     @apply font-sans;
     }
 }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes landingEnter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landingMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.landing-page a,
+.landing-page button {
+  cursor: pointer;
+}
+
+.landing-hero-grid {
+  min-height: calc(100svh - 5.5rem);
+}
+
+@media (min-width: 1024px) {
+  .landing-hero-grid {
+    min-height: min(52rem, calc(100svh - 12rem));
+  }
+}
+
+.landing-reveal {
+  --landing-reveal-opacity: 1;
+  --landing-reveal-offset: 0px;
+  opacity: var(--landing-reveal-opacity);
+  transform: translate3d(0, var(--landing-reveal-offset), 0);
+  transition: opacity 160ms ease-out, transform 160ms ease-out, translate 300ms ease-out, border-color 200ms ease-out, background-color 200ms ease-out, box-shadow 200ms ease-out;
+  will-change: opacity, transform;
+}
+
+.landing-3d-logo {
+  --landing-3d-x: -140%;
+  transform: translate3d(var(--landing-3d-x), -50%, 0);
+  transition: transform 120ms linear;
+  will-change: transform;
+}
+
+.landing-hoverable:hover {
+  translate: 0 -4px;
+}
+
+.landing-hero-copy {
+  opacity: var(--landing-hero-copy-opacity, 1);
+  transform: translate3d(0, var(--landing-hero-copy-offset, 0px), 0);
+  transition: opacity 100ms linear, transform 100ms linear;
+  will-change: opacity, transform;
+}
+
+.landing-hero-preview {
+  transform: translate3d(0, var(--landing-hero-preview-offset, 0px), 0)
+    scale(var(--landing-hero-preview-scale, 1));
+  transition: transform 100ms linear;
+  will-change: transform;
+}
+
+.landing-workflow-line {
+  --landing-workflow-progress: 0.08;
+}
+
+.landing-workflow-progress {
+  transform: scaleY(var(--landing-workflow-progress, 0.08));
+  transform-origin: top;
+}
+
+.landing-enter {
+  animation: landingEnter 700ms ease-out both;
+}
+
+.landing-menu-in {
+  animation: landingMenuIn 180ms ease-out both;
+}
+
+@media (min-width: 768px) {
+  .landing-workflow-progress {
+    transform: scaleX(var(--landing-workflow-progress));
+    transform-origin: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-reveal,
+  .landing-hero-copy,
+  .landing-hero-preview {
+    opacity: 1 !important;
+    transform: none !important;
+    translate: none !important;
+    transition: none !important;
+  }
+
+  .landing-workflow-progress {
+    transform: scale(1) !important;
+  }
+
+  .landing-3d-logo {
+    transition: none !important;
+  }
+
+  .landing-enter,
+  .landing-menu-in {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
