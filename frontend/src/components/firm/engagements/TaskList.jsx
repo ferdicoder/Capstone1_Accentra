@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Clock, MoreHorizontal, Inbox, Check, MessageSquareWarning } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Clock, MoreHorizontal, Inbox, Check, MessageSquareWarning, Eye, Download } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -238,7 +238,7 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
 
 // ── Task Row ──────────────────────────────────────────────────────────────────
 
-function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail, onToggleComplete, onApprove, onRequestRevision }) {
+function TaskRow({ task, documents = [], onEdit, onSendReminder, onDeadlineChange, onOpenDetail, onToggleComplete, onApprove, onRequestRevision }) {
   const isDocBacked = task.hasReferenceDocument
   const canReview = isDocBacked && (task.status === "for_review" || task.status === "for_revision")
 
@@ -263,6 +263,38 @@ function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail,
             {task.required && <span className="ml-1 text-xs text-red-500 font-semibold">*</span>}
           </button>
         </div>
+        {isDocBacked && documents.length > 0 && (
+          <div className="mt-2 flex flex-col gap-1 pl-6">
+            {documents.map((document) => (
+              <div key={document.id} className="flex min-w-0 items-center gap-2 text-xs">
+                <span className="min-w-0 flex-1 truncate text-muted-foreground" title={document.name}>
+                  {document.name}
+                </span>
+                {document.downloadUrl && (
+                  <>
+                    <a
+                      href={document.downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="View document"
+                      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <Eye className="size-3.5" />
+                    </a>
+                    <a
+                      href={document.downloadUrl}
+                      download={document.name}
+                      title="Download document"
+                      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
+                    >
+                      <Download className="size-3.5" />
+                    </a>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </td>
 
       <td className="w-[160px] px-5 py-2.5"><TaskStatusBadge status={task.status} /></td>
@@ -302,6 +334,7 @@ function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail,
 
 export function TaskList({
   engagement,
+  documents = [],
   className,
   onTaskClick,
   onDeadlineChange,
@@ -311,6 +344,11 @@ export function TaskList({
   onTaskUpdate,
 }) {
   const tasks = engagement?.tasks ?? []
+  const documentsByTask = useMemo(() => documents.reduce((grouped, document) => {
+    const taskDocuments = grouped[document.engagementTaskId] ?? []
+    grouped[document.engagementTaskId] = [...taskDocuments, document]
+    return grouped
+  }, {}), [documents])
 
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
@@ -452,6 +490,7 @@ export function TaskList({
                 <TaskRow
                   key={task.id}
                   task={task}
+                  documents={documentsByTask[task.id]}
                   onEdit={() => openEditTask(task)}
                   onSendReminder={() => handleSendReminder(task)}
                   onDeadlineChange={onDeadlineChange}

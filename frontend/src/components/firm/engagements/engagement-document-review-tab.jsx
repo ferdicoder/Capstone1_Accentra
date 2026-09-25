@@ -1,13 +1,28 @@
-import { useState } from "react"
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import { AlertCircle, CheckCircle2, Download, FileText, Inbox, Paperclip, Upload, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ReviewStatusBadge } from "./review-status-badge"
-import { engagementStore } from "./engagement-store"
-import { getReviewDocuments, formatTimestamp, firmStaffMap } from "./engagement-variants"
+import { formatTimestamp } from "./engagement-variants"
+
+const reviewStatusMap = {
+  approved: "approved",
+  for_review: "in_review",
+  for_revision: "revision_requested",
+  missing: "pending",
+}
+
+const formatFileSize = (size) => {
+  if (!size) return "—"
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
+const getFileType = (document) =>
+  document.fileType || document.mimeType?.split("/").pop()?.toUpperCase() || "FILE"
 
 const getInitials = (name) => {
   if (!name) return "AC"
@@ -32,7 +47,7 @@ function ReviewQueueItem({ document, isSelected, onSelect }) {
         <p className="text-xs text-muted-foreground">
           {document.uploadedDate ? `${document.uploadedDate} · 10:30 AM` : "—"}
         </p>
-        <ReviewStatusBadge status={document.status} />
+        <ReviewStatusBadge status={reviewStatusMap[document.status] ?? document.status} />
       </div>
     </button>
   )
@@ -69,9 +84,15 @@ function HistoryItem({ item, isLast }) {
   )
 }
 
-export function EngagementDocumentReviewTab({ engagement, className, preselectedDocName, ...props }) {
-  const documents = getReviewDocuments(engagement)
-  const history = engagement.reviewHistory ?? []
+export function EngagementDocumentReviewTab({
+  documents: providedDocuments = [],
+  history = [],
+  onReview,
+  className,
+  preselectedDocName,
+  ...props
+}) {
+  const documents = providedDocuments
   const [selectedDoc, setSelectedDoc] = useState(() => {
     if (preselectedDocName) {
       const match = documents.find((d) => d.name === preselectedDocName)
@@ -85,17 +106,9 @@ export function EngagementDocumentReviewTab({ engagement, className, preselected
   const [referenceFiles, setReferenceFiles] = useState([])
   const fileInputRef = useRef(null)
 
-  const updateDocumentStatus = engagementStore((state) => state.updateDocumentStatus)
-  const addReviewHistoryEntry = engagementStore((state) => state.addReviewHistoryEntry)
-  const staffLabel = firmStaffMap[engagement?.assignedStaff] ?? "You"
-
   const handleApprove = () => {
     if (!selectedDoc) return
-    updateDocumentStatus(engagement.id, selectedDoc.id, "approved")
-    addReviewHistoryEntry(engagement.id, {
-      id: `hist-${Date.now()}`, userName: staffLabel, action: "approved",
-      comment: remarks.trim() || "Document approved.", timestamp: new Date().toISOString(),
-    })
+    onReview?.(selectedDoc, "approved", remarks.trim() || "Document approved.")
     setSelectedDoc({ ...selectedDoc, status: "approved" })
     setRemarks("")
     setRemarksError("")
@@ -106,13 +119,8 @@ export function EngagementDocumentReviewTab({ engagement, className, preselected
   const handleRequestRevision = () => {
     if (!remarks.trim()) { setRemarksError("Remarks are required when requesting revision."); return }
     if (!selectedDoc) return
-    updateDocumentStatus(engagement.id, selectedDoc.id, "revision_requested")
-    addReviewHistoryEntry(engagement.id, {
-      id: `hist-${Date.now()}`, userName: staffLabel, action: "revision_requested",
-      comment: remarks.trim(), references: referenceFiles.length > 0 ? [...referenceFiles] : undefined,
-      timestamp: new Date().toISOString(),
-    })
-    setSelectedDoc({ ...selectedDoc, status: "revision_requested" })
+    onReview?.(selectedDoc, "for_revision", remarks.trim())
+    setSelectedDoc({ ...selectedDoc, status: "for_revision" })
     setRemarks("")
     setRemarksError("")
     setReferenceFiles([])
@@ -134,6 +142,8 @@ export function EngagementDocumentReviewTab({ engagement, className, preselected
   const removeReferenceFile = (id) => {
     setReferenceFiles((prev) => prev.filter((f) => f.id !== id))
   }
+
+  const selectedStatus = selectedDoc ? reviewStatusMap[selectedDoc.status] ?? selectedDoc.status : null
 
   return (
     <div data-slot="engagement-document-review-tab" className={cn("grid gap-6 lg:grid-cols-[280px_1fr_300px]", className)} {...props}>
@@ -183,11 +193,13 @@ export function EngagementDocumentReviewTab({ engagement, className, preselected
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="text-right">
-                    <p className="text-xs font-medium text-foreground">{selectedDoc.fileType}</p>
-                    <p className="text-xs text-muted-foreground">{selectedDoc.fileSize}</p>
+                    <p className="text-xs font-medium text-foreground">{getFileType(selectedDoc)}</p>
+                    <p className="text-xs text-muted-foreground">{formatFileSize(selectedDoc.fileSize)}</p>
                   </div>
-                  <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground">
-                    <Download className="size-3.5" />
+                  <Button asChild variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground">
+                    <a href={selectedDoc.downloadUrl} target="_blank" rel="noopener noreferrer" title="Download document">
+                      <Download className="size-3.5" />
+                    </a>
                   </Button>
                 </div>
               </div>
@@ -199,18 +211,22 @@ export function EngagementDocumentReviewTab({ engagement, className, preselected
               </div>
               <p className="text-sm font-medium text-foreground">Document Preview</p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="rounded-lg gap-1.5">
-                  <Download className="size-3.5" />
-                  Download
+                <Button asChild variant="outline" size="sm" className="rounded-lg gap-1.5">
+                  <a href={selectedDoc.downloadUrl} download={selectedDoc.name}>
+                    <Download className="size-3.5" />
+                    Download
+                  </a>
                 </Button>
-                <Button variant="outline" size="sm" className="rounded-lg">Open Full Document</Button>
+                <Button asChild variant="outline" size="sm" className="rounded-lg">
+                  <a href={selectedDoc.downloadUrl} target="_blank" rel="noopener noreferrer">Open Full Document</a>
+                </Button>
               </div>
             </div>
 
             <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <h4 className="text-sm font-semibold text-foreground">Review Decision</h4>
-                <ReviewStatusBadge status={selectedDoc.status} />
+                    <ReviewStatusBadge status={selectedStatus} />
               </div>
 
               {selectedDoc.status === "approved" ? (
@@ -275,7 +291,7 @@ export function EngagementDocumentReviewTab({ engagement, className, preselected
                   <Button size="sm" className="gap-1.5 rounded-lg bg-[#02353C] text-white hover:opacity-90" onClick={handleApprove} disabled={selectedDoc.status === "approved"}>
                     <CheckCircle2 className="size-4" /> Approve
                   </Button>
-                  <Button size="sm" variant="outline" className="gap-1.5 rounded-lg border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800" onClick={handleRequestRevision} disabled={selectedDoc.status === "approved" || selectedDoc.status === "revision_requested"}>
+                  <Button size="sm" variant="outline" className="gap-1.5 rounded-lg border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800" onClick={handleRequestRevision} disabled={selectedDoc.status === "approved" || selectedDoc.status === "for_revision"}>
                     <AlertCircle className="size-4" /> Request Revision
                   </Button>
                 </div>

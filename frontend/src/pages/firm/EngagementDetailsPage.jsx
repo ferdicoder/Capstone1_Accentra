@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useLocation, useNavigate, useParams } from "react-router-dom"
+import { useLocation, useParams } from "react-router-dom"
 import { XCircle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -20,6 +20,7 @@ import { UploadDeliverables } from "@/components/firm/engagements/UploadDelivera
 import { CancelEngagementDialog } from "@/components/firm/engagements/cancel-engagement-dialog"
 import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
 import { ActivityLogItem } from "@/components/firm/engagements/ActivityLogItem"
+import { EngagementDocumentReviewTab } from "@/components/firm/engagements/engagement-document-review-tab"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
 import { workflowStages, isEngagementActive } from "@/lib/workflow-stages"
 import {
@@ -31,17 +32,18 @@ import {
   useUpdateEngagementTask,
   useUpdateEngagementTaskDeadline,
   useFetchEngagementActivity,
+  useFetchEngagementDocuments,
 } from "@/hooks/useEngagements"
 
 export default function EngagementDetailsPage() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const location = useLocation()
   const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
   const sectionLabel = basePath === "/firm" ? "Firm Staff" : "Firm Admin"
 
   const { data: engagement, isLoading, error } = useFetchEngagement(id)
   const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(id)
+  const { data: documents = [] } = useFetchEngagementDocuments(id)
   const updateStatus = useUpdateEngagementStatus()
   const setTaskCompleted = useSetTaskCompleted(id)
   const reviewTask = useReviewEngagementTask(id)
@@ -53,6 +55,7 @@ export default function EngagementDetailsPage() {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [notice, setNotice] = useState("")
+  const [activeTab, setActiveTab] = useState("overview")
 
   usePageMeta({
     title: engagement?.engagementNumber ?? "Engagement Details",
@@ -124,6 +127,33 @@ export default function EngagementDetailsPage() {
     updateDeadline.mutate({ taskId, dueDate })
   }
 
+  const reviewDocuments = documents.map((document) => {
+    const task = engagement.tasks?.find((item) => item.id === document.engagementTaskId)
+    return {
+      ...document,
+      taskId: task?.id,
+      taskName: task?.name,
+      status: task?.status ?? "missing",
+      remark: task?.remark,
+    }
+  })
+
+  const reviewHistory = activity.map((entry) => ({
+    id: entry.id,
+    userName: entry.actorName,
+    action: entry.type === "task_approved" ? "approved" : entry.type === "task_revision_requested" ? "revision_requested" : "submitted",
+    comment: entry.message,
+    timestamp: entry.createdAt,
+  }))
+
+  const handleDocumentReview = (document, status, remark) => {
+    if (!document.taskId) return
+    reviewTask.mutate(
+      { taskId: document.taskId, status, remark },
+      { onSuccess: () => showNotice(status === "approved" ? "Document approved" : "Revision requested") }
+    )
+  }
+
 
   return (
     <>
@@ -189,6 +219,36 @@ export default function EngagementDetailsPage() {
           workflowStage={engagement.status}
         />
 
+        <div className="flex gap-4 overflow-x-auto border-b sm:gap-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab("overview")}
+            className={cn(
+              "-mb-px shrink-0 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors",
+              activeTab === "overview"
+                ? "border-emerald-600 text-emerald-700"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("documents")}
+            className={cn(
+              "-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors",
+              activeTab === "documents"
+                ? "border-emerald-600 text-emerald-700"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Documents
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+              {documents.length}
+            </span>
+          </button>
+        </div>
+
         {/* ── Notice ────────────────────────────────────────────────────── */}
         {notice && (
           <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
@@ -197,11 +257,12 @@ export default function EngagementDetailsPage() {
         )}
 
         {/* ── Main content ──────────────────────────────────────────────── */}
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        {activeTab === "overview" && <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-w-0 flex-col gap-5">
             <UploadDeliverables engagement={engagement} />
             <TaskList
               engagement={engagement}
+              documents={documents}
               onTaskComplete={handleTaskComplete}
               onTaskReview={handleTaskReview}
               onTaskCreate={handleTaskCreate}
@@ -231,7 +292,16 @@ export default function EngagementDetailsPage() {
               )}
             </div>
           </div>
-        </div>
+        </div>}
+
+        {activeTab === "documents" && (
+          <EngagementDocumentReviewTab
+            engagement={engagement}
+            documents={reviewDocuments}
+            history={reviewHistory}
+            onReview={handleDocumentReview}
+          />
+        )}
       </div>
 
       <ClientServiceDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} engagement={engagement} />
