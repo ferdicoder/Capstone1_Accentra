@@ -2,9 +2,12 @@ import { cn } from "@/lib/utils"
 import { statusBadgeStyles, statusDotStyles } from "./engagement-variants"
 
 const defaultStatusLabels = {
-  active: "Active",
+  document_collection: "Document Collection",
+  for_validation: "For Validation",
+  in_progress: "In Progress",
+  for_approval: "For Approval",
+  payment: "Payment",
   completed: "Completed",
-  on_hold: "On Hold",
   cancelled: "Cancelled",
 }
 

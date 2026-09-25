@@ -1,22 +1,31 @@
 export const statusBadgeStyles = {
-  active: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
-  completed: "bg-sky-500/10 text-sky-700 ring-sky-500/25",
-  on_hold: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
+  document_collection: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
+  for_validation: "bg-blue-500/10 text-blue-700 ring-blue-500/25",
+  in_progress: "bg-cyan-500/10 text-cyan-700 ring-cyan-500/25",
+  for_approval: "bg-orange-500/10 text-orange-700 ring-orange-500/25",
+  payment: "bg-teal-500/10 text-teal-700 ring-teal-500/25",
+  completed: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
   cancelled: "bg-red-500/10 text-red-600 ring-red-500/25",
 }
 
 export const statusDotStyles = {
-  active: "bg-emerald-500",
-  completed: "bg-sky-500",
-  on_hold: "bg-amber-500",
+  document_collection: "bg-amber-500",
+  for_validation: "bg-blue-500",
+  in_progress: "bg-cyan-500",
+  for_approval: "bg-orange-500",
+  payment: "bg-teal-500",
+  completed: "bg-emerald-500",
   cancelled: "bg-red-500",
 }
 
 export const statusFilterOptions = [
   { value: "all", label: "All Engagements" },
-  { value: "active", label: "Active" },
+  { value: "document_collection", label: "Document Collection" },
+  { value: "for_validation", label: "For Validation" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "for_approval", label: "For Approval" },
+  { value: "payment", label: "Payment" },
   { value: "completed", label: "Completed" },
-  { value: "on_hold", label: "On Hold" },
   { value: "cancelled", label: "Cancelled" },
 ]
 
