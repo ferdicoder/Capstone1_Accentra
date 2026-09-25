@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ClientLayout } from "@/layout/ClientLayout";
 import { FirmAdminLayout } from "@/layout/FirmAdminLayout";
 import { FirmStaffLayout } from "@/layout/FirmStaffLayout";
+import { ProtectedRoute } from "@/routes/ProtectedRoute";
 
 import ClientDashboard from "@/pages/client/ClientDashboard";
 import LoginPage from "@/pages/client/LoginPage";
@@ -38,41 +39,55 @@ export const router = createBrowserRouter([
   },
   {
     path: "/client",
-    element: <ClientLayout />,
+    element: <ProtectedRoute role="client" />,
     children: [
-      { index: true, element: <Navigate to="dashboard" replace /> },
-      { path: "dashboard", element: <ClientDashboard /> },
-      { path: "profile", element: <ClientProfilePage /> },
-      { path: "service-requests", element: <ClientServiceRequestsPage /> },
-      { path: "engagements", element: <ClientEngagementsPage /> },
-      { path: "engagements/:id", element: <ClientEngagementDetailPage /> },
-      { path: "billing", element: <ClientBillingPage /> },
+      {
+        element: <ClientLayout />,
+        children: [
+          { index: true, element: <Navigate to="dashboard" replace /> },
+          { path: "dashboard", element: <ClientDashboard /> },
+          { path: "profile", element: <ClientProfilePage /> },
+          { path: "service-requests", element: <ClientServiceRequestsPage /> },
+          { path: "engagements", element: <ClientEngagementsPage /> },
+          { path: "engagements/:id", element: <ClientEngagementDetailPage /> },
+        ],
+      },
     ],
   },
   {
     path: "/admin",
-    element: <FirmAdminLayout />,
+    element: <ProtectedRoute role="firm-admin" />,
     children: [
-      { index: true, element: <Navigate to="dashboard" replace /> },
-      { path: "dashboard", element: <FirmAdminDashboard /> },
-      { path: "users", element: <UserManagementPage /> },
-      { path: "profile", element: <FirmProfilePage /> },
-      { path: "services", element: <ServiceManagementPage /> },
-      { path: "service-requests", element: <ServiceRequestsPage /> },
-      { path: "engagements", element: <EngagementsPage /> },
-      { path: "engagements/:id", element: <EngagementDetailsPage /> },
+      {
+        element: <FirmAdminLayout />,
+        children: [
+          { index: true, element: <Navigate to="dashboard" replace /> },
+          { path: "dashboard", element: <FirmAdminDashboard /> },
+          { path: "users", element: <UserManagementPage /> },
+          { path: "profile", element: <FirmProfilePage /> },
+          { path: "services", element: <ServiceManagementPage /> },
+          { path: "service-requests", element: <ServiceRequestsPage /> },
+          { path: "engagements", element: <EngagementsPage /> },
+          { path: "engagements/:id", element: <EngagementDetailsPage /> },
+        ],
+      },
     ],
   },
   {
     path: "/firm",
-    element: <FirmStaffLayout />,
+    element: <ProtectedRoute role="firm-staff" />,
     children: [
-      { index: true, element: <Navigate to="dashboard" replace /> },
-      { path: "dashboard", element: <FirmStaffDashboard /> },
-      { path: "service-requests", element: <ServiceRequestsPage /> },
-      { path: "services", element: <ServiceManagementPage /> },
-      { path: "engagements", element: <EngagementsPage /> },
-      { path: "engagements/:id", element: <EngagementDetailsPage /> },
+      {
+        element: <FirmStaffLayout />,
+        children: [
+          { index: true, element: <Navigate to="dashboard" replace /> },
+          { path: "dashboard", element: <FirmStaffDashboard /> },
+          { path: "service-requests", element: <ServiceRequestsPage /> },
+          { path: "services", element: <ServiceManagementPage /> },
+          { path: "engagements", element: <EngagementsPage /> },
+          { path: "engagements/:id", element: <EngagementDetailsPage /> },
+        ],
+      },
     ],
   },
   {
