@@ -14,6 +14,9 @@ async function signinUser(email, password){
     if(error) throw new Error(error.message)
 
     const role = await setUserRole(data.user);
+    if (!role) {
+      throw new Error("Your account does not have a valid firm role assigned.")
+    }
     console.log("Login Successful"); 
     return { data, role }; 
 
