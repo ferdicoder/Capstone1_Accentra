@@ -29,6 +29,7 @@ const initialFormState = {
   firstName: "",
   lastName: "",
   middleName: "",
+  extensionName: "",
   birthMonth: "",
   birthDay: "",
   birthYear: "",
@@ -48,31 +49,157 @@ const initialFormState = {
   zipCode: "",
 }
 
+// --- Validation ----------------------------------------------------------
+
+const NAME_PATTERN = /^[A-Za-z\s'-]+$/
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/
+
+// Fields where disallowed characters are stripped as the user types,
+// rather than only flagged after the fact.
+const LETTERS_ONLY_FIELDS = new Set(["firstName", "middleName", "lastName", "extensionName"])
+const DIGITS_ONLY_FIELDS = new Set(["tin", "contactNumber", "zipCode"])
+
+function sanitizeValue(name, rawValue) {
+  if (LETTERS_ONLY_FIELDS.has(name)) {
+    const lettersOnly = rawValue.replace(/[^A-Za-z\s'-]/g, "")
+    // Auto-capitalize the first letter of each word (e.g. "juan dela cruz"
+    // -> "Juan Dela Cruz") as the user types.
+    return lettersOnly.replace(/(^|[\s'-])([a-z])/g, (match, boundary, letter) =>
+      boundary + letter.toUpperCase()
+    )
+  }
+  if (DIGITS_ONLY_FIELDS.has(name)) {
+    return rawValue.replace(/\D/g, "")
+  }
+  return rawValue
+}
+
+// Per-field format validation, used both for live feedback and for the
+// full-step check run on Continue/Submit.
+function validateField(name, value, formData) {
+  switch (name) {
+    case "firstName":
+      if (!value.trim()) return "First name is required."
+      if (!NAME_PATTERN.test(value)) return "First name can only contain letters."
+      return ""
+
+    case "middleName":
+      if (value.trim() && !NAME_PATTERN.test(value)) {
+        return "Middle name can only contain letters."
+      }
+      return ""
+
+    case "lastName":
+      if (!value.trim()) return "Last name is required."
+      if (!NAME_PATTERN.test(value)) return "Last name can only contain letters."
+      return ""
+
+    case "extensionName":
+      // Optional field — only validate format if something was entered.
+      if (value.trim() && !NAME_PATTERN.test(value)) {
+        return "Extension name can only contain letters."
+      }
+      return ""
+
+    case "email":
+      if (!value.trim()) return "Email address is required."
+      if (!EMAIL_PATTERN.test(value)) {
+        return "Enter a valid email address, e.g. example@gmail.com."
+      }
+      return ""
+
+    case "password":
+      if (!value) return "Password is required."
+      if (value.length < 8) return "Password must be at least 8 characters long."
+      return ""
+
+    case "confirmPassword":
+      if (!value) return "Please confirm your password."
+      if (value !== formData.password) return "Passwords do not match."
+      return ""
+
+    case "tin":
+      if (!value.trim()) return "TIN number is required."
+      if (value.length !== 12) return "TIN number must be 12 digits."
+      return ""
+
+    case "contactNumber":
+      if (!value.trim()) return "Contact number is required."
+      return ""
+
+    case "zipCode":
+      if (!value.trim()) return "ZIP code is required."
+      if (value.length < 4) return "ZIP code must be 4 digits."
+      return ""
+
+    default:
+      return ""
+  }
+}
+
+const STEP_ONE_FIELDS = ["firstName", "middleName", "lastName", "extensionName", "email", "password", "confirmPassword"]
+const STEP_TWO_FIELDS = ["tin", "contactNumber", "zipCode"]
+
+function getStepErrors(fieldNames, formData) {
+  const errors = {}
+  fieldNames.forEach((name) => {
+    const message = validateField(name, formData[name], formData)
+    if (message) errors[name] = message
+  })
+  return errors
+}
+
 
 export default function SignupPage() {
   const signupSteps = ["Account", "Info"]
   const [currentStep, setCurrentStep] = useState(1);
 
   const [formData, setFormData] = useState(initialFormState);
+  const [errors, setErrors] = useState({})
   const navigate = useNavigate()
 
 
   const updateField = (event) => {
     const { name, value } = event.target
+    const cleanValue = sanitizeValue(name, value)
 
-    setFormData((currentFormData) => ({
-      ...currentFormData,
-      [name]: value,
+    const nextFormData = { ...formData, [name]: cleanValue }
+    setFormData(nextFormData)
+
+    // Live-validate this field (and re-check confirmPassword if the user
+    // goes back and edits password after already typing a confirmation).
+    setErrors((prev) => ({
+      ...prev,
+      [name]: validateField(name, cleanValue, nextFormData),
+      ...(name === "password" && prev.confirmPassword !== undefined
+        ? {
+            confirmPassword: validateField(
+              "confirmPassword",
+              nextFormData.confirmPassword,
+              nextFormData
+            ),
+          }
+        : {}),
     }))
   }
+
+  const errorFor = (name) => errors[name] || ""
 
   const handleSubmit = async (event) => {
     event.preventDefault()
 
     if (currentStep < 2) {
+      const stepErrors = getStepErrors(STEP_ONE_FIELDS, formData)
+      setErrors((prev) => ({ ...prev, ...stepErrors }))
+      if (Object.keys(stepErrors).length > 0) return
+
       setCurrentStep((step) => step + 1)
       return
     }
+
+    const stepErrors = getStepErrors(STEP_TWO_FIELDS, formData)
+    setErrors((prev) => ({ ...prev, ...stepErrors }))
+    if (Object.keys(stepErrors).length > 0) return
 
     try{
       // Combine the three birthdate dropdowns into a single ISO date
@@ -103,7 +230,7 @@ export default function SignupPage() {
 
   return (
     <AuthLayout>
-      <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
+      <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
         <div className="flex items-center justify-between gap-2">
           {signupSteps.map((step, index) => {
             const stepNumber = index + 1
@@ -161,7 +288,13 @@ export default function SignupPage() {
                     value={formData.firstName}
                     onChange={updateField}
                     className="bg-background"
+                    aria-invalid={Boolean(errorFor("firstName"))}
                   />
+                  {errorFor("firstName") && (
+                    <FieldDescription className="text-red-600">
+                      {errorFor("firstName")}
+                    </FieldDescription>
+                  )}
                 </Field>
 
                   <Field>
@@ -174,7 +307,13 @@ export default function SignupPage() {
                     value={formData.middleName}
                     onChange={updateField}
                     className="bg-background"
+                    aria-invalid={Boolean(errorFor("middleName"))}
                   />
+                  {errorFor("middleName") && (
+                    <FieldDescription className="text-red-600">
+                      {errorFor("middleName")}
+                    </FieldDescription>
+                  )}
                 </Field>
 
                 <Field>
@@ -190,14 +329,42 @@ export default function SignupPage() {
                     value={formData.lastName}
                     onChange={updateField}
                     className="bg-background"
+                    aria-invalid={Boolean(errorFor("lastName"))}
                   />
+                  {errorFor("lastName") && (
+                    <FieldDescription className="text-red-600">
+                      {errorFor("lastName")}
+                    </FieldDescription>
+                  )}
                 </Field>
 
                 <Field>
+                  <FieldLabel htmlFor="extensionName">
+                    Extension Name{" "}
+                    <span className="text-muted-foreground">(Optional)</span>
+                  </FieldLabel>
+                  <Input
+                    id="extensionName"
+                    name="extensionName"
+                    type="text"
+                    placeholder="Jr, Sr, III"
+                    value={formData.extensionName}
+                    onChange={updateField}
+                    className="bg-background"
+                    aria-invalid={Boolean(errorFor("extensionName"))}
+                  />
+                  {errorFor("extensionName") && (
+                    <FieldDescription className="text-red-600">
+                      {errorFor("extensionName")}
+                    </FieldDescription>
+                  )}
+                </Field>
+
+                <Field className="md:col-span-2">
                   <FieldLabel>
                     Birthdate<span className="ml-0.5 text-red-500">*</span>
                   </FieldLabel>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-3">
                     <select
                       name="birthMonth"
                       value={formData.birthMonth}
@@ -259,9 +426,11 @@ export default function SignupPage() {
                   value={formData.email}
                   onChange={updateField}
                   className="bg-background"
+                  aria-invalid={Boolean(errorFor("email"))}
                 />
-                <FieldDescription>
-                  We&apos;ll use this to contact you. We will not share your email with anyone else.
+                <FieldDescription className={errorFor("email") ? "text-red-600" : undefined}>
+                  {errorFor("email") ||
+                    "We'll use this to contact you. We will not share your email with anyone else."}
                 </FieldDescription>
               </Field>
 
@@ -277,8 +446,11 @@ export default function SignupPage() {
                   value={formData.password}
                   onChange={updateField}
                   className="bg-background"
+                  aria-invalid={Boolean(errorFor("password"))}
                 />
-                <FieldDescription>Must be at least 8 characters long.</FieldDescription>
+                <FieldDescription className={errorFor("password") ? "text-red-600" : undefined}>
+                  {errorFor("password") || "Must be at least 8 characters long."}
+                </FieldDescription>
               </Field>
 
               <Field>
@@ -293,8 +465,11 @@ export default function SignupPage() {
                   value={formData.confirmPassword}
                   onChange={updateField}
                   className="bg-background"
+                  aria-invalid={Boolean(errorFor("confirmPassword"))}
                 />
-                <FieldDescription>Please confirm your password.</FieldDescription>
+                <FieldDescription className={errorFor("confirmPassword") ? "text-red-600" : undefined}>
+                  {errorFor("confirmPassword") || "Please confirm your password."}
+                </FieldDescription>
               </Field>
 
               <Field>
@@ -308,7 +483,7 @@ export default function SignupPage() {
           {currentStep === 2 && (
             <>
               <div className="flex flex-col items-center gap-1 text-center">
-                <h1 className="text-2xl font-bold">Firm Information</h1>
+                <h1 className="text-2xl font-bold">Business Information</h1>
                 <p className="text-sm text-muted-foreground">Enter your business information</p>
               </div>
 
@@ -357,12 +532,21 @@ export default function SignupPage() {
                   <Input
                     id="tin"
                     name="tin"
-                    placeholder="123-456-789-000"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={12}
+                    placeholder="123456789000"
                     required
                     value={formData.tin}
                     onChange={updateField}
                     className="bg-background"
+                    aria-invalid={Boolean(errorFor("tin"))}
                   />
+                  {errorFor("tin") && (
+                    <FieldDescription className="text-red-600">
+                      {errorFor("tin")}
+                    </FieldDescription>
+                  )}
                 </Field>
 
                 <Field>
@@ -393,12 +577,20 @@ export default function SignupPage() {
                 <Input
                   id="contactNumber"
                   name="contactNumber"
+                  type="text"
+                  inputMode="numeric"
                   placeholder="09123456789"
                   required
                   value={formData.contactNumber}
                   onChange={updateField}
                   className="bg-background"
+                  aria-invalid={Boolean(errorFor("contactNumber"))}
                 />
+                {errorFor("contactNumber") && (
+                  <FieldDescription className="text-red-600">
+                    {errorFor("contactNumber")}
+                  </FieldDescription>
+                )}
               </Field>
 
               {/* Normalized address — House/Unit No. is its own field (not merged
@@ -498,7 +690,13 @@ export default function SignupPage() {
                     value={formData.zipCode}
                     onChange={updateField}
                     className="bg-background"
+                    aria-invalid={Boolean(errorFor("zipCode"))}
                   />
+                  {errorFor("zipCode") && (
+                    <FieldDescription className="text-red-600">
+                      {errorFor("zipCode")}
+                    </FieldDescription>
+                  )}
                 </Field>
               </div>
 
