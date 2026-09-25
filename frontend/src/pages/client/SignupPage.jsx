@@ -111,6 +111,9 @@ function validateField(name, value, formData) {
     case "password":
       if (!value) return "Password is required."
       if (value.length < 8) return "Password must be at least 8 characters long."
+      if (!/[A-Z]/.test(value)) return "Password must include at least one uppercase letter."
+      if (!/[a-z]/.test(value)) return "Password must include at least one lowercase letter."
+      if (!/[0-9]/.test(value)) return "Password must include at least one number."
       return ""
 
     case "confirmPassword":
@@ -449,7 +452,7 @@ export default function SignupPage() {
                   aria-invalid={Boolean(errorFor("password"))}
                 />
                 <FieldDescription className={errorFor("password") ? "text-red-600" : undefined}>
-                  {errorFor("password") || "Must be at least 8 characters long."}
+                  {errorFor("password") || "Must be at least 8 characters, with uppercase, lowercase, and a number (e.g. !QaL2xyz)."}
                 </FieldDescription>
               </Field>
 
