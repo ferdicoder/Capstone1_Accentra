@@ -46,6 +46,7 @@ export function useCreateEngagementFromRequest() {
     onSuccess: (newEngagement) => {
       queryClient.setQueryData(queryKeys.engagements, (old = []) => [newEngagement, ...old])
       queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests })
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagements })
     },
   })
 }

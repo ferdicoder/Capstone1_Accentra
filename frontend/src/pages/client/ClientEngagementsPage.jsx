@@ -65,7 +65,7 @@ export default function ClientEngagementsPage() {
  
       return matchesSearch && matchesStatus && matchesType
     })
-  }, [search, statusFilter, typeFilter])
+  }, [engagements, search, statusFilter, typeFilter])
  
   const hasActiveFilters =
     search !== "" ||
