@@ -1,12 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import {
-  AlertCircle,
-  CheckCircle2,
-  Eye,
-  FileText,
-  Upload,
-} from "lucide-react"
+import { AlertCircle, CheckCircle2, FileText } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -23,34 +17,7 @@ const initialInvoices = [
     status: "Paid",
     paidDate: "Dec 12, 2024",
     invoiceDate: "Dec 1, 2024",
-    items: [
-      { label: "Permit Renewal Processing Fee", amount: 2300 },
-      { label: "LGU Filing Fee", amount: 500 },
-    ],
-  },
-]
-
-const paymentHistory = [
-  {
-    id: "PAY-0038",
-    date: "Dec 12, 2024",
-    method: "GCash",
-    amount: 2800,
-    status: "Confirmed",
-  },
-  {
-    id: "PAY-0031",
-    date: "Nov 5, 2024",
-    method: "BPI Online",
-    amount: 1800,
-    status: "Confirmed",
-  },
-  {
-    id: "PAY-0027",
-    date: "Oct 15, 2024",
-    method: "GCash",
-    amount: 1500,
-    status: "Confirmed",
+    dueDate: null,
   },
 ]
 
@@ -72,7 +39,6 @@ export default function ClientBillingPage() {
       null
   )
   const [referenceNumber, setReferenceNumber] = useState("")
-  const [screenshotFile, setScreenshotFile] = useState(null)
   const [submitError, setSubmitError] = useState("")
   const [submitSuccess, setSubmitSuccess] = useState("")
 
@@ -88,32 +54,25 @@ export default function ClientBillingPage() {
     onRequestServiceClick: () => navigate("/client/service-requests"),
   })
 
-  const handleScreenshotChange = (e) => {
-    const file = e.target.files?.[0] ?? null
-    setScreenshotFile(file)
-    setSubmitError("")
-  }
-
   const handleSubmitPayment = (e) => {
     e.preventDefault()
     setSubmitError("")
     setSubmitSuccess("")
 
     if (!selectedInvoice || selectedInvoice.status !== "Unpaid") {
-      setSubmitError("Select an unpaid invoice before submitting payment.")
+      setSubmitError("Select an unpaid invoice before submitting a reference.")
       return
     }
-    if (!screenshotFile) {
-      setSubmitError("Please attach a screenshot of your payment.")
+    if (!referenceNumber.trim()) {
+      setSubmitError("Reference number is required.")
       return
     }
 
-    // TODO: replace with real upload + insert into the payments table.
+    // TODO: replace with real insert into the payments table.
     setSubmitSuccess(
-      `Payment proof for ${selectedInvoice.id} submitted. The firm will confirm it shortly.`
+      `Payment reference for ${selectedInvoice.id} submitted. The firm will confirm it shortly.`
     )
     setReferenceNumber("")
-    setScreenshotFile(null)
   }
 
   return (
@@ -124,7 +83,7 @@ export default function ClientBillingPage() {
             Billing &amp; Payment
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Manage your invoices and submit proof of payment
+            View your billing details and submit your payment reference
           </p>
         </div>
 
@@ -137,7 +96,7 @@ export default function ClientBillingPage() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        {/* LEFT: invoice list + selected invoice detail */}
+        {/* LEFT: View Billing Details */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3">
             {invoices.map((invoice) => {
@@ -195,39 +154,18 @@ export default function ClientBillingPage() {
 
           {selectedInvoice && (
             <div className="rounded-xl border bg-background p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-foreground">
-                  Invoice Detail — {selectedInvoice.id}
-                </h3>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:underline"
-                  onClick={() =>
-                    console.log("Open PDF for", selectedInvoice.id)
-                  }
-                >
-                  <Eye className="size-3.5" />
-                  View PDF
-                </button>
-              </div>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Billing Details — {selectedInvoice.id}
+              </h3>
 
-              <div className="divide-y divide-border text-sm">
-                {selectedInvoice.items.map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex items-center justify-between py-2 text-muted-foreground"
-                  >
-                    <span>{item.label}</span>
-                    <span>{formatCurrency(item.amount)}</span>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between py-2.5 text-base font-semibold text-foreground">
-                  <span>Total</span>
-                  <span>{formatCurrency(selectedInvoice.amount)}</span>
+              <div className="grid gap-2.5 rounded-lg bg-muted/40 p-3.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Engagement</span>
+                  <span className="font-medium text-foreground">
+                    {selectedInvoice.engagementCode} ·{" "}
+                    {selectedInvoice.engagementTitle}
+                  </span>
                 </div>
-              </div>
-
-              <div className="mt-4 grid gap-2.5 rounded-lg bg-muted/40 p-3.5 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Invoice Date</span>
                   <span className="font-medium text-foreground">
@@ -240,29 +178,26 @@ export default function ClientBillingPage() {
                     {selectedInvoice.dueDate ?? "—"}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Engagement</span>
-                  <span className="font-medium text-foreground">
-                    {selectedInvoice.engagementCode} ·{" "}
-                    {selectedInvoice.engagementTitle}
-                  </span>
+                <div className="flex items-center justify-between border-t border-border pt-2.5 text-base font-semibold text-foreground">
+                  <span>Amount</span>
+                  <span>{formatCurrency(selectedInvoice.amount)}</span>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* RIGHT: submit payment + payment history */}
+        {/* RIGHT: Submit Payment Reference */}
         <div className="flex flex-col gap-4">
           <form
             onSubmit={handleSubmitPayment}
             className="rounded-xl border bg-background p-5"
           >
             <h3 className="text-sm font-semibold text-foreground">
-              Submit Payment
+              Submit Payment Reference
             </h3>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Transfer to the firm&rsquo;s account and submit your reference
+              Transfer to the firm&rsquo;s account, then submit your reference
               number.
             </p>
 
@@ -280,8 +215,7 @@ export default function ClientBillingPage() {
                 htmlFor="referenceNumber"
                 className="text-xs font-medium text-foreground"
               >
-                Reference Number{" "}
-                <span className="text-muted-foreground">(Optional)</span>
+                Reference Number <span className="text-red-500">(Required)</span>
               </label>
               <Input
                 id="referenceNumber"
@@ -289,25 +223,6 @@ export default function ClientBillingPage() {
                 value={referenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
               />
-            </div>
-
-            <div className="mt-4 flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-foreground">
-                Payment Screenshot{" "}
-                <span className="text-red-500">(Required)</span>
-              </label>
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground transition-colors hover:border-emerald-300 hover:bg-muted/30">
-                <Upload className="size-4 shrink-0" />
-                <span className="truncate">
-                  {screenshotFile ? screenshotFile.name : "Upload screenshot"}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleScreenshotChange}
-                />
-              </label>
             </div>
 
             {submitError && (
@@ -325,42 +240,10 @@ export default function ClientBillingPage() {
               disabled={!selectedInvoice || selectedInvoice.status !== "Unpaid"}
               className="mt-4 w-full bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
             >
-              Submit Payment
+              Submit Reference
               {selectedInvoice ? ` — ${formatCurrency(selectedInvoice.amount)}` : ""}
             </Button>
           </form>
-
-          <div className="rounded-xl border bg-background p-5">
-            <h3 className="mb-3 text-sm font-semibold text-foreground">
-              Payment History
-            </h3>
-            <ul className="divide-y divide-border">
-              {paymentHistory.map((payment) => (
-                <li
-                  key={payment.id}
-                  className="flex items-center justify-between py-2.5 text-sm first:pt-0 last:pb-0"
-                >
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {payment.id}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {payment.date} · {payment.method}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-foreground">
-                      {formatCurrency(payment.amount)}
-                    </p>
-                    <p className="flex items-center justify-end gap-1 text-xs text-emerald-700">
-                      <CheckCircle2 className="size-3 shrink-0" />
-                      {payment.status}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       </div>
     </div>
