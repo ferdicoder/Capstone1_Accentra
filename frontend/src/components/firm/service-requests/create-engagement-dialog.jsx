@@ -19,12 +19,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  serviceTemplateCatalog,
-  getServiceTemplatePrice,
-} from "../service-management/service-management-variants"
 import { registeredClients } from "../engagements/engagement-variants"
 import { useFetchUsers } from "@/hooks/useUsers"
+import { useFetchServices } from "@/hooks/useServices"
 
 
 const sectionHeadingClass = "font-heading text-sm font-medium text-foreground"
@@ -53,9 +50,7 @@ export function CreateEngagementDialog({
   const [assignedStaff, setAssignedStaff] = useState("")
   const [startDate, setStartDate] = useState("")
   const [targetEndDate, setTargetEndDate] = useState("")
-  const [serviceFee, setServiceFee] = useState(() =>
-    request?.serviceName ? String(getServiceTemplatePrice(request.serviceName)) : ""
-  )
+  const [serviceFee, setServiceFee] = useState("")
 
   const [clientQuery, setClientQuery] = useState(() =>
     isStandalone ? "" : `${request?.client?.firstName ?? ""} ${request?.client?.lastName ?? ""}`.trim()
@@ -72,6 +67,14 @@ export function CreateEngagementDialog({
 
 
   const { data: users = [] } = useFetchUsers()
+  const {
+    data: services = [],
+    isLoading: servicesLoading,
+    error: servicesError,
+  } = useFetchServices()
+  const activeServices = services.filter((service) => service.status === "active")
+  const selectedService = services.find((service) => service.name === serviceName)
+
   const firmStaffOptions = users
     .filter((u) => u.role === "staff")
     .map((u) => ({ value: u.id, label: u.name }))
@@ -88,8 +91,11 @@ export function CreateEngagementDialog({
   }, [clientQuery])
 
   const handleServiceChange = (value) => {
-    setServiceName(value)
-    setServiceFee(String(getServiceTemplatePrice(value)))
+    const service = activeServices.find((item) => item.id === value)
+    if (!service) return
+
+    setServiceName(service.name)
+    setServiceFee(String(service.basePrice ?? 0))
   }
 
   const clientFullName = isStandalone
@@ -139,7 +145,7 @@ export function CreateEngagementDialog({
       assignedStaff,
       startDate,
       targetEndDate,
-      serviceFee: Number(serviceFee || 0),
+      serviceFee: Number(selectedService?.basePrice ?? (serviceFee || 0)),
       clientDescription: clientDescription.trim(),
     })
   }
@@ -205,12 +211,21 @@ export function CreateEngagementDialog({
                   <ChevronDown className="size-4 opacity-60" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="min-w-64">
-                  {serviceTemplateCatalog.map((template) => (
+                  {servicesLoading && (
+                    <DropdownMenuItem disabled>Loading services...</DropdownMenuItem>
+                  )}
+                  {!servicesLoading && servicesError && (
+                    <DropdownMenuItem disabled>Unable to load services</DropdownMenuItem>
+                  )}
+                  {!servicesLoading && !servicesError && activeServices.length === 0 && (
+                    <DropdownMenuItem disabled>No active services available</DropdownMenuItem>
+                  )}
+                  {!servicesLoading && !servicesError && activeServices.map((service) => (
                     <DropdownMenuItem
-                      key={template.name}
-                      onClick={() => handleServiceChange(template.name)}
+                      key={service.id}
+                      onClick={() => handleServiceChange(service.id)}
                     >
-                      {template.name}
+                      {service.name}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
