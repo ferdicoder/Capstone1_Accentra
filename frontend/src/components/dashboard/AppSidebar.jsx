@@ -14,15 +14,26 @@ import {
 import { NavMain } from "@/components/dashboard/NavMain"
 import { NavUser } from "@/components/dashboard/NavUser"
 import { roleConfig } from "@/components/dashboard/NavData"
+import { authStore } from "@/store/authStore"
  
-const defaultUser = {
-  name: "Jane Doe",
-  email: "jane@accentra.com",
-  avatar: "",
-}
- 
-export function AppSidebar({ role = "firm-admin", user = defaultUser, ...props }) {
+export function AppSidebar({ role = "firm-admin", user, ...props }) {
   const config = roleConfig[role] ?? roleConfig["firm-admin"]
+  const sessionUser = authStore((state) => state.user)
+  const currentUser = user ?? sessionUser
+  const metadata = currentUser?.user_metadata ?? {}
+  const displayName = currentUser?.name ?? (
+    [metadata.first_name, metadata.middle_name, metadata.last_name]
+      .filter(Boolean)
+      .join(" ") || currentUser?.email || "User"
+  )
+  const sidebarUser = currentUser
+    ? {
+        ...currentUser,
+        name: displayName,
+        email: currentUser.email ?? "",
+        avatar: currentUser.avatar ?? metadata.avatar_url ?? "",
+      }
+    : null
  
   return (
     <Sidebar
@@ -51,7 +62,7 @@ export function AppSidebar({ role = "firm-admin", user = defaultUser, ...props }
         <NavMain label={config.label} items={config.nav} />
       </SidebarContent>
       <SidebarFooter className="border-t border-white/10 p-3  group-data-[collapsible=icon]:p-2 ">
-        <NavUser user={user} />
+        <NavUser user={sidebarUser} />
       </SidebarFooter >
       <SidebarRail />
     </Sidebar>

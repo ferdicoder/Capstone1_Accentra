@@ -6,13 +6,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/AppSidebar"
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 
-const defaultUser = {
-  name: "Jane Doe",
-  email: "jane@accentra.com",
-  avatar: "",
-}
-
-export function DashboardLayout({ role, user = defaultUser }) {
+export function DashboardLayout({ role, user }) {
   const [pageMeta, setPageMeta] = useState({})
 
   const stableSetPageMeta = useCallback((meta) => {
