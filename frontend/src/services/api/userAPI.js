@@ -112,7 +112,7 @@ async function createStaff(user) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       email: user.email,
-      password: user.password,
+      password: user.temporaryPassword,
       role: user.role,
       firstName: user.firstName,
       middleName: user.middleName,
