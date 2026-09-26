@@ -174,8 +174,8 @@ export default function ServiceManagementPage() {
   usePageMeta({
     title: "Services",
     breadcrumbs: [
-      { label: basePath === "/firm" ? "Firm Staff" : "Firm Admin", href: `${basePath}/dashboard` },
-      { label: "Service Management", href: `${basePath}/services` },
+      // { label: basePath === "/firm" ? "Firm Staff" : "Firm Admin", href: `${basePath}/dashboard` },
+      // { label: "Service Management", href: `${basePath}/services` },
     ],
   })
 

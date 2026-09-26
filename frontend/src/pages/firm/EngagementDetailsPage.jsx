@@ -39,7 +39,7 @@ export default function EngagementDetailsPage() {
   const { id } = useParams()
   const location = useLocation()
   const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
-  const sectionLabel = basePath === "/firm" ? "Firm Staff" : "Firm Admin"
+  // const sectionLabel = basePath === "/firm" ? "Firm Staff" : "Firm Admin"
 
   const { data: engagement, isLoading, error } = useFetchEngagement(id)
   const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(id)
@@ -60,7 +60,7 @@ export default function EngagementDetailsPage() {
   usePageMeta({
     title: engagement?.engagementNumber ?? "Engagement Details",
     breadcrumbs: [
-      { label: sectionLabel, href: `${basePath}/dashboard` },
+      // { label: sectionLabel, href: `${basePath}/dashboard` },
       { label: "Engagements", href: `${basePath}/engagements` },
     ],
   })
