@@ -130,12 +130,8 @@ export default function ClientServiceRequestsPage() {
                     >
                       <td className="px-4 py-4 align-middle">
                         <div className="flex items-center gap-3">
-                          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                            <Briefcase className="size-4" />
-                          </div>
                           <div className="min-w-0">
                             <p className="truncate font-medium">{r.requestNumber}</p>
-                            <p className="truncate text-xs text-muted-foreground">{r.category}</p>
                           </div>
                         </div>
                       </td>
