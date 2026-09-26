@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Save } from "lucide-react"
+import { Save, Lock, Check, X } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
@@ -50,6 +50,22 @@ const selectClass = cn(
   controlClass,
   "h-8 rounded-lg border border-input px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 )
+// Personal Information fields are read-only — styled visibly disabled so it's
+// clear at a glance these can't be edited from this page.
+const readOnlyClass = cn(controlClass, "cursor-not-allowed bg-muted/50 text-muted-foreground")
+
+// --- Password requirements (kept local to this page — not a shared component) ---
+
+const passwordRequirements = [
+  { key: "lowercase", label: "At least one lowercase letter", test: (pw) => /[a-z]/.test(pw) },
+  { key: "uppercase", label: "At least one uppercase letter", test: (pw) => /[A-Z]/.test(pw) },
+  { key: "number", label: "At least one number", test: (pw) => /[0-9]/.test(pw) },
+  { key: "minLength", label: "Minimum 8 characters", test: (pw) => pw.length >= 8 },
+]
+
+function isPasswordValid(password) {
+  return passwordRequirements.every((req) => req.test(password))
+}
 
 export default function ClientProfilePage() {
   const [activeTab, setActiveTab] = useState("info")
@@ -65,6 +81,8 @@ export default function ClientProfilePage() {
     return () => clearTimeout(timer)
   }, [])
 
+  // Personal Information (firstName, middleName, lastName, birthDate, email) is
+  // read-only, so only Business Information fields go through this handler now.
   const updateProfileField = (event) => {
     const { name, value } = event.target
     setProfile((current) => ({ ...current, [name]: value }))
@@ -80,6 +98,7 @@ export default function ClientProfilePage() {
     setIsSaving(true)
     setSaveMessage(null)
     try {
+      // Only Business Information fields are editable/saved from this form.
       // await updateClientProfile(profile)
       setSaveMessage({ type: "success", text: "Profile updated successfully." })
     } catch (err) {
@@ -93,6 +112,10 @@ export default function ClientProfilePage() {
   const handleSavePassword = async (event) => {
     event.preventDefault()
 
+    if (!isPasswordValid(security.newPassword)) {
+      setSaveMessage({ type: "error", text: "Password doesn't meet the requirements below." })
+      return
+    }
     if (security.newPassword !== security.confirmPassword) {
       setSaveMessage({ type: "error", text: "New password and confirmation don't match." })
       return
@@ -177,11 +200,17 @@ export default function ClientProfilePage() {
               {/* Personal + Business cards sit side by side at equal width on large screens,
                   so the form fills the same rail as the header instead of trailing off into empty space. */}
               <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-                {/* Mirrors SignupPage.jsx step 1 (Account) fields */}
+                {/* Read-only: personal identity fields can't be edited by the client directly. */}
                 <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <h2 className="mb-5 text-sm font-semibold">
-                    Personal Information
-                  </h2>
+                  <div className="mb-5 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold">
+                      Personal Information
+                    </h2>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                      <Lock className="size-3" />
+                      Read-only
+                    </span>
+                  </div>
                   <FieldGroup className="gap-5">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field>
@@ -190,8 +219,9 @@ export default function ClientProfilePage() {
                           id="firstName"
                           name="firstName"
                           value={profile.firstName}
-                          onChange={updateProfileField}
-                          className={controlClass}
+                          readOnly
+                          disabled
+                          className={readOnlyClass}
                         />
                       </Field>
                       <Field>
@@ -200,8 +230,9 @@ export default function ClientProfilePage() {
                           id="middleName"
                           name="middleName"
                           value={profile.middleName}
-                          onChange={updateProfileField}
-                          className={controlClass}
+                          readOnly
+                          disabled
+                          className={readOnlyClass}
                         />
                       </Field>
                     </div>
@@ -213,8 +244,9 @@ export default function ClientProfilePage() {
                           id="lastName"
                           name="lastName"
                           value={profile.lastName}
-                          onChange={updateProfileField}
-                          className={controlClass}
+                          readOnly
+                          disabled
+                          className={readOnlyClass}
                         />
                       </Field>
                       <Field>
@@ -224,8 +256,9 @@ export default function ClientProfilePage() {
                           name="birthDate"
                           type="date"
                           value={profile.birthDate}
-                          onChange={updateProfileField}
-                          className={controlClass}
+                          readOnly
+                          disabled
+                          className={readOnlyClass}
                         />
                       </Field>
                     </div>
@@ -237,14 +270,19 @@ export default function ClientProfilePage() {
                         name="email"
                         type="email"
                         value={profile.email}
-                        onChange={updateProfileField}
-                        className={controlClass}
+                        readOnly
+                        disabled
+                        className={readOnlyClass}
                       />
                     </Field>
+
+                    <p className="text-xs text-muted-foreground">
+                      To change your personal information, please contact your firm or support.
+                    </p>
                   </FieldGroup>
                 </div>
 
-                {/* Mirrors SignupPage.jsx step 2 (Info / Firm Information) fields */}
+                {/* Mirrors SignupPage.jsx step 2 (Info / Firm Information) fields — still editable */}
                 <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                   <h2 className="mb-5 text-sm font-semibold">
                     Business Information
@@ -409,6 +447,51 @@ export default function ClientProfilePage() {
                           className={controlClass}
                         />
                       </Field>
+                    </div>
+
+                    {/*
+                      Smooth show/hide: the wrapper is ALWAYS mounted (never
+                      conditionally rendered), so CSS transitions can animate it.
+                      grid-template-rows 0fr -> 1fr animates height smoothly
+                      (a plain max-height transition tends to feel janky/stepped),
+                      combined with an opacity fade for a soft, non-abrupt reveal.
+                    */}
+                    <div
+                      className={cn(
+                        "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
+                        security.newPassword
+                          ? "grid-rows-[1fr] opacity-100"
+                          : "grid-rows-[0fr] opacity-0"
+                      )}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="rounded-lg border border-border bg-muted/30 p-3.5">
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/70">
+                            Password must contain:
+                          </p>
+                          <ul className="flex flex-col gap-1.5">
+                            {passwordRequirements.map((req) => {
+                              const passed = req.test(security.newPassword)
+                              return (
+                                <li
+                                  key={req.key}
+                                  className={cn(
+                                    "flex items-center gap-2 text-xs transition-colors duration-200",
+                                    passed ? "text-emerald-700" : "text-red-600"
+                                  )}
+                                >
+                                  {passed ? (
+                                    <Check className="size-3.5 shrink-0" />
+                                  ) : (
+                                    <X className="size-3.5 shrink-0" />
+                                  )}
+                                  {req.label}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </div>
+                      </div>
                     </div>
                   </FieldGroup>
                 </div>
