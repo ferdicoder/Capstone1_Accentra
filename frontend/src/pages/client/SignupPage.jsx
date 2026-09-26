@@ -4,6 +4,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
+import { Check, X } from "lucide-react"
 
 import { registerClient } from "../../services/authService";
 import { useNavigate } from "react-router-dom"
@@ -59,6 +60,19 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/
 const LETTERS_ONLY_FIELDS = new Set(["firstName", "middleName", "lastName", "extensionName"])
 const DIGITS_ONLY_FIELDS = new Set(["tin", "contactNumber", "zipCode"])
 
+// --- Password requirements (drives both live checklist + validation) -----
+
+const passwordRequirements = [
+  { key: "lowercase", label: "At least one lowercase letter", test: (pw) => /[a-z]/.test(pw) },
+  { key: "uppercase", label: "At least one uppercase letter", test: (pw) => /[A-Z]/.test(pw) },
+  { key: "number", label: "At least one number", test: (pw) => /[0-9]/.test(pw) },
+  { key: "minLength", label: "Minimum 8 characters", test: (pw) => pw.length >= 8 },
+]
+
+function isPasswordValid(password) {
+  return passwordRequirements.every((req) => req.test(password))
+}
+
 function sanitizeValue(name, rawValue) {
   if (LETTERS_ONLY_FIELDS.has(name)) {
     const lettersOnly = rawValue.replace(/[^A-Za-z\s'-]/g, "")
@@ -110,10 +124,7 @@ function validateField(name, value, formData) {
 
     case "password":
       if (!value) return "Password is required."
-      if (value.length < 8) return "Password must be at least 8 characters long."
-      if (!/[A-Z]/.test(value)) return "Password must include at least one uppercase letter."
-      if (!/[a-z]/.test(value)) return "Password must include at least one lowercase letter."
-      if (!/[0-9]/.test(value)) return "Password must include at least one number."
+      if (!isPasswordValid(value)) return "Password doesn't meet the requirements below."
       return ""
 
     case "confirmPassword":
@@ -451,9 +462,50 @@ export default function SignupPage() {
                   className="bg-background"
                   aria-invalid={Boolean(errorFor("password"))}
                 />
-                <FieldDescription className={errorFor("password") ? "text-red-600" : undefined}>
-                  {errorFor("password") || "Must be at least 8 characters, with uppercase, lowercase, and a number (e.g. !QaL2xyz)."}
-                </FieldDescription>
+
+                {/*
+                  Smooth show/hide: the wrapper is ALWAYS mounted (never
+                  conditionally rendered), so CSS transitions can animate it.
+                  grid-template-rows 0fr -> 1fr animates height smoothly,
+                  combined with an opacity fade for a soft, non-abrupt reveal.
+                */}
+                <div
+                  className={cn(
+                    "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
+                    formData.password
+                      ? "grid-rows-[1fr] opacity-100"
+                      : "grid-rows-[0fr] opacity-0"
+                  )}
+                >
+                  <div className="overflow-hidden">
+                    <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3.5">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/70">
+                        Password must contain:
+                      </p>
+                      <ul className="flex flex-col gap-1.5">
+                        {passwordRequirements.map((req) => {
+                          const passed = req.test(formData.password)
+                          return (
+                            <li
+                              key={req.key}
+                              className={cn(
+                                "flex items-center gap-2 text-xs transition-colors duration-200",
+                                passed ? "text-emerald-700" : "text-red-600"
+                              )}
+                            >
+                              {passed ? (
+                                <Check className="size-3.5 shrink-0" />
+                              ) : (
+                                <X className="size-3.5 shrink-0" />
+                              )}
+                              {req.label}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </Field>
 
               <Field>
