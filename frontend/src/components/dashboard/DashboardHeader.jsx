@@ -92,17 +92,6 @@ export function DashboardHeader({
             <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-emerald-500" />
           )}
         </Button>
-
-        <Button variant="ghost" size="icon" className="rounded-full" asChild>
-          <Link to={profileHref} aria-label="Profile">
-            <Avatar className="size-9">
-              <AvatarImage src={user?.avatar} alt={user?.name} />
-              <AvatarFallback className="text-xs">
-                {user?.name ? user.name.slice(0, 2).toUpperCase() : "AC"}
-              </AvatarFallback>
-            </Avatar>
-          </Link>
-        </Button>
       </div>
     </header>
   )
