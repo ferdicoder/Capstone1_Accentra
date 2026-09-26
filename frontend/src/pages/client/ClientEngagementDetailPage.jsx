@@ -244,7 +244,7 @@ export default function ClientEngagementDetailPage() {
         workflowStage={engagement.status}
       />
 
-      <div className="flex gap-4 overflow-x-auto border-b sm:gap-6">
+      <div className="flex gap-4  overflow-x-auto max-w-full scrollbar-none border-b sm:gap-6">
         <button
           onClick={() => setActiveTab("overview")}
           className={`-mb-px shrink-0 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors ${

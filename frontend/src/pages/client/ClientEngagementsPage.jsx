@@ -196,11 +196,7 @@ export default function ClientEngagementsPage() {
                     >
                       <td className="px-4 py-4 align-middle">
                         <div className="flex items-center gap-3">
-                          <div
-                            className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${iconToneStyles[type] ?? "bg-blue-50 text-blue-600"}`}
-                          >
-                            <Icon className="size-4" />
-                          </div>
+                         
                           <div className="min-w-0">
                             <p className="truncate font-medium">{e.engagementNumber}</p>
                             <p className="truncate text-xs text-muted-foreground">
