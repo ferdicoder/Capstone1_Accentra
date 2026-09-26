@@ -7,6 +7,10 @@ import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchMyEngagements } from "@/hooks/useEngagements"
 import { authStore } from "@/store/authStore"
+import { statusDotStyles } from "@/components/firm/engagements/engagement-variants"
+import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
+import { cn } from "@/lib/utils"
+
 
 const statusStyles = {
   amber: "bg-amber-50 text-amber-700 border border-amber-200",
@@ -14,7 +18,6 @@ const statusStyles = {
   purple: "bg-purple-50 text-purple-700 border border-purple-200",
   green: "bg-green-50 text-green-700 border border-green-200",
 }
- 
 const iconToneStyles = {
   "Tax Filing": "bg-blue-50 text-blue-600",
   "Business Permit": "bg-blue-50 text-blue-600",
@@ -213,13 +216,7 @@ export default function ClientEngagementsPage() {
                         <span className="line-clamp-2">{e.serviceName}</span>
                       </td>
                       <td className="px-4 py-4 align-middle">
-                        <span
-                          className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${
-                            statusStyles[status.tone] ?? "bg-gray-100 text-gray-600 border border-gray-200"
-                          }`}
-                        >
-                          {status.label}
-                        </span>
+                        <EngagementStatusBadge status={status.label} />
                       </td>
                       <td className="px-4 py-4 align-middle text-muted-foreground">
                         {formatDate(e.createdAt)}
