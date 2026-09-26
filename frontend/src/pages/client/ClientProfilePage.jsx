@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { Save, Lock, Check, X, ShieldQuestion } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Save, Lock, Check, X, ShieldQuestion, Loader2 } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
@@ -8,7 +8,7 @@ import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 
 import { Button } from "@/components/ui/button"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { ForgotPasswordModal } from "@/components/client/ForgotPasswordModal"
 
@@ -72,6 +72,23 @@ const emptyProfile = {
   zipCode: "",
 }
 
+// Only these fields are actually editable/saved from this page — Personal
+// Information is read-only, so it's excluded from the "did anything change"
+// comparison used to gate the Save button / success message.
+const EDITABLE_BUSINESS_FIELDS = [
+  "businessName",
+  "businessType",
+  "tin",
+  "industry",
+  "contactNumber",
+  "houseNo",
+  "streetName",
+  "barangay",
+  "district",
+  "city",
+  "zipCode",
+]
+
 // Builds the profile shape above from the logged-in user + their fetched
 // business record, so the form is always synced to whoever is actually
 // signed in rather than a hardcoded sample client.
@@ -96,6 +113,38 @@ function buildProfile(user, business) {
   }
 }
 
+// Fields where non-digit characters are stripped as the user types.
+// TIN is handled separately below since it also gets auto-hyphenated.
+const DIGITS_ONLY_FIELDS = new Set(["contactNumber", "zipCode"])
+
+// Formats a raw digit string as XXX-XXX-XXX-XXX (BIR's 12-digit online format),
+// inserting hyphens progressively as the user types rather than all at once.
+function formatTin(digitsOnly) {
+  const groups = [
+    digitsOnly.slice(0, 3),
+    digitsOnly.slice(3, 6),
+    digitsOnly.slice(6, 9),
+    digitsOnly.slice(9, 12),
+  ]
+  return groups.filter(Boolean).join("-")
+}
+
+// A complete TIN is either the legacy 9-digit format or the 12-digit online
+// format (9 digits + a 3-digit branch code, usually "000"). Anything shorter
+// than 9 is incomplete/invalid outright; exactly 9 is valid but not yet in
+// the 12-digit shape most online portals require, so that gets its own
+// reminder rather than a flat "invalid" — 10 or 11 digits is a half-finished
+// 12-digit number, so it's treated the same as "too short."
+function getTinWarning(digitsOnly) {
+  if (!digitsOnly) return ""
+  if (digitsOnly.length < 9) return "Invalid TIN ID. Must be at least 9 digits."
+  if (digitsOnly.length === 9) {
+    return "This is a 9-digit TIN. Add 000 at the end to complete the 12-digit format."
+  }
+  if (digitsOnly.length < 12) return "Invalid TIN ID. Must be 9 or 12 digits."
+  return ""
+}
+
 function getInitials(firstName, lastName) {
   const letters = [firstName?.[0], lastName?.[0]].filter(Boolean)
   return letters.length ? letters.join("").toUpperCase() : "?"
@@ -113,7 +162,12 @@ export default function ClientProfilePage() {
   const [security, setSecurity] = useState(initialSecurity)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
+
+  // Snapshot of the last-saved (or last-loaded) profile, used to detect
+  // whether the user actually changed anything before hitting Save.
+  const savedProfileRef = useRef(emptyProfile)
 
   const loading = authLoading || businessLoading
 
@@ -122,7 +176,9 @@ export default function ClientProfilePage() {
   // of only ever showing the static sample data it was initialized with.
   useEffect(() => {
     if (!loading) {
-      setProfile(buildProfile(user, business))
+      const nextProfile = buildProfile(user, business)
+      setProfile(nextProfile)
+      savedProfileRef.current = nextProfile
     }
   }, [loading, user, business])
 
@@ -130,6 +186,33 @@ export default function ClientProfilePage() {
   // read-only, so only Business Information fields go through this handler now.
   const updateProfileField = (event) => {
     const { name, value } = event.target
+
+    if (name === "tin") {
+      // Letters (or any char besides digits/hyphens) typed or pasted in —
+      // hyphens are allowed through since we insert them ourselves, but
+      // anything else triggers the "Numbers only." message. That check
+      // takes priority; otherwise fall back to the length-based warning.
+      const hasInvalidChar = /[^\d-]/.test(value)
+      const digitsOnly = value.replace(/\D/g, "").slice(0, 12)
+
+      setFieldErrors((current) => ({
+        ...current,
+        tin: hasInvalidChar ? "Numbers only." : getTinWarning(digitsOnly),
+      }))
+      setProfile((current) => ({ ...current, tin: formatTin(digitsOnly) }))
+      return
+    }
+
+    if (DIGITS_ONLY_FIELDS.has(name)) {
+      const cleanValue = value.replace(/\D/g, "")
+      setFieldErrors((current) => ({
+        ...current,
+        [name]: cleanValue !== value ? "Numbers only." : "",
+      }))
+      setProfile((current) => ({ ...current, [name]: cleanValue }))
+      return
+    }
+
     setProfile((current) => ({ ...current, [name]: value }))
   }
 
@@ -138,10 +221,21 @@ export default function ClientProfilePage() {
     setSecurity((current) => ({ ...current, [name]: value }))
   }
 
+  const hasProfileChanges = EDITABLE_BUSINESS_FIELDS.some(
+    (key) => profile[key] !== savedProfileRef.current[key]
+  )
+
   const handleSaveInfo = async (event) => {
     event.preventDefault()
-    setIsSaving(true)
     setSaveMessage(null)
+
+    // Nothing to persist — don't hit the API or claim success for a no-op.
+    if (!hasProfileChanges) {
+      setSaveMessage({ type: "error", text: "No changes to save yet." })
+      return
+    }
+
+    setIsSaving(true)
     try {
       // Only Business Information fields are editable/saved from this form.
       // await updateClientBusiness(businessId, {
@@ -157,6 +251,14 @@ export default function ClientProfilePage() {
       //   city: profile.city,
       //   zipCode: profile.zipCode,
       // })
+
+      // TODO: remove once updateClientBusiness above is wired up — this
+      // simulated delay exists purely so the "Saving..." state is visible
+      // instead of flashing instantly, since there's currently no real
+      // network request to await.
+      await new Promise((resolve) => setTimeout(resolve, 700))
+
+      savedProfileRef.current = profile
       setSaveMessage({ type: "success", text: "Profile updated successfully." })
     } catch (err) {
       console.error(err)
@@ -186,6 +288,11 @@ export default function ClientProfilePage() {
     setSaveMessage(null)
     try {
       // await updateClientPassword(security)
+
+      // TODO: remove once updateClientPassword above is wired up — see note
+      // in handleSaveInfo.
+      await new Promise((resolve) => setTimeout(resolve, 700))
+
       setSecurity(initialSecurity)
       setSaveMessage({ type: "success", text: "Password updated successfully." })
     } catch (err) {
@@ -391,10 +498,20 @@ export default function ClientProfilePage() {
                         <Input
                           id="tin"
                           name="tin"
+                          inputMode="numeric"
+                          placeholder="123-456-789-000"
+                          maxLength={15}
                           value={profile.tin}
                           onChange={updateProfileField}
                           className={controlClass}
+                          aria-invalid={Boolean(fieldErrors.tin)}
                         />
+                        <FieldDescription
+                          className={fieldErrors.tin ? "text-red-600" : undefined}
+                        >
+                          {fieldErrors.tin ||
+                            "12 digits, formatted as XXX-XXX-XXX-XXX. If your TIN card only shows 9 digits, add 000 at the end to complete the 12-digit format required by online portals like BIR ORUS."}
+                        </FieldDescription>
                       </Field>
                       <Field>
                         <FieldLabel htmlFor="industry">Industry</FieldLabel>
@@ -421,10 +538,17 @@ export default function ClientProfilePage() {
                       <Input
                         id="contactNumber"
                         name="contactNumber"
+                        inputMode="numeric"
                         value={profile.contactNumber}
                         onChange={updateProfileField}
                         className={controlClass}
+                        aria-invalid={Boolean(fieldErrors.contactNumber)}
                       />
+                      {fieldErrors.contactNumber && (
+                        <FieldDescription className="text-red-600">
+                          {fieldErrors.contactNumber}
+                        </FieldDescription>
+                      )}
                     </Field>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -501,10 +625,18 @@ export default function ClientProfilePage() {
                         <Input
                           id="zipCode"
                           name="zipCode"
+                          inputMode="numeric"
+                          maxLength={4}
                           value={profile.zipCode}
                           onChange={updateProfileField}
                           className={controlClass}
+                          aria-invalid={Boolean(fieldErrors.zipCode)}
                         />
+                        {fieldErrors.zipCode && (
+                          <FieldDescription className="text-red-600">
+                            {fieldErrors.zipCode}
+                          </FieldDescription>
+                        )}
                       </Field>
                     </div>
                   </FieldGroup>
@@ -514,10 +646,14 @@ export default function ClientProfilePage() {
               <div className="flex justify-end">
                 <Button
                   type="submit"
-                  disabled={isSaving}
-                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                  disabled={isSaving || !hasProfileChanges}
+                  className="gap-2 bg-forest-900 text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  <Save className="size-4" />
+                  {isSaving ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Save className="size-4" />
+                  )}
                   {isSaving ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
@@ -640,9 +776,13 @@ export default function ClientProfilePage() {
                 <Button
                   type="submit"
                   disabled={isSaving}
-                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                  className="gap-2 bg-forest-900 text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  <Save className="size-4" />
+                  {isSaving ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Save className="size-4" />
+                  )}
                   {isSaving ? "Saving..." : "Update Password"}
                 </Button>
               </div>
