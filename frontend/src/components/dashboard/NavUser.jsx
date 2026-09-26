@@ -1,8 +1,8 @@
+import { Link } from "react-router-dom"
 import {
-  BadgeCheck,
-  Bell,
   ChevronsUpDown,
   LogOut,
+  Settings,
 } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -23,7 +23,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 
-export function NavUser({ user }) {
+export function NavUser({ user, settingsHref = "#" }) {
   const { isMobile } = useSidebar()
 
   const handleLogout = async () => {
@@ -59,9 +59,9 @@ export function NavUser({ user }) {
                 </AvatarFallback>
               </Avatar>
 
+              {/* BUG fix: footer trigger no longer shows the email — name only. */}
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-semibold">{user.name}</span>
-                <span className="truncate text-xs">{user.email}</span>
               </div>
 
               <ChevronsUpDown className="ml-auto size-4 shrink-0 group-data-[collapsible=icon]:hidden" />
@@ -91,14 +91,11 @@ export function NavUser({ user }) {
 
                       <DropdownMenuSeparator />
 
-                      <DropdownMenuItem>
-                        <BadgeCheck />
-                        Account
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem>
-                        <Bell />
-                        Notifications
+                      <DropdownMenuItem asChild>
+                        <Link to={settingsHref}>
+                          <Settings />
+                          Settings
+                        </Link>
                       </DropdownMenuItem>
                     </DropdownMenuGroup>
 
