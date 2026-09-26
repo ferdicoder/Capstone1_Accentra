@@ -204,7 +204,6 @@ export default function ClientEngagementsPage() {
                           <div className="min-w-0">
                             <p className="truncate font-medium">{e.engagementNumber}</p>
                             <p className="truncate text-xs text-muted-foreground">
-                              {type}
                             </p>
                           </div>
                         </div>
