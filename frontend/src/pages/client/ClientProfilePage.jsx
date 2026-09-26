@@ -1,36 +1,18 @@
 import { useEffect, useState } from "react"
-import { Save, Lock, Check, X } from "lucide-react"
+import { Save, Lock, Check, X, ShieldQuestion } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { cn } from "@/lib/utils"
+import { authStore } from "@/store/authStore"
+import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { ForgotPasswordModal } from "@/components/client/ForgotPasswordModal"
 
-// import { updateClientProfile, updateClientPassword } from "@/api/profileService"
-
-const currentUser = {
-  name: "Maria Santos",
-  email: "maria.santos@santosretail.com",
-  avatar: "",
-}
-
-// Field shape matches formData in SignupPage.jsx exactly (minus password/confirmPassword)
-const initialProfile = {
-  firstName: "Maria",
-  middleName: "Reyes",
-  lastName: "Santos",
-  birthDate: "1990-04-12",
-  email: "maria.santos@santosretail.com",
-  businessName: "Santos Retail Trading",
-  businessType: "sole-proprietorship",
-  tin: "123-456-789-000",
-  industry: "retail",
-  contactNumber: "+63 917 555 1234",
-  address: "12 Mercado St. Sta Ana Manila 1009",
-}
+// import { updateClientBusiness, updateClientPassword } from "@/api/profileService"
 
 const initialSecurity = {
   currentPassword: "",
@@ -67,19 +49,82 @@ function isPasswordValid(password) {
   return passwordRequirements.every((req) => req.test(password))
 }
 
+// Field shape matches formData in SignupPage.jsx exactly (minus password/confirmPassword).
+// Address is normalized into houseNo/streetName/barangay/district/city/zipCode —
+// same six fields SignupPage step 2 collects — instead of one free-text string,
+// so what the client edits here maps 1:1 to what was captured at signup.
+const emptyProfile = {
+  firstName: "",
+  middleName: "",
+  lastName: "",
+  birthDate: "",
+  email: "",
+  businessName: "",
+  businessType: "",
+  tin: "",
+  industry: "",
+  contactNumber: "",
+  houseNo: "",
+  streetName: "",
+  barangay: "",
+  district: "",
+  city: "",
+  zipCode: "",
+}
+
+// Builds the profile shape above from the logged-in user + their fetched
+// business record, so the form is always synced to whoever is actually
+// signed in rather than a hardcoded sample client.
+function buildProfile(user, business) {
+  return {
+    firstName: user?.firstName ?? "",
+    middleName: user?.middleName ?? "",
+    lastName: user?.lastName ?? "",
+    birthDate: user?.birthDate ?? "",
+    email: user?.email ?? "",
+    businessName: business?.businessName ?? "",
+    businessType: business?.businessType ?? "",
+    tin: business?.tin ?? "",
+    industry: business?.industry ?? "",
+    contactNumber: business?.contactNumber ?? "",
+    houseNo: business?.houseNo ?? "",
+    streetName: business?.streetName ?? "",
+    barangay: business?.barangay ?? "",
+    district: business?.district ?? "",
+    city: business?.city ?? "",
+    zipCode: business?.zipCode ?? "",
+  }
+}
+
+function getInitials(firstName, lastName) {
+  const letters = [firstName?.[0], lastName?.[0]].filter(Boolean)
+  return letters.length ? letters.join("").toUpperCase() : "?"
+}
+
 export default function ClientProfilePage() {
+  const user = authStore((state) => state.user)
+  const authLoading = authStore((state) => state.loading)
+
+  const { data: business, isLoading: businessLoading } = useFetchMyBusiness(user?.id)
+  const businessId = business?.id
+
   const [activeTab, setActiveTab] = useState("info")
-  const [profile, setProfile] = useState(initialProfile)
+  const [profile, setProfile] = useState(emptyProfile)
   const [security, setSecurity] = useState(initialSecurity)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
 
-  // Simulated load so the shared skeleton system has something to show.
+  const loading = authLoading || businessLoading
+
+  // Keep the form synced to whoever is actually logged in: re-derive
+  // profile whenever the user or their business record (re)loads, instead
+  // of only ever showing the static sample data it was initialized with.
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500)
-    return () => clearTimeout(timer)
-  }, [])
+    if (!loading) {
+      setProfile(buildProfile(user, business))
+    }
+  }, [loading, user, business])
 
   // Personal Information (firstName, middleName, lastName, birthDate, email) is
   // read-only, so only Business Information fields go through this handler now.
@@ -99,7 +144,19 @@ export default function ClientProfilePage() {
     setSaveMessage(null)
     try {
       // Only Business Information fields are editable/saved from this form.
-      // await updateClientProfile(profile)
+      // await updateClientBusiness(businessId, {
+      //   businessName: profile.businessName,
+      //   businessType: profile.businessType,
+      //   tin: profile.tin,
+      //   industry: profile.industry,
+      //   contactNumber: profile.contactNumber,
+      //   houseNo: profile.houseNo,
+      //   streetName: profile.streetName,
+      //   barangay: profile.barangay,
+      //   district: profile.district,
+      //   city: profile.city,
+      //   zipCode: profile.zipCode,
+      // })
       setSaveMessage({ type: "success", text: "Profile updated successfully." })
     } catch (err) {
       console.error(err)
@@ -112,6 +169,10 @@ export default function ClientProfilePage() {
   const handleSavePassword = async (event) => {
     event.preventDefault()
 
+    if (!security.currentPassword) {
+      setSaveMessage({ type: "error", text: "Enter your current password." })
+      return
+    }
     if (!isPasswordValid(security.newPassword)) {
       setSaveMessage({ type: "error", text: "Password doesn't meet the requirements below." })
       return
@@ -141,6 +202,8 @@ export default function ClientProfilePage() {
     hasUnreadNotifications: true,
   })
 
+  const displayName = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || "My Profile"
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-2">
           {loading ? (
@@ -149,15 +212,12 @@ export default function ClientProfilePage() {
             <>
           <div className="flex items-center gap-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-forest-900 text-sm font-semibold text-white">
-              {currentUser.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
+              {getInitials(profile.firstName, profile.lastName)}
             </div>
             <div>
-              <h1 className="text-lg font-semibold leading-tight">{currentUser.name}</h1>
+              <h1 className="text-lg font-semibold leading-tight">{displayName}</h1>
               <p className="text-sm text-muted-foreground">
-                {profile.businessName} · Client since January 2022
+                {profile.businessName || "No business on file"}
               </p>
             </div>
           </div>
@@ -282,7 +342,9 @@ export default function ClientProfilePage() {
                   </FieldGroup>
                 </div>
 
-                {/* Mirrors SignupPage.jsx step 2 (Info / Firm Information) fields — still editable */}
+                {/* Mirrors SignupPage.jsx step 2 (Info / Firm Information) fields — still editable.
+                    Address is now the same six normalized fields signup collects, instead of
+                    one free-text "address" string. */}
                 <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                   <h2 className="mb-5 text-sm font-semibold">
                     Business Information
@@ -352,27 +414,94 @@ export default function ClientProfilePage() {
                       </Field>
                     </div>
 
+                    <Field>
+                      <FieldLabel htmlFor="contactNumber">
+                        Contact Number
+                      </FieldLabel>
+                      <Input
+                        id="contactNumber"
+                        name="contactNumber"
+                        value={profile.contactNumber}
+                        onChange={updateProfileField}
+                        className={controlClass}
+                      />
+                    </Field>
+
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field>
-                        <FieldLabel htmlFor="contactNumber">
-                          Contact Number
+                        <FieldLabel htmlFor="houseNo">
+                          House/Bldg./Unit No.
                         </FieldLabel>
                         <Input
-                          id="contactNumber"
-                          name="contactNumber"
-                          value={profile.contactNumber}
+                          id="houseNo"
+                          name="houseNo"
+                          value={profile.houseNo}
                           onChange={updateProfileField}
                           className={controlClass}
                         />
                       </Field>
                       <Field>
-                        <FieldLabel htmlFor="address">
-                          Address
+                        <FieldLabel htmlFor="streetName">
+                          Street Name
                         </FieldLabel>
                         <Input
-                          id="address"
-                          name="address"
-                          value={profile.address}
+                          id="streetName"
+                          name="streetName"
+                          value={profile.streetName}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="barangay">
+                          Barangay
+                        </FieldLabel>
+                        <Input
+                          id="barangay"
+                          name="barangay"
+                          value={profile.barangay}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="district">
+                          District
+                        </FieldLabel>
+                        <Input
+                          id="district"
+                          name="district"
+                          value={profile.district}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="city">
+                          City / Municipality
+                        </FieldLabel>
+                        <Input
+                          id="city"
+                          name="city"
+                          value={profile.city}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="zipCode">
+                          ZIP Code
+                        </FieldLabel>
+                        <Input
+                          id="zipCode"
+                          name="zipCode"
+                          value={profile.zipCode}
                           onChange={updateProfileField}
                           className={controlClass}
                         />
@@ -399,9 +528,19 @@ export default function ClientProfilePage() {
             <form onSubmit={handleSavePassword} className="flex flex-col gap-6">
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="rounded-xl border border-border bg-card p-6 shadow-sm lg:col-span-2">
-                  <h2 className="mb-5 text-sm font-semibold">
-                    Change Password
-                  </h2>
+                  <div className="mb-5 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold">
+                      Change Password
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setIsForgotPasswordOpen(true)}
+                      className="flex items-center gap-1.5 text-sm font-medium text-emerald-700 underline-offset-4 hover:underline"
+                    >
+                      <ShieldQuestion className="size-4" />
+                      Forgot your current password?
+                    </button>
+                  </div>
                   <FieldGroup className="gap-5">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field>
@@ -511,6 +650,11 @@ export default function ClientProfilePage() {
           )}
             </>
           )}
+
+      <ForgotPasswordModal
+        open={isForgotPasswordOpen}
+        onClose={() => setIsForgotPasswordOpen(false)}
+      />
         </div>
   )
 }
