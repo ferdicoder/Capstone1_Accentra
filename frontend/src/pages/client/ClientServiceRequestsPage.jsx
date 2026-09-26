@@ -104,8 +104,8 @@ export default function ClientServiceRequestsPage() {
               <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
                 <th className="px-4 py-3.5 align-middle font-semibold">Request</th>
                 <th className="px-4 py-3.5 align-middle font-semibold">Service</th>
+                <th className="px-4 py-3.5 text-center align-middle font-semibold">Status</th>
                 <th className="px-4 py-3.5 align-middle font-semibold">Requested</th>
-                <th className="px-4 py-3.5 text-center align-middle font-semibold">View</th>
                 <th className="px-4 py-3.5 text-center align-middle font-semibold">Action</th>
               </tr>
             </thead>
@@ -137,21 +137,17 @@ export default function ClientServiceRequestsPage() {
                       </td>
                       <td className="px-4 py-4 align-middle font-medium">
                         <span className="line-clamp-2">{r.serviceName}</span>
-                        <span
-                          className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${toneClass[meta.tone]}`}
-                        >
+                      </td>
+                        <td className="px-4 py-4 text-center align-middle">
+                         <span
+                          className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${toneClass[meta.tone]}`}>
                           {meta.label}
                         </span>
                       </td>
                       <td className="px-4 py-4 align-middle text-muted-foreground">
                         {formatDate(r.createdAt)}
                       </td>
-                      <td className="px-4 py-4 text-center align-middle">
-                        <Button variant="outline" size="sm" className="gap-1.5">
-                          <Eye className="size-3.5" />
-                          View
-                        </Button>
-                      </td>
+                    
                       <td className="px-4 py-4 text-center align-middle">
                         {isDeclined ? (
                           <span className="text-xs text-muted-foreground">—</span>
