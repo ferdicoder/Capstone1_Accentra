@@ -76,7 +76,7 @@ export function DashboardHeader({
             onClick={onRequestServiceClick}
           >
             <CirclePlus className="size-4" />
-            <span className="hidden sm:inline">Request a Service</span>
+            <span className="hidden sm:inline">Request Service</span>
           </Button>
         )}
 
