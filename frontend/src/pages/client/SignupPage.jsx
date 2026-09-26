@@ -7,7 +7,7 @@ import { useState } from "react"
 import { Check, X } from "lucide-react"
 
 import { registerClient } from "../../services/authService";
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 
 
 const MONTHS = [
@@ -771,6 +771,15 @@ export default function SignupPage() {
 
         </FieldGroup>
       </form>
+      <p className="mt-4 text-center text-sm text-muted-foreground">
+        Already have an account?{" "}
+        <Link
+          to="/client/signin"
+          className="font-medium text-foreground underline underline-offset-4 hover:text-emerald-700"
+        >
+          Sign in
+        </Link>
+      </p>
     </AuthLayout>
   )
 }

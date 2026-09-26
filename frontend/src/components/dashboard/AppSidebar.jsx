@@ -1,4 +1,4 @@
-import { Landmark } from "lucide-react"
+import darkLogo from "@/assets/Logo1.svg"
  
 import {
   Sidebar,
@@ -45,9 +45,15 @@ export function AppSidebar({ role = "firm-admin", user, ...props }) {
         <SidebarMenu> 
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" className="pointer-events-none hover:bg-sidebar-accent/80 group-data-[collapsible=icon]:justify-center">
-              <div className="flex size-8 shrink-0  items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/10 group-data-[collapsible=icon]:size-8">
-                <Landmark className="size-5 text-white" />
-              </div>
+              {/* Logo1.svg sits directly on the sidebar background - no icon
+                  container, background, ring or shadow. Height matches the
+                  previous glyph so the h-12 header height is unchanged. */}
+              <img
+                src={darkLogo}
+                alt=""
+                aria-hidden="true"
+                className="h-5 w-auto shrink-0"
+              />
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate text-sm font-semibold tracking-tight">Accentra</span>
                 <span className="truncate text-xs text-white/50">

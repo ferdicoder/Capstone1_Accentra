@@ -6,10 +6,10 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
-  FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { signinUser } from "../../services/authService";
 import { useNavigate } from "react-router-dom";
@@ -159,9 +159,9 @@ export function ClientLoginForm({
 
           <FieldDescription className="text-center">
             Don&apos;t have an account?{" "}
-            <a href="#" className="underline underline-offset-4 text-navy-900 transition-colors hover:text-emerald-700!">
+            <Link to="/client/signup" className="underline underline-offset-4 text-navy-900 transition-colors hover:text-emerald-700!">
               Sign up
-            </a>
+            </Link>
           </FieldDescription>
         </Field>
 
