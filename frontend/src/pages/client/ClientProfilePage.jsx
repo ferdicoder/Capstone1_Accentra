@@ -113,8 +113,20 @@ function buildProfile(user, business) {
   }
 }
 
+// Fields where non-digit characters are stripped as the user types.
+// TIN and Contact Number are handled separately below since they also get
+// auto-formatted.
 const DIGITS_ONLY_FIELDS = new Set(["zipCode"])
 
+// --- Philippine mobile number: +63 9XX XXX XXXX --------------------------
+// "+63" is shown as a fixed prefix next to the input, so the field itself only
+// holds the 10-digit national number (starting with 9). Whatever the user
+// types or pastes — "0917...", "63917...", "+63 917 ..." — is reduced to
+// those 10 digits.
+const PH_MOBILE_MAX_DIGITS = 10
+const TOO_MANY_DIGITS_MESSAGE = "Too many digits. A PH mobile number is 10 digits after +63"
+// How long the "too many digits" warning stays once the user stops typing.
+const TOO_MANY_DIGITS_TIMEOUT_MS = 2000
 
 function stripPhPrefix(rawValue) {
   let digits = String(rawValue ?? "").replace(/\D/g, "")
@@ -124,7 +136,7 @@ function stripPhPrefix(rawValue) {
 }
 
 function toNationalMobile(rawValue) {
-  return stripPhPrefix(rawValue).slice(0, 10)
+  return stripPhPrefix(rawValue).slice(0, PH_MOBILE_MAX_DIGITS)
 }
 
 // Formats the 10 national digits as "9XX XXX XXXX", adding spaces as you type.
@@ -139,7 +151,7 @@ function getPhoneWarning(national) {
   if (national[0] !== "9") {
     return "Invalid phone number. PH mobile numbers start with 9 (e.g. +63 917 123 4567)."
   }
-  if (national.length < 10) {
+  if (national.length < PH_MOBILE_MAX_DIGITS) {
     return "Invalid phone number. Enter all 10 digits after +63."
   }
   return ""
@@ -197,7 +209,16 @@ export default function ClientProfilePage() {
   // whether the user actually changed anything before hitting Save.
   const savedProfileRef = useRef(emptyProfile)
 
+  // Timer that auto-hides the "too many digits" warning once the user
+  // stops typing.
+  const tooManyDigitsTimerRef = useRef(null)
+
   const loading = authLoading || businessLoading
+
+  // Clean up a pending timer if the page unmounts.
+  useEffect(() => {
+    return () => clearTimeout(tooManyDigitsTimerRef.current)
+  }, [])
 
   // Keep the form synced to whoever is actually logged in: re-derive
   // profile whenever the user or their business record (re)loads, instead
@@ -236,19 +257,36 @@ export default function ClientProfilePage() {
       // hyphens, parentheses); anything else (letters etc.) is rejected.
       const hasInvalidChar = /[^\d\s+\-()]/.test(value)
       const fullNational = stripPhPrefix(value)
-      const national = fullNational.slice(0, 10)
-      // Once all 10 digits are in, extra digits are dropped — say so instead
-      // of silently ignoring the keystroke.
-      const hasTooManyDigits = fullNational.length > 10
+      const national = fullNational.slice(0, PH_MOBILE_MAX_DIGITS)
+
+      // True only when the user tried to type/paste beyond the 10-digit limit.
+      const hasTooManyDigits = fullNational.length > PH_MOBILE_MAX_DIGITS
+
+      // Every new keystroke resets the auto-hide timer.
+      clearTimeout(tooManyDigitsTimerRef.current)
 
       setFieldErrors((current) => ({
         ...current,
         contactNumber: hasInvalidChar
           ? "Numbers only."
           : hasTooManyDigits
-            ? "Too many digits. A PH mobile number is 10 digits after +63."
+            ? TOO_MANY_DIGITS_MESSAGE
             : getPhoneWarning(national),
       }))
+
+      // The extra digit is dropped, so the field stays at 10 digits and
+      // won't trigger another change on its own. Auto-hide the warning
+      // once the user stops typing.
+      if (hasTooManyDigits && !hasInvalidChar) {
+        tooManyDigitsTimerRef.current = setTimeout(() => {
+          setFieldErrors((current) =>
+            current.contactNumber === TOO_MANY_DIGITS_MESSAGE
+              ? { ...current, contactNumber: "" }
+              : current
+          )
+        }, TOO_MANY_DIGITS_TIMEOUT_MS)
+      }
+
       setProfile((current) => ({ ...current, contactNumber: formatPhMobile(national) }))
       return
     }
@@ -389,10 +427,10 @@ export default function ClientProfilePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-2">
-          {loading ? (
-            <PageSkeleton type="profile" />
-          ) : (
-            <>
+      {loading ? (
+        <PageSkeleton type="profile" />
+      ) : (
+        <>
           <div className="flex items-center gap-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-forest-900 text-sm font-semibold text-white">
               {getInitials(profile.firstName, profile.lastName)}
@@ -614,6 +652,9 @@ export default function ClientProfilePage() {
                         <span className="inline-flex h-8 shrink-0 items-center rounded-l-lg border border-r-0 border-input bg-muted px-3 text-sm font-medium text-muted-foreground">
                           +63
                         </span>
+                        {/* No maxLength here on purpose: the browser would block the
+                            11th keystroke before onChange fires, so the "too many
+                            digits" warning could never appear. */}
                         <Input
                           id="contactNumber"
                           name="contactNumber"
@@ -626,12 +667,11 @@ export default function ClientProfilePage() {
                           aria-invalid={Boolean(fieldErrors.contactNumber)}
                         />
                       </div>
-                      <FieldDescription
-                        className={fieldErrors.contactNumber ? "text-red-600" : undefined}
-                      >
-                        {fieldErrors.contactNumber ||
-                          "   "}
-                      </FieldDescription>
+                      {fieldErrors.contactNumber && (
+                        <FieldDescription className="text-red-600">
+                          {fieldErrors.contactNumber}
+                        </FieldDescription>
+                      )}
                     </Field>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -871,13 +911,13 @@ export default function ClientProfilePage() {
               </div>
             </form>
           )}
-            </>
-          )}
+        </>
+      )}
 
       <ForgotPasswordModal
         open={isForgotPasswordOpen}
         onClose={() => setIsForgotPasswordOpen(false)}
       />
-        </div>
+    </div>
   )
 }
