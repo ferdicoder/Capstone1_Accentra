@@ -1,4 +1,4 @@
-import darkLogo from "@/assets/Logo1.svg"
+import brandLogo from "@/assets/Favicon.svg"
 
 const previewNav = ["Overview", "Engagements", "Documents", "Services", "Team"]
 const previewMetrics = [
@@ -24,7 +24,7 @@ export function LandingProductPreview() {
       >
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2.5">
-            <img src={darkLogo} alt="" className="h-7 w-auto shrink-0" />
+            <img src={brandLogo} alt="" className="h-7 w-auto shrink-0" />
             <span className="truncate text-xs font-semibold text-white/80 sm:text-sm">
               Engagement workspace
             </span>
