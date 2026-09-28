@@ -1,4 +1,7 @@
 # Accentra
+<img width="1900" height="850" alt="image" src="https://github.com/user-attachments/assets/22bea220-2e90-46bf-bf8d-d4f1883e9f2c" />
+
+
 
 Accentra is a web-based practice management system for accounting firms in the Philippines. It centralizes client service requests, engagement tracking, workflow tasks, document exchange, firm users, and service templates in one application.
 
