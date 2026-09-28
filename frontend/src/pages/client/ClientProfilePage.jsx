@@ -103,7 +103,7 @@ function buildProfile(user, business) {
     businessType: business?.businessType ?? "",
     tin: business?.tin ?? "",
     industry: business?.industry ?? "",
-    contactNumber: business?.contactNumber ?? "",
+    contactNumber: formatPhMobile(toNationalMobile(business?.contactNumber)),
     houseNo: business?.houseNo ?? "",
     streetName: business?.streetName ?? "",
     barangay: business?.barangay ?? "",
@@ -113,9 +113,37 @@ function buildProfile(user, business) {
   }
 }
 
-// Fields where non-digit characters are stripped as the user types.
-// TIN is handled separately below since it also gets auto-hyphenated.
-const DIGITS_ONLY_FIELDS = new Set(["contactNumber", "zipCode"])
+const DIGITS_ONLY_FIELDS = new Set(["zipCode"])
+
+
+function stripPhPrefix(rawValue) {
+  let digits = String(rawValue ?? "").replace(/\D/g, "")
+  if (digits.startsWith("63")) digits = digits.slice(2)
+  else if (digits.startsWith("0")) digits = digits.slice(1)
+  return digits
+}
+
+function toNationalMobile(rawValue) {
+  return stripPhPrefix(rawValue).slice(0, 10)
+}
+
+// Formats the 10 national digits as "9XX XXX XXXX", adding spaces as you type.
+function formatPhMobile(national) {
+  return [national.slice(0, 3), national.slice(3, 6), national.slice(6, 10)]
+    .filter(Boolean)
+    .join(" ")
+}
+
+function getPhoneWarning(national) {
+  if (!national) return ""
+  if (national[0] !== "9") {
+    return "Invalid phone number. PH mobile numbers start with 9 (e.g. +63 917 123 4567)."
+  }
+  if (national.length < 10) {
+    return "Invalid phone number. Enter all 10 digits after +63."
+  }
+  return ""
+}
 
 // Formats a raw digit string as XXX-XXX-XXX-XXX (BIR's 12-digit online format),
 // inserting hyphens progressively as the user types rather than all at once.
@@ -203,6 +231,28 @@ export default function ClientProfilePage() {
       return
     }
 
+    if (name === "contactNumber") {
+      // Allow the characters a pasted number might contain (+, spaces,
+      // hyphens, parentheses); anything else (letters etc.) is rejected.
+      const hasInvalidChar = /[^\d\s+\-()]/.test(value)
+      const fullNational = stripPhPrefix(value)
+      const national = fullNational.slice(0, 10)
+      // Once all 10 digits are in, extra digits are dropped — say so instead
+      // of silently ignoring the keystroke.
+      const hasTooManyDigits = fullNational.length > 10
+
+      setFieldErrors((current) => ({
+        ...current,
+        contactNumber: hasInvalidChar
+          ? "Numbers only."
+          : hasTooManyDigits
+            ? "Too many digits. A PH mobile number is 10 digits after +63."
+            : getPhoneWarning(national),
+      }))
+      setProfile((current) => ({ ...current, contactNumber: formatPhMobile(national) }))
+      return
+    }
+
     if (DIGITS_ONLY_FIELDS.has(name)) {
       const cleanValue = value.replace(/\D/g, "")
       setFieldErrors((current) => ({
@@ -235,6 +285,31 @@ export default function ClientProfilePage() {
       return
     }
 
+    // Block save on a genuinely incomplete TIN (anything but 9 or 12 digits).
+    // The exactly-9-digit case still saves — that's a valid legacy TIN, just
+    // flagged with a reminder rather than treated as an error.
+    const tinDigits = profile.tin.replace(/\D/g, "")
+    if (tinDigits.length > 0 && tinDigits.length !== 9 && tinDigits.length !== 12) {
+      setFieldErrors((current) => ({
+        ...current,
+        tin: "Invalid TIN ID. Must be 9 or 12 digits.",
+      }))
+      setSaveMessage({ type: "error", text: "Fix the TIN Number before saving." })
+      return
+    }
+
+    // Block save on an invalid mobile number too (must be 10 digits starting
+    // with 9). An empty number is allowed through — it's optional here.
+    const phoneNational = profile.contactNumber.replace(/\D/g, "")
+    if (phoneNational.length > 0 && getPhoneWarning(phoneNational)) {
+      setFieldErrors((current) => ({
+        ...current,
+        contactNumber: getPhoneWarning(phoneNational),
+      }))
+      setSaveMessage({ type: "error", text: "Fix the Contact Number before saving." })
+      return
+    }
+
     setIsSaving(true)
     try {
       // Only Business Information fields are editable/saved from this form.
@@ -243,7 +318,8 @@ export default function ClientProfilePage() {
       //   businessType: profile.businessType,
       //   tin: profile.tin,
       //   industry: profile.industry,
-      //   contactNumber: profile.contactNumber,
+      //   // Stored in international format, e.g. "+639171234567"
+      //   contactNumber: phoneNational ? `+63${phoneNational}` : "",
       //   houseNo: profile.houseNo,
       //   streetName: profile.streetName,
       //   barangay: profile.barangay,
@@ -509,8 +585,7 @@ export default function ClientProfilePage() {
                         <FieldDescription
                           className={fieldErrors.tin ? "text-red-600" : undefined}
                         >
-                          {fieldErrors.tin ||
-                            "12 digits, formatted as XXX-XXX-XXX-XXX. If your TIN card only shows 9 digits, add 000 at the end to complete the 12-digit format required by online portals like BIR ORUS."}
+                          {fieldErrors.tin || "12 digits, e.g. 123-456-789-000."}
                         </FieldDescription>
                       </Field>
                       <Field>
@@ -535,20 +610,28 @@ export default function ClientProfilePage() {
                       <FieldLabel htmlFor="contactNumber">
                         Contact Number
                       </FieldLabel>
-                      <Input
-                        id="contactNumber"
-                        name="contactNumber"
-                        inputMode="numeric"
-                        value={profile.contactNumber}
-                        onChange={updateProfileField}
-                        className={controlClass}
-                        aria-invalid={Boolean(fieldErrors.contactNumber)}
-                      />
-                      {fieldErrors.contactNumber && (
-                        <FieldDescription className="text-red-600">
-                          {fieldErrors.contactNumber}
-                        </FieldDescription>
-                      )}
+                      <div className="flex">
+                        <span className="inline-flex h-8 shrink-0 items-center rounded-l-lg border border-r-0 border-input bg-muted px-3 text-sm font-medium text-muted-foreground">
+                          +63
+                        </span>
+                        <Input
+                          id="contactNumber"
+                          name="contactNumber"
+                          type="tel"
+                          inputMode="numeric"
+                          placeholder="9XX XXX XXXX"
+                          value={profile.contactNumber}
+                          onChange={updateProfileField}
+                          className="w-full rounded-l-none bg-background"
+                          aria-invalid={Boolean(fieldErrors.contactNumber)}
+                        />
+                      </div>
+                      <FieldDescription
+                        className={fieldErrors.contactNumber ? "text-red-600" : undefined}
+                      >
+                        {fieldErrors.contactNumber ||
+                          "   "}
+                      </FieldDescription>
                     </Field>
 
                     <div className="grid gap-4 sm:grid-cols-2">
