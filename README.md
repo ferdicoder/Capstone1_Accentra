@@ -1,7 +1,7 @@
 # Accentra
 <img width="1900" height="850" alt="image" src="https://github.com/user-attachments/assets/22bea220-2e90-46bf-bf8d-d4f1883e9f2c" />
 
-
+Demo: <i><a href="accentra.up.railway.app ">Accentra Demo</a></i>
 
 Accentra is a web-based practice management system for accounting firms in the Philippines. It centralizes client service requests, engagement tracking, workflow tasks, document exchange, firm users, and service templates in one application.
 
@@ -193,3 +193,13 @@ accentra/
 ├── package.json         Root development commands
 └── README.md
 ```
+
+## Team
+
+| Name | Endpoint |
+| --- | --- |
+| `Racy Jhanna D. Ledres` | `Project Manager/QA Lead` |
+| `Ferdinand Cedrick B. Gelito` | `Full-Stack Dev/Tech Lead` |
+| `Alexis Arcenal` | `UI/UX/Frontend Dev` |
+| `Jhanleur L. Balberan` | `Frontend Dev` |
+| `Reivin Niña V. Lasic` | `UI/UX/Documentation` |
