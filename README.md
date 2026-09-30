@@ -202,4 +202,4 @@ accentra/
 | `Ferdinand Cedrick B. Gelito` | `Full-Stack Dev/Tech Lead` |
 | `Alexis Arcenal` | `UI/UX/Frontend Dev` |
 | `Jhanleur L. Balberan` | `Frontend Dev` |
-| `Reivin Niña V. Lasic` | `UI/UX/Documentation` |
+| `Reivin Niña V. Lasic` | `UI/UX/QA` |
