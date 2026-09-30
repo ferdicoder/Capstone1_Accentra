@@ -196,7 +196,7 @@ accentra/
 
 ## Team
 
-| Name | Endpoint |
+| Name | Roles |
 | --- | --- |
 | `Racy Jhanna D. Ledres` | `Project Manager/QA Lead` |
 | `Ferdinand Cedrick B. Gelito` | `Full-Stack Dev/Tech Lead` |
