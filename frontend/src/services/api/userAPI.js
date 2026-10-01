@@ -36,6 +36,8 @@ function mapUserRow(row, roleOverride) {
  * - slice to paginate in FE
  * - admin and staff only
  */
+const firmRoles = ['admin', 'staff', 'billing_officer']
+
 async function getUsers() {
   const { data, error } = await supabase
     .from("users")
@@ -47,8 +49,9 @@ async function getUsers() {
       middle_name, 
       last_name,
       status, 
-      user_roles(role)
+      user_roles!inner(role)
     `)
+    .in("user_roles.role", firmRoles)
   if (error) throw error
 
   return (data ?? []).map((row) => {
@@ -128,11 +131,13 @@ async function createStaff(user) {
   return mapAuthUserRow(createdUser, user)
 }
 
-async function fetchRoleOptions(){
+async function fetchFirmRoles(){
   const { data, error } = await supabase
   .from("roles")
   .select("role_id, role_name, description")
+  .in("role_id", firmRoles)
   .order("role_name")
+  
 
   if (error) throw error
   return data
@@ -144,5 +149,5 @@ export{
   updateUser,
   updateUserStatus, 
   createStaff,
-  fetchRoleOptions
+  fetchFirmRoles
 }

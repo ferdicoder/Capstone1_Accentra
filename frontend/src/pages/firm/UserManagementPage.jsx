@@ -9,7 +9,7 @@ import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-m
 import { FirmUserCreateDialog } from "@/components/firm/users/firm-user-create-dialog"
 import { FirmUserEditDialog } from "@/components/firm/users/firm-user-edit-dialog"
 
-import { useFetchUsers,useUpdateUser, useToggleUserStatus, useCreateStaff, useFetchRoleOptions } from "@/hooks/useUsers"
+import { useFetchUsers,useUpdateUser, useToggleUserStatus, useCreateStaff, useFetchFirmRoles } from "@/hooks/useUsers"
 
 
 
@@ -35,7 +35,7 @@ export default function UserManagementPage() {
   }, [])
 
   const { data: users = [], isLoading, error } = useFetchUsers()
-  const { data: roles = [], isLoading: rolesLoading } = useFetchRoleOptions()
+  const { data: roles = [], isLoading: rolesLoading } = useFetchFirmRoles()
   const updateUser = useUpdateUser()
   const toggleStatus = useToggleUserStatus()
   const createStaff = useCreateStaff()

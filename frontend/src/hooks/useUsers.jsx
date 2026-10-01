@@ -6,7 +6,7 @@ import {
   updateUser, 
   updateUserStatus, 
   createStaff,
-  fetchRoleOptions
+  fetchFirmRoles
 } from "@/services/api/userAPI"
 
 
@@ -17,10 +17,10 @@ export function useFetchUsers() {
   })
 }
 
-export function useFetchRoleOptions() {
+export function useFetchFirmRoles() {
   return useQuery({
     queryKey: queryKeys.roles,
-    queryFn: fetchRoleOptions,
+    queryFn: fetchFirmRoles,
     staleTime: 5 * 60 * 1000
   })
 }
