@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 
 import { useNavigate } from "react-router-dom";
 
-import { signinUser } from "@/services/authService"
+import { signinToPortal } from "@/services/authService";
+import { getHome } from "@/config/roles";
 
 export function FirmLoginForm({
   className,
@@ -37,21 +38,12 @@ export function FirmLoginForm({
       setLoginError("")
       if (newErrors.email || newErrors.password) return
 
+      // FirmLoginForm: replace the try block
       try {
-        const { role } = await signinUser(email, password)
-        const dashboardPath = ["admin", "firm-admin"].includes(role)
-          ? "/admin/dashboard"
-          : ["staff", "billing_officer"].includes(role)
-            ? "/firm/dashboard"
-            : null
-
-        if (!dashboardPath) {
-          throw new Error("Your account does not have a valid firm role assigned.")
-        }
-
-        navigate(dashboardPath)
+        const { role } = await signinToPortal("firm", email, password)
+        navigate(getHome(role))
       } catch (error) {
-        setLoginError(error.message || "Unable to sign in. Check your credentials.")
+        setLoginError(error.message)
       }
     }
 

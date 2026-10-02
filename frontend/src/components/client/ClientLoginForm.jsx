@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { signinUser } from "../../services/authService";
+import { signinToPortal } from "../../services/authService";
+import { getHome } from "@/config/roles";
 import { useNavigate } from "react-router-dom";
 
 export function ClientLoginForm({
@@ -40,18 +41,12 @@ export function ClientLoginForm({
 
       setIsSubmitting(true)
 
+      
       try {
-        const user = await signinUser(email, password);
-
-        if (user.error) {
-          setCredentialsError("The email or password you entered is incorrect.")
-          return
-        }
-
-        navigate(`/${user.role}/dashboard`);
+        const { role } = await signinToPortal("client", email, password)
+        navigate(getHome(role))
       } catch (err) {
-        console.error(err)
-        setCredentialsError("Invalid Credentials. Please try again.")
+        setCredentialsError(err.message)
       } finally {
         setIsSubmitting(false)
       }

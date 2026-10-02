@@ -1,6 +1,20 @@
 import { supabase } from '../config/supabase.js';
 import { setUserRole } from './api/userAPI.js';
 import toISODateString from '@/utils/formatDate.js';
+import { canUsePortal } from '@/config/roles.js';
+
+export async function signinToPortal(portal, email, password) {
+  const result = await signinUser(email, password)
+  if (result?.error) throw new Error("The email or password you entered is incorrect.")
+
+  if (!canUsePortal(portal, result.role)) {
+    await supabase.auth.signOut()          // valid account, wrong door: end the session
+    authStore.getState().clearAuth()
+    throw new Error("The email or password you entered is incorrect.")
+  }
+
+  return result
+}
 
 /**
  * fix: every role can login to every auth routes signins
