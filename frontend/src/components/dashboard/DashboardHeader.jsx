@@ -15,10 +15,9 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 
 import { roleConfig } from "@/components/dashboard/NavData"
+import { authStore } from "@/store/authStore"
 
 export function DashboardHeader({
-  role,
-  user,
   title,
   breadcrumbs = [],
   actions,
@@ -26,8 +25,7 @@ export function DashboardHeader({
   onNotificationsClick,
   onRequestServiceClick,
 }) {
-  const config = roleConfig[role]
-  const profileHref = config?.profileUrl ?? "#"
+  const role = authStore((state) => state.role)
   const isClient = role === "client"
 
   return (

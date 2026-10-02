@@ -44,16 +44,22 @@ export const clientNav = [
 ]
 
 export const roleConfig = {
-  "firm-admin": {
+  admin: {
     label: "Firm Admin",
     nav: firmAdminNav,
     team: { name: "Accentra", plan: "Firm Admin" },
     profileUrl: "/admin/profile",
   },
-  "firm-staff": {
+  staff: {
     label: "Firm Staff",
     nav: firmUserNav,
     team: { name: "Accentra", plan: "Firm Staff" },
+    profileUrl: "/firm/dashboard",
+  },
+  billing_officer: {
+    label: "Billing Officer",
+    nav: firmUserNav,
+    team: { name: "Accentra", plan: "Billing Officer" },
     profileUrl: "/firm/dashboard",
   },
   client: {

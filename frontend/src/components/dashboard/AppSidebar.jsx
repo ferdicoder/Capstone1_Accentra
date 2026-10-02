@@ -16,11 +16,15 @@ import { NavUser } from "@/components/dashboard/NavUser"
 import { roleConfig } from "@/components/dashboard/NavData"
 import { authStore } from "@/store/authStore"
 
-export function AppSidebar({ role = "firm-admin", user, ...props }) {
-  const config = roleConfig[role] ?? roleConfig["firm-admin"]
+export function AppSidebar({  user, ...props }) {
+  const role = authStore((state) => state.role)
   const sessionUser = authStore((state) => state.user)
+  const config = roleConfig[role]
+  if (!config) return null
+  
   const currentUser = user ?? sessionUser
   const metadata = currentUser?.user_metadata ?? {}
+
   const displayName = currentUser?.name ?? (
     [metadata.first_name, metadata.middle_name, metadata.last_name]
       .filter(Boolean)
