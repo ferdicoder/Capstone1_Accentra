@@ -3,9 +3,15 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { CardSkeleton } from "./card-skeleton"
 import { FormSkeleton } from "./form-skeleton"
 import { TableSkeleton } from "./table-skeleton"
+import { Button } from "@/components/ui/button"
+import { Link } from "react-router-dom"
+import { ArrowLeft } from "lucide-react"
 
 /**
- * Full-page loading placeholder. Composes the granular shared skeletons into
+ * Proper not-found page for the Billing Detail route (spec section 18: the
+ * page must resolve the record from the route param + billing store, and
+ * show a clean not-found state when the record is missing — no runtime
+ * exception). Composes the granular shared skeletons into
  * ready-made layouts that mirror real pages, so pages never duplicate
  * skeleton markup. Type presets: "service-requests", "users", "services",
  * "dashboard", "profile", "page".
@@ -40,6 +46,27 @@ function ToolbarSkeleton() {
         <Skeleton className="h-8 w-64 rounded-lg" />
         <Skeleton className="h-8 w-24 rounded-lg" />
       </div>
+    </div>
+  )
+}
+
+export function PageNotFound({
+  title = "Page Not Found",
+  message = "The page you are looking for does not exist.",
+  actionLabel = "Back",
+  actionHref = "/",
+  className,
+}) {
+  return (
+    <div className={cn("flex flex-col items-center justify-center gap-4 py-16 text-center", className)}>
+      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+        <ArrowLeft className="size-6 text-muted-foreground" />
+      </div>
+      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+      <p className="text-sm text-muted-foreground">{message}</p>
+      <Button variant="default" asChild size="sm">
+        <Link to={actionHref}>{actionLabel}</Link>
+      </Button>
     </div>
   )
 }

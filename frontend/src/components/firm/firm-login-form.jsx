@@ -41,7 +41,7 @@ export function FirmLoginForm({
         const { role } = await signinUser(email, password)
         const dashboardPath = ["admin", "firm-admin"].includes(role)
           ? "/admin/dashboard"
-          : ["staff", "billing_officer"].includes(role)
+          : role === "staff"
             ? "/firm/dashboard"
             : null
 

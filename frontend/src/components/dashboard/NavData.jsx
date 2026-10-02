@@ -12,6 +12,7 @@ export const firmAdminNav = [
   { title: "Service Requests", url: "/admin/service-requests", icon: UserCog, items: [] },
   { title: "Services", url: "/admin/services", icon: ClipboardList, items: [] },
   { title: "Engagements", url: "/admin/engagements", icon: Briefcase, items: [] },
+  { title: "Billing", url: "/admin/billing", icon: Receipt, items: [] },
   {
     title: "Settings",
     url: "/admin/profile",

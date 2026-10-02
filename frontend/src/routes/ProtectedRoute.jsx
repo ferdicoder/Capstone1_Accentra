@@ -6,7 +6,7 @@ import { authStore } from "@/store/authStore"
 const routeRoleAccess = {
   client: ["client"],
   "firm-admin": ["admin"],
-  "firm-staff": ["staff", "billing_officer"],
+  "firm-staff": ["staff"],
 }
 
 const roleHome = {
