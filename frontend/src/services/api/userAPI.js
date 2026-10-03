@@ -1,7 +1,7 @@
 import { supabase } from "@/config/supabase";
 import { authStore } from "@/store/authStore";
 
-async function setUserRole(user) {
+async function setUserRole(user, persist = true) {
   const { data: roleData, error } = await supabase
     .from('user_roles')
     .select('role')
@@ -9,11 +9,11 @@ async function setUserRole(user) {
     .single();
 
   if (error) {
-    authStore.getState().clearAuth();
+    if (persist) authStore.getState().clearAuth();
     return null;
   }
 
-  authStore.getState().setAuth(user, roleData.role);
+  if (persist) authStore.getState().setAuth(user, roleData.role);
   return roleData.role;
 }
 

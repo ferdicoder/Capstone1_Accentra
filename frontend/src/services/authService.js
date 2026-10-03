@@ -2,17 +2,19 @@ import { supabase } from '../config/supabase.js';
 import { setUserRole } from './api/userAPI.js';
 import toISODateString from '@/utils/formatDate.js';
 import { canUsePortal } from '@/config/roles.js';
+import { authStore } from '@/store/authStore';
 
 export async function signinToPortal(portal, email, password) {
   const result = await signinUser(email, password)
   if (result?.error) throw new Error("The email or password you entered is incorrect.")
 
   if (!canUsePortal(portal, result.role)) {
-    await supabase.auth.signOut()          // valid account, wrong door: end the session
+    await supabase.auth.signOut()
     authStore.getState().clearAuth()
-    throw new Error("The email or password you entered is incorrect.")
+    throw new Error("Invalid credentials please try again.")
   }
 
+  authStore.getState().setAuth(result.data.user, result.role)
   return result
 }
 
@@ -27,7 +29,7 @@ async function signinUser(email, password){
     }); 
     if(error) throw new Error(error.message)
 
-    const role = await setUserRole(data.user);
+    const role = await setUserRole(data.user, false);
     if (!role) {
       throw new Error("Your account does not have a valid firm role assigned.")
     }
