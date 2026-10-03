@@ -6,7 +6,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/AppSidebar"
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 
-export function DashboardLayout({ role, user, onRequestServiceClick }) {
+export function DashboardLayout({ onRequestServiceClick }) {
   const [pageMeta, setPageMeta] = useState({})
 
   const stableSetPageMeta = useCallback((meta) => {
@@ -20,11 +20,9 @@ export function DashboardLayout({ role, user, onRequestServiceClick }) {
 
   return (
     <SidebarProvider>
-      <AppSidebar role={role} user={user} />
+      <AppSidebar />
       <SidebarInset>
         <DashboardHeader
-          role={role}
-          user={user}
           title={pageMeta.title}
           breadcrumbs={pageMeta.breadcrumbs ?? []}
           actions={pageMeta.actions}

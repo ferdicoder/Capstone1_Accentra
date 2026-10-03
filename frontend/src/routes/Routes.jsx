@@ -3,7 +3,8 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ClientLayout } from "@/layout/ClientLayout";
 import { FirmAdminLayout } from "@/layout/FirmAdminLayout";
 import { FirmStaffLayout } from "@/layout/FirmStaffLayout";
-import { ProtectedRoute } from "@/routes/ProtectedRoute";
+import { ProtectedRoutes } from "@/routes/ProtectedRoutes";
+import { PublicOnlyRoutes } from "./PublicOnlyRoutes";
 
 import ClientDashboard from "@/pages/client/ClientDashboard";
 import LoginPage from "@/pages/client/LoginPage";
@@ -36,16 +37,15 @@ export const router = createBrowserRouter([
     element: <SignupPage />,
   },
   {
-    path: "/client/signin",
-    element: <LoginPage />,
+    element: <PublicOnlyRoutes />,
+    children: [
+      { path: "/client/signin", element: <LoginPage /> },
+      { path: "/firm/signin", element: <FirmLoginPage /> },
+    ],
   },
-  {
-    path: "/firm/signin",
-    element: <FirmLoginPage />,
-  },
-  {
+  { 
     path: "/client",
-    element: <ProtectedRoute role="client" />,
+    element: <ProtectedRoutes allow={["client"]} />,
     children: [
       {
         element: <ClientLayout />,
@@ -62,7 +62,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/admin",
-    element: <ProtectedRoute role="firm-admin" />,
+    element: <ProtectedRoutes allow={["admin"]} />,
     children: [
       {
         element: <FirmAdminLayout />,
@@ -83,7 +83,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/firm",
-    element: <ProtectedRoute role="firm-staff" />,
+    element: <ProtectedRoutes allow={["staff", "billing_officer"]} />,
     children: [
       {
         element: <FirmStaffLayout />,
