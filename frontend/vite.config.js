@@ -9,6 +9,9 @@ export default defineConfig({
     react(),
     tailwindcss()
   ],
+  preview: {
+    allowedHosts: ['accentra-test.up.railway.app'],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
