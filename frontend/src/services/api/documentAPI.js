@@ -1,14 +1,17 @@
 import axios from 'axios'
 import { supabase } from "@/config/supabase"
 
-async function uploadTemplateDocument(templateTaskId, file) {
+async function uploadTemplateDocument(templateTaskId, file, onUploadProgress) {
   const formData = new FormData()
   formData.append('document', file)
 
   const res = await axios.post(
     `${import.meta.env.VITE_API_BASE_URL}/documents/template/${templateTaskId}`,
     formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } }
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress,
+    }
   )
   return res.data
 }

@@ -45,6 +45,7 @@ export function ServiceTemplateForm({
   categoryOptions = categoryFilterOptions,
   onSubmit,
   submitting = false,
+  progress,
   onCancel,
   submitLabel = "Save Service",
   cancelLabel = "Cancel",
@@ -297,6 +298,26 @@ export function ServiceTemplateForm({
       />
 
       <DialogFooter className="flex-row justify-end gap-2">
+        {progress?.active && (
+          <div className="mr-auto flex min-w-44 flex-1 flex-col gap-1" aria-live="polite">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{progress.phase}</span>
+              <span>{progress.percent}%</span>
+            </div>
+            <div
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progress.percent}
+              className="h-1.5 overflow-hidden rounded-full bg-muted"
+            >
+              <div
+                className="h-full rounded-full bg-forest-900 transition-[width] duration-200"
+                style={{ width: `${progress.percent}%` }}
+              />
+            </div>
+          </div>
+        )}
         <Button type="button" variant="outline" disabled={submitting} onClick={onCancel}>
           {cancelLabel}
         </Button>
@@ -319,6 +340,7 @@ export function ServiceCreateDialog({
   onSubmit,
   categoryOptions = categoryFilterOptions,
   submitting = false,
+  progress,
   error,
   title = "Add Service",
   description = "Create a new service template for your firm.",
@@ -328,7 +350,7 @@ export function ServiceCreateDialog({
   ...props
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} {...props}>
+    <Dialog open={open} onOpenChange={(nextOpen) => !submitting && onOpenChange?.(nextOpen)} {...props}>
       <DialogContent data-slot="service-create-dialog" className={className}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -340,6 +362,7 @@ export function ServiceCreateDialog({
           categoryOptions={categoryOptions}
           onSubmit={onSubmit}
           submitting={submitting}
+          progress={progress}
           error={error}
           onCancel={() => onOpenChange?.(false)}
           submitLabel={submitLabel}

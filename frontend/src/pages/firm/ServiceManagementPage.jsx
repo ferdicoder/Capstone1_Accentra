@@ -1,4 +1,3 @@
-import { useLocation } from "react-router-dom"
 import { useMemo, useState } from "react"
 import { Ban, CheckCircle2, Pencil, Trash2 } from "lucide-react"
 
@@ -31,8 +30,6 @@ const categoryLabel = (value, options) =>
   options.find((option) => option.value === value)?.label ?? value ?? ""
 
 export default function ServiceManagementPage() {
-  const location = useLocation()
-  const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
@@ -45,6 +42,7 @@ export default function ServiceManagementPage() {
   const [categoryCreateOpen, setCategoryCreateOpen] = useState(false)
   const [categoryManagementOpen, setCategoryManagementOpen] = useState(false)
   const [categoryOptions, setCategoryOptions] = useState(categoryFilterOptions)
+  const [createProgress, setCreateProgress] = useState({ active: false, percent: 0, phase: "Saving service…" })
 
   const { data: services = [], isLoading, error } = useFetchServices()
   const createService = useCreateService()
@@ -88,44 +86,66 @@ export default function ServiceManagementPage() {
   }, [services, search, categoryFilter, statusFilter, categoryOptions])
 
   const handleCreate = (values) => {
-  const tasksWithFiles = values.workflowTasks
-    .map((task, index) => ({ task, index }))
-    .filter(({ task }) => task.hasReferenceDocument && task.referenceDocument?.file)
+    const tasksWithFiles = values.workflowTasks
+      .map((task, index) => ({ task, index }))
+      .filter(({ task }) => task.hasReferenceDocument && task.referenceDocument?.file)
+    const totalBytes = tasksWithFiles.reduce((total, { task }) => total + task.referenceDocument.file.size, 0)
 
-  createService.mutate(values, {
-    onSuccess: async (newService) => {
-      setCreateOpen(false)
-      setNotice({ tone: "success", message: `${newService.name} added` })
+    setCreateProgress({ active: true, percent: 0, phase: "Saving service…" })
+    createService.mutate(values, {
+      onSuccess: async (newService) => {
+        setNotice({ tone: "success", message: `${newService.name} added` })
 
-      if (tasksWithFiles.length === 0) return
+        if (tasksWithFiles.length === 0) {
+          setCreateProgress({ active: false, percent: 100, phase: "Complete" })
+          setCreateOpen(false)
+          return
+        }
 
-      const failedUploads = []
+        setCreateProgress({ active: true, percent: 10, phase: "Uploading reference documents…" })
+        const failedUploads = []
+        const uploadedBytes = new Map()
 
-      await Promise.all(
-        tasksWithFiles.map(async ({ task, index }) => {
-          const matchedTask = newService.workflowTasks?.[index]
-          if (!matchedTask?.id) {
-            failedUploads.push(task.name)
-            return
-          }
-          try {
-            await uploadTemplateDocument(matchedTask.id, task.referenceDocument.file)
-          } catch (err) {
-            console.error(`Reference document upload failed for "${task.name}":`, err)
-            failedUploads.push(task.name)
-          }
-        })
-      )
+        await Promise.all(
+          tasksWithFiles.map(async ({ task, index }) => {
+            const matchedTask = newService.workflowTasks?.[index]
+            if (!matchedTask?.id) {
+              failedUploads.push(task.name)
+              return
+            }
+            try {
+              await uploadTemplateDocument(matchedTask.id, task.referenceDocument.file, (event) => {
+                uploadedBytes.set(index, event.loaded)
+                const loaded = [...uploadedBytes.values()].reduce((total, bytes) => total + bytes, 0)
+                const uploadPercent = totalBytes > 0 ? loaded / totalBytes : 1
+                setCreateProgress({
+                  active: true,
+                  percent: Math.min(99, Math.round(10 + uploadPercent * 90)),
+                  phase: "Uploading reference documents…",
+                })
+              })
+            } catch (err) {
+              console.error(`Reference document upload failed for "${task.name}":`, err)
+              failedUploads.push(task.name)
+            }
+          })
+        )
 
-      if (failedUploads.length > 0) {
-        setNotice({
-          tone: "danger",
-          message: `Service saved, but reference document(s) failed to upload: ${failedUploads.join(", ")}`,
-        })
-      }
-    },
-  })
-}
+        setCreateProgress({ active: false, percent: 100, phase: "Complete" })
+        setCreateOpen(false)
+        if (failedUploads.length > 0) {
+          setNotice({
+            tone: "danger",
+            message: `Service saved, but reference document(s) failed to upload: ${failedUploads.join(", ")}`,
+          })
+        }
+      },
+      onError: (err) => {
+        setCreateProgress({ active: false, percent: 0, phase: "Saving service…" })
+        setNotice({ tone: "danger", message: err.message || "Failed to add service" })
+      },
+    })
+  }
   const openEdit = (service) => {
     setEditingService(service)
     setEditOpen(true)
@@ -278,7 +298,8 @@ export default function ServiceManagementPage() {
         onOpenChange={setCreateOpen}
         onSubmit={handleCreate}
         categoryOptions={categoryOptions}
-        submitting={createService.isPending}
+        submitting={createService.isPending || createProgress.active}
+        progress={createProgress}
       />
 
       <ServiceEditDialog
