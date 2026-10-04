@@ -5,14 +5,12 @@ import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { cn } from "@/lib/utils"
 import { authStore } from "@/store/authStore"
-import { useFetchMyBusiness } from "@/hooks/useBusinesses"
+import { useFetchMyBusiness, useUpdateMyBusiness } from "@/hooks/useBusinesses"
 
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { ForgotPasswordModal } from "@/components/client/ForgotPasswordModal"
-
-// import { updateClientBusiness, updateClientPassword } from "@/api/profileService"
 
 const initialSecurity = {
   currentPassword: "",
@@ -99,11 +97,11 @@ function buildProfile(user, business) {
     lastName: user?.lastName ?? "",
     birthDate: user?.birthDate ?? "",
     email: user?.email ?? "",
-    businessName: business?.businessName ?? "",
+    businessName: business?.businessName ?? business?.name ?? "",
     businessType: business?.businessType ?? "",
-    tin: business?.tin ?? "",
+    tin: business?.tin ?? business?.tinNo ?? "",
     industry: business?.industry ?? "",
-    contactNumber: formatPhMobile(toNationalMobile(business?.contactNumber)),
+    contactNumber: formatPhMobile(toNationalMobile(business?.contactNumber ?? business?.contactNo)),
     houseNo: business?.houseNo ?? "",
     streetName: business?.streetName ?? "",
     barangay: business?.barangay ?? "",
@@ -196,6 +194,7 @@ export default function ClientProfilePage() {
 
   const { data: business, isLoading: businessLoading } = useFetchMyBusiness(user?.id)
   const businessId = business?.id
+  const updateBusiness = useUpdateMyBusiness(user?.id)
 
   const [activeTab, setActiveTab] = useState("info")
   const [profile, setProfile] = useState(emptyProfile)
@@ -350,29 +349,24 @@ export default function ClientProfilePage() {
 
     setIsSaving(true)
     try {
-      // Only Business Information fields are editable/saved from this form.
-      // await updateClientBusiness(businessId, {
-      //   businessName: profile.businessName,
-      //   businessType: profile.businessType,
-      //   tin: profile.tin,
-      //   industry: profile.industry,
-      //   // Stored in international format, e.g. "+639171234567"
-      //   contactNumber: phoneNational ? `+63${phoneNational}` : "",
-      //   houseNo: profile.houseNo,
-      //   streetName: profile.streetName,
-      //   barangay: profile.barangay,
-      //   district: profile.district,
-      //   city: profile.city,
-      //   zipCode: profile.zipCode,
-      // })
+      const updatedBusiness = await updateBusiness.mutateAsync({
+        businessId,
+        businessName: profile.businessName,
+        businessType: profile.businessType,
+        tin: profile.tin,
+        industry: profile.industry,
+        contactNumber: phoneNational ? `+63${phoneNational}` : "",
+        houseNo: profile.houseNo,
+        streetName: profile.streetName,
+        barangay: profile.barangay,
+        district: profile.district,
+        city: profile.city,
+        zipCode: profile.zipCode,
+      })
 
-      // TODO: remove once updateClientBusiness above is wired up — this
-      // simulated delay exists purely so the "Saving..." state is visible
-      // instead of flashing instantly, since there's currently no real
-      // network request to await.
-      await new Promise((resolve) => setTimeout(resolve, 700))
-
-      savedProfileRef.current = profile
+      const updatedProfile = buildProfile(user, updatedBusiness)
+      setProfile(updatedProfile)
+      savedProfileRef.current = updatedProfile
       setSaveMessage({ type: "success", text: "Profile updated successfully." })
     } catch (err) {
       console.error(err)
