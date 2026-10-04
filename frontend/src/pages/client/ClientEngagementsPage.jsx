@@ -166,16 +166,13 @@ export default function ClientEngagementsPage() {
                     Service
                   </th>
                   <th className="px-4 py-3.5 align-middle font-medium">
-                    Status
-                  </th>
-                  <th className="px-4 py-3.5 align-middle font-medium">
                     Created
                   </th>
                   <th className="px-4 py-3.5 align-middle font-medium">
                     Due Date
                   </th>
-                  <th className="px-4 py-3.5 text-center align-middle font-medium">
-                    View
+                   <th className="px-4 py-3.5 align-middle font-medium">
+                    Status
                   </th>
                 </tr>
               </thead>
@@ -210,23 +207,14 @@ export default function ClientEngagementsPage() {
                       <td className="px-4 py-4 align-middle font-medium">
                         <span className="line-clamp-2">{e.serviceName}</span>
                       </td>
-                      <td className="px-4 py-4 align-middle">
-                        <EngagementStatusBadge status={status.label} />
-                      </td>
                       <td className="px-4 py-4 align-middle text-muted-foreground">
                         {formatDate(e.createdAt)}
                       </td>
                       <td className="px-4 py-4 align-middle text-muted-foreground">
                         {formatDate(e.targetEndDate)}
                       </td>
-                      <td className="px-4 py-4 text-center align-middle">
-                        <button
-                          onClick={() => navigate(`/client/engagements/${e.id}`)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
-                        >
-                          <Eye className="size-3.5" />
-                          View
-                        </button>
+                       <td className="px-4 py-4 align-middle">
+                        <EngagementStatusBadge status={status.label} />
                       </td>
                     </tr>
                   )

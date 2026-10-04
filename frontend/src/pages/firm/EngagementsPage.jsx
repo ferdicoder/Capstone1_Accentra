@@ -35,7 +35,7 @@ export default function EngagementsPage() {
   const role = authStore((state) => state.role)
   // Determine if the user can manage or view engagements
   const canManageEngagements = can(role, "manage_engagements") 
-  const canViewEngagements = can(role, "view_engagements")
+  const canManageBilling = can(role, "manage_billing")
 
   const { data: engagements = [], isLoading, error } = useFetchEngagements()
   const updateStatus = useUpdateEngagementStatus()
@@ -130,13 +130,26 @@ export default function EngagementsPage() {
       <EngagementList
         engagements={filteredEngagements}
         loading={isLoading}
-        showActions={canManageEngagements}
+        showActions={canManageEngagements || canManageBilling}
         emptyMessage="No engagements match your filters."
         emptyDescription="Try clearing the search or changing the status filter."
         actions={(engagement) => (
           <div className="flex items-center gap-2">
 
+          {canManageBilling && !canManageEngagements && (
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        navigate(`${basePath}/billing/create?engagementId=${engagement.id}`)
+                      }
+                    >
+                      Create Billing
+                    </Button>
+                  )}
+
           {/* Only show actions if the user has permission to manage engagements */}
+          {canManageEngagements && canManageBilling && engagement.status === "payment" && (
+            <>
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -146,30 +159,44 @@ export default function EngagementsPage() {
                   />
                 }
               >
-                <MoreHorizontal className="size-4" />
+              <MoreHorizontal className="size-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-44">
                 <DropdownMenuItem onClick={() => navigate(`${basePath}/engagements/${engagement.id}`)}>
                   View Details
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                {engagement.status !== "completed" && (
-                  <DropdownMenuItem onClick={() => handleStatusChange(engagement, "completed")}>
-                    <CheckCircle2 className="size-4 text-emerald-600" />
-                    Mark Completed
-                  </DropdownMenuItem>
-                )}
+
+                    <DropdownMenuSeparator />
+
+                    <DropdownMenuItem
+                      onClick={() =>
+                        navigate(
+                          `${basePath}/billing/create?engagementId=${engagement.id}`
+                        )
+                      }
+                    >
+                      Create Billing
+                    </DropdownMenuItem>
+                  
+              
+
                 {engagement.status !== "cancelled" && (
                   <DropdownMenuItem
                     onClick={() => setCancelEngagement(engagement)}
                     className="text-red-600"
                   >
-                    <XCircle className="size-4" />
+                    {/*<XCircle className="size-4" />*/}
                     Cancel Engagement
                   </DropdownMenuItem>
                 )}
+
+
               </DropdownMenuContent>
             </DropdownMenu>
+            </>
+            )}
+
           </div>
         )}
       />

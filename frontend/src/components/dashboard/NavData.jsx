@@ -32,16 +32,11 @@ export const firmUserNav = [
 ]
 
 export const clientNav = [
-  { title: "Home", url: "/client/dashboard", icon: LayoutDashboard, items: [] },
+  { title: "Dashboard", url: "/client/dashboard", icon: LayoutDashboard, items: [] },
   { title: "Service Requests", url: "/client/service-requests", icon: UserCog, items: [] },
   { title: "My Engagements", url: "/client/engagements", icon: Briefcase, items: [] },
   { title: "Billing", url: "/client/billing", icon: Receipt, items: [] },
-  {
-    title: "Settings",
-    url: "/client/profile",
-    icon: Settings,
-    items: [{ title: "Profile", url: "/client/profile" }],
-  },
+
 ]
 
 export const billingOfficerNav = [

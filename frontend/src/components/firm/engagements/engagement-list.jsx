@@ -12,6 +12,15 @@ const getInitials = (name) => {
 }
 
 const defaultEngagementColumns = [
+   {
+    key: "engagementNumber",
+    label: "Engagement No.",
+    render: (engagement) => (
+      <span className="text-sm font-medium tabular-nums text-foreground">
+        {engagement?.engagementNumber}
+      </span>
+    ),
+  },
   {
     key: "client",
     label: "Client",
@@ -34,28 +43,10 @@ const defaultEngagementColumns = [
     ),
   },
   {
-    key: "engagementNumber",
-    label: "Engagement No.",
-    render: (engagement) => (
-      <span className="text-sm font-medium tabular-nums text-foreground">
-        {engagement?.engagementNumber}
-      </span>
-    ),
-  },
-  {
     key: "serviceName",
     label: "Service",
     render: (engagement) => (
       <span className="line-clamp-1 max-w-48 text-sm text-foreground">{engagement?.serviceName}</span>
-    ),
-  },
-  {
-    key: "assignedStaff",
-    label: "Assigned To",
-    render: (engagement) => (
-      <span className="text-sm text-foreground">
-        {engagement?.assignedStaff || "—"}
-      </span>
     ),
   },
   {
