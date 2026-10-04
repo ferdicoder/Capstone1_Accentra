@@ -132,10 +132,45 @@ export default function ServiceManagementPage() {
   }
 
   const handleSave = (values) => {
+    const tasksWithFiles = values.workflowTasks
+      .map((task, index) => ({ task, index }))
+      .filter(({ task }) => task.hasReferenceDocument && task.referenceDocument?.file)
+
     updateService.mutate(values, {
-      onSuccess: (updated) => {
+      onSuccess: async (updated) => {
         setEditOpen(false)
         setNotice({ tone: "success", message: `${updated.name} updated` })
+
+        if (tasksWithFiles.length === 0) return
+
+        const failedUploads = []
+
+        await Promise.all(
+          tasksWithFiles.map(async ({ task, index }) => {
+            const matchedTask =
+              updated.workflowTasks?.find((updatedTask) => updatedTask.id === task.id) ??
+              updated.workflowTasks?.[index]
+
+            if (!matchedTask?.id) {
+              failedUploads.push(task.name)
+              return
+            }
+
+            try {
+              await uploadTemplateDocument(matchedTask.id, task.referenceDocument.file)
+            } catch (err) {
+              console.error(`Reference document upload failed for "${task.name}":`, err)
+              failedUploads.push(task.name)
+            }
+          })
+        )
+
+        if (failedUploads.length > 0) {
+          setNotice({
+            tone: "danger",
+            message: `Service updated, but reference document(s) failed to upload: ${failedUploads.join(", ")}`,
+          })
+        }
       },
     })
   }
