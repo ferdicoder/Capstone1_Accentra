@@ -35,7 +35,10 @@ async function createService(req, res) {
         description,
         estimated_time, 
         is_recurring, status,
-        template_tasks(template_id, title, has_reference, is_required)
+        template_tasks(
+          template_id, title, has_reference, is_required,
+          template_documents(doc_id, file_name, mime_type, file_size, created_at)
+        )
       `)
       .eq('service_id', serviceId)
       .order('template_id', { foreignTable: 'template_tasks' })  

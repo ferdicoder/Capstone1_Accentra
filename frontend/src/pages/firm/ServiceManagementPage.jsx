@@ -44,7 +44,7 @@ export default function ServiceManagementPage() {
   const [categoryOptions, setCategoryOptions] = useState(categoryFilterOptions)
   const [createProgress, setCreateProgress] = useState({ active: false, percent: 0, phase: "Saving service…" })
 
-  const { data: services = [], isLoading, error } = useFetchServices()
+  const { data: services = [], isLoading, error, refetch: refetchServices } = useFetchServices()
   const createService = useCreateService()
   const updateService = useUpdateService()
   const toggleStatus = useToggleServiceStatus()
@@ -131,6 +131,7 @@ export default function ServiceManagementPage() {
           })
         )
 
+        await refetchServices()
         setCreateProgress({ active: false, percent: 100, phase: "Complete" })
         setCreateOpen(false)
         if (failedUploads.length > 0) {
@@ -184,6 +185,8 @@ export default function ServiceManagementPage() {
             }
           })
         )
+
+        await refetchServices()
 
         if (failedUploads.length > 0) {
           setNotice({

@@ -16,8 +16,20 @@ function mapServiceRow(row) {
       name: t.title ?? "",
       required: t.is_required ?? false,
       hasReferenceDocument: t.has_reference ?? false,
-      referenceDocument: null,
+      referenceDocument: mapTemplateDocument(t.template_documents),
     })),
+  }
+}
+
+function mapTemplateDocument(documents) {
+  const document = Array.isArray(documents) ? documents.at(-1) : documents
+  if (!document) return null
+
+  return {
+    id: document.doc_id,
+    name: document.file_name ?? "Reference document",
+    size: document.file_size,
+    type: document.mime_type,
   }
 }
 
@@ -28,7 +40,10 @@ async function getServices() {
     .select(`
       service_id, price, service_name, category, description,
       estimated_time, is_recurring, status,
-      template_tasks(template_id, title, has_reference, is_required)
+      template_tasks(
+        template_id, title, has_reference, is_required,
+        template_documents(doc_id, file_name, mime_type, file_size, created_at)
+      )
     `)
     
   if (error) throw error
@@ -65,7 +80,10 @@ async function updateService(service) {
       estimated_time, 
       is_recurring, 
       status,
-      template_tasks(template_id, title, has_reference, is_required)
+      template_tasks(
+        template_id, title, has_reference, is_required,
+        template_documents(doc_id, file_name, mime_type, file_size, created_at)
+      )
     `)
     .eq("service_id", serviceId)
     .single()
@@ -89,7 +107,10 @@ async function updateServiceStatus({ id, status }) {
       description,
       estimated_time, 
       is_recurring, status,
-      template_tasks(template_id, title, has_reference, is_required)
+      template_tasks(
+        template_id, title, has_reference, is_required,
+        template_documents(doc_id, file_name, mime_type, file_size, created_at)
+      )
     `)
     .single()
     .order('template_id', { foreignTable: 'template_tasks' }) 
