@@ -3,12 +3,11 @@
  * Mirrors the firm user variants file (constants only, no logic coupling).
  */
 
-export const INVOICE_TYPES = ["initial", "final", "retainer"]
+export const INVOICE_TYPES = ["service_fee", "retainer_fee"]
 
 export const invoiceTypeLabels = {
-  initial: "Initial",
-  final: "Final",
-  retainer: "Retainer",
+  service_fee: "Service Fee",
+  retainer_fee: "Retainer Fee",
 }
 
 export const invoiceTypeFilterOptions = INVOICE_TYPES.map((value) => ({

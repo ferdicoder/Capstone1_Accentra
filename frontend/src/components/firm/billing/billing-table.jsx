@@ -52,13 +52,11 @@ export function BillingTable({
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
-              <th scope="col" className="px-4 py-3 font-semibold">Invoice</th>
+              <th scope="col" className="px-4 py-3 font-semibold">Bill ID</th>
               <th scope="col" className="px-4 py-3 font-semibold">Engagement</th>
               <th scope="col" className="px-4 py-3 font-semibold">Type</th>
-              <th scope="col" className="px-4 py-3 text-right font-semibold">Amount</th>
-              <th scope="col" className="px-4 py-3 font-semibold">Status</th>
               <th scope="col" className="px-4 py-3 font-semibold">Due Date</th>
-              <th scope="col" className="px-4 py-3 font-semibold">Payment Reference</th>
+              <th scope="col" className="px-4 py-3 font-semibold">Status</th>
               {showActions && (
                 <th scope="col" className="px-4 py-3 text-right font-semibold">Actions</th>
               )}
@@ -116,23 +114,11 @@ export function BillingTable({
                         <td className="px-4 py-3 align-middle">
                           <InvoiceTypeBadge type={billing.invoice_type} />
                         </td>
-                        <td className="px-4 py-3 text-right align-middle font-medium text-foreground">
-                          {formatPeso(billing.amount)}
-                        </td>
-                        <td className="px-4 py-3 align-middle">
-                          <BillingStatusBadge status={billing.status} />
-                        </td>
                         <td className="px-4 py-3 align-middle text-muted-foreground">
                           {formatDate(billing.due_date)}
                         </td>
-                        <td className="max-w-48 px-4 py-3 align-middle text-muted-foreground">
-                          {billing.payment_reference ? (
-                            <span className="block truncate" title={billing.payment_reference}>
-                              {billing.payment_reference}
-                            </span>
-                          ) : (
-                            "—"
-                          )}
+                        <td className="px-4 py-3 align-middle">
+                          <BillingStatusBadge status={billing.status} />
                         </td>
                         {showActions && (
                           <td

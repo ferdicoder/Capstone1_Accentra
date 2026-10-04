@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { ChevronDown, Loader2 } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { ChevronDown, Loader2, Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,16 +29,6 @@ import { INVOICE_TYPES, invoiceTypeLabels } from "./billing-variants"
 
 const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/
 
-/**
- * "Create Billing" modal form. Fully controlled — the parent owns
- * `open`/`onOpenChange` and persists the values via onSubmit. Mirrors
- * FirmUserCreateDialog's structure, validation, and styling.
- *
- * @param {Array} engagements - Available engagements for the selector.
- * @param {Array} billings - Existing billing records (duplicate safety check).
- * @param {Function} onSubmit - ({ engagement_id, invoice_type, amount, due_date, payment_reference }) => void
- * @param {boolean} submitting - Disables the form and shows a spinner.
- */
 export function CreateBillingDialog({
   open = false,
   onOpenChange,
@@ -46,20 +37,109 @@ export function CreateBillingDialog({
   billings = [],
   submitting = false,
   error,
+  initialEngagementId = "",
 }) {
-  // Dialog content unmounts when closed, so this state resets on every open.
-  const [engagementId, setEngagementId] = useState("")
+  const [engagementId, setEngagementId] = useState(initialEngagementId)
+  const [engagementSearch, setEngagementSearch] = useState("")
   const [invoiceType, setInvoiceType] = useState("")
   const [amount, setAmount] = useState("")
   const [dueDate, setDueDate] = useState("")
   const [errors, setErrors] = useState({})
 
-  const selectedEngagement = engagements.find((e) => e.id === engagementId)
   const engagementsUnavailable = engagements.length === 0
 
-  const engagementLabel = (engagement) =>
-    `${engagement.engagementNumber ?? engagement.id} — ${engagement.serviceName ?? "Untitled service"}`
+  const selectedEngagement = engagements.find(
+    (engagement) => engagement.id === engagementId
+  )
 
+  /*
+   * Display label for an engagement.
+   */
+  const engagementLabel = (engagement) =>
+    `${engagement.engagementNumber ?? engagement.id} — ${
+      engagement.serviceName ?? "Untitled service"
+    }`
+
+  /*
+   * Filter engagements based on:
+   * - Engagement number
+   * - Service name
+   * - Business name
+   * - Client first name
+   * - Client last name
+   */
+  const filteredEngagements = useMemo(() => {
+    const query = engagementSearch.trim().toLowerCase()
+
+    if (!query) return []
+
+    return engagements.filter((engagement) => {
+      const searchableText = [
+        engagement.engagementNumber,
+        engagement.serviceName,
+        engagement.business?.businessName,
+        engagement.client?.firstName,
+        engagement.client?.lastName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+
+      return searchableText.includes(query)
+    })
+  }, [engagementSearch, engagements])
+
+  /*
+   * Reset / initialize the dialog whenever it opens.
+   */
+  useEffect(() => {
+    if (!open) return
+
+    setEngagementId(initialEngagementId || "")
+    setEngagementSearch("")
+    setInvoiceType("")
+    setAmount("")
+    setDueDate("")
+    setErrors({})
+  }, [open, initialEngagementId])
+
+  /*
+   * Select an engagement from the search results.
+   */
+  const handleSelectEngagement = (engagement) => {
+    setEngagementId(engagement.id)
+    setEngagementSearch("")
+
+    setErrors((prev) => ({
+      ...prev,
+      engagement: false,
+    }))
+  }
+
+  /*
+   * Handle typing into the engagement search field.
+   *
+   * If an engagement was already selected and the user starts typing,
+   * clear the previous selection so they can choose another one.
+   */
+  const handleEngagementSearch = (value) => {
+    setEngagementSearch(value)
+
+    if (selectedEngagement) {
+      setEngagementId("")
+    }
+
+    if (errors.engagement) {
+      setErrors((prev) => ({
+        ...prev,
+        engagement: false,
+      }))
+    }
+  }
+
+  /*
+   * Submit billing form.
+   */
   const handleSubmit = (event) => {
     event.preventDefault()
 
@@ -67,27 +147,32 @@ export function CreateBillingDialog({
     const numericAmount = Number(trimmedAmount)
 
     const duplicate = billings.some(
-      (b) =>
-        b.engagement_id === engagementId &&
-        b.invoice_type === invoiceType &&
-        b.status !== "cancelled"
+      (billing) =>
+        billing.engagement_id === engagementId &&
+        billing.invoice_type === invoiceType &&
+        billing.status !== "cancelled"
     )
 
     const newErrors = {
       engagement: !engagementId,
+
       invoiceType: !invoiceType || duplicate,
+
       amount:
         !trimmedAmount ||
         !AMOUNT_PATTERN.test(trimmedAmount) ||
         !Number.isFinite(numericAmount) ||
         numericAmount <= 0,
-      dueDate: !dueDate || Number.isNaN(new Date(dueDate).getTime()),
+
+      dueDate:
+        !dueDate ||
+        Number.isNaN(new Date(dueDate).getTime()),
     }
+
     setErrors(newErrors)
+
     if (Object.values(newErrors).some(Boolean)) return
 
-    // The Admin does not submit payment references — they are supplied by
-    // the payer/payment-submission flow on record creation and thereafter.
     onSubmit?.({
       engagement_id: engagementId,
       invoice_type: invoiceType,
@@ -99,63 +184,107 @@ export function CreateBillingDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-slot="create-billing-dialog">
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>Create Billing</DialogTitle>
+
           <DialogDescription>
-            Create a billing record for an engagement.
+            Create an invoice for an engagement.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto">
-          <FieldGroup>
+        <form onSubmit={handleSubmit}>
+          <FieldGroup className="space-y-4">
+
+            {/* ENGAGEMENT */}
             <Field>
               <FieldLabel>
-                Engagement<span className="text-red-500">*</span>
+                Engagement
+                <span className="text-red-500">*</span>
               </FieldLabel>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={submitting || engagementsUnavailable}
-                      className={cn(
-                        "h-8 w-full cursor-pointer justify-between rounded-lg px-2.5 font-normal",
-                        errors.engagement && "border-red-500 focus-visible:ring-red-500"
-                      )}
-                    />
-                  }
-                >
-                  <span className="truncate">
-                    {selectedEngagement
-                      ? engagementLabel(selectedEngagement)
-                      : "Select engagement"}
-                  </span>
-                  <ChevronDown className="size-4 opacity-60" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="max-h-72 min-w-72 overflow-y-auto">
-                  {engagements.map((engagement) => (
-                    <DropdownMenuItem
-                      key={engagement.id}
-                      onClick={() => setEngagementId(engagement.id)}
-                      className="cursor-pointer"
-                    >
-                      <span className="flex flex-col">
-                        <span>{engagementLabel(engagement)}</span>
-                        {engagement.business?.businessName && (
-                          <span className="text-xs text-muted-foreground">
-                            {engagement.business.businessName}
-                          </span>
-                        )}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {errors.engagement && <p className="text-sm text-red-500">Please select an engagement.</p>}
+
+              <div className="relative">
+                <div className="relative">
+                  <Search
+                    className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  />
+
+                  <Input
+                    placeholder="Search engagement..."
+                    value={
+                      selectedEngagement
+                        ? engagementLabel(selectedEngagement)
+                        : engagementSearch
+                    }
+                    onChange={(event) =>
+                      handleEngagementSearch(event.target.value)
+                    }
+                    disabled={submitting || engagementsUnavailable}
+                    className={cn(
+                      "h-8 rounded-lg pl-8",
+                      errors.engagement &&
+                        "border-red-500 focus-visible:ring-red-500"
+                    )}
+                  />
+                </div>
+
+                {/* SEARCH RESULTS */}
+                {engagementSearch.trim() && !selectedEngagement && (
+                  <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border bg-popover shadow-md">
+                    {filteredEngagements.length > 0 ? (
+                      <div className="max-h-60 overflow-y-auto p-1">
+                        {filteredEngagements.map((engagement) => (
+                          <button
+                            key={engagement.id}
+                            type="button"
+                            onClick={() =>
+                              handleSelectEngagement(engagement)
+                            }
+                            className="flex w-full flex-col items-start rounded-md px-3 py-2 text-left hover:bg-muted"
+                          >
+                            <span className="text-sm font-medium">
+                              {engagementLabel(engagement)}
+                            </span>
+
+                            {engagement.business?.businessName && (
+                              <span className="text-xs text-muted-foreground">
+                                {engagement.business.businessName}
+                              </span>
+                            )}
+
+                            {(engagement.client?.firstName ||
+                              engagement.client?.lastName) && (
+                              <span className="text-xs text-muted-foreground">
+                                {[
+                                  engagement.client?.firstName,
+                                  engagement.client?.lastName,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ")}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="px-3 py-3 text-sm text-muted-foreground">
+                        No engagements found.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {errors.engagement && (
+                <p className="text-sm text-red-500">
+                  Please select an engagement.
+                </p>
+              )}
+
               {engagementsUnavailable && (
-                <p className="text-sm text-muted-foreground">No engagements available.</p>
+                <p className="text-sm text-muted-foreground">
+                  No engagements available.
+                </p>
               )}
             </Field>
 

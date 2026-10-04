@@ -5,7 +5,7 @@ export const mockEngagements = [
     id: "MOCK-ENG-001",
     engagementNumber: "DEMO-ENG-001",
     serviceName: "Annual Tax Filing",
-    status: "in_progress",
+    status: "for_payment",
     client: { firstName: "Alex", lastName: "Sample" },
     business: { businessName: "Example Trading Co." },
   },
@@ -13,7 +13,7 @@ export const mockEngagements = [
     id: "MOCK-ENG-002",
     engagementNumber: "DEMO-ENG-002",
     serviceName: "Quarterly VAT Filing",
-    status: "for_approval",
+    status: "for_payment",
     client: { firstName: "Taylor", lastName: "Demo" },
     business: { businessName: "Sample Goods Inc." },
   },
@@ -21,7 +21,7 @@ export const mockEngagements = [
     id: "MOCK-ENG-003",
     engagementNumber: "DEMO-ENG-003",
     serviceName: "Business Registration",
-    status: "payment",
+    status: "for_payment",
     client: { firstName: "Casey", lastName: "Example" },
     business: { businessName: "Mock Ventures Ltd." },
   },
@@ -31,7 +31,7 @@ let mockBillings = [
   {
     id: "BILL-MOCK-0001",
     engagement_id: "MOCK-ENG-001",
-    invoice_type: "initial",
+    invoice_type: "service_fee",
     amount: 2500,
     status: "unpaid",
     payment_reference: "",
@@ -40,7 +40,7 @@ let mockBillings = [
   {
     id: "BILL-MOCK-0002",
     engagement_id: "MOCK-ENG-002",
-    invoice_type: "retainer",
+    invoice_type: "retainer_fee",
     amount: 5000,
     status: "for_verification",
     payment_reference: "DEMO-GCASH-0002",
@@ -49,7 +49,7 @@ let mockBillings = [
   {
     id: "BILL-MOCK-0003",
     engagement_id: "MOCK-ENG-003",
-    invoice_type: "final",
+    invoice_type: "service_fee",
     amount: 8750.5,
     status: "paid",
     payment_reference: "DEMO-BANK-0003",
@@ -63,7 +63,12 @@ export function getMockBillings() {
   return mockBillings
 }
 
-export function createMockBilling({ engagement_id, invoice_type, amount, due_date }) {
+export function createMockBilling({
+  engagement_id,
+  invoice_type,
+  amount,
+  due_date,
+}) {
   const record = {
     id: `BILL-MOCK-${String(nextBillingNumber).padStart(4, "0")}`,
     engagement_id,
@@ -73,8 +78,10 @@ export function createMockBilling({ engagement_id, invoice_type, amount, due_dat
     payment_reference: "",
     due_date,
   }
+
   nextBillingNumber += 1
   mockBillings = [record, ...mockBillings]
+
   return record
 }
 
@@ -82,26 +89,57 @@ export function updateMockBillingStatus(id, status) {
   if (!Object.hasOwn(billingStatusLabels, status)) return false
 
   let updated = false
+
   mockBillings = mockBillings.map((billing) => {
-    if (billing.id !== id || billing.status === status) return billing
+    if (billing.id !== id || billing.status === status) {
+      return billing
+    }
+
     updated = true
-    return { ...billing, status }
+
+    return {
+      ...billing,
+      status,
+    }
   })
+
   return updated
 }
 
 export function verifyMockPayment(id) {
-  const billing = mockBillings.find((record) => record.id === id)
-  if (billing?.status !== "for_verification" || !billing.payment_reference) return false
+  const billing = mockBillings.find(
+    (record) => record.id === id
+  )
+
+  if (
+    billing?.status !== "for_verification" ||
+    !billing.payment_reference
+  ) {
+    return false
+  }
+
   return updateMockBillingStatus(id, "paid")
 }
 
 export function rejectMockPayment(id) {
   let updated = false
+
   mockBillings = mockBillings.map((billing) => {
-    if (billing.id !== id || billing.status !== "for_verification") return billing
+    if (
+      billing.id !== id ||
+      billing.status !== "for_verification"
+    ) {
+      return billing
+    }
+
     updated = true
-    return { ...billing, status: "unpaid", payment_reference: "" }
+
+    return {
+      ...billing,
+      status: "unpaid",
+      payment_reference: "",
+    }
   })
+
   return updated
 }
