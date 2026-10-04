@@ -17,6 +17,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useFetchEngagements, useUpdateEngagementStatus } from "@/hooks/useEngagements"
 
+
+import { authStore } from "@/store/authStore"
+import { can } from "@/config/roles"
+
 // NOTE: "New Engagement" (CreateEngagementDialog) intentionally left off this
 // page for now — creation only happens via approving a service_request on
 // ServiceRequestsPage, per create_engagement's design (it requires a pending
@@ -26,6 +30,12 @@ export default function EngagementsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
+
+  // Determine user role and permissions 
+  const role = authStore((state) => state.role)
+  // Determine if the user can manage or view engagements
+  const canManageEngagements = can(role, "manage_engagements") 
+  const canViewEngagements = can(role, "view_engagements")
 
   const { data: engagements = [], isLoading, error } = useFetchEngagements()
   const updateStatus = useUpdateEngagementStatus()
@@ -91,6 +101,8 @@ export default function EngagementsPage() {
     ],
   })
 
+  
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-1">
@@ -118,19 +130,13 @@ export default function EngagementsPage() {
       <EngagementList
         engagements={filteredEngagements}
         loading={isLoading}
+        showActions={canManageEngagements}
         emptyMessage="No engagements match your filters."
         emptyDescription="Try clearing the search or changing the status filter."
         actions={(engagement) => (
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => navigate(`${basePath}/engagements/${engagement.id}`)}
-              className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Details
-              <ChevronRight className="size-4" />
-            </button>
 
+          {/* Only show actions if the user has permission to manage engagements */}
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={

@@ -92,11 +92,11 @@ export function EngagementList({
   emptyMessage = "No engagements found.",
   emptyDescription,
   actions,
+  showActions = typeof actions === "function", // Show the actions column if actions is a function
   onRowClick,
   className,
   ...props
 }) {
-  const showActions = typeof actions === "function"
   const isEmpty = !loading && engagements.length === 0
   const columnCount = columns.length + (showActions ? 1 : 0)
 
@@ -120,7 +120,7 @@ export function EngagementList({
                 </th>
               ))}
               {showActions && (
-                <th scope="col" className="w-[180px] px-4 py-3 text-left font-semibold">
+                <th scope="col" className="w-45 px-4 py-3 text-left font-semibold">
                   Actions
                 </th>
               )}
@@ -180,7 +180,7 @@ export function EngagementList({
                       ))}
                       {showActions && (
                         <td
-                          className="w-[180px] px-4 py-3 align-middle"
+                          className="w-45 px-4 py-3 align-middle"
                           onClick={(event) => event.stopPropagation()}
                         >
                           <div className="flex items-center justify-start gap-2">
