@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Eye, ShieldCheck } from "lucide-react"
 
 import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-menu"
@@ -20,6 +20,9 @@ import {
 
 export default function BillingPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const basePath = location.pathname.startsWith("/billing-officer") ? "/billing-officer" : "/admin"
+
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
@@ -117,7 +120,7 @@ export default function BillingPage() {
                 ? "Create a billing record to get started."
                 : "Try clearing the search or filters."
             }
-            onRowClick={(billing) => navigate(`/admin/billing/${billing.id}`)}
+            onRowClick={(billing) => navigate(`${basePath}/billing/${billing.id}`)}
             actions={(billing) => (
               <FirmUserActionsMenu
                 user={billing}
@@ -126,7 +129,7 @@ export default function BillingPage() {
                     key: "view",
                     label: "View Details",
                     icon: Eye,
-                    onSelect: () => navigate(`/admin/billing/${billing.id}`),
+                    onSelect: () => navigate(`${basePath}/billing/${billing.id}`),
                   },
                   ...(isVerifiable(billing)
                     ? [

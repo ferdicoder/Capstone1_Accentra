@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useLocation, useParams } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
 
 import { PageNotFound } from "@/components/shared/loading/page-skeleton"
@@ -22,7 +22,9 @@ import {
 
 export default function BillingDetailPage() {
   const { id } = useParams()
-  const backHref = "/admin/billing"
+  const location = useLocation()
+  const basePath = location.pathname.startsWith("/billing-officer") ? "/billing-officer" : "/admin"
+  const backHref = `${basePath}/billing`
 
   const [billings, setBillings] = useState(getMockBillings)
 
