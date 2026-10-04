@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ClientLayout } from "@/layout/ClientLayout";
 import { FirmAdminLayout } from "@/layout/FirmAdminLayout";
 import { FirmStaffLayout } from "@/layout/FirmStaffLayout";
+import {BillingOfficerLayout} from "@/layout/BillingOfficerLayout";
 import { ProtectedRoutes } from "@/routes/ProtectedRoutes";
 import { PublicOnlyRoutes } from "./PublicOnlyRoutes";
 
@@ -26,6 +27,9 @@ import EngagementDetailsPage from "@/pages/firm/EngagementDetailsPage";
 import BillingPage from "@/pages/firm/BillingPage";
 import BillingDetailPage from "@/pages/firm/BillingDetailPage";
 import LandingPage from "@/pages/LandingPage";
+
+
+import BillingOfficerDashboard from "@/pages/firm/BillingOfficerDashboard";
 
 export const router = createBrowserRouter([
   {
@@ -83,7 +87,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/firm",
-    element: <ProtectedRoutes allow={["staff", "billing_officer"]} />,
+    element: <ProtectedRoutes allow={["staff"]} />,
     children: [
       {
         element: <FirmStaffLayout />,
@@ -109,5 +113,21 @@ export const router = createBrowserRouter([
   {
     path: "/firm-staff/dashboard",
     element: <Navigate to="/firm/dashboard" replace />,
+  },
+  {
+    path: "/billing-officer",
+    element: <ProtectedRoutes allow={["billing_officer"]} />,
+    children: [
+      {
+        element: <BillingOfficerLayout />,
+        children: [
+          { index: true, element: <Navigate to="dashboard" replace /> },
+          { path: "dashboard", element: <BillingOfficerDashboard /> },
+          { path: "engagements", element: <EngagementsPage /> },
+          { path: "billing", element: <BillingPage /> },
+          { path: "billing/:id", element: <BillingDetailPage /> },
+        ],
+      },
+    ],
   },
 ]);

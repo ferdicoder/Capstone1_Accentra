@@ -2,7 +2,7 @@ const roles = {
   client:          { portal: "client", home: "/client/dashboard" },
   admin:           { portal: "firm",   home: "/admin/dashboard" },
   staff:           { portal: "firm",   home: "/firm/dashboard" },
-  billing_officer: { portal: "firm",   home: "/firm/dashboard" },
+  billing_officer: { portal: "firm",   home: "/billing-officer/dashboard" },
 }
 
 const signinPath = {

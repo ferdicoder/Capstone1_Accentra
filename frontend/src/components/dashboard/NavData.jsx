@@ -44,6 +44,12 @@ export const clientNav = [
   },
 ]
 
+export const billingOfficerNav = [
+  { title: "Home",        url: "/billing-officer/dashboard",   icon: LayoutDashboard, items: [] },
+  { title: "Engagements", url: "/billing-officer/engagements", icon: Briefcase,       items: [] },
+  { title: "Billing",     url: "/billing-officer/billing",     icon: Receipt,         items: [] },
+]
+
 export const roleConfig = {
   admin: {
     label: "Firm Admin",
@@ -59,9 +65,9 @@ export const roleConfig = {
   },
   billing_officer: {
     label: "Billing Officer",
-    nav: firmUserNav,
+    nav: billingOfficerNav,
     team: { name: "Accentra", plan: "Billing Officer" },
-    profileUrl: "/firm/dashboard",
+    profileUrl: "/billing-officer/profile",
   },
   client: {
     label: "Client",
