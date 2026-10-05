@@ -16,6 +16,7 @@ import {
   getMockBillings,
   mockEngagements,
   verifyMockPayment,
+  mockClients,
 } from "@/components/firm/billing/billing-mock-data"
 
 export default function BillingPage() {
@@ -32,23 +33,57 @@ export default function BillingPage() {
   const [billings, setBillings] = useState(getMockBillings)
 
   const filteredBillings = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    return billings.filter((billing) => {
-      const matchesStatus = !statusFilter || billing.status === statusFilter
-      const matchesType = !typeFilter || billing.invoice_type === typeFilter
-      if (!matchesStatus || !matchesType) return false
+  const query = search.trim().toLowerCase()
 
-      if (!query) return true
-      const engagement = mockEngagements.find((e) => e.id === billing.engagement_id)
-      return [
-        billing.id,
-        billing.payment_reference,
-        engagement?.engagementNumber,
-        engagement?.serviceName,
-        engagement?.business?.businessName,
-      ].some((field) => field?.toLowerCase().includes(query))
-    })
-  }, [billings, search, statusFilter, typeFilter])
+  return billings.filter((billing) => {
+    const matchesStatus =
+      !statusFilter || billing.status === statusFilter
+
+    const matchesType =
+      !typeFilter || billing.invoice_type === typeFilter
+
+    if (!matchesStatus || !matchesType) return false
+
+    if (!query) return true
+
+    const engagement = mockEngagements.find(
+      (e) => e.id === billing.engagement_id
+    )
+
+    const client = mockClients.find(
+      (c) => c.id === billing.client_id
+    )
+
+    const clientName = client
+      ? `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim()
+      : ""
+
+    return [
+      billing.id,
+      billing.payment_reference,
+      billing.invoice_type,
+      billing.billing_month?.toString(),
+      billing.billing_year?.toString(),
+
+      // Engagement information
+      engagement?.engagementNumber,
+      engagement?.serviceName,
+      engagement?.business?.businessName,
+
+      // Client information
+      clientName,
+      client?.email,
+      client?.business?.businessName,
+    ].some((field) =>
+      field?.toLowerCase().includes(query)
+    )
+  })
+}, [
+  billings,
+  search,
+  statusFilter,
+  typeFilter,
+])
 
   const summaryItems = useMemo(() => buildBillingSummaryItems(billings), [billings])
 
@@ -83,9 +118,6 @@ export default function BillingPage() {
   return (
     <>
           <div className="flex flex-wrap items-center gap-3 py-1">
-            <p className="text-sm text-muted-foreground">
-              Manage invoices, payment references, and billing status.
-            </p>
             {notice && (
               <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
                 {notice}
@@ -110,6 +142,7 @@ export default function BillingPage() {
           <BillingTable
             billings={filteredBillings}
             engagements={mockEngagements}
+            clients={mockClients}
             emptyMessage={
               billings.length === 0
                 ? "No billing records exist."
@@ -142,7 +175,7 @@ export default function BillingPage() {
                         },
                       ]
                     : []),
-                ]}
+                ]}  
               />
             )}
           />
@@ -152,6 +185,7 @@ export default function BillingPage() {
             onOpenChange={setCreateOpen}
             onSubmit={handleCreate}
             engagements={mockEngagements}
+            clients={mockClients}
             billings={billings}
           />
 

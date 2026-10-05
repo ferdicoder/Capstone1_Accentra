@@ -19,7 +19,6 @@ export const billingStatusLabels = {
   unpaid: "Pending Payment",
   for_verification: "For Verification",
   paid: "Paid",
-  overdue: "Overdue",
   cancelled: "Cancelled",
 }
 
