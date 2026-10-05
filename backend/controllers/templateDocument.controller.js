@@ -1,5 +1,4 @@
-import { uploadFile } from '../services/b2Upload.js';
-import { deleteFileVersion } from '../services/b2Delete.js';
+import { uploadFile, deleteFileVersion } from '../services/b2Services.js';
 import { supabaseAdmin } from '../config/supabaseAdmin.js';
 
 // TODO: lagay to sa services kasi andoon yung template task?

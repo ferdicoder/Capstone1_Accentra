@@ -15,8 +15,7 @@ async function getUploadUrl() {
   );
   return res.data; // { uploadUrl, authorizationToken }
 }
-
-export async function uploadFile(fileBuffer, fileName, contentType) {
+async function uploadFile(fileBuffer, fileName, contentType) {
   const { uploadUrl, authorizationToken } = await getUploadUrl();
   const sha1 = crypto.createHash('sha1').update(fileBuffer).digest('hex');
 
@@ -34,4 +33,34 @@ export async function uploadFile(fileBuffer, fileName, contentType) {
   });
 
   return res.data;
+}
+
+async function deleteFileVersion(fileName, fileId) {
+  const { apiUrl, authorizationToken } = await authorizeB2();
+  const res = await axios.post(
+    `${apiUrl}/b2api/v3/b2_delete_file_version`,
+    { fileName, fileId },
+    { headers: { Authorization: authorizationToken }, httpsAgent: b2HttpsAgent, timeout: 15000 }
+  );
+  return res.data;
+}
+
+async function downloadFile(fileName) {
+  const { downloadUrl, authorizationToken } = await authorizeB2();
+  const res = await axios.get(
+    `${downloadUrl}/file/${process.env.B2_BUCKET_NAME}/${fileName}`,
+    {
+      headers: { Authorization: authorizationToken },
+      responseType: 'arraybuffer',
+      httpsAgent: b2HttpsAgent,
+      timeout: 15000,
+    }
+  );
+  return res.data;
+}
+
+export {
+  uploadFile,
+  deleteFileVersion,
+  downloadFile
 }

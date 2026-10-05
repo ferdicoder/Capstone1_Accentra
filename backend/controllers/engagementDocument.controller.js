@@ -1,6 +1,4 @@
-import { uploadFile } from '../services/b2Upload.js';
-import { deleteFileVersion } from '../services/b2Delete.js';
-import { downloadFile } from '../services/b2Download.js';
+import { uploadFile, deleteFileVersion, downloadFile } from '../services/b2Services.js';
 import { supabaseAdmin } from '../config/supabaseAdmin.js';
 
 export async function uploadEngagementDocument(req, res) {
