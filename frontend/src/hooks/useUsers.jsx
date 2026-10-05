@@ -14,6 +14,8 @@ export function useFetchUsers() {
   return useQuery({
     queryKey: queryKeys.users,
     queryFn: getUsers,
+    staleTime: 1000 * 60, 
+    gcTime: 1000 * 60
   })
 }
 
@@ -21,7 +23,7 @@ export function useFetchFirmRoles() {
   return useQuery({
     queryKey: queryKeys.roles,
     queryFn: fetchFirmRoles,
-    staleTime: 5 * 60 * 1000
+    enabled: false 
   })
 }
 

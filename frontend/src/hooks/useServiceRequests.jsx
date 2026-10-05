@@ -13,10 +13,11 @@ export function useFetchServiceRequests() {
   return useQuery({
     queryKey: queryKeys.serviceRequests,
     queryFn: getServiceRequests,
+    staleTime: 1000 * 5, 
+    gcTime: 1000 * 60
   })
 }
 
-// Client side — scoped, so businessId is part of the key
 export function useFetchMyServiceRequests(businessId) {
   return useQuery({
     queryKey: ["serviceRequests", businessId],

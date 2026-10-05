@@ -12,7 +12,6 @@ export function useFetchMyBusiness(userId) {
 
 export function useUpdateMyBusiness(userId) {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: updateMyBusiness,
     onSuccess: () => {
@@ -20,3 +19,4 @@ export function useUpdateMyBusiness(userId) {
     },
   })
 }
+

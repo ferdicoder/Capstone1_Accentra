@@ -20,7 +20,11 @@ import {
 import { queryKeys } from "@/config/queryKeys"
 
 export function useFetchEngagements() {
-  return useQuery({ queryKey: queryKeys.engagements, queryFn: getEngagements })
+  return useQuery({ 
+    queryKey: queryKeys.engagements, 
+    queryFn: getEngagements, 
+    staleTime: 1000 * 30
+  })
 }
 
 export function useFetchMyEngagements(businessId) {
