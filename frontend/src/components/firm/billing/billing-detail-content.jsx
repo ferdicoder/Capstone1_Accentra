@@ -62,7 +62,6 @@ export function BillingDetailContent({
   engagement,
   client,
   onVerifyPayment,
-  onRejectPayment,
 }) {
   if (!billing) {
     return (
@@ -166,15 +165,6 @@ export function BillingDetailContent({
               </p>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                {onRejectPayment && (
-                  <Button
-                    variant="outline"
-                    onClick={onRejectPayment}
-                    className="cursor-pointer"
-                  >
-                    Reject
-                  </Button>
-                )}
 
                 {onVerifyPayment && (
                   <Button

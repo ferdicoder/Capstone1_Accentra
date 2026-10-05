@@ -9,7 +9,6 @@ import { BillingDetailContent } from "@/components/firm/billing/billing-detail-c
 import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
 import { BillingStatusDropdown } from "@/components/firm/billing/billing-status-dropdown"
 import { VerifyPaymentDialog } from "@/components/firm/billing/verify-payment-dialog"
-import { RejectPaymentDialog } from "@/components/firm/billing/reject-payment-dialog"
 import { CancelBillingDialog } from "@/components/firm/billing/cancel-billing-dialog"
 import {
   billingStatusLabels,
@@ -37,7 +36,6 @@ export default function BillingDetailPage() {
   const [billings, setBillings] = useState(getMockBillings)
 
   const [verifyOpen, setVerifyOpen] = useState(false)
-  const [rejectOpen, setRejectOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [notice, setNotice] = useState("")
 
@@ -125,7 +123,7 @@ export default function BillingDetailPage() {
 
     rejectMockPayment(billing.id)
     setBillings(getMockBillings())
-    setRejectOpen(false)
+    setVerifyOpen(false)
 
     showNotice(`${billing.id} payment rejected`)
   }
@@ -217,7 +215,6 @@ export default function BillingDetailPage() {
         engagement={engagement}
         client={client}
         onVerifyPayment={() => setVerifyOpen(true)}
-        onRejectPayment={() => setRejectOpen(true)}
       />
 
       <VerifyPaymentDialog
@@ -225,13 +222,7 @@ export default function BillingDetailPage() {
         open={verifyOpen}
         onOpenChange={setVerifyOpen}
         onConfirm={handleConfirmVerification}
-      />
-
-      <RejectPaymentDialog
-        billing={billing}
-        open={rejectOpen}
-        onOpenChange={setRejectOpen}
-        onConfirm={handleConfirmRejection}
+        onReject={handleConfirmRejection}
       />
 
       <CancelBillingDialog

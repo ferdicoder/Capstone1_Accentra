@@ -12,7 +12,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -25,7 +24,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { INVOICE_TYPES, invoiceTypeLabels } from "./billing-variants"
+import {
+  INVOICE_TYPES,
+  invoiceTypeLabels,
+} from "./billing-variants"
 
 const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/
 
@@ -46,10 +48,11 @@ const MONTHS = [
 
 const CURRENT_YEAR = new Date().getFullYear()
 
-const YEARS = Array.from(
-  { length: 5 },
-  (_, index) => CURRENT_YEAR - 2 + index
-)
+const YEARS = [
+  CURRENT_YEAR - 1,
+  CURRENT_YEAR,
+  CURRENT_YEAR + 1,
+]
 
 export function CreateBillingDialog({
   open = false,
@@ -62,7 +65,14 @@ export function CreateBillingDialog({
   error,
   initialEngagementId = "",
 }) {
-  const [engagementId, setEngagementId] = useState(initialEngagementId)
+  const now = new Date()
+
+  const currentBillingMonth = now.getMonth() + 1
+  const currentBillingYear = now.getFullYear()
+
+  const [engagementId, setEngagementId] = useState(
+    initialEngagementId
+  )
   const [engagementSearch, setEngagementSearch] = useState("")
 
   const [clientId, setClientId] = useState("")
@@ -70,8 +80,13 @@ export function CreateBillingDialog({
 
   const [invoiceType, setInvoiceType] = useState("")
 
-  const [billingMonth, setBillingMonth] = useState("")
-  const [billingYear, setBillingYear] = useState("")
+  const [billingMonth, setBillingMonth] = useState(
+    String(currentBillingMonth)
+  )
+
+  const [billingYear, setBillingYear] = useState(
+    String(currentBillingYear)
+  )
 
   const [amount, setAmount] = useState("")
   const [dueDate, setDueDate] = useState("")
@@ -145,9 +160,16 @@ export function CreateBillingDialog({
 
   const selectedMonthLabel =
     MONTHS.find(
-      (month) => Number(month.value) === Number(billingMonth)
+      (month) =>
+        Number(month.value) === Number(billingMonth)
     )?.label ?? ""
 
+  const selectedBillingPeriod =
+    billingMonth && billingYear
+      ? `${selectedMonthLabel} ${billingYear}`
+      : ""
+
+  // Prevent duplicate Service Fees for the same engagement.
   const duplicateServiceFee =
     isServiceFee &&
     billings.some(
@@ -157,16 +179,30 @@ export function CreateBillingDialog({
         billing.status !== "cancelled"
     )
 
+  // Prevent duplicate Retainer Fees for the same
+  // client + billing month + billing year.
   const duplicateRetainer =
     isRetainerFee &&
     billings.some(
       (billing) =>
         billing.invoice_type === "retainer_fee" &&
         billing.client_id === clientId &&
-        Number(billing.billing_month) === Number(billingMonth) &&
-        Number(billing.billing_year) === Number(billingYear) &&
+        billing.billing_month === Number(billingMonth) &&
+        billing.billing_year === Number(billingYear) &&
         billing.status !== "cancelled"
     )
+
+    const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      const selectedDueDate = dueDate
+        ? new Date(`${dueDate}T00:00:00`)
+        : null
+
+      const dueDateInvalid =
+        !selectedDueDate ||
+        Number.isNaN(selectedDueDate.getTime()) ||
+        selectedDueDate < today
 
   useEffect(() => {
     if (!open) return
@@ -175,19 +211,29 @@ export function CreateBillingDialog({
     setEngagementSearch("")
 
     // When opened from an engagement, automatically use Service Fee.
-    setInvoiceType(initialEngagementId ? "service_fee" : "")
+    setInvoiceType(
+      initialEngagementId
+        ? "service_fee"
+        : ""
+    )
 
     setClientId("")
     setClientSearch("")
 
-    setBillingMonth("")
-    setBillingYear("")
+    // Default Retainer Fee billing period to the current month/year.
+    setBillingMonth(String(currentBillingMonth))
+    setBillingYear(String(currentBillingYear))
 
     setAmount("")
     setDueDate("")
 
     setErrors({})
-  }, [open, initialEngagementId])
+  }, [
+    open,
+    initialEngagementId,
+    currentBillingMonth,
+    currentBillingYear,
+  ])
 
   const handleInvoiceTypeChange = (value) => {
     setInvoiceType(value)
@@ -199,8 +245,9 @@ export function CreateBillingDialog({
     setClientId("")
     setClientSearch("")
 
-    setBillingMonth("")
-    setBillingYear("")
+    // Reset billing period to the current period.
+    setBillingMonth(String(currentBillingMonth))
+    setBillingYear(String(currentBillingYear))
 
     setErrors({})
   }
@@ -237,7 +284,7 @@ export function CreateBillingDialog({
     setErrors((prev) => ({
       ...prev,
       client: false,
-      billingMonth: false,
+      billingPeriod: false,
     }))
   }
 
@@ -254,6 +301,24 @@ export function CreateBillingDialog({
         client: false,
       }))
     }
+  }
+
+  const handleBillingMonthChange = (value) => {
+    setBillingMonth(String(value))
+
+    setErrors((prev) => ({
+      ...prev,
+      billingPeriod: false,
+    }))
+  }
+
+  const handleBillingYearChange = (value) => {
+    setBillingYear(String(value))
+
+    setErrors((prev) => ({
+      ...prev,
+      billingPeriod: false,
+    }))
   }
 
   const handleSubmit = (event) => {
@@ -273,11 +338,13 @@ export function CreateBillingDialog({
         isRetainerFee &&
         !clientId,
 
-      billingMonth:
+      billingPeriod:
         isRetainerFee &&
-        (!billingMonth ||
+        (
+          !billingMonth ||
           !billingYear ||
-          duplicateRetainer),
+          duplicateRetainer
+        ),
 
       amount:
         !trimmedAmount ||
@@ -285,9 +352,8 @@ export function CreateBillingDialog({
         !Number.isFinite(numericAmount) ||
         numericAmount <= 0,
 
-      dueDate:
-        !dueDate ||
-        Number.isNaN(new Date(dueDate).getTime()),
+        dueDate: dueDateInvalid
+
     }
 
     setErrors(newErrors)
@@ -297,7 +363,9 @@ export function CreateBillingDialog({
     }
 
     onSubmit?.({
-      engagement_id: isServiceFee ? engagementId : null,
+      engagement_id: isServiceFee
+        ? engagementId
+        : null,
 
       client_id: isRetainerFee
         ? clientId
@@ -317,7 +385,9 @@ export function CreateBillingDialog({
 
       due_date: dueDate,
 
+      payment_method: null,
       payment_reference: "",
+      payment_proof_url: "",
     })
   }
 
@@ -327,10 +397,15 @@ export function CreateBillingDialog({
     (isRetainerFee && clientsUnavailable)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>Create Billing</DialogTitle>
+          <DialogTitle>
+            Create Billing
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
@@ -340,7 +415,9 @@ export function CreateBillingDialog({
             <Field>
               <FieldLabel>
                 Invoice Type
-                <span className="text-red-500">*</span>
+                <span className="text-red-500">
+                  *
+                </span>
               </FieldLabel>
 
               <DropdownMenu>
@@ -350,7 +427,8 @@ export function CreateBillingDialog({
                     variant="outline"
                     className={cn(
                       "w-full justify-between font-normal",
-                      !invoiceType && "text-muted-foreground"
+                      !invoiceType &&
+                        "text-muted-foreground"
                     )}
                   >
                     {invoiceType
@@ -389,13 +467,17 @@ export function CreateBillingDialog({
               <Field>
                 <FieldLabel>
                   Engagement
-                  <span className="text-red-500">*</span>
+                  <span className="text-red-500">
+                    *
+                  </span>
                 </FieldLabel>
 
                 {selectedEngagement ? (
                   <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
                     <span>
-                      {engagementLabel(selectedEngagement)}
+                      {engagementLabel(
+                        selectedEngagement
+                      )}
                     </span>
 
                     <Button
@@ -424,7 +506,9 @@ export function CreateBillingDialog({
                         }
                         placeholder="Search engagement..."
                         className="pl-9"
-                        disabled={engagementsUnavailable}
+                        disabled={
+                          engagementsUnavailable
+                        }
                       />
                     </div>
 
@@ -444,14 +528,17 @@ export function CreateBillingDialog({
                                 }
                               >
                                 <span className="font-medium">
-                                  {engagementLabel(engagement)}
+                                  {engagementLabel(
+                                    engagement
+                                  )}
                                 </span>
 
                                 {engagement.business
                                   ?.businessName && (
                                   <span className="text-xs text-muted-foreground">
                                     {
-                                      engagement.business
+                                      engagement
+                                        .business
                                         .businessName
                                     }
                                   </span>
@@ -490,10 +577,13 @@ export function CreateBillingDialog({
             {/* RETAINER FEE → CLIENT */}
             {isRetainerFee && (
               <>
+                {/* CLIENT */}
                 <Field>
                   <FieldLabel>
                     Client
-                    <span className="text-red-500">*</span>
+                    <span className="text-red-500">
+                      *
+                    </span>
                   </FieldLabel>
 
                   {selectedClient ? (
@@ -528,33 +618,41 @@ export function CreateBillingDialog({
                           }
                           placeholder="Search client..."
                           className="pl-9"
-                          disabled={clientsUnavailable}
+                          disabled={
+                            clientsUnavailable
+                          }
                         />
                       </div>
 
                       {clientSearch &&
                         filteredClients.length > 0 && (
                           <div className="mt-1 max-h-48 overflow-y-auto rounded-md border bg-background">
-                            {filteredClients.map((client) => (
-                              <button
-                                key={client.id}
-                                type="button"
-                                className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-muted"
-                                onClick={() =>
-                                  handleSelectClient(client)
-                                }
-                              >
-                                <span className="font-medium">
-                                  {clientLabel(client)}
-                                </span>
-
-                                {client.email && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {client.email}
+                            {filteredClients.map(
+                              (client) => (
+                                <button
+                                  key={client.id}
+                                  type="button"
+                                  className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-muted"
+                                  onClick={() =>
+                                    handleSelectClient(
+                                      client
+                                    )
+                                  }
+                                >
+                                  <span className="font-medium">
+                                    {clientLabel(
+                                      client
+                                    )}
                                   </span>
-                                )}
-                              </button>
-                            ))}
+
+                                  {client.email && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {client.email}
+                                    </span>
+                                  )}
+                                </button>
+                              )
+                            )}
                           </div>
                         )}
 
@@ -569,7 +667,9 @@ export function CreateBillingDialog({
 
                   {errors.client && (
                     <p className="text-xs text-red-500">
-                      Please select a client.
+                      {duplicateRetainer
+                        ? `A retainer fee already exists for this client for ${selectedBillingPeriod}.`
+                        : "Please select a client."}
                     </p>
                   )}
 
@@ -584,10 +684,13 @@ export function CreateBillingDialog({
                 <Field>
                   <FieldLabel>
                     Billing Period
-                    <span className="text-red-500">*</span>
+                    <span className="text-red-500">
+                      *
+                    </span>
                   </FieldLabel>
 
                   <div className="grid grid-cols-2 gap-3">
+
                     {/* MONTH */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -613,16 +716,11 @@ export function CreateBillingDialog({
                         {MONTHS.map((month) => (
                           <DropdownMenuItem
                             key={month.value}
-                            onClick={() => {
-                              setBillingMonth(
-                                String(month.value)
+                            onClick={() =>
+                              handleBillingMonthChange(
+                                month.value
                               )
-
-                              setErrors((prev) => ({
-                                ...prev,
-                                billingMonth: false,
-                              }))
-                            }}
+                            }
                           >
                             {month.label}
                           </DropdownMenuItem>
@@ -655,14 +753,11 @@ export function CreateBillingDialog({
                         {YEARS.map((year) => (
                           <DropdownMenuItem
                             key={year}
-                            onClick={() => {
-                              setBillingYear(String(year))
-
-                              setErrors((prev) => ({
-                                ...prev,
-                                billingMonth: false,
-                              }))
-                            }}
+                            onClick={() =>
+                              handleBillingYearChange(
+                                year
+                              )
+                            }
                           >
                             {year}
                           </DropdownMenuItem>
@@ -671,13 +766,15 @@ export function CreateBillingDialog({
                     </DropdownMenu>
                   </div>
 
-                  {errors.billingMonth && (
+                  <p className="text-xs text-muted-foreground">
+                    Defaults to the current billing period. Change it if billing for a different period.
+                  </p>
+
+                  {errors.billingPeriod && (
                     <p className="text-xs text-red-500">
                       {duplicateRetainer
-                        ? `A retainer fee already exists for ${
-                            selectedMonthLabel || "this month"
-                          } ${billingYear}.`
-                        : "Please select a billing month and year."}
+                        ? `A retainer fee already exists for this client for ${selectedBillingPeriod}.`
+                        : "Please select a billing period."}
                     </p>
                   )}
                 </Field>
@@ -688,7 +785,9 @@ export function CreateBillingDialog({
             <Field>
               <FieldLabel>
                 Amount
-                <span className="text-red-500">*</span>
+                <span className="text-red-500">
+                  *
+                </span>
               </FieldLabel>
 
               <Input
@@ -717,12 +816,15 @@ export function CreateBillingDialog({
             <Field>
               <FieldLabel>
                 Due Date
-                <span className="text-red-500">*</span>
+                <span className="text-red-500">
+                  *
+                </span>
               </FieldLabel>
 
               <Input
                 type="date"
                 value={dueDate}
+                min={new Date().toISOString().split("T")[0]}
                 onChange={(event) => {
                   setDueDate(event.target.value)
 
@@ -733,9 +835,9 @@ export function CreateBillingDialog({
                 }}
               />
 
-              {errors.dueDate && (
+             {errors.dueDate && (
                 <p className="text-xs text-red-500">
-                  Please select a valid due date.
+                  Due date must be today or a future date.
                 </p>
               )}
             </Field>
@@ -751,7 +853,9 @@ export function CreateBillingDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange?.(false)}
+              onClick={() =>
+                onOpenChange?.(false)
+              }
               disabled={submitting}
             >
               Cancel
@@ -761,7 +865,9 @@ export function CreateBillingDialog({
               type="submit"
               disabled={submitDisabled}
             >
-              {submitting ? "Creating..." : "Create Billing"}
+              {submitting
+                ? "Creating..."
+                : "Create Billing"}
             </Button>
           </DialogFooter>
         </form>
