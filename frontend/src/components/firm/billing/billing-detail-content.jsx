@@ -1,28 +1,68 @@
 import { Button } from "@/components/ui/button"
 import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
-import { formatDate, getClientFullName } from "@/components/firm/engagements/engagement-variants"
-import { formatPeso, invoiceTypeLabels, isVerifiable } from "./billing-variants"
+import {
+  formatDate,
+  getClientFullName,
+} from "@/components/firm/engagements/engagement-variants"
+import {
+  formatPeso,
+  invoiceTypeLabels,
+  isVerifiable,
+  paymentMethodLabels,
+} from "./billing-variants"
 
 function InfoRow({ label, children }) {
   return (
     <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-foreground sm:text-right">{children}</span>
+      <span className="text-sm font-medium text-foreground sm:text-right">
+        {children}
+      </span>
     </div>
   )
 }
 
+const monthLabels = {
+  1: "January",
+  2: "February",
+  3: "March",
+  4: "April",
+  5: "May",
+  6: "June",
+  7: "July",
+  8: "August",
+  9: "September",
+  10: "October",
+  11: "November",
+  12: "December",
+}
+
+function getBillingPeriod(billing) {
+  if (!billing.billing_month || !billing.billing_year) {
+    return "—"
+  }
+
+  return `${monthLabels[billing.billing_month] ?? billing.billing_month} ${billing.billing_year}`
+}
+
 /**
- * Billing detail content, shown on the Firm Admin billing detail page.
- * Single-status rule: the billing status lives only in the page header —
- * this component never repeats it.
+ * Billing detail content shown on the Firm Admin / Billing Officer
+ * billing detail page.
  *
- * @param {Object} billing - Billing record (ERD shape).
- * @param {Object} engagement - Derived engagement, if available.
- * @param {Function} onVerifyPayment - Opens the verify confirmation dialog.
- * @param {Function} onRejectPayment - Opens the reject confirmation dialog.
+ * Service Fee:
+ *   Billing → Engagement → Client / Business
+ *
+ * Retainer Fee:
+ *   Billing → Client / Business
+ *
+ * Billing status is shown only in the page header.
  */
-export function BillingDetailContent({ billing, engagement, onVerifyPayment, onRejectPayment }) {
+export function BillingDetailContent({
+  billing,
+  engagement,
+  client,
+  onVerifyPayment,
+}) {
   if (!billing) {
     return (
       <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground shadow-sm">
@@ -32,46 +72,100 @@ export function BillingDetailContent({ billing, engagement, onVerifyPayment, onR
   }
 
   const verifiable = isVerifiable(billing)
+  const isServiceFee = billing.invoice_type === "service_fee"
+  const isRetainerFee = billing.invoice_type === "retainer_fee"
+
+  const retainerClient = isRetainerFee ? client : null
+
+  const retainerClientName = retainerClient
+    ? getClientFullName(retainerClient)
+    : "—"
+
+  const retainerBusinessName =
+    retainerClient?.business?.businessName ?? "—"
 
   return (
     <div className="flex flex-col gap-5">
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Billing Information */}
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold text-foreground">Billing Information</h3>
+          <h3 className="mb-4 text-sm font-semibold text-foreground">
+            Billing Information
+          </h3>
+
           <div className="flex flex-col gap-2.5">
             <InfoRow label="Invoice Type">
-              {invoiceTypeLabels[billing.invoice_type] ?? billing.invoice_type}
+              {invoiceTypeLabels[billing.invoice_type] ??
+                billing.invoice_type}
             </InfoRow>
+
+            {isRetainerFee && (
+              <InfoRow label="Billing Period">
+                {getBillingPeriod(billing)}
+              </InfoRow>
+            )}
+
             <InfoRow label="Amount">
-              <span style={{ color: "#02353C" }}>{formatPeso(billing.amount)}</span>
+              <span style={{ color: "#02353C" }}>
+                {formatPeso(billing.amount)}
+              </span>
             </InfoRow>
-            <InfoRow label="Due Date">{formatDate(billing.due_date)}</InfoRow>
+
+            <InfoRow label="Due Date">
+              {formatDate(billing.due_date)}
+            </InfoRow>
           </div>
         </div>
 
         {/* Payment Information */}
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold text-foreground">Payment Information</h3>
+          <h3 className="mb-4 text-sm font-semibold text-foreground">
+            Payment Information
+          </h3>
+
           <div className="flex flex-col gap-2.5">
-            <InfoRow label="Payment Reference">
-              <span className="break-all">
-                {billing.payment_reference ? billing.payment_reference : "Not yet submitted"}
-              </span>
-            </InfoRow>
+
+              <InfoRow label="Payment Method">
+                {billing.payment_method
+                  ? paymentMethodLabels[billing.payment_method] ??
+                    billing.payment_method
+                  : "Not yet selected"}
+              </InfoRow>
+
+              <InfoRow label="Payment Proof">
+                {billing.payment_proof_url ? (
+                  <a
+                    href={billing.payment_proof_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-forest-900 hover:underline"
+                  >
+                    View Uploaded Proof
+                  </a>
+                ) : (
+                  "Not yet submitted"
+                )}
+              </InfoRow>
+
+              <InfoRow label="Reference ID">
+                {billing.payment_reference
+                  ? billing.payment_reference
+                  : "Not yet verified"}
+              </InfoRow>
+          
+
+
+
           </div>
 
           {verifiable && (
             <div className="mt-4 border-t border-border pt-4">
               <p className="text-xs text-muted-foreground">
-                Review the submitted payment reference before marking this billing as paid.
+                Review the uploaded payment proof and enter the reference ID shown in the proof before verifying the payment.
               </p>
+
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                {onRejectPayment && (
-                  <Button variant="outline" onClick={onRejectPayment} className="cursor-pointer">
-                    Reject
-                  </Button>
-                )}
+
                 {onVerifyPayment && (
                   <Button
                     onClick={onVerifyPayment}
@@ -86,27 +180,62 @@ export function BillingDetailContent({ billing, engagement, onVerifyPayment, onR
         </div>
       </div>
 
-      {/* Related Engagement */}
-      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Related Engagement</h3>
-        <div className="flex flex-col gap-2.5">
-          <InfoRow label="Engagement Number">{engagement?.engagementNumber ?? "—"}</InfoRow>
-          <InfoRow label="Service">{engagement?.serviceName ?? "—"}</InfoRow>
-          <InfoRow label="Client">
-            {engagement?.client && Object.keys(engagement.client).length > 0
-              ? getClientFullName(engagement.client)
-              : "—"}
-          </InfoRow>
-          <InfoRow label="Business">{engagement?.business?.businessName ?? "—"}</InfoRow>
-          <InfoRow label="Engagement Status">
-            {engagement?.status ? (
-              <EngagementStatusBadge status={engagement.status} />
-            ) : (
-              "—"
-            )}
-          </InfoRow>
+      {/* Service Fee → Related Engagement */}
+      {isServiceFee && (
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h3 className="mb-4 text-sm font-semibold text-foreground">
+            Related Engagement
+          </h3>
+
+          <div className="flex flex-col gap-2.5">
+            <InfoRow label="Engagement Number">
+              {engagement?.engagementNumber ?? "—"}
+            </InfoRow>
+
+            <InfoRow label="Service">
+              {engagement?.serviceName ?? "—"}
+            </InfoRow>
+
+            <InfoRow label="Client">
+              {engagement?.client &&
+              Object.keys(engagement.client).length > 0
+                ? getClientFullName(engagement.client)
+                : "—"}
+            </InfoRow>
+                
+            <InfoRow label="Business">
+              {engagement?.business?.businessName ?? "—"}
+            </InfoRow>
+
+            <InfoRow label="Engagement Status">
+              {engagement?.status ? (
+                <EngagementStatusBadge status={engagement.status} />
+              ) : (
+                "—"
+              )}
+            </InfoRow>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Retainer Fee → Billing For */}
+      {isRetainerFee && (
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h3 className="mb-4 text-sm font-semibold text-foreground">
+            Billing For
+          </h3>
+
+          <div className="flex flex-col gap-2.5">
+            <InfoRow label="Business">
+              {retainerBusinessName}
+            </InfoRow>
+
+            <InfoRow label="Client">
+              {retainerClientName}
+            </InfoRow>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

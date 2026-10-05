@@ -9,11 +9,14 @@ import { BillingDetailContent } from "@/components/firm/billing/billing-detail-c
 import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
 import { BillingStatusDropdown } from "@/components/firm/billing/billing-status-dropdown"
 import { VerifyPaymentDialog } from "@/components/firm/billing/verify-payment-dialog"
-import { RejectPaymentDialog } from "@/components/firm/billing/reject-payment-dialog"
 import { CancelBillingDialog } from "@/components/firm/billing/cancel-billing-dialog"
-import { billingStatusLabels, invoiceTypeLabels } from "@/components/firm/billing/billing-variants"
+import {
+  billingStatusLabels,
+  invoiceTypeLabels,
+} from "@/components/firm/billing/billing-variants"
 import {
   getMockBillings,
+  mockClients,
   mockEngagements,
   rejectMockPayment,
   updateMockBillingStatus,
@@ -23,61 +26,106 @@ import {
 export default function BillingDetailPage() {
   const { id } = useParams()
   const location = useLocation()
-  const basePath = location.pathname.startsWith("/billing-officer") ? "/billing-officer" : "/admin"
+
+  const basePath = location.pathname.startsWith("/billing-officer")
+    ? "/billing-officer"
+    : "/admin"
+
   const backHref = `${basePath}/billing`
 
   const [billings, setBillings] = useState(getMockBillings)
 
   const [verifyOpen, setVerifyOpen] = useState(false)
-  const [rejectOpen, setRejectOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [notice, setNotice] = useState("")
 
-  const billing = billings.find((b) => b.id === id) ?? null
-  const engagement = mockEngagements.find((e) => e.id === billing?.engagement_id) ?? null
+  const billing =
+    billings.find((billing) => billing.id === id) ?? null
+
+  const engagement =
+    billing?.invoice_type === "service_fee"
+      ? mockEngagements.find(
+          (engagement) => engagement.id === billing.engagement_id
+        ) ?? null
+      : null
+
+  const client =
+    billing?.invoice_type === "retainer_fee"
+      ? mockClients.find(
+          (client) => client.id === billing.client_id
+        ) ?? null
+      : null
 
   usePageMeta({
     title: billing?.id ?? "Billing Details",
-    breadcrumbs: [{ label: "Billing", href: backHref }],
+    breadcrumbs: [
+      {
+        label: "Billing",
+        href: backHref,
+      },
+    ],
   })
+
+  const showNotice = (message) => {
+    setNotice(message)
+    setTimeout(() => setNotice(""), 3000)
+  }
 
   const handleStatusChange = (status) => {
     if (!billing || billing.status === status) return
+
     if (status === "cancelled") {
       setCancelOpen(true)
       return
     }
+
     if (!updateMockBillingStatus(billing.id, status)) return
+
     setBillings(getMockBillings())
-    setNotice(`Status updated to "${billingStatusLabels[status] ?? status}"`)
-    setTimeout(() => setNotice(""), 3000)
+
+    showNotice(
+      `Status updated to "${billingStatusLabels[status] ?? status}"`
+    )
   }
 
   const handleConfirmCancellation = () => {
     if (!billing) return
+
     updateMockBillingStatus(billing.id, "cancelled")
     setBillings(getMockBillings())
-    setNotice(`${billing.id} cancelled`)
     setCancelOpen(false)
-    setTimeout(() => setNotice(""), 3000)
+
+    showNotice(`${billing.id} cancelled`)
   }
 
-  const handleConfirmVerification = () => {
-    if (!billing) return
-    verifyMockPayment(billing.id)
-    setBillings(getMockBillings())
-    setNotice(`${billing.id} payment verified`)
-    setVerifyOpen(false)
-    setTimeout(() => setNotice(""), 3000)
+ const handleConfirmVerification = (paymentMethod, referenceId) => {
+  if (!billing || !paymentMethod) return
+
+  if (paymentMethod !== "cash" && !referenceId) {
+    return
   }
+
+  verifyMockPayment(
+    billing.id,
+    paymentMethod,
+    referenceId
+  )
+
+  setBillings(getMockBillings())
+  setNotice(`${billing.id} payment verified`)
+  setVerifyOpen(false)
+
+  setTimeout(() => setNotice(""), 3000)
+}
 
   const handleConfirmRejection = () => {
     if (!billing) return
+
     rejectMockPayment(billing.id)
     setBillings(getMockBillings())
-    setNotice(`${billing.id} payment rejected`)
-    setRejectOpen(false)
-    setTimeout(() => setNotice(""), 3000)
+    setVerifyOpen(false)
+
+    showNotice(`${billing.id} payment rejected`)
   }
 
   if (!billing) {
@@ -89,18 +137,21 @@ export default function BillingDetailPage() {
             className={buttonVariants({
               variant: "ghost",
               size: "sm",
-              className: "cursor-pointer gap-1.5 text-muted-foreground",
+              className:
+                "cursor-pointer gap-1.5 text-muted-foreground",
             })}
           >
             <ArrowLeft className="size-4" />
             Back
           </Link>
+
           {notice && (
             <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
               {notice}
             </span>
           )}
         </div>
+
         <PageNotFound
           title="Billing Record Not Found"
           message="The requested billing record could not be found."
@@ -111,6 +162,10 @@ export default function BillingDetailPage() {
     )
   }
 
+  const invoiceLabel =
+    invoiceTypeLabels[billing.invoice_type] ??
+    billing.invoice_type
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-1">
@@ -119,12 +174,14 @@ export default function BillingDetailPage() {
           className={buttonVariants({
             variant: "ghost",
             size: "sm",
-            className: "cursor-pointer gap-1.5 text-muted-foreground",
+            className:
+              "cursor-pointer gap-1.5 text-muted-foreground",
           })}
         >
           <ArrowLeft className="size-4" />
           Back
         </Link>
+
         {notice && (
           <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
             {notice}
@@ -135,21 +192,29 @@ export default function BillingDetailPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold text-foreground">Billing Detail</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              Billing Detail
+            </h2>
+
             <BillingStatusBadge status={billing.status} />
           </div>
+
           <p className="text-sm text-muted-foreground">
-            {billing.id} · {invoiceTypeLabels[billing.invoice_type] ?? billing.invoice_type} Invoice
+            {billing.id} · {invoiceLabel} Invoice
           </p>
         </div>
-        <BillingStatusDropdown billing={billing} onStatusChange={handleStatusChange} />
+
+        <BillingStatusDropdown
+          billing={billing}
+          onStatusChange={handleStatusChange}
+        />
       </div>
 
       <BillingDetailContent
         billing={billing}
         engagement={engagement}
+        client={client}
         onVerifyPayment={() => setVerifyOpen(true)}
-        onRejectPayment={() => setRejectOpen(true)}
       />
 
       <VerifyPaymentDialog
@@ -157,13 +222,7 @@ export default function BillingDetailPage() {
         open={verifyOpen}
         onOpenChange={setVerifyOpen}
         onConfirm={handleConfirmVerification}
-      />
-
-      <RejectPaymentDialog
-        billing={billing}
-        open={rejectOpen}
-        onOpenChange={setRejectOpen}
-        onConfirm={handleConfirmRejection}
+        onReject={handleConfirmRejection}
       />
 
       <CancelBillingDialog

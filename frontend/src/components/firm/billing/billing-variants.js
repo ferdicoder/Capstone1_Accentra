@@ -19,8 +19,21 @@ export const billingStatusLabels = {
   unpaid: "Pending Payment",
   for_verification: "For Verification",
   paid: "Paid",
-  overdue: "Overdue",
   cancelled: "Cancelled",
+}
+
+export const PAYMENT_METHODS = [
+  "gcash",
+  "bank",
+  "maya",
+  "cash",
+]
+
+export const paymentMethodLabels = {
+  gcash: "GCash",
+  bank: "Bank",
+  maya: "Maya",
+  cash: "Cash",
 }
 
 /** Semantic hex colors for status values, per the Accentra billing color system. */
@@ -65,4 +78,5 @@ export const formatPeso = (amount) => {
 
 /** A payment can only be verified when it is awaiting review and has a reference. */
 export const isVerifiable = (billing) =>
-  billing?.status === "for_verification" && Boolean(billing?.payment_reference?.trim())
+  billing?.status === "unpaid" ||
+  billing?.status === "for_verification"
