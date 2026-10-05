@@ -148,7 +148,7 @@ export default function EngagementsPage() {
                   )}
 
           {/* Only show actions if the user has permission to manage engagements */}
-          {canManageEngagements && canManageBilling && engagement.status === "payment" && (
+          {canManageEngagements && engagement.status === "payment" && (
             <>
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -169,6 +169,8 @@ export default function EngagementsPage() {
 
                     <DropdownMenuSeparator />
 
+                  
+                {canManageBilling && engagement.status === "payment" && (
                     <DropdownMenuItem
                       onClick={() =>
                         navigate(
@@ -178,6 +180,7 @@ export default function EngagementsPage() {
                     >
                       Create Billing
                     </DropdownMenuItem>
+                  )}
                   
               
 
