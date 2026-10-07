@@ -2,7 +2,9 @@ import {
   LayoutDashboard,
   UserCog,
   Briefcase,
-  Settings,
+  Users,
+  Contact,
+  FolderCog,
   ClipboardList,
   Receipt,
 } from "lucide-react"
@@ -14,12 +16,12 @@ export const firmAdminNav = [
   { title: "Engagements", url: "/admin/engagements", icon: Briefcase, items: [] },
   { title: "Billing", url: "/admin/billing", icon: Receipt, items: [] },
   {
-    title: "Settings",
-    url: "/admin/profile",
-    icon: Settings,
+    title: "User Management",
+    url: "/admin/users",
+    icon: FolderCog,
     items: [
-      { title: "Profile", url: "/admin/profile" },
-      { title: "User Management", url: "/admin/users" },
+      { title: "Firm User", url: "/admin/users", icon: Users },
+      { title: "Client", url: "/admin/clients", icon: Contact },
     ],
   },
 ]
@@ -29,6 +31,13 @@ export const firmUserNav = [
   { title: "Service Requests", url: "/firm/service-requests", icon: UserCog, items: [] },
   { title: "Services", url: "/firm/services", icon: ClipboardList, items: [] },
   { title: "Engagements", url: "/firm/engagements", icon: Briefcase, items: [] },
+  {
+    title: "User Management",
+    url: "/firm/clients",
+    icon: FolderCog,
+    // Staff has no access to Firm User management, so only Client is listed.
+    items: [{ title: "Client", url: "/firm/clients", icon: Contact }],
+  },
 ]
 
 export const clientNav = [

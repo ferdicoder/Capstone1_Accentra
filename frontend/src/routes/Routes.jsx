@@ -24,6 +24,8 @@ import ServiceManagementPage from "@/pages/firm/ServiceManagementPage";
 import ServiceRequestsPage from "@/pages/firm/ServiceRequestsPage";
 import EngagementsPage from "@/pages/firm/EngagementsPage";
 import EngagementDetailsPage from "@/pages/firm/EngagementDetailsPage";
+import ClientManagementPage from "@/pages/firm/ClientManagementPage";
+import ClientDetailPage from "@/pages/firm/ClientDetailPage";
 import BillingPage from "@/pages/firm/BillingPage";
 import BillingDetailPage from "@/pages/firm/BillingDetailPage";
 import LandingPage from "@/pages/LandingPage";
@@ -79,6 +81,8 @@ export const router = createBrowserRouter([
           { path: "service-requests", element: <ServiceRequestsPage /> },
           { path: "engagements", element: <EngagementsPage /> },
           { path: "engagements/:id", element: <EngagementDetailsPage /> },
+          { path: "clients", element: <ClientManagementPage /> },
+          { path: "clients/:id", element: <ClientDetailPage /> },
           { path: "billing", element: <BillingPage /> },
           { path: "billing/:id", element: <BillingDetailPage /> },
         ],
@@ -98,6 +102,8 @@ export const router = createBrowserRouter([
           { path: "services", element: <ServiceManagementPage /> },
           { path: "engagements", element: <EngagementsPage /> },
           { path: "engagements/:id", element: <EngagementDetailsPage /> },
+          { path: "clients", element: <ClientManagementPage /> },
+          { path: "clients/:id", element: <ClientDetailPage /> },
         ],
       },
     ],

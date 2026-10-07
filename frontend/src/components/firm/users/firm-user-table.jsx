@@ -17,6 +17,9 @@ import { FirmUserRow } from "./firm-user-row"
  * @param {string} emptyMessage - Message shown when the list is empty.
  * @param {string} emptyDescription - Optional secondary line under the empty message.
  * @param {Function} actions - Optional (user) => ReactNode rendered in a trailing Actions column.
+ * @param {boolean} equalColumns - Gives every column the same width (fixed table layout) so
+ *   short, centered columns are evenly spaced. Default false (auto layout).
+ * @param {"right"|"center"} actionsAlign - Alignment of the Actions column. Default "right".
  * @param {Function} onRowClick - Optional (user, event) => void applied to every row.
  * @param {string} className - Extra classes merged onto the wrapper card.
  */
@@ -29,6 +32,8 @@ export function FirmUserTable({
   emptyMessage = "No users found.",
   emptyDescription,
   actions,
+  actionsAlign = "right",
+  equalColumns = false,
   onRowClick,
   className,
   ...props
@@ -44,7 +49,7 @@ export function FirmUserTable({
       {...props}
     >
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
+        <table className={cn("w-full border-collapse text-sm", equalColumns && "table-fixed")}>
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
               {columns.map((column) => (
@@ -57,7 +62,10 @@ export function FirmUserTable({
                 </th>
               ))}
               {showActions && (
-                <th scope="col" className="px-4 py-3 text-right font-semibold">
+                <th
+                  scope="col"
+                  className={cn("px-4 py-3 font-semibold", actionsAlign === "center" ? "text-center" : "text-right")}
+                >
                   Actions
                 </th>
               )}
@@ -106,7 +114,7 @@ export function FirmUserTable({
                     >
                       {showActions && (
                         <td
-                          className="px-4 py-3 text-right align-middle"
+                          className={cn("px-4 py-3 align-middle", actionsAlign === "center" ? "text-center" : "text-right")}
                           onClick={(event) => event.stopPropagation()}
                         >
                           {actions(user)}
