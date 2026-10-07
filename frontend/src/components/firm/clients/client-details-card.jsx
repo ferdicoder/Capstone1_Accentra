@@ -25,10 +25,12 @@ export function ClientDetailsCard({ client, className, ...props }) {
       <div className="mb-5 flex items-center gap-3">
         <FirmUserAvatar name={client?.name} size="lg" />
         <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold">{client?.name}</h2>
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="truncate text-sm font-semibold">{client?.name}</h2>
+            <FirmUserStatusBadge status={client?.status} className="shrink-0" />
+          </div>
           <p className="truncate text-xs text-muted-foreground">{client?.businessName}</p>
         </div>
-        <FirmUserStatusBadge status={client?.status} className="ml-auto" />
       </div>
 
       <div className="grid gap-x-10 gap-y-5 lg:grid-cols-2">
