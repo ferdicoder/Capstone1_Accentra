@@ -131,6 +131,7 @@ export default function UserManagementPage() {
         loading={isLoading}
         emptyMessage="No users match your filters."
         emptyDescription="Try clearing the search or filters."
+        onRowClick={openEditDialog}
         actions={(user) => (
           <FirmUserActionsMenu
             user={user}
