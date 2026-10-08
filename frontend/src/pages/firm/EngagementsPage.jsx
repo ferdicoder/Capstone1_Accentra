@@ -1,49 +1,42 @@
 import { useMemo, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { ChevronRight, MoreHorizontal, Plus, CheckCircle2, XCircle } from "lucide-react"
+import { Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { EngagementFilters } from "@/components/firm/engagements/engagement-filters"
 import { EngagementList } from "@/components/firm/engagements/engagement-list"
-import { statusFilterOptions } from "@/components/firm/engagements/engagement-variants"
-import { CancelEngagementDialog } from "@/components/firm/engagements/cancel-engagement-dialog"
+import { CreateEngagementDialog } from "@/components/firm/service-requests/create-engagement-dialog"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { useFetchEngagements, useUpdateEngagementStatus } from "@/hooks/useEngagements"
-
-
+  generateEngagementNumber,
+  getEngagementDisplayStatus,
+  statusFilterOptions,
+} from "@/components/firm/engagements/engagement-variants"
+import { useFetchEngagements } from "@/hooks/useEngagements"
 import { authStore } from "@/store/authStore"
 import { can } from "@/config/roles"
-
-// NOTE: "New Engagement" (CreateEngagementDialog) intentionally left off this
-// page for now — creation only happens via approving a service_request on
-// ServiceRequestsPage, per create_engagement's design (it requires a pending
-// service_request_id as input, not a blank form).
 
 export default function EngagementsPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
-
-  // Determine user role and permissions 
+  const basePath = location.pathname.startsWith("/billing-officer")
+    ? "/billing-officer"
+    : location.pathname.startsWith("/firm")
+      ? "/firm"
+      : "/admin"
   const role = authStore((state) => state.role)
-  // Determine if the user can manage or view engagements
-  const canManageEngagements = can(role, "manage_engagements") 
-  const canManageBilling = can(role, "manage_billing")
+  const canManageEngagements = can(role, "manage_engagements")
+  const isBillingOfficer = role === "billing_officer"
 
-  const { data: engagements = [], isLoading, error } = useFetchEngagements()
-  const updateStatus = useUpdateEngagementStatus()
+  const { data: engagements = [], isLoading, error } = useFetchEngagements({
+    includeTasks: canManageEngagements,
+  })
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [cancelEngagement, setCancelEngagement] = useState(null)
   const [notice, setNotice] = useState("")
+  const [newEngagementOpen, setNewEngagementOpen] = useState(false)
+  const [manualEngagements, setManualEngagements] = useState([])
 
   const statusOptions = useMemo(
     () =>
@@ -51,16 +44,24 @@ export default function EngagementsPage() {
         ...option,
         count:
           option.value === "all"
-            ? engagements.length
-            : engagements.filter((e) => e.status === option.value).length,
+            ? engagements.length + manualEngagements.length
+            : [...engagements, ...manualEngagements].filter(
+                (e) => getEngagementDisplayStatus(e.status) === option.value
+              ).length,
       })),
-    [engagements]
+    [engagements, manualEngagements]
+  )
+
+  const allEngagements = useMemo(
+    () => [...manualEngagements, ...engagements],
+    [engagements, manualEngagements]
   )
 
   const filteredEngagements = useMemo(() => {
     const query = search.trim().toLowerCase()
-    return engagements.filter((engagement) => {
-      const matchesStatus = statusFilter === "all" || engagement.status === statusFilter
+    return allEngagements.filter((engagement) => {
+      const matchesStatus =
+        statusFilter === "all" || getEngagementDisplayStatus(engagement.status) === statusFilter
       const matchesSearch =
         !query ||
         [
@@ -72,25 +73,28 @@ export default function EngagementsPage() {
         ].some((field) => field?.toLowerCase().includes(query))
       return matchesStatus && matchesSearch
     })
-  }, [engagements, search, statusFilter])
+  }, [allEngagements, search, statusFilter])
 
-  const handleStatusChange = (engagement, newStatus) => {
-    updateStatus.mutate(
-      { id: engagement.id, status: newStatus },
-      {
-        onSuccess: () => {
-          const labels = { completed: "completed", cancelled: "cancelled" }
-          setNotice(`${engagement.business?.businessName ?? engagement.engagementNumber} ${labels[newStatus]}`)
-          setTimeout(() => setNotice(""), 3000)
-        },
-      }
-    )
-  }
+  const handleNewEngagementSubmit = (values) => {
+    const engagement = {
+      id: `manual-${Date.now()}`,
+      engagementNumber: generateEngagementNumber(),
+      serviceName: values.serviceName,
+      serviceFee: values.serviceFee,
+      startDate: values.startDate,
+      targetEndDate: values.targetEndDate,
+      status: "document_collection",
+      assignedStaffId: values.assignedStaff,
+      client: values.client,
+      business: values.business,
+      tasks: [],
+      isManualDemo: true,
+    }
 
-  const handleCancelEngagement = () => {
-    if (!cancelEngagement) return
-    handleStatusChange(cancelEngagement, "cancelled")
-    setCancelEngagement(null)
+    setManualEngagements((current) => [engagement, ...current])
+    setNewEngagementOpen(false)
+    setNotice("Engagement added for this session only; it is not saved to the database.")
+    setTimeout(() => setNotice(""), 5000)
   }
 
   usePageMeta({
@@ -124,91 +128,52 @@ export default function EngagementsPage() {
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         statusOptions={statusOptions}
-        resultCount={`${filteredEngagements.length} of ${engagements.length} engagements`}
+        resultCount={`${filteredEngagements.length} of ${allEngagements.length} engagements`}
+        actions={canManageEngagements && (
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 gap-1.5 rounded-lg bg-[#02353C] text-white hover:opacity-90"
+            onClick={() => setNewEngagementOpen(true)}
+          >
+            <Plus className="size-4" />
+            New Engagement
+          </Button>
+        )}
       />
 
       <EngagementList
         engagements={filteredEngagements}
         loading={isLoading}
-        showActions={canManageEngagements || canManageBilling}
+        onRowClick={!isBillingOfficer ? (engagement) => {
+          if (!engagement.isManualDemo) {
+            navigate(`${basePath}/engagements/${engagement.id}`)
+          }
+        } : undefined}
+        actions={isBillingOfficer ? (engagement) => (
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 cursor-pointer gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
+            onClick={() => navigate(`${basePath}/billing`, {
+              state: { createBillingFor: engagement },
+            })}
+          >
+            <Plus className="size-4" />
+            <span className="hidden sm:inline">Create Billing</span>
+          </Button>
+        ) : undefined}
         emptyMessage="No engagements match your filters."
         emptyDescription="Try clearing the search or changing the status filter."
-        actions={(engagement) => (
-          <div className="flex items-center gap-2">
-
-          {canManageBilling && !canManageEngagements && (
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        navigate(`${basePath}/billing/create?engagementId=${engagement.id}`)
-                      }
-                    >
-                      Create Billing
-                    </Button>
-                  )}
-
-          {/* Only show actions if the user has permission to manage engagements */}
-          {canManageEngagements && engagement.status === "payment" && (
-            <>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <button
-                    type="button"
-                    className="flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  />
-                }
-              >
-              <MoreHorizontal className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-44">
-                <DropdownMenuItem onClick={() => navigate(`${basePath}/engagements/${engagement.id}`)}>
-                  View Details
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-
-                    <DropdownMenuSeparator />
-
-                  
-                {canManageBilling && engagement.status === "payment" && (
-                    <DropdownMenuItem
-                      onClick={() =>
-                        navigate(
-                          `${basePath}/billing/create?engagementId=${engagement.id}`
-                        )
-                      }
-                    >
-                      Create Billing
-                    </DropdownMenuItem>
-                  )}
-                  
-              
-
-                {engagement.status !== "cancelled" && (
-                  <DropdownMenuItem
-                    onClick={() => setCancelEngagement(engagement)}
-                    className="text-red-600"
-                  >
-                    {/*<XCircle className="size-4" />*/}
-                    Cancel Engagement
-                  </DropdownMenuItem>
-                )}
-
-
-              </DropdownMenuContent>
-            </DropdownMenu>
-            </>
-            )}
-
-          </div>
-        )}
       />
 
-      <CancelEngagementDialog
-        open={Boolean(cancelEngagement)}
-        onOpenChange={(open) => !open && setCancelEngagement(null)}
-        onConfirm={handleCancelEngagement}
-      />
+      {canManageEngagements && (
+        <CreateEngagementDialog
+          open={newEngagementOpen}
+          onOpenChange={setNewEngagementOpen}
+          onSubmit={handleNewEngagementSubmit}
+        />
+      )}
     </>
   )
 }

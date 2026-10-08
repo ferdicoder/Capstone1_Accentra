@@ -6,13 +6,19 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { EngagementDetailsContent } from "@/components/shared/EngagementDetailsContent"
-import { getClientFullName, formatDate, getServiceCategoryLabel, firmStaffMap } from "./engagement-variants"
+import {
+  getClientFullName,
+  formatDate,
+  formatRevenue,
+  getRecurrenceInfo,
+  firmStaffMap,
+} from "./engagement-variants"
 
 export function ClientServiceDetailsDialog({ open, onOpenChange, engagement }) {
   if (!engagement) return null
 
   const staffLabel = firmStaffMap[engagement.assignedStaff] ?? "—"
-  const serviceCategory = getServiceCategoryLabel(engagement.serviceName)
+  const recurrence = getRecurrenceInfo(engagement)
 
   const clientDescription =
     engagement.clientDescription ??
@@ -38,9 +44,19 @@ export function ClientServiceDetailsDialog({ open, onOpenChange, engagement }) {
   const serviceInfo = {
     description: "Details about the selected service",
     fields: [
-      { label: "Service Category", value: serviceCategory },
+      { label: "Engagement Number", value: engagement.engagementNumber },
+      { label: "Service", value: engagement.serviceName },
       { label: "Assigned Staff", value: staffLabel },
+      { label: "Service Fee", value: formatRevenue(engagement.serviceFee ?? engagement.fee) },
       { label: "Start Date", value: formatDate(engagement.startDate) },
+      { label: "Due Date", value: formatDate(engagement.targetEndDate) },
+      { label: "Recurrence", value: recurrence.recurrence },
+      ...(recurrence.isRecurring
+        ? [
+            { label: "Frequency", value: recurrence.frequency },
+            { label: "Expected Next Period", value: recurrence.expectedNextPeriod },
+          ]
+        : []),
     ],
   }
 

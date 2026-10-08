@@ -27,7 +27,7 @@ const statusConfig = {
   approved: { label: "Approved", dotColor: "bg-emerald-500", className: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25" },
   for_review: { label: "For Review", dotColor: "bg-amber-500", className: "bg-amber-500/10 text-amber-700 ring-amber-500/25" },
   for_revision: { label: "For Revision", dotColor: "bg-orange-500", className: "bg-orange-500/10 text-orange-700 ring-orange-500/25" },
-  missing: { label: "Pending", dotColor: "bg-red-500", className: "bg-red-500/10 text-red-600 ring-red-500/25" },
+  missing: { label: "Missing", dotColor: "bg-red-500", className: "bg-red-500/10 text-red-600 ring-red-500/25" },
 }
 
 function TaskStatusBadge({ status }) {
@@ -238,7 +238,7 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
 
 // ── Task Row ──────────────────────────────────────────────────────────────────
 
-function TaskRow({ task, documents = [], onEdit, onSendReminder, onDeadlineChange, onOpenDetail, onToggleComplete, onApprove, onRequestRevision }) {
+function TaskRow({ task, documents = [], onEdit, onSendReminder, onDeadlineChange, onOpenDetail, onComplete, onApprove, onRequestRevision }) {
   const isDocBacked = task.hasReferenceDocument
   const canReview = isDocBacked && (task.status === "for_review" || task.status === "for_revision")
 
@@ -246,18 +246,6 @@ function TaskRow({ task, documents = [], onEdit, onSendReminder, onDeadlineChang
     <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/30">
       <td className="min-w-0 px-6 py-2.5 pr-4">
         <div className="flex items-center gap-2.5">
-          {!isDocBacked && (
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={task.completed}
-              title={task.completed ? "Mark incomplete" : "Mark complete"}
-              onClick={() => onToggleComplete(task)}
-              className={cn("flex size-4 shrink-0 items-center justify-center rounded border transition-colors", task.completed ? "border-[#02353C] bg-[#02353C] text-white" : "border-input bg-transparent hover:border-[#02353C]/50")}
-            >
-              {task.completed && <Check className="size-3" />}
-            </button>
-          )}
           <button type="button" onClick={onOpenDetail} className="text-sm font-medium text-foreground hover:text-[#02353C] transition-colors">
             {task.name}
             {task.required && <span className="ml-1 text-xs text-red-500 font-semibold">*</span>}
@@ -320,6 +308,9 @@ function TaskRow({ task, documents = [], onEdit, onSendReminder, onDeadlineChang
               <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-40">
+              {!isDocBacked && task.status !== "approved" && (
+                <DropdownMenuItem onClick={onComplete}>Mark Complete</DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={onEdit}>Edit Task</DropdownMenuItem>
               <DropdownMenuItem onClick={onSendReminder}>Send Reminder</DropdownMenuItem>
             </DropdownMenuContent>
@@ -453,7 +444,7 @@ export function TaskList({
     <div className={cn("rounded-xl border border-border bg-card shadow-sm", className)}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-3.5">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Task List</h3>
+          <h3 className="text-sm font-semibold text-foreground">Document Requirements</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {completedCount} of {tasks.length} completed
             {requiredCount > 0 && ` · ${requiredCount} required`}
@@ -495,7 +486,7 @@ export function TaskList({
                   onSendReminder={() => handleSendReminder(task)}
                   onDeadlineChange={onDeadlineChange}
                   onOpenDetail={() => handleOpenDetail(task)}
-                  onToggleComplete={(t) => onTaskComplete?.(t.id, !t.completed)}
+                  onComplete={() => onTaskComplete?.(task.id)}
                   onApprove={handleApprove}
                   onRequestRevision={openRequestRevision}
                 />

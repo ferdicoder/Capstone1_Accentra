@@ -2,8 +2,6 @@ export const statusBadgeStyles = {
   document_collection: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
   for_validation: "bg-blue-500/10 text-blue-700 ring-blue-500/25",
   in_progress: "bg-cyan-500/10 text-cyan-700 ring-cyan-500/25",
-  for_approval: "bg-orange-500/10 text-orange-700 ring-orange-500/25",
-  payment: "bg-teal-500/10 text-teal-700 ring-teal-500/25",
   completed: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
   cancelled: "bg-red-500/10 text-red-600 ring-red-500/25",
 }
@@ -12,10 +10,13 @@ export const statusDotStyles = {
   document_collection: "bg-amber-500",
   for_validation: "bg-blue-500",
   in_progress: "bg-cyan-500",
-  for_approval: "bg-orange-500",
-  payment: "bg-teal-500",
   completed: "bg-emerald-500",
   cancelled: "bg-red-500",
+}
+
+export const getEngagementDisplayStatus = (status) => {
+  const value = typeof status === "string" ? status.toLowerCase() : status
+  return value === "for_approval" || value === "payment" ? "in_progress" : value
 }
 
 export const statusFilterOptions = [
@@ -23,8 +24,6 @@ export const statusFilterOptions = [
   { value: "document_collection", label: "Document Collection" },
   { value: "for_validation", label: "For Validation" },
   { value: "in_progress", label: "In Progress" },
-  { value: "for_approval", label: "For Approval" },
-  { value: "payment", label: "Payment" },
   { value: "completed", label: "Completed" },
   { value: "cancelled", label: "Cancelled" },
 ]
@@ -147,6 +146,95 @@ export const workflowStages = [
   { key: "payment", label: "Payment", order: 4 },
 ]
 
+export const workflowProgressStages = [
+  { key: "document_collection", label: "Document Collection", order: 0 },
+  { key: "for_validation", label: "For Validation", order: 1 },
+  { key: "in_progress", label: "In Progress", order: 2 },
+  { key: "completed", label: "Completed", order: 3 },
+]
+
+const recurrenceFrequencies = {
+  monthly: { label: "Monthly", months: 1 },
+  quarterly: { label: "Quarterly", months: 3 },
+  annually: { label: "Annually", months: 12 },
+  annual: { label: "Annually", months: 12 },
+  yearly: { label: "Annually", months: 12 },
+}
+
+const formatMonthYear = (value) => {
+  if (!value) return "—"
+  if (/^[A-Za-z]+ \d{4}$/.test(value)) return value
+
+  const dateValue = String(value)
+  const date = new Date(dateValue.includes("T") ? dateValue : `${dateValue}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  })
+}
+
+export const getRecurrenceInfo = (engagement) => {
+  const rawFrequency = [
+    engagement?.frequency,
+    engagement?.recurrenceFrequency,
+    engagement?.recurrence_frequency,
+  ].find((value) => typeof value === "string" && value.trim())
+  const rawRecurrence =
+    engagement?.recurrence ?? engagement?.recurrenceType ?? engagement?.recurrence_type
+  const frequency =
+    recurrenceFrequencies[rawFrequency?.trim().toLowerCase()] ??
+    recurrenceFrequencies[
+      typeof rawRecurrence === "string" ? rawRecurrence.trim().toLowerCase() : ""
+    ]
+  const isRecurring =
+    Boolean(frequency) ||
+    engagement?.isRecurring === true ||
+    engagement?.is_recurring === true ||
+    rawRecurrence === true ||
+    ["recurring", "repeat", "repeating"].includes(
+      typeof rawRecurrence === "string" ? rawRecurrence.trim().toLowerCase() : ""
+    )
+
+  if (!isRecurring) {
+    return {
+      isRecurring: false,
+      recurrence: "One-Time",
+      frequency: null,
+      expectedNextPeriod: null,
+    }
+  }
+
+  const suppliedNextPeriod =
+    engagement?.expectedNextPeriod ?? engagement?.expected_next_period
+  let expectedNextPeriod = suppliedNextPeriod ? formatMonthYear(suppliedNextPeriod) : "—"
+  const periodStart = engagement?.targetEndDate ?? engagement?.dueDate ?? engagement?.startDate
+
+  if (!suppliedNextPeriod && frequency && periodStart) {
+    const dateValue = String(periodStart)
+    const date = new Date(dateValue.includes("T") ? dateValue : `${dateValue}T00:00:00Z`)
+    if (!Number.isNaN(date.getTime())) {
+      const nextPeriod = new Date(
+        Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + frequency.months, 1)
+      )
+      expectedNextPeriod = formatMonthYear(nextPeriod.toISOString())
+    }
+  }
+
+  return {
+    isRecurring: true,
+    recurrence: "Recurring",
+    frequency: frequency?.label ?? rawFrequency ?? "—",
+    expectedNextPeriod,
+  }
+}
+
+export const getWorkflowProgressStageIndex = (status) => {
+  const progressStatus = getEngagementDisplayStatus(status)
+  return workflowProgressStages.findIndex((stage) => stage.key === progressStatus)
+}
+
 export const workflowStageOptions = workflowStages.map((stage) => ({
   value: stage.key,
   label: stage.label,
@@ -159,6 +247,17 @@ export const getWorkflowStageIndex = (stage) => {
 
 export const isWorkflowComplete = (stage) => stage === "completed"
 export const isWorkflowCancelled = (stage) => stage === "cancelled"
+
+export const canCompleteEngagement = (tasks = []) => {
+  const requiredTasksApproved = tasks
+    .filter((task) => task.required)
+    .every((task) => task.status === "approved")
+  const hasTasksPendingReview = tasks.some((task) =>
+    ["for_review", "in_review", "submitted", "resubmitted"].includes(task.status)
+  )
+
+  return requiredTasksApproved && !hasTasksPendingReview
+}
 
 // ─── Legacy helpers (kept for backward compat in document review, etc.) ────────
 
@@ -188,33 +287,42 @@ export const getWorkflowProgress = (engagement) => {
 // ─── Document status helpers ──────────────────────────────────────────────────
 
 const documentStatusStyles = {
+  missing: "bg-red-500/10 text-red-600 ring-red-500/25",
+  pending: "bg-red-500/10 text-red-600 ring-red-500/25",
+  for_review: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
   in_review: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
-  submitted: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
-  resubmitted: "bg-blue-500/10 text-blue-700 ring-blue-500/25",
+  submitted: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
+  resubmitted: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
   approved: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
-  revision_requested: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
-  rejected: "bg-red-500/10 text-red-600 ring-red-500/25",
-  pending: "bg-muted text-muted-foreground ring-border",
+  for_revision: "bg-orange-500/10 text-orange-700 ring-orange-500/25",
+  revision_requested: "bg-orange-500/10 text-orange-700 ring-orange-500/25",
+  rejected: "bg-orange-500/10 text-orange-700 ring-orange-500/25",
 }
 
 const documentStatusDots = {
+  missing: "bg-red-500",
+  pending: "bg-red-500",
+  for_review: "bg-amber-500",
   in_review: "bg-amber-500",
-  submitted: "bg-emerald-500",
-  resubmitted: "bg-blue-500",
+  submitted: "bg-amber-500",
+  resubmitted: "bg-amber-500",
   approved: "bg-emerald-500",
-  revision_requested: "bg-amber-500",
-  rejected: "bg-red-500",
-  pending: "bg-muted-foreground",
+  for_revision: "bg-orange-500",
+  revision_requested: "bg-orange-500",
+  rejected: "bg-orange-500",
 }
 
 export const documentStatusLabels = {
-  in_review: "In Review",
-  submitted: "Submitted",
-  resubmitted: "Resubmitted",
+  missing: "Missing",
+  pending: "Missing",
+  for_review: "For Review",
+  in_review: "For Review",
+  submitted: "For Review",
+  resubmitted: "For Review",
   approved: "Approved",
-  revision_requested: "Revision Requested",
-  rejected: "Rejected",
-  pending: "Pending",
+  for_revision: "For Revision",
+  revision_requested: "For Revision",
+  rejected: "For Revision",
 }
 
 export const getDocumentStatusStyles = (status) => documentStatusStyles[status] ?? "bg-muted text-muted-foreground ring-border"

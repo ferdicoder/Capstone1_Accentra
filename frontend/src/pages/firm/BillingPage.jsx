@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Eye, ShieldCheck } from "lucide-react"
 
@@ -23,14 +23,35 @@ export default function BillingPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const basePath = location.pathname.startsWith("/billing-officer") ? "/billing-officer" : "/admin"
+  const [engagementForBilling, setEngagementForBilling] = useState(
+    () => location.state?.createBillingFor ?? null
+  )
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
-  const [createOpen, setCreateOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(
+    () => Boolean(location.state?.createBillingFor)
+  )
   const [verifying, setVerifying] = useState(null)
   const [notice, setNotice] = useState("")
   const [billings, setBillings] = useState(getMockBillings)
+
+  useEffect(() => {
+    if (location.state?.createBillingFor) {
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location.pathname, location.state, navigate])
+
+  const billingEngagements = useMemo(
+    () => engagementForBilling
+      ? [
+          engagementForBilling,
+          ...mockEngagements.filter((engagement) => engagement.id !== engagementForBilling.id),
+        ]
+      : mockEngagements,
+    [engagementForBilling]
+  )
 
   const filteredBillings = useMemo(() => {
   const query = search.trim().toLowerCase()
@@ -96,7 +117,13 @@ export default function BillingPage() {
     const record = createMockBilling(values)
     setBillings(getMockBillings())
     setCreateOpen(false)
+    setEngagementForBilling(null)
     showNotice(`${record.id} created`)
+  }
+
+  const handleCreateDialogOpenChange = (open) => {
+    setCreateOpen(open)
+    if (!open) setEngagementForBilling(null)
   }
 
   const handleConfirmVerification = () => {
@@ -182,11 +209,12 @@ export default function BillingPage() {
 
           <CreateBillingDialog
             open={createOpen}
-            onOpenChange={setCreateOpen}
+            onOpenChange={handleCreateDialogOpenChange}
             onSubmit={handleCreate}
-            engagements={mockEngagements}
+            engagements={billingEngagements}
             clients={mockClients}
             billings={billings}
+            initialEngagementId={engagementForBilling?.id ?? ""}
           />
 
           <VerifyPaymentDialog

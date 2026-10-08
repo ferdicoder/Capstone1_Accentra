@@ -19,10 +19,10 @@ import {
 } from "@/services/api/documentAPI"
 import { queryKeys } from "@/config/queryKeys"
 
-export function useFetchEngagements() {
+export function useFetchEngagements({ includeTasks = true } = {}) {
   return useQuery({ 
-    queryKey: queryKeys.engagements, 
-    queryFn: getEngagements, 
+    queryKey: includeTasks ? queryKeys.engagements : queryKeys.engagementSummaries,
+    queryFn: () => getEngagements(includeTasks),
     staleTime: 1000 * 30
   })
 }
@@ -35,10 +35,10 @@ export function useFetchMyEngagements(businessId) {
   })
 }
 
-export function useFetchEngagement(id) {
+export function useFetchEngagement(id, { includeTasks = true } = {}) {
   return useQuery({
-    queryKey: queryKeys.engagement(id),
-    queryFn: () => getEngagement(id),
+    queryKey: includeTasks ? queryKeys.engagement(id) : queryKeys.engagementSummary(id),
+    queryFn: () => getEngagement(id, includeTasks),
     enabled: !!id,
   })
 }

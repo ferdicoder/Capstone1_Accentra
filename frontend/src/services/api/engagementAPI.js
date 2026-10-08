@@ -59,7 +59,7 @@ function mapEngagementRow(row) {
   }
 }
 
-const ENGAGEMENT_SELECT = `
+const ENGAGEMENT_BASE_SELECT = `
   engagement_id, engagement_code, status, fee, start_date, due_date, created_at,
   business_id, service_id, assigned_staff,
   services(service_id, service_name, category, estimated_time),
@@ -68,7 +68,9 @@ const ENGAGEMENT_SELECT = `
     house_no, street, barangay, district, city, zip_code,
     owner:users(user_id, first_name, middle_name, last_name, email, contact_no)
   ),
-  assignedStaffUser:users!engagements_assigned_staff_fkey(user_id, first_name, last_name),
+  assignedStaffUser:users!engagements_assigned_staff_fkey(user_id, first_name, last_name)
+`
+const ENGAGEMENT_SELECT = `${ENGAGEMENT_BASE_SELECT},
   engagement_tasks(engagement_task_id, title, has_reference, is_required, status, remark, due_date)
 `
 
@@ -83,8 +85,11 @@ async function logEngagementActivity(engagementId, type, message) {
   if (error) console.error("Failed to log engagement activity:", error)
 }
 
-export async function getEngagements() {
-  const { data, error } = await supabase.from("engagements").select(ENGAGEMENT_SELECT).order("created_at", { ascending: false })
+export async function getEngagements(includeTasks = true) {
+  const { data, error } = await supabase
+    .from("engagements")
+    .select(includeTasks ? ENGAGEMENT_SELECT : ENGAGEMENT_BASE_SELECT)
+    .order("created_at", { ascending: false })
   if (error) throw error
   return (data ?? []).map(mapEngagementRow)
 }
@@ -95,8 +100,12 @@ export async function getMyEngagements(businessId) {
   return (data ?? []).map(mapEngagementRow)
 }
 
-export async function getEngagement(id) {
-  const { data, error } = await supabase.from("engagements").select(ENGAGEMENT_SELECT).eq("engagement_id", id).single()
+export async function getEngagement(id, includeTasks = true) {
+  const { data, error } = await supabase
+    .from("engagements")
+    .select(includeTasks ? ENGAGEMENT_SELECT : ENGAGEMENT_BASE_SELECT)
+    .eq("engagement_id", id)
+    .single()
   if (error) throw error
   return mapEngagementRow(data)
 }

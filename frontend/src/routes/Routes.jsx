@@ -130,6 +130,7 @@ export const router = createBrowserRouter([
           { index: true, element: <Navigate to="dashboard" replace /> },
           { path: "dashboard", element: <BillingOfficerDashboard /> },
           { path: "engagements", element: <EngagementsPage /> },
+          { path: "engagements/:id", element: <EngagementDetailsPage /> },
           { path: "billing", element: <BillingPage /> },
           { path: "billing/:id", element: <BillingDetailPage /> },
         ],

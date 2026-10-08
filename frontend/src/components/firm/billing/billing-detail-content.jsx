@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button"
-import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
 import {
   formatDate,
   getClientFullName,
@@ -207,13 +206,6 @@ export function BillingDetailContent({
               {engagement?.business?.businessName ?? "—"}
             </InfoRow>
 
-            <InfoRow label="Engagement Status">
-              {engagement?.status ? (
-                <EngagementStatusBadge status={engagement.status} />
-              ) : (
-                "—"
-              )}
-            </InfoRow>
           </div>
         </div>
       )}

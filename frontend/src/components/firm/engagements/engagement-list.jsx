@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { EngagementStatusBadge } from "./engagement-status-badge"
-import { formatRevenue, formatDate, getClientFullName } from "./engagement-variants"
+import { formatDate, getClientFullName, getRecurrenceInfo } from "./engagement-variants"
 
 const getInitials = (name) => {
   if (!name) return "AC"
@@ -12,9 +12,9 @@ const getInitials = (name) => {
 }
 
 const defaultEngagementColumns = [
-   {
+  {
     key: "engagementNumber",
-    label: "Engagement No.",
+    label: "Engagement Number",
     render: (engagement) => (
       <span className="text-sm font-medium tabular-nums text-foreground">
         {engagement?.engagementNumber}
@@ -50,15 +50,6 @@ const defaultEngagementColumns = [
     ),
   },
   {
-    key: "serviceFee",
-    label: "Fee",
-    render: (engagement) => (
-      <span className="text-sm font-medium tabular-nums text-foreground">
-        {formatRevenue(engagement?.serviceFee)}
-      </span>
-    ),
-  },
-  {
     key: "targetEndDate",
     label: "Due Date",
     render: (engagement) => (
@@ -71,6 +62,18 @@ const defaultEngagementColumns = [
     key: "status",
     label: "Status",
     render: (engagement) => <EngagementStatusBadge status={engagement?.status} />,
+  },
+  {
+    key: "recurrence",
+    label: "Recurrence",
+    render: (engagement) => {
+      const recurrence = getRecurrenceInfo(engagement)
+      return (
+        <span className="text-sm text-muted-foreground">
+          {recurrence.isRecurring ? recurrence.frequency : recurrence.recurrence}
+        </span>
+      )
+    },
   },
 ]
 

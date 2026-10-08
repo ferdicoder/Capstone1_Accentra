@@ -72,8 +72,21 @@ export function CreateEngagementDialog({
     isLoading: servicesLoading,
     error: servicesError,
   } = useFetchServices()
-  const activeServices = services.filter((service) => service.status === "active")
-  const selectedService = services.find((service) => service.name === serviceName)
+  const offeredServices = services
+    .filter((service) => {
+      const name = service.name.trim().toLowerCase()
+      const isOfferedCategory =
+        name.startsWith("tax filing") || name.startsWith("business registration")
+      return service.status?.trim().toLowerCase() === "active" && isOfferedCategory
+    })
+    .filter(
+      (service, index, offered) =>
+        offered.findIndex(
+          (candidate) =>
+            candidate.name.trim().toLowerCase() === service.name.trim().toLowerCase()
+        ) === index
+    )
+  const selectedService = offeredServices.find((service) => service.name === serviceName)
 
   const firmStaffOptions = users
     .filter((u) => u.role === "staff")
@@ -91,7 +104,7 @@ export function CreateEngagementDialog({
   }, [clientQuery])
 
   const handleServiceChange = (value) => {
-    const service = activeServices.find((item) => item.id === value)
+    const service = offeredServices.find((item) => item.id === value)
     if (!service) return
 
     setServiceName(service.name)
@@ -217,10 +230,10 @@ export function CreateEngagementDialog({
                   {!servicesLoading && servicesError && (
                     <DropdownMenuItem disabled>Unable to load services</DropdownMenuItem>
                   )}
-                  {!servicesLoading && !servicesError && activeServices.length === 0 && (
+                  {!servicesLoading && !servicesError && offeredServices.length === 0 && (
                     <DropdownMenuItem disabled>No active services available</DropdownMenuItem>
                   )}
-                  {!servicesLoading && !servicesError && activeServices.map((service) => (
+                  {!servicesLoading && !servicesError && offeredServices.map((service) => (
                     <DropdownMenuItem
                       key={service.id}
                       onClick={() => handleServiceChange(service.id)}

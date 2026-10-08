@@ -1,28 +1,21 @@
 import { useState } from "react"
-import { useLocation, useParams } from "react-router-dom"
-import { XCircle } from "lucide-react"
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
+import { ArrowLeft } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
-import { ClientServiceDetailsDialog } from "@/components/firm/engagements/ClientServiceDetailsDialog"
+import { EngagementStatusDropdown } from "@/components/firm/engagements/EngagementStatusDropdown"
 import { TaskList } from "@/components/firm/engagements/TaskList"
 import { UploadDeliverables } from "@/components/firm/engagements/UploadDeliverables"
 import { CancelEngagementDialog } from "@/components/firm/engagements/cancel-engagement-dialog"
 import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
 import { ActivityLogItem } from "@/components/firm/engagements/ActivityLogItem"
 import { EngagementDocumentReviewTab } from "@/components/firm/engagements/engagement-document-review-tab"
+import { engagementStatusOptions } from "@/lib/workflow-stages"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
-import { workflowStages, isEngagementActive } from "@/lib/workflow-stages"
 import {
   useFetchEngagement,
   useUpdateEngagementStatus,
@@ -34,16 +27,33 @@ import {
   useFetchEngagementActivity,
   useFetchEngagementDocuments,
 } from "@/hooks/useEngagements"
+import { authStore } from "@/store/authStore"
+import { can } from "@/config/roles"
+import { ClientServiceDetailsDialog } from "@/components/firm/engagements/ClientServiceDetailsDialog"
 
 export default function EngagementDetailsPage() {
   const { id } = useParams()
   const location = useLocation()
-  const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
+  const navigate = useNavigate()
+  const basePath = location.pathname.startsWith("/billing-officer")
+    ? "/billing-officer"
+    : location.pathname.startsWith("/firm")
+      ? "/firm"
+      : "/admin"
+  const role = authStore((state) => state.role)
+  const canManageEngagements = can(role, "manage_engagements")
+  const canCancelEngagement = can(role, "cancel_engagement")
   // const sectionLabel = basePath === "/firm" ? "Firm Staff" : "Firm Admin"
 
-  const { data: engagement, isLoading, error } = useFetchEngagement(id)
-  const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(id)
-  const { data: documents = [] } = useFetchEngagementDocuments(id)
+  const { data: engagement, isLoading, error } = useFetchEngagement(id, {
+    includeTasks: canManageEngagements,
+  })
+  const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(
+    canManageEngagements ? id : null
+  )
+  const { data: documents = [] } = useFetchEngagementDocuments(
+    canManageEngagements ? id : null
+  )
   const updateStatus = useUpdateEngagementStatus()
   const setTaskCompleted = useSetTaskCompleted(id)
   const reviewTask = useReviewEngagementTask(id)
@@ -52,8 +62,8 @@ export default function EngagementDetailsPage() {
   const updateTask = useUpdateEngagementTask(id)
   const updateDeadline = useUpdateEngagementTaskDeadline(id)
 
-  const [detailsOpen, setDetailsOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const [notice, setNotice] = useState("")
   const [activeTab, setActiveTab] = useState("overview")
 
@@ -78,17 +88,10 @@ export default function EngagementDetailsPage() {
       { id: engagement.id, status: stageKey },
       {
         onSuccess: () => {
-          const label = workflowStages.find((s) => s.key === stageKey)?.label ?? stageKey
+          const label = engagementStatusOptions.find((s) => s.key === stageKey)?.label ?? stageKey
           showNotice(`Status updated to "${label}"`)
         },
       }
-    )
-  }
-
-  const handleMarkCompleted = () => {
-    updateStatus.mutate(
-      { id: engagement.id, status: "completed" },
-      { onSuccess: () => showNotice("Engagement marked completed") }
     )
   }
 
@@ -104,8 +107,8 @@ export default function EngagementDetailsPage() {
     )
   }
 
-  const handleTaskComplete = (taskId, completed) => {
-    setTaskCompleted.mutate({ taskId, completed })
+  const handleTaskComplete = (taskId) => {
+    setTaskCompleted.mutate({ taskId, completed: true })
   }
 
   const handleTaskReview = (taskId, status, remark) => {
@@ -154,10 +157,31 @@ export default function EngagementDetailsPage() {
     )
   }
 
+  const billing = engagement.billing ?? engagement.billingRecord ?? engagement.billing_record
+  const billingId =
+    (typeof billing === "string" ? billing : billing?.id ?? billing?.billingId ?? billing?.billing_id) ??
+    engagement.billingId ??
+    engagement.billing_id
+  const canViewBilling = basePath === "/admin" && can(role, "manage_billing") && billingId
+
 
   return (
     <>
       <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-3 py-1">
+          <Link
+            to={`${basePath}/engagements`}
+            className={buttonVariants({
+              variant: "ghost",
+              size: "sm",
+              className: "cursor-pointer gap-1.5 text-muted-foreground",
+            })}
+          >
+            <ArrowLeft className="size-4" />
+            Back
+          </Link>
+        </div>
+
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <div className="flex flex-col gap-1">
@@ -181,35 +205,23 @@ export default function EngagementDetailsPage() {
             >
               View Details
             </Button>
+            {canViewBilling && (
+              <Button
+                variant="outline"
+                size="default"
+                className="h-9 rounded-lg px-3 text-sm"
+                onClick={() => navigate(`${basePath}/billing/${billingId}`)}
+              >
+                View Billing
+              </Button>
+            )}
 
-            {isEngagementActive(engagement.status) && (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={<Button variant="outline" size="default" className="h-9 gap-1.5 rounded-lg px-3 text-sm" />}
-                >
-                  Change Status
-                  <span className="size-3.5 opacity-60">▾</span>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-52">
-                  {workflowStages.map((stage) => (
-                    <DropdownMenuItem
-                      key={stage.key}
-                      onClick={() => handleStageChange(stage.key)}
-                      className={cn(
-                        engagement.status === stage.key && "bg-[#02353C]/10 text-[#02353C] font-medium"
-                      )}
-                    >
-                      {stage.label}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleMarkCompleted}>Mark Completed</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setCancelDialogOpen(true)} className="text-red-600">
-                    <XCircle className="size-4" />
-                    Cancel Engagement
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            {canManageEngagements && (
+              <EngagementStatusDropdown
+                engagement={engagement}
+                onStatusChange={(_, status) => handleStageChange(status)}
+                onCancel={canCancelEngagement ? () => setCancelDialogOpen(true) : undefined}
+              />
             )}
           </div>
         </div>
@@ -219,7 +231,7 @@ export default function EngagementDetailsPage() {
           workflowStage={engagement.status}
         />
 
-        <div className="flex gap-4 overflow-x-auto border-b sm:gap-6">
+        {canManageEngagements && <div className="flex max-w-full gap-4 overflow-x-auto overflow-y-hidden no-scrollbar border-b sm:gap-6">
           <button
             type="button"
             onClick={() => setActiveTab("overview")}
@@ -227,7 +239,7 @@ export default function EngagementDetailsPage() {
               "-mb-px shrink-0 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors",
               activeTab === "overview"
                 ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                : "border-transparent text-foreground hover:text-foreground"
             )}
           >
             Overview
@@ -239,7 +251,7 @@ export default function EngagementDetailsPage() {
               "-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors",
               activeTab === "documents"
                 ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                : "border-transparent text-foreground hover:text-foreground"
             )}
           >
             Documents
@@ -247,7 +259,7 @@ export default function EngagementDetailsPage() {
               {documents.length}
             </span>
           </button>
-        </div>
+        </div>}
 
         {/* ── Notice ────────────────────────────────────────────────────── */}
         {notice && (
@@ -257,7 +269,7 @@ export default function EngagementDetailsPage() {
         )}
 
         {/* ── Main content ──────────────────────────────────────────────── */}
-        {activeTab === "overview" && <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        {activeTab === "overview" && canManageEngagements && <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-w-0 flex-col gap-5">
             <UploadDeliverables engagement={engagement} />
             <TaskList
@@ -302,10 +314,24 @@ export default function EngagementDetailsPage() {
             onReview={handleDocumentReview}
           />
         )}
+        {!canManageEngagements && (
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="text-sm font-semibold text-foreground">Engagement Information</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              View client, service, recurrence, fee, and scheduling details using View Details.
+            </p>
+          </div>
+        )}
       </div>
 
       <ClientServiceDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} engagement={engagement} />
-      <CancelEngagementDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen} onConfirm={handleCancelEngagement} />
+      {canCancelEngagement && (
+        <CancelEngagementDialog
+          open={cancelDialogOpen}
+          onOpenChange={setCancelDialogOpen}
+          onConfirm={handleCancelEngagement}
+        />
+      )}
     </>
   )
 }

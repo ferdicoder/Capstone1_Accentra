@@ -44,7 +44,6 @@ export const mockEngagements = [
     id: "MOCK-ENG-001",
     engagementNumber: "DEMO-ENG-001",
     serviceName: "Annual Tax Filing",
-    status: "for_payment",
     client: {
       id: "client-001",
       firstName: "Maria",
@@ -58,7 +57,6 @@ export const mockEngagements = [
     id: "MOCK-ENG-002",
     engagementNumber: "DEMO-ENG-002",
     serviceName: "Quarterly VAT Filing",
-    status: "for_payment",
     client: {
       id: "client-002",
       firstName: "Juan",
@@ -72,7 +70,6 @@ export const mockEngagements = [
     id: "MOCK-ENG-003",
     engagementNumber: "DEMO-ENG-003",
     serviceName: "Business Registration",
-    status: "for_payment",
     client: {
       id: "client-003",
       firstName: "Angela",

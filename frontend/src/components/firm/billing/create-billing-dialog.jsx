@@ -210,12 +210,7 @@ export function CreateBillingDialog({
     setEngagementId(initialEngagementId || "")
     setEngagementSearch("")
 
-    // When opened from an engagement, automatically use Service Fee.
-    setInvoiceType(
-      initialEngagementId
-        ? "service_fee"
-        : ""
-    )
+    setInvoiceType("")
 
     setClientId("")
     setClientSearch("")
@@ -414,7 +409,7 @@ export function CreateBillingDialog({
             {/* INVOICE TYPE */}
             <Field>
               <FieldLabel>
-                Invoice Type
+                Billing Type
                 <span className="text-red-500">
                   *
                 </span>
@@ -433,7 +428,7 @@ export function CreateBillingDialog({
                   >
                     {invoiceType
                       ? invoiceTypeLabels[invoiceType]
-                      : "Select invoice type"}
+                      : "Select billing type"}
 
                     <span className="text-xs opacity-60">
                       ▼
