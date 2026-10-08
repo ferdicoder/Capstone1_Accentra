@@ -5,7 +5,7 @@ import { ArrowLeft, Pencil } from "lucide-react"
 import { PageNotFound, PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { usePageMeta } from "@/hooks/usePageMeta"
-import { useFetchBusinesses } from "@/hooks/useBusinesses"
+import { useFetchBusinesses, useUpdateBusinessType } from "@/hooks/useBusinesses"
 import { useFetchEngagements } from "@/hooks/useEngagements"
 import { authStore } from "@/store/authStore"
 import { can } from "@/config/roles"
@@ -46,6 +46,7 @@ export default function ClientDetailPage() {
     .sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")))
   const isLoading = businessesLoading || engagementsLoading
   const updateClient = clientStore((state) => state.updateClient)
+  const updateBusinessType = useUpdateBusinessType()
 
   const [editOpen, setEditOpen] = useState(false)
   const [notice, setNotice] = useState("")
@@ -86,9 +87,28 @@ export default function ClientDetailPage() {
   }
 
   const handleSave = (values) => {
+    const typeChanged = values.clientType !== client.clientType
     updateClient(client.id, values)
+
+    if (typeChanged) {
+      updateBusinessType.mutate(
+        { businessId: client.id, clientType: values.clientType },
+        {
+          onSuccess: () => {
+            setNotice("Client type updated")
+            setTimeout(() => setNotice(""), 3000)
+          },
+          onError: () => {
+            updateClient(client.id, { clientType: client.clientType })
+            setNotice("Failed to update client type")
+            setTimeout(() => setNotice(""), 3000)
+          },
+        }
+      )
+    }
+
     setEditOpen(false)
-    setNotice("Client information updated")
+    if (!typeChanged) setNotice("Client information updated")
     setTimeout(() => setNotice(""), 3000)
   }
 

@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { getBusinesses, getMyBusiness, updateMyBusiness } from "@/services/api/businessAPI"
+import {
+  getBusinesses,
+  getMyBusiness,
+  updateBusinessType,
+  updateMyBusiness,
+} from "@/services/api/businessAPI"
 import { queryKeys } from "@/config/queryKeys"
 
 export function useFetchBusinesses() {
@@ -15,6 +20,20 @@ export function useFetchMyBusiness(userId) {
     queryKey: queryKeys.myBusiness(userId),
     queryFn: () => getMyBusiness(userId),
     enabled: !!userId,
+  })
+}
+
+export function useUpdateBusinessType() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: updateBusinessType,
+    onSuccess: (updatedBusiness) => {
+      queryClient.setQueryData(queryKeys.businesses, (businesses = []) =>
+        businesses.map((business) =>
+          business.id === updatedBusiness.id ? updatedBusiness : business
+        )
+      )
+    },
   })
 }
 

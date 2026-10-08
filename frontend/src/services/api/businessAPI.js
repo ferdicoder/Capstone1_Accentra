@@ -53,6 +53,18 @@ export async function getBusinesses() {
   return (data ?? []).map(mapBusinessRow)
 }
 
+export async function updateBusinessType({ businessId, clientType }) {
+  const { data, error } = await supabase
+    .from("businesses")
+    .update({ type: clientType === "retainer" ? "retainer" : "non-retainer" })
+    .eq("business_id", businessId)
+    .select(FIRM_BUSINESS_SELECT)
+    .single()
+  if (error) throw error
+
+  return mapBusinessRow(data)
+}
+
 // One business per client — owner_id is UNIQUE, so .single() is safe here.
 export async function getMyBusiness(userId) {
   const { data, error } = await supabase
