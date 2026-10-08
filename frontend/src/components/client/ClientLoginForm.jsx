@@ -124,35 +124,36 @@ export function ClientLoginForm({
           )}
           
         <Field> {/* this component represents the submit button and the sign-up link */}
-          <Button 
-          type="submit"
-          disabled={isSubmitting}
-          className="
-          mt-4
-          w-full
-          h-14
-          rounded-2xl
-          bg-linear-to-r
-          from-[#0F3443]
-          to-[#10B981]
-          text-white
-          hover:opacity-90
-          transition-all
-          focus-visible:ring-2
-          focus-visible:ring-emerald-500
-          disabled:opacity-70
-          disabled:cursor-not-allowed
-          "
-          >
-            {isSubmitting ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="size-5 animate-spin" />
-                Logging in...
-              </span>
-            ) : (
-              "Login"
-            )}
-          </Button>
+          <div className="flex justify-center">
+            <Button 
+            type="submit"
+            disabled={isSubmitting}
+            className="
+            w-111
+            h-10
+            rounded-lg
+            bg-linear-to-r
+            from-[#0F3443]
+            to-[#10B981]
+            text-white
+            hover:opacity-90
+            transition-all
+            focus-visible:ring-2
+            focus-visible:ring-emerald-500
+            disabled:opacity-70
+            disabled:cursor-not-allowed
+            "
+            >
+              {isSubmitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="size-4 animate-spin" />
+                  Logging in...
+                </span>
+              ) : (
+                "Log In"
+              )}
+            </Button>
+          </div>
 
           <FieldDescription className="text-center">
             Don&apos;t have an account?{" "}
