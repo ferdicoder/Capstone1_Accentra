@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { getMyBusiness, updateMyBusiness } from "@/services/api/businessAPI"
+import { getBusinesses, getMyBusiness, updateMyBusiness } from "@/services/api/businessAPI"
 import { queryKeys } from "@/config/queryKeys"
+
+export function useFetchBusinesses() {
+  return useQuery({
+    queryKey: queryKeys.businesses,
+    queryFn: getBusinesses,
+    staleTime: 1000 * 30,
+  })
+}
 
 export function useFetchMyBusiness(userId) {
   return useQuery({
@@ -19,4 +27,3 @@ export function useUpdateMyBusiness(userId) {
     },
   })
 }
-

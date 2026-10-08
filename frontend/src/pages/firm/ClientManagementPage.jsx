@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
-import { useFetchClients } from "@/hooks/useClients"
+import { useFetchBusinesses } from "@/hooks/useBusinesses"
 import { FirmUsersToolbar } from "@/components/firm/users/firm-users-toolbar"
 import { FirmUserTable } from "@/components/firm/users/firm-user-table"
 import { FirmUserAvatar } from "@/components/firm/users/firm-user-avatar"
@@ -57,10 +57,22 @@ export default function ClientManagementPage() {
   const location = useLocation()
   const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
 
-  const { clients, isLoading, error } = useFetchClients()
+  const { data: businesses = [], isLoading, error } = useFetchBusinesses()
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
+
+  const clients = useMemo(
+    () =>
+      businesses.map((business) => ({
+        ...business,
+        name: [business.firstName, business.middleName, business.lastName]
+          .filter(Boolean)
+          .join(" "),
+        status: business.ownerStatus,
+      })),
+    [businesses]
+  )
 
   const filteredClients = useMemo(() => {
     const query = search.trim().toLowerCase()

@@ -1,11 +1,12 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { ArrowLeft, Pencil } from "lucide-react"
 
 import { PageNotFound, PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { usePageMeta } from "@/hooks/usePageMeta"
-import { useFetchClient } from "@/hooks/useClients"
+import { useFetchBusinesses } from "@/hooks/useBusinesses"
+import { useFetchEngagements } from "@/hooks/useEngagements"
 import { authStore } from "@/store/authStore"
 import { can } from "@/config/roles"
 import { ClientDetailsCard } from "@/components/firm/clients/client-details-card"
@@ -26,7 +27,24 @@ export default function ClientDetailPage() {
 
   // Resolved from the route param + existing data, never from navigation state,
   // so refresh, direct URLs, new tabs and Back/Forward all work.
-  const { client, history, isLoading } = useFetchClient(id)
+  const { data: businesses = [], isLoading: businessesLoading, error } = useFetchBusinesses()
+  const { data: engagements = [], isLoading: engagementsLoading } = useFetchEngagements()
+  const overrides = clientStore((state) => state.overrides)
+  const client = useMemo(() => {
+    const business = businesses.find((item) => item.id === id)
+    if (!business) return null
+
+    const merged = { ...business, ...(overrides[id] ?? {}) }
+    return {
+      ...merged,
+      name: [merged.firstName, merged.middleName, merged.lastName].filter(Boolean).join(" "),
+      status: merged.deactivated ? "deactivated" : merged.ownerStatus,
+    }
+  }, [businesses, id, overrides])
+  const history = engagements
+    .filter((engagement) => engagement.business?.id === id)
+    .sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")))
+  const isLoading = businessesLoading || engagementsLoading
   const updateClient = clientStore((state) => state.updateClient)
 
   const [editOpen, setEditOpen] = useState(false)
@@ -53,7 +71,7 @@ export default function ClientDetailPage() {
 
   if (isLoading) return <PageSkeleton />
 
-  if (!client) {
+  if (error || !client) {
     return (
       <>
         <div className="flex flex-wrap items-center gap-3 py-1">{backButton}</div>
