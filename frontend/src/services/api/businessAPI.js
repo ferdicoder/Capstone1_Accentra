@@ -53,6 +53,59 @@ export async function getBusinesses() {
   return (data ?? []).map(mapBusinessRow)
 }
 
+const CLIENT_SEARCH_SELECT = `
+  business_id, owner_id, name, business_type, tin_no, industry, contact_no,
+  house_no, street, barangay, district, city, zip_code,
+  owner:users(user_id, first_name, middle_name, last_name, email, contact_no, status)
+`
+
+function escapeIlike(value) {
+  return value.replace(/[\\%_]/g, "\\$&")
+}
+
+export async function searchClients(query, limit = 10) {
+  const normalizedQuery = query.trim()
+  if (!normalizedQuery) return []
+
+  const pattern = `%${escapeIlike(normalizedQuery)}%`
+  const userSearch = supabase
+    .from("users")
+    .select("user_id")
+    .or(`first_name.ilike.${pattern},middle_name.ilike.${pattern},last_name.ilike.${pattern},email.ilike.${pattern},contact_no.ilike.${pattern}`)
+    .limit(limit)
+  const businessSearch = supabase
+    .from("businesses")
+    .select(CLIENT_SEARCH_SELECT)
+    .ilike("name", pattern)
+    .order("name")
+    .limit(limit)
+
+  const [{ data: users, error: usersError }, { data: businesses, error: businessesError }] =
+    await Promise.all([userSearch, businessSearch])
+  if (usersError) throw usersError
+  if (businessesError) throw businessesError
+
+  const matchingOwnerIds = (users ?? []).map((user) => user.user_id)
+  let rows = businesses ?? []
+  if (matchingOwnerIds.length > 0) {
+    const { data: ownerBusinesses, error } = await supabase
+      .from("businesses")
+      .select(CLIENT_SEARCH_SELECT)
+      .in("owner_id", matchingOwnerIds)
+      .order("name")
+      .limit(limit)
+    if (error) throw error
+    rows = [...rows, ...(ownerBusinesses ?? [])]
+  }
+
+  return rows
+    .filter((row, index, allRows) =>
+      allRows.findIndex((candidate) => candidate.business_id === row.business_id) === index
+    )
+    .slice(0, limit)
+    .map(mapBusinessRow)
+}
+
 export async function updateBusinessType({ businessId, clientType }) {
   const { data, error } = await supabase
     .from("businesses")

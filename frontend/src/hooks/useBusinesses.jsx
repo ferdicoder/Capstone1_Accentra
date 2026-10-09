@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   getBusinesses,
+  searchClients,
   getMyBusiness,
   updateBusinessType,
   updateMyBusiness,
@@ -11,6 +12,17 @@ export function useFetchBusinesses() {
   return useQuery({
     queryKey: queryKeys.businesses,
     queryFn: getBusinesses,
+    staleTime: 1000 * 30,
+  })
+}
+
+export function useSearchClients(query) {
+  const normalizedQuery = query.trim()
+
+  return useQuery({
+    queryKey: queryKeys.clientsSearch(normalizedQuery),
+    queryFn: () => searchClients(normalizedQuery),
+    enabled: normalizedQuery.length >= 2,
     staleTime: 1000 * 30,
   })
 }

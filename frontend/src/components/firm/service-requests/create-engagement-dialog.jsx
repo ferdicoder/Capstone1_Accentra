@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { ChevronDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -19,9 +19,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { registeredClients } from "../engagements/engagement-variants"
 import { useFetchUsers } from "@/hooks/useUsers"
 import { useFetchServices } from "@/hooks/useServices"
+import { useSearchClients } from "@/hooks/useBusinesses"
 
 
 const sectionHeadingClass = "font-heading text-sm font-medium text-foreground"
@@ -55,6 +55,9 @@ export function CreateEngagementDialog({
   const [clientQuery, setClientQuery] = useState(() =>
     isStandalone ? "" : `${request?.client?.firstName ?? ""} ${request?.client?.lastName ?? ""}`.trim()
   )
+  const [debouncedClientQuery, setDebouncedClientQuery] = useState("")
+  const [selectedClientId, setSelectedClientId] = useState("")
+  const [selectedBusinessId, setSelectedBusinessId] = useState("")
   const [clientFirstName, setClientFirstName] = useState(() => request?.client?.firstName ?? "")
   const [clientLastName, setClientLastName] = useState(() => request?.client?.lastName ?? "")
   const [businessName, setBusinessName] = useState(() => request?.business?.businessName ?? "")
@@ -67,11 +70,19 @@ export function CreateEngagementDialog({
 
 
   const { data: users = [] } = useFetchUsers()
+
   const {
     data: services = [],
     isLoading: servicesLoading,
     error: servicesError,
   } = useFetchServices()
+
+  const {
+    data: matchingClients = [],
+    isFetching: clientsLoading,
+    error: clientsError,
+  } = useSearchClients(debouncedClientQuery)
+  
   const offeredServices = services
     .filter((service) => {
       const name = service.name.trim().toLowerCase()
@@ -93,14 +104,11 @@ export function CreateEngagementDialog({
     .map((u) => ({ value: u.id, label: u.name }))
 
   const activeStaff = firmStaffOptions.find((s) => s.value === assignedStaff)
-  const matchingClients = useMemo(() => {
-    const query = clientQuery.trim().toLowerCase()
-    if (!query) return registeredClients.slice(0, 5)
-    return registeredClients.filter((client) => {
-      const fullName = `${client.firstName} ${client.lastName}`.toLowerCase()
-      const businessName = (client.businessName ?? "").toLowerCase()
-      return fullName.includes(query) || businessName.includes(query)
-    })
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedClientQuery(clientQuery.trim())
+    }, 250)
+    return () => window.clearTimeout(timeoutId)
   }, [clientQuery])
 
   const handleServiceChange = (value) => {
@@ -138,6 +146,7 @@ export function CreateEngagementDialog({
 
     const client = isStandalone
       ? {
+          id: selectedClientId,
           firstName: clientFirstName.trim(),
           lastName: clientLastName.trim(),
           contactNo: contactNo.trim(),
@@ -147,7 +156,11 @@ export function CreateEngagementDialog({
       : request?.client
 
     const business = isStandalone
-      ? { businessName: businessName.trim(), businessType: businessType.trim() }
+      ? {
+          id: selectedBusinessId,
+          businessName: businessName.trim(),
+          businessType: businessType.trim(),
+        }
       : request?.business
 
     onSubmit?.({
@@ -164,6 +177,8 @@ export function CreateEngagementDialog({
   }
 
   const applyClientSuggestion = (client) => {
+    setSelectedClientId(client.ownerId)
+    setSelectedBusinessId(client.id)
     setClientQuery(`${client.firstName} ${client.lastName}`.trim())
     setClientFirstName(client.firstName)
     setClientLastName(client.lastName)
@@ -263,7 +278,11 @@ export function CreateEngagementDialog({
                 <div className="relative">
                   <Input
                     value={clientQuery}
-                    onChange={(e) => setClientQuery(e.target.value)}
+                    onChange={(e) => {
+                      setClientQuery(e.target.value)
+                      setSelectedClientId("")
+                      setSelectedBusinessId("")
+                    }}
                     placeholder="Search existing client"
                     disabled={submitting}
                     className={cn(
@@ -271,11 +290,20 @@ export function CreateEngagementDialog({
                       errors.clientFirstName && "border-red-500 focus-visible:ring-red-500"
                     )}
                   />
-                  {clientQuery && matchingClients.length > 0 && (
+                  {clientQuery.trim().length >= 2 && (clientsLoading || clientsError || matchingClients.length > 0) && (
                     <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-sm">
-                      {matchingClients.slice(0, 5).map((client) => (
+                      {clientsLoading && (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">Searching clients...</p>
+                      )}
+                      {!clientsLoading && clientsError && (
+                        <p className="px-3 py-2 text-sm text-destructive">Unable to search clients.</p>
+                      )}
+                      {!clientsLoading && !clientsError && matchingClients.length === 0 && (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">No matching clients.</p>
+                      )}
+                      {!clientsLoading && !clientsError && matchingClients.slice(0, 5).map((client) => (
                         <button
-                          key={`${client.firstName}-${client.lastName}`}
+                          key={client.id}
                           type="button"
                           onClick={() => applyClientSuggestion(client)}
                           className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"

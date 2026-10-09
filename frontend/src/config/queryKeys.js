@@ -4,6 +4,7 @@ export const queryKeys = {
   services: ["services"],
   roles: ["roles"],
   businesses: ["businesses"],
+  clientsSearch: (query) => ["clients", "search", query],
   serviceRequests: ["serviceRequests"],
   myServiceRequests: (businessId) => ["serviceRequests", businessId],
   myBusiness: (userId) => ["business", "me", userId],
