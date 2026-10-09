@@ -122,6 +122,26 @@ export async function createEngagementFromRequest({ serviceRequestId, assignedSt
   return getEngagement(engagementId)
 }
 
+export async function createStandaloneEngagement({
+  businessId,
+  serviceId,
+  assignedStaff,
+  startDate,
+  dueDate,
+  fee,
+}) {
+  const { data: engagementId, error } = await supabase.rpc("create_standalone_engagement", {
+    p_business_id: businessId,
+    p_service_id: serviceId,
+    p_assigned_staff: assignedStaff,
+    p_start_date: startDate,
+    p_due_date: dueDate,
+    p_fee: fee,
+  })
+  if (error) throw error
+  return getEngagement(engagementId)
+}
+
 export async function updateEngagementStatus({ id, status }) {
   const { data, error } = await supabase.from("engagements").update({ status }).eq("engagement_id", id).select(ENGAGEMENT_SELECT).single()
   if (error) throw error

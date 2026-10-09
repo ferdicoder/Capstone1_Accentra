@@ -4,6 +4,7 @@ import {
   getMyEngagements,
   getEngagement,
   createEngagementFromRequest,
+  createStandaloneEngagement,
   updateEngagementStatus,
   setTaskCompleted,
   reviewEngagementTask,
@@ -50,6 +51,17 @@ export function useCreateEngagementFromRequest() {
     onSuccess: (newEngagement) => {
       queryClient.setQueryData(queryKeys.engagements, (old = []) => [newEngagement, ...old])
       queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests })
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagements })
+    },
+  })
+}
+
+export function useCreateStandaloneEngagement() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createStandaloneEngagement,
+    onSuccess: (newEngagement) => {
+      queryClient.setQueryData(queryKeys.engagements, (old = []) => [newEngagement, ...old])
       queryClient.invalidateQueries({ queryKey: queryKeys.engagements })
     },
   })

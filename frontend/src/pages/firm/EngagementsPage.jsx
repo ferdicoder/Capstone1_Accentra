@@ -8,11 +8,10 @@ import { EngagementFilters } from "@/components/firm/engagements/engagement-filt
 import { EngagementList } from "@/components/firm/engagements/engagement-list"
 import { CreateEngagementDialog } from "@/components/firm/service-requests/create-engagement-dialog"
 import {
-  generateEngagementNumber,
   getEngagementDisplayStatus,
   statusFilterOptions,
 } from "@/components/firm/engagements/engagement-variants"
-import { useFetchEngagements } from "@/hooks/useEngagements"
+import { useCreateStandaloneEngagement, useFetchEngagements } from "@/hooks/useEngagements"
 import { authStore } from "@/store/authStore"
 import { can } from "@/config/roles"
 
@@ -36,7 +35,7 @@ export default function EngagementsPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [notice, setNotice] = useState("")
   const [newEngagementOpen, setNewEngagementOpen] = useState(false)
-  const [manualEngagements, setManualEngagements] = useState([])
+  const createEngagement = useCreateStandaloneEngagement()
 
   const statusOptions = useMemo(
     () =>
@@ -44,18 +43,15 @@ export default function EngagementsPage() {
         ...option,
         count:
           option.value === "all"
-            ? engagements.length + manualEngagements.length
-            : [...engagements, ...manualEngagements].filter(
+            ? engagements.length
+            : engagements.filter(
                 (e) => getEngagementDisplayStatus(e.status) === option.value
               ).length,
       })),
-    [engagements, manualEngagements]
+    [engagements]
   )
 
-  const allEngagements = useMemo(
-    () => [...manualEngagements, ...engagements],
-    [engagements, manualEngagements]
-  )
+  const allEngagements = engagements
 
   const filteredEngagements = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -76,25 +72,23 @@ export default function EngagementsPage() {
   }, [allEngagements, search, statusFilter])
 
   const handleNewEngagementSubmit = (values) => {
-    const engagement = {
-      id: `manual-${Date.now()}`,
-      engagementNumber: generateEngagementNumber(),
-      serviceName: values.serviceName,
-      serviceFee: values.serviceFee,
-      startDate: values.startDate,
-      targetEndDate: values.targetEndDate,
-      status: "document_collection",
-      assignedStaffId: values.assignedStaff,
-      client: values.client,
-      business: values.business,
-      tasks: [],
-      isManualDemo: true,
-    }
-
-    setManualEngagements((current) => [engagement, ...current])
-    setNewEngagementOpen(false)
-    setNotice("Engagement added for this session only; it is not saved to the database.")
-    setTimeout(() => setNotice(""), 5000)
+    createEngagement.mutate(
+      {
+        businessId: values.business.id,
+        serviceId: values.serviceId,
+        assignedStaff: values.assignedStaff,
+        startDate: values.startDate,
+        dueDate: values.targetEndDate,
+        fee: values.serviceFee,
+      },
+      {
+        onSuccess: () => {
+          setNewEngagementOpen(false)
+          setNotice("Engagement created successfully.")
+          setTimeout(() => setNotice(""), 5000)
+        },
+      }
+    )
   }
 
   usePageMeta({
@@ -146,9 +140,7 @@ export default function EngagementsPage() {
         engagements={filteredEngagements}
         loading={isLoading}
         onRowClick={!isBillingOfficer ? (engagement) => {
-          if (!engagement.isManualDemo) {
-            navigate(`${basePath}/engagements/${engagement.id}`)
-          }
+          navigate(`${basePath}/engagements/${engagement.id}`)
         } : undefined}
         actions={isBillingOfficer ? (engagement) => (
           <Button
@@ -172,6 +164,8 @@ export default function EngagementsPage() {
           open={newEngagementOpen}
           onOpenChange={setNewEngagementOpen}
           onSubmit={handleNewEngagementSubmit}
+          submitting={createEngagement.isPending}
+          error={createEngagement.error?.message}
         />
       )}
     </>
