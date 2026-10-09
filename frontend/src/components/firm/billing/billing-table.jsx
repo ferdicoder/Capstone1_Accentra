@@ -5,7 +5,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { BillingStatusBadge } from "./billing-status-badge"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
 import { formatPeso, invoiceTypeLabels } from "./billing-variants"
-import { getEngagementDisplay } from "./billing-utils"
 
 function InvoiceTypeBadge({ type }) {
   return (
@@ -15,56 +14,20 @@ function InvoiceTypeBadge({ type }) {
   )
 }
 
-function getClientDisplay(clients, clientId) {
-  const client = clients.find(
-    (item) => item.id === clientId
-  )
-
-  if (!client) {
-    return {
-      title: "Unknown business",
-      subtitle: null,
-    }
-  }
-
-  const clientName =
-    `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim()
-
-  return {
-    title:
-      client.business?.businessName ||
-      "Unnamed business",
-    subtitle:
-      clientName ||
-      client.email ||
-      null,
-  }
-}
-
 function getBillingForDisplay({
   billing,
   engagements,
   clients,
 }) {
-  let client = null
-  let businessName = null
-
-  if (billing.invoice_type === "retainer_fee") {
-    // Retainer Fee → Client
-    client = clients.find(
-      (item) => item.id === billing.client_id
-    )
-
-    businessName = client?.business?.businessName
-  } else {
-    // Service Fee → Engagement → Client/Business
-    const engagement = engagements.find(
-      (item) => item.id === billing.engagement_id
-    )
-
-    client = engagement?.client
-    businessName = engagement?.business?.businessName
-  }
+  const engagement = engagements.find(
+    (item) => item.id === billing.engagement_id
+  )
+  const client = billing.invoice_type === "retainer_fee"
+    ? clients.find((item) => item.id === billing.business_id)
+    : engagement?.client
+  const businessName = billing.invoice_type === "retainer_fee"
+    ? client?.businessName
+    : engagement?.business?.businessName
 
   if (!client && !businessName) {
     return {

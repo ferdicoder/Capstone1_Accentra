@@ -14,14 +14,9 @@ import {
   billingStatusLabels,
   invoiceTypeLabels,
 } from "@/components/firm/billing/billing-variants"
-import {
-  getMockBillings,
-  mockClients,
-  mockEngagements,
-  rejectMockPayment,
-  updateMockBillingStatus,
-  verifyMockPayment,
-} from "@/components/firm/billing/billing-mock-data"
+import { useFetchBilling, useUpdateBillingStatus, useUpdatePaymentStatus } from "@/hooks/useBillings"
+import { useFetchEngagements } from "@/hooks/useEngagements"
+import { useFetchBusinesses } from "@/hooks/useBusinesses"
 
 export default function BillingDetailPage() {
   const { id } = useParams()
@@ -33,18 +28,19 @@ export default function BillingDetailPage() {
 
   const backHref = `${basePath}/billing`
 
-  const [billings, setBillings] = useState(getMockBillings)
+  const { data: billing, isLoading, error } = useFetchBilling(id)
+  const { data: allEngagements = [] } = useFetchEngagements({ includeTasks: false })
+  const { data: clients = [] } = useFetchBusinesses()
+  const updateStatus = useUpdateBillingStatus()
+  const updatePayment = useUpdatePaymentStatus()
 
   const [verifyOpen, setVerifyOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [notice, setNotice] = useState("")
 
-  const billing =
-    billings.find((billing) => billing.id === id) ?? null
-
   const engagements =
   billing?.invoice_type === "service_fee"
-    ? mockEngagements.filter((engagement) => {
+    ? allEngagements.filter((engagement) => {
         const engagementIds =
           billing.engagement_ids?.length > 0
             ? billing.engagement_ids
@@ -58,9 +54,7 @@ export default function BillingDetailPage() {
 
   const client =
     billing?.invoice_type === "retainer_fee"
-      ? mockClients.find(
-          (client) => client.id === billing.client_id
-        ) ?? null
+      ? clients.find((item) => item.id === billing.business_id) ?? null
       : null
 
   usePageMeta({
@@ -86,23 +80,19 @@ export default function BillingDetailPage() {
       return
     }
 
-    if (!updateMockBillingStatus(billing.id, status)) return
-
-    setBillings(getMockBillings())
-
-    showNotice(
-      `Status updated to "${billingStatusLabels[status] ?? status}"`
-    )
+    updateStatus.mutate({ id: billing.id, status }, {
+      onSuccess: () => showNotice(`Status updated to "${billingStatusLabels[status] ?? status}"`),
+      onError: (err) => showNotice(err.message),
+    })
   }
 
   const handleConfirmCancellation = () => {
     if (!billing) return
 
-    updateMockBillingStatus(billing.id, "cancelled")
-    setBillings(getMockBillings())
-    setCancelOpen(false)
-
-    showNotice(`${billing.id} cancelled`)
+    updateStatus.mutate({ id: billing.id, status: "cancelled" }, {
+      onSuccess: () => { setCancelOpen(false); showNotice(`${billing.id} cancelled`) },
+      onError: (err) => showNotice(err.message),
+    })
   }
 
  const handleConfirmVerification = (paymentMethod, referenceId) => {
@@ -112,27 +102,23 @@ export default function BillingDetailPage() {
     return
   }
 
-  verifyMockPayment(
-    billing.id,
-    paymentMethod,
-    referenceId
-  )
-
-  setBillings(getMockBillings())
-  setNotice(`${billing.id} payment verified`)
-  setVerifyOpen(false)
-
-  setTimeout(() => setNotice(""), 3000)
+  const payment = billing.payments?.find((item) => item.status === "pending")
+  if (!payment) return
+  updatePayment.mutate({ paymentId: payment.payment_id, billingId: billing.id, status: "verified", referenceId }, {
+    onSuccess: () => { setNotice(`${billing.id} payment verified`); setVerifyOpen(false); setTimeout(() => setNotice(""), 3000) },
+    onError: (err) => showNotice(err.message),
+  })
 }
 
   const handleConfirmRejection = () => {
     if (!billing) return
 
-    rejectMockPayment(billing.id)
-    setBillings(getMockBillings())
-    setVerifyOpen(false)
-
-    showNotice(`${billing.id} payment rejected`)
+    const payment = billing.payments?.find((item) => item.status === "pending")
+    if (!payment) return
+    updatePayment.mutate({ paymentId: payment.payment_id, billingId: billing.id, status: "rejected" }, {
+      onSuccess: () => { setVerifyOpen(false); showNotice(`${billing.id} payment rejected`) },
+      onError: (err) => showNotice(err.message),
+    })
   }
 
   if (!billing) {
@@ -159,6 +145,8 @@ export default function BillingDetailPage() {
           )}
         </div>
 
+        {isLoading && <p className="px-2 text-sm text-muted-foreground">Loading billing record…</p>}
+        {error && <p className="px-2 text-sm text-destructive">{error.message}</p>}
         <PageNotFound
           title="Billing Record Not Found"
           message="The requested billing record could not be found."

@@ -11,13 +11,9 @@ import { buildBillingSummaryItems } from "@/components/firm/billing/billing-util
 import { CreateBillingDialog } from "@/components/firm/billing/create-billing-dialog"
 import { VerifyPaymentDialog } from "@/components/firm/billing/verify-payment-dialog"
 import { isVerifiable } from "@/components/firm/billing/billing-variants"
-import {
-  createMockBilling,
-  getMockBillings,
-  mockEngagements,
-  verifyMockPayment,
-  mockClients,
-} from "@/components/firm/billing/billing-mock-data"
+import { useFetchBillings, useCreateBilling, useUpdatePaymentStatus } from "@/hooks/useBillings"
+import { useFetchEngagements } from "@/hooks/useEngagements"
+import { useFetchBusinesses } from "@/hooks/useBusinesses"
 
 export default function BillingPage() {
   const navigate = useNavigate()
@@ -35,7 +31,11 @@ export default function BillingPage() {
   )
   const [verifying, setVerifying] = useState(null)
   const [notice, setNotice] = useState("")
-  const [billings, setBillings] = useState(getMockBillings)
+  const { data: billings = [], isLoading, error } = useFetchBillings()
+  const { data: engagements = [] } = useFetchEngagements({ includeTasks: false })
+  const { data: clients = [] } = useFetchBusinesses()
+  const createBilling = useCreateBilling()
+  const updatePayment = useUpdatePaymentStatus()
 
   useEffect(() => {
     if (location.state?.createBillingFor) {
@@ -47,10 +47,10 @@ export default function BillingPage() {
     () => engagementForBilling
       ? [
           engagementForBilling,
-          ...mockEngagements.filter((engagement) => engagement.id !== engagementForBilling.id),
+          ...engagements.filter((engagement) => engagement.id !== engagementForBilling.id),
         ]
-      : mockEngagements,
-    [engagementForBilling]
+      : engagements,
+    [engagementForBilling, engagements]
   )
 
   const filteredBillings = useMemo(() => {
@@ -67,11 +67,11 @@ export default function BillingPage() {
 
     if (!query) return true
 
-    const engagement = mockEngagements.find(
+    const engagement = engagements.find(
       (e) => e.id === billing.engagement_id
     )
 
-    const client = mockClients.find(
+    const client = clients.find(
       (c) => c.id === billing.client_id
     )
 
@@ -104,6 +104,8 @@ export default function BillingPage() {
   search,
   statusFilter,
   typeFilter,
+  engagements,
+  clients,
 ])
 
   const summaryItems = useMemo(() => buildBillingSummaryItems(billings), [billings])
@@ -114,11 +116,10 @@ export default function BillingPage() {
   }
 
   const handleCreate = (values) => {
-    const record = createMockBilling(values)
-    setBillings(getMockBillings())
-    setCreateOpen(false)
-    setEngagementForBilling(null)
-    showNotice(`${record.id} created`)
+    createBilling.mutate({ ...values, engagements }, {
+      onSuccess: (record) => { setCreateOpen(false); setEngagementForBilling(null); showNotice(`${record.id} created`) },
+      onError: (err) => showNotice(err.message),
+    })
   }
 
   const handleCreateDialogOpenChange = (open) => {
@@ -128,10 +129,12 @@ export default function BillingPage() {
 
   const handleConfirmVerification = () => {
     if (!verifying) return
-    verifyMockPayment(verifying.id)
-    setBillings(getMockBillings())
-    showNotice(`${verifying.id} payment verified`)
-    setVerifying(null)
+    const payment = verifying.payments?.find((item) => item.status === "pending")
+    if (!payment) return showNotice("No pending payment was found.")
+    updatePayment.mutate({ paymentId: payment.payment_id, billingId: verifying.id, status: "verified" }, {
+      onSuccess: () => { showNotice(`${verifying.id} payment verified`); setVerifying(null) },
+      onError: (err) => showNotice(err.message),
+    })
   }
 
   usePageMeta({
@@ -152,6 +155,8 @@ export default function BillingPage() {
             )}
           </div>
 
+          {isLoading && <p className="text-sm text-muted-foreground">Loading billing records…</p>}
+          {error && <p className="text-sm text-destructive">{error.message}</p>}
           <BillingSummaryCards items={summaryItems} />
 
           <BillingToolbar
@@ -168,8 +173,8 @@ export default function BillingPage() {
 
           <BillingTable
             billings={filteredBillings}
-            engagements={mockEngagements}
-            clients={mockClients}
+            engagements={engagements}
+            clients={clients}
             emptyMessage={
               billings.length === 0
                 ? "No billing records exist."
@@ -212,8 +217,9 @@ export default function BillingPage() {
             onOpenChange={handleCreateDialogOpenChange}
             onSubmit={handleCreate}
             engagements={billingEngagements}
-            clients={mockClients}
+            clients={clients}
             billings={billings}
+            submitting={createBilling.isPending}
             initialEngagementId={engagementForBilling?.id ?? ""}
           />
 

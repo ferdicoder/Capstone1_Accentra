@@ -14,40 +14,9 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { usePageMeta } from "@/hooks/usePageMeta"
-
-// Temporary mock data. Replace with an authenticated API fetch.
-const mockInvoices = [
-  {
-    id: "INV-2026-0038",
-    engagementCode: "ENG-2026-0038",
-    engagementTitle: "Business Registration",
-    description: "Professional service fee for business registration.",
-    amount: 5000,
-    status: "Unpaid",
-    invoiceDate: "Oct 1, 2026",
-    dueDate: "Oct 15, 2026",
-  },
-  {
-    id: "INV-2026-0039",
-    engagementCode: "ENG-2026-0039",
-    engagementTitle: "Tax Filing",
-    description: "Professional service fee for tax filing.",
-    amount: 3500,
-    status: "Under Verification",
-    invoiceDate: "Oct 3, 2026",
-    dueDate: "Oct 17, 2026",
-  },
-  {
-    id: "INV-2026-0028",
-    engagementCode: "ENG-2026-0028",
-    engagementTitle: "BIR Compliance",
-    description: "Professional service fee for BIR compliance.",
-    amount: 2800,
-    status: "Paid",
-    invoiceDate: "Sep 10, 2026",
-    dueDate: "Sep 24, 2026",
-  },
-]
+import { useFetchMyBusiness } from "@/hooks/useBusinesses"
+import { useFetchBilling, useCreatePayment, useUploadPaymentProof } from "@/hooks/useBillings"
+import { authStore } from "@/store/authStore"
 
 function formatCurrency(amount) {
   return `₱${Number(amount).toLocaleString("en-PH", {
@@ -57,6 +26,11 @@ function formatCurrency(amount) {
 }
 
 const statusStyles = {
+  issued: "bg-amber-50 text-amber-700 border-amber-200",
+  pending: "bg-blue-50 text-blue-700 border-blue-200",
+  overdue: "bg-red-50 text-red-700 border-red-200",
+  paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  cancelled: "bg-slate-100 text-slate-600 border-slate-200",
   Unpaid: "bg-amber-50 text-amber-700 border-amber-200",
   "Under Verification": "bg-blue-50 text-blue-700 border-blue-200",
   "Revision Requested": "bg-orange-50 text-orange-700 border-orange-200",
@@ -70,17 +44,18 @@ export default function ClientBillingDetailPage() {
   const fileInputRef = useRef(null)
 
   const [proofFile, setProofFile] = useState(null)
+  const [paymentMethod, setPaymentMethod] = useState("gcash")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
-  // TODO: fetch this invoice from the API and verify client ownership.
-  const invoice = mockInvoices.find((item) => item.id === id)
+  const user = authStore((state) => state.user)
+  const { data: business } = useFetchMyBusiness(user?.id)
+  const { data: invoice, isLoading, error: queryError } = useFetchBilling(id)
+  const uploadProof = useUploadPaymentProof()
+  const createPayment = useCreatePayment()
 
-  const canSubmitPayment = [
-    "Unpaid",
-    "Revision Requested",
-  ].includes(invoice?.status)
+  const canSubmitPayment = ["issued", "overdue", "rejected"].includes(invoice?.status)
 
   usePageMeta({
     title: invoice?.id ?? "Billing Details",
@@ -134,19 +109,15 @@ export default function ClientBillingDetailPage() {
     setIsSubmitting(true)
 
     try {
-      // TODO: Upload proofFile to Supabase Storage.
-      // Then insert a payment submission record containing:
-      // invoice ID, payment method, proof file path, and pending status.
-      // The backend must verify invoice ownership and allowed status.
-
-      console.log("Payment submission draft", {
-        invoiceId: invoice.id,
-        proofFile,
+      if (invoice.business_id !== business?.id) throw new Error("This billing record does not belong to your business.")
+      const proofUrl = await uploadProof.mutateAsync({ file: proofFile, billingId: invoice.id })
+      await createPayment.mutateAsync({
+        billingId: invoice.id,
+        amount: invoice.amount,
+        paymentMethod,
+        proofUrl,
       })
-
-      setSuccess(
-        "Your proof is ready, but submission must be connected to the backend."
-      )
+      setSuccess("Payment submitted for verification.")
     } catch (err) {
       setError(err?.message ?? "Unable to submit your payment.")
     } finally {
@@ -154,7 +125,8 @@ export default function ClientBillingDetailPage() {
     }
   }
 
-  if (!invoice) {
+  if (isLoading) return <p className="p-8 text-sm text-muted-foreground">Loading billing…</p>
+  if (!invoice || queryError) {
     return (
       <div className="space-y-4 px-2 py-2 sm:px-4 lg:px-6">
         <Link
@@ -197,7 +169,7 @@ export default function ClientBillingDetailPage() {
             {invoice.id}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {invoice.engagementCode} · {invoice.engagementTitle}
+            {invoice.billing_type}
           </p>
         </div>
       </div>
@@ -225,10 +197,10 @@ export default function ClientBillingDetailPage() {
                 Service / Engagement
               </p>
               <p className="mt-1 font-medium">
-                {invoice.engagementTitle}
+                {invoice.billing_engagements?.[0]?.service_name ?? invoice.billing_type}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {invoice.engagementCode}
+                {invoice.billing_engagements?.map((item) => item.engagement_id).join(", ") ?? "—"}
               </p>
             </div>
 
@@ -237,7 +209,7 @@ export default function ClientBillingDetailPage() {
                 Description
               </p>
               <p className="mt-1 text-sm">
-                {invoice.description}
+                Billing for {invoice.billing_type}
               </p>
             </div>
 
@@ -247,7 +219,7 @@ export default function ClientBillingDetailPage() {
                   Invoice Date
                 </p>
                 <p className="mt-1 text-sm font-medium">
-                  {invoice.invoiceDate}
+                  {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : "—"}
                 </p>
               </div>
 
@@ -275,18 +247,18 @@ export default function ClientBillingDetailPage() {
         {/* Payment submission */}
         <section className="rounded-xl border bg-background p-5">
           <h2 className="font-semibold">
-            {invoice.status === "Under Verification"
+            {invoice.status === "pending"
               ? "Payment Under Review"
-              : invoice.status === "Paid"
+              : invoice.status === "paid"
                 ? "Payment Confirmed"
-                : invoice.status === "Cancelled"
+                : invoice.status === "cancelled"
                   ? "Billing Cancelled"
                   : "Submit Payment"}
           </h2>
 
           {!canSubmitPayment ? (
             <div className="mt-4 rounded-lg bg-muted/40 p-4">
-              {invoice.status === "Under Verification" ? (
+              {invoice.status === "pending" ? (
                 <>
                   <Clock className="size-5 text-blue-600" />
                   <p className="mt-2 text-sm font-medium">
@@ -296,7 +268,7 @@ export default function ClientBillingDetailPage() {
                     Your payment submission is being reviewed by the firm.
                   </p>
                 </>
-              ) : invoice.status === "Paid" ? (
+              ) : invoice.status === "paid" ? (
                 <>
                   <CheckCircle2 className="size-5 text-emerald-600" />
                   <p className="mt-2 text-sm font-medium">
@@ -331,6 +303,21 @@ export default function ClientBillingDetailPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="client-payment-method" className="text-sm font-medium">
+                    Payment Method
+                  </label>
+                  <select
+                    id="client-payment-method"
+                    value={paymentMethod}
+                    onChange={(event) => setPaymentMethod(event.target.value)}
+                    disabled={isSubmitting}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="gcash">GCash</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                  </select>
+                </div>
 
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">

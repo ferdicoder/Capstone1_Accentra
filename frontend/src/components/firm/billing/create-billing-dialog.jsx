@@ -98,6 +98,7 @@ export function CreateBillingDialog({
   )
 
   const [amount, setAmount] = useState("")
+  const [engagementAmounts, setEngagementAmounts] = useState({})
   const [dueDate, setDueDate] = useState("")
   const [errors, setErrors] = useState({})
 
@@ -113,6 +114,10 @@ export function CreateBillingDialog({
 
   const selectedClient = clients.find(
     (client) => client.id === clientId
+  )
+  const serviceTotal = selectedEngagements.reduce(
+    (total, engagement) => total + (Number(engagementAmounts[engagement.id]) || 0),
+    0
   )
 
   const engagementLabel = (engagement) =>
@@ -231,6 +236,7 @@ export function CreateBillingDialog({
     setBillingYear(String(currentBillingYear))
 
     setAmount("")
+    setEngagementAmounts({})
     setDueDate("")
     setErrors({})
   }, [
@@ -296,6 +302,11 @@ export function CreateBillingDialog({
     setEngagementIds((previous) =>
       previous.filter((engagementId) => engagementId !== id)
     )
+    setEngagementAmounts((previous) => {
+      const next = { ...previous }
+      delete next[id]
+      return next
+    })
 
     setErrors((previous) => ({
       ...previous,
@@ -359,6 +370,12 @@ export function CreateBillingDialog({
 
     const trimmedAmount = amount.trim()
     const numericAmount = Number(trimmedAmount)
+    const lineAmounts = engagementIds.map((id) => Number(engagementAmounts[id]))
+    const lineAmountsValid =
+      !isServiceFee ||
+      (lineAmounts.length > 0 &&
+        lineAmounts.every((value) => Number.isFinite(value) && value > 0))
+    const serviceTotal = lineAmounts.reduce((total, value) => total + value, 0)
 
     const newErrors = {
       invoiceType: !invoiceType,
@@ -378,10 +395,12 @@ export function CreateBillingDialog({
         ),
 
       amount:
-        !trimmedAmount ||
-        !AMOUNT_PATTERN.test(trimmedAmount) ||
-        !Number.isFinite(numericAmount) ||
-        numericAmount <= 0,
+        isServiceFee
+          ? !lineAmountsValid
+          : !trimmedAmount ||
+            !AMOUNT_PATTERN.test(trimmedAmount) ||
+            !Number.isFinite(numericAmount) ||
+            numericAmount <= 0,
 
       dueDate: dueDateInvalid,
     }
@@ -413,7 +432,10 @@ export function CreateBillingDialog({
         : null,
 
       invoice_type: invoiceType,
-      amount: numericAmount,
+      amount: isServiceFee ? serviceTotal : numericAmount,
+      engagement_amounts: Object.fromEntries(
+        engagementIds.map((id) => [id, Number(engagementAmounts[id])])
+      ),
       due_date: dueDate,
 
       payment_method: null,
@@ -503,6 +525,19 @@ export function CreateBillingDialog({
                             </p>
                           )}
                         </div>
+                        <Input
+                          className="w-28"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Amount"
+                          value={engagementAmounts[engagement.id] ?? ""}
+                          onChange={(event) => setEngagementAmounts((previous) => ({
+                            ...previous,
+                            [engagement.id]: event.target.value,
+                          }))}
+                          aria-label={`Amount for ${engagementLabel(engagement)}`}
+                        />
 
                         <Button
                           type="button"
@@ -834,8 +869,9 @@ export function CreateBillingDialog({
               <Input
                 type="text"
                 inputMode="decimal"
-                value={amount}
+                value={isServiceFee ? serviceTotal.toFixed(2) : amount}
                 onChange={(event) => {
+                  if (isServiceFee) return
                   setAmount(event.target.value)
                   setErrors((previous) => ({
                     ...previous,
@@ -843,11 +879,14 @@ export function CreateBillingDialog({
                   }))
                 }}
                 placeholder="0.00"
+                readOnly={isServiceFee}
               />
 
               {errors.amount && (
                 <p className="text-xs text-red-500">
-                  Enter a valid amount greater than 0.
+                  {isServiceFee
+                    ? "Enter a valid amount for every selected engagement."
+                    : "Enter a valid amount greater than 0."}
                 </p>
               )}
             </Field>

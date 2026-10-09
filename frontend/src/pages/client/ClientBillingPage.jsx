@@ -1,9 +1,8 @@
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   AlertCircle,
-  CheckCircle2,
   ChevronRight,
   Clock,
   FileText,
@@ -12,39 +11,17 @@ import {
 
 import { Input } from "@/components/ui/input"
 import { usePageMeta } from "@/hooks/usePageMeta"
+import { useFetchMyBusiness } from "@/hooks/useBusinesses"
+import { useFetchBusinessBillings } from "@/hooks/useBillings"
+import { authStore } from "@/store/authStore"
 
 // Replace with the authenticated client's billing records from your API.
-const initialInvoices = [
-  {
-    id: "INV-2026-0038",
-    engagementCode: "ENG-2026-0038",
-    engagementTitle: "Business Registration",
-    amount: 5000,
-    status: "Unpaid",
-    invoiceDate: "Oct 1, 2026",
-    dueDate: "Oct 15, 2026",
-  },
-  {
-    id: "INV-2026-0039",
-    engagementCode: "ENG-2026-0039",
-    engagementTitle: "Tax Filing",
-    amount: 3500,
-    status: "Under Verification",
-    invoiceDate: "Oct 3, 2026",
-    dueDate: "Oct 17, 2026",
-  },
-  {
-    id: "INV-2026-0028",
-    engagementCode: "ENG-2026-0028",
-    engagementTitle: "BIR Compliance",
-    amount: 2800,
-    status: "Paid",
-    invoiceDate: "Sep 10, 2026",
-    dueDate: "Sep 24, 2026",
-  },
-]
-
 const statusStyles = {
+  issued: "border-amber-200 bg-amber-50 text-amber-700",
+  pending: "border-blue-200 bg-blue-50 text-blue-700",
+  overdue: "border-red-200 bg-red-50 text-red-700",
+  paid: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  cancelled: "border-slate-200 bg-slate-100 text-slate-600",
   Unpaid:
     "border-amber-200 bg-amber-50 text-amber-700",
   "Under Verification":
@@ -59,12 +36,10 @@ const statusStyles = {
 
 const filters = [
   "All",
-  "Unpaid",
-  "Under Verification",
-  "Revision Requested",
-  "Paid",
-  "Cancelled",
+  "issued", "pending", "overdue", "paid", "cancelled",
 ]
+
+const statusLabels = { issued: "Issued", pending: "Pending Payment", overdue: "Overdue", paid: "Paid", cancelled: "Cancelled" }
 
 function formatCurrency(amount) {
   return `₱${Number(amount).toLocaleString("en-PH", {
@@ -75,7 +50,9 @@ function formatCurrency(amount) {
 
 export default function ClientBillingPage() {
   const navigate = useNavigate()
-  const [invoices] = useState(initialInvoices)
+  const user = authStore((state) => state.user)
+  const { data: business } = useFetchMyBusiness(user?.id)
+  const { data: invoices = [], isLoading, error } = useFetchBusinessBillings(business?.id)
   const [search, setSearch] = useState("")
   const [activeFilter, setActiveFilter] = useState("All")
 
@@ -90,40 +67,28 @@ export default function ClientBillingPage() {
   })
 
   const unpaidInvoices = invoices.filter(
-    (invoice) => invoice.status === "Unpaid"
+    (invoice) =>     ["issued", "pending", "overdue"].includes(invoice.status)
   )
 
   const outstandingAmount = invoices
     .filter((invoice) =>
-      ["Unpaid", "Under Verification", "Revision Requested"].includes(
+      ["issued", "pending", "overdue"].includes(
         invoice.status
       )
     )
     .reduce((total, invoice) => total + invoice.amount, 0)
 
   const pendingVerificationCount = invoices.filter(
-    (invoice) => invoice.status === "Under Verification"
+    (invoice) =>     invoice.status === "pending"
   ).length
 
-  const filteredInvoices = useMemo(() => {
+  const filteredInvoices = invoices.filter((invoice) => {
     const query = search.trim().toLowerCase()
-
-    return invoices.filter((invoice) => {
-      const matchesFilter =
-        activeFilter === "All" ||
-        invoice.status === activeFilter
-
-      const matchesSearch = [
-        invoice.id,
-        invoice.engagementCode,
-        invoice.engagementTitle,
-      ].some((value) =>
-        value.toLowerCase().includes(query)
-      )
-
-      return matchesFilter && matchesSearch
-    })
-  }, [invoices, search, activeFilter])
+    const matchesFilter = activeFilter === "All" || invoice.status === activeFilter
+    const matchesSearch = [invoice.id, invoice.engagement_id, invoice.billing_type]
+      .filter(Boolean).some((value) => String(value).toLowerCase().includes(query))
+    return matchesFilter && matchesSearch
+  })
 
   return (
     <div className="flex flex-1 flex-col gap-6 px-2 py-2 sm:px-4 lg:px-6">
@@ -204,7 +169,7 @@ export default function ClientBillingPage() {
           ))}
         </div>
 
-        {filteredInvoices.length === 0 ? (
+        {isLoading ? <p className="p-8 text-center text-sm text-muted-foreground">Loading billing…</p> : error ? <p className="p-8 text-center text-sm text-destructive">{error.message}</p> : filteredInvoices.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
             <FileText className="size-8 text-muted-foreground" />
             <p className="font-medium">No invoices found</p>
@@ -232,7 +197,7 @@ export default function ClientBillingPage() {
                     {invoice.id}
                   </p>
                   <p className="mt-1 truncate text-xs text-muted-foreground">
-                    {invoice.engagementCode} · {invoice.engagementTitle}
+                    {invoice.billing_type}
                   </p>
                   <div className="mt-2">
                     <span
@@ -241,7 +206,7 @@ export default function ClientBillingPage() {
                         "border-border bg-muted text-muted-foreground"
                       }`}
                     >
-                      {invoice.status}
+                      {statusLabels[invoice.status] ?? invoice.status}
                     </span>
                   </div>
                 </div>

@@ -16,24 +16,28 @@ export const invoiceTypeFilterOptions = INVOICE_TYPES.map((value) => ({
 }))
 
 export const billingStatusLabels = {
+  issued: "Issued",
+  paid: "Paid",
+  overdue: "Overdue",
+  cancelled: "Cancelled",
+  // Legacy values are retained for records created before the billing schema migration.
+  pending: "Pending Payment",
   unpaid: "Pending Payment",
   for_verification: "For Verification",
-  paid: "Paid",
-  cancelled: "Cancelled",
 }
 
 export const PAYMENT_METHODS = [
   "gcash",
-  "bank",
-  "maya",
+  "bank_transfer",
   "cash",
+  "retainer",
 ]
 
 export const paymentMethodLabels = {
   gcash: "GCash",
-  bank: "Bank",
-  maya: "Maya",
+  bank_transfer: "Bank Transfer",
   cash: "Cash",
+  retainer: "Retainer",
 }
 
 /** Semantic hex colors for status values, per the Accentra billing color system. */
@@ -46,6 +50,8 @@ export const statusToneColors = {
 }
 
 export const statusBadgeStyles = {
+  issued: "bg-amber-500/10 text-amber-600 ring-amber-500/25",
+  pending: "bg-blue-500/10 text-blue-600 ring-blue-500/25",
   unpaid:
     "bg-amber-500/10 text-amber-600 ring-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20",
   for_verification:
@@ -58,6 +64,8 @@ export const statusBadgeStyles = {
 }
 
 export const statusDotStyles = {
+  issued: "bg-amber-500",
+  pending: "bg-blue-500",
   unpaid: "bg-amber-500",
   for_verification: "bg-blue-500",
   paid: "bg-emerald-500",
@@ -78,5 +86,7 @@ export const formatPeso = (amount) => {
 
 /** A payment can only be verified when it is awaiting review and has a reference. */
 export const isVerifiable = (billing) =>
-  billing?.status === "unpaid" ||
-  billing?.status === "for_verification"
+  billing?.payment_status === "pending" ||
+  billing?.status === "for_verification" ||
+  billing?.status === "pending" ||
+  billing?.payments?.some((payment) => payment.status === "pending")
