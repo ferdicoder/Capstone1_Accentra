@@ -30,6 +30,7 @@ import ClientDetailPage from "@/pages/firm/ClientDetailPage";
 import BillingPage from "@/pages/firm/BillingPage";
 import BillingDetailPage from "@/pages/firm/BillingDetailPage";
 import LandingPage from "@/pages/LandingPage";
+import ClientBillingDetailPage from "@/pages/client/ClientBillingDetailsPage";
 
 
 import BillingOfficerDashboard from "@/pages/firm/BillingOfficerDashboard";
@@ -63,7 +64,8 @@ export const router = createBrowserRouter([
           { path: "service-requests", element: <ClientServiceRequestsPage /> },
           { path: "engagements", element: <ClientEngagementsPage /> },
           { path: "engagements/:id", element: <ClientEngagementDetailPage /> },
-          { path: "billing", element: <ClientBillingPage /> }
+          { path: "billing", element: <ClientBillingPage /> },
+          { path: "billing/:id", element: <ClientBillingDetailPage /> }
         ],
       },
     ],
