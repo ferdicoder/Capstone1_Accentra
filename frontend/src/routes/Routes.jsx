@@ -14,6 +14,7 @@ import ClientProfilePage from "@/pages/client/ClientProfilePage";
 import ClientServiceRequestsPage from "@/pages/client/ClientServiceRequestsPage";
 import ClientEngagementsPage from "@/pages/client/ClientEngagementsPage";
 import ClientEngagementDetailPage from "@/pages/client/ClientEngagementDetailPage";
+import ClientBillingPage from "@/pages/client/ClientBillingPage";
 
 import FirmAdminDashboard from "@/pages/firm/FirmAdminDashboard";
 import FirmLoginPage from "@/pages/firm/FirmLoginPage";
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
           { path: "service-requests", element: <ClientServiceRequestsPage /> },
           { path: "engagements", element: <ClientEngagementsPage /> },
           { path: "engagements/:id", element: <ClientEngagementDetailPage /> },
+          { path: "billing", element: <ClientBillingPage /> }
         ],
       },
     ],
