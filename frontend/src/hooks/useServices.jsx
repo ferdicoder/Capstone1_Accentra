@@ -12,8 +12,8 @@ export function useFetchServices() {
   return useQuery({
     queryKey: queryKeys.services,
     queryFn: getServices,
-    staleTime: 1000 * 60, 
-    gcTime: 1000 * 60
+    staleTime: 1000 * 30, 
+    gcTime: 1000 * 60 
   })
 }
 
