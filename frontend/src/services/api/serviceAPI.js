@@ -10,6 +10,7 @@ function mapServiceRow(row) {
     basePrice: row.price ?? 0,
     estimatedTime: row.estimated_time ?? "",
     isRecurring: row.is_recurring ?? false,
+    isRetainerCovered: row.is_retainer_covered ?? false,
     status: row.status ?? "deactivated",
     workflowTasks: tasks.map((t) => ({
       id: t.template_id,
@@ -39,7 +40,7 @@ async function getServices() {
     .from("services")
     .select(`
       service_id, price, service_name, category, description,
-      estimated_time, is_recurring, status,
+      estimated_time, is_recurring, is_retainer_covered, status,
       template_tasks(
         template_id, title, has_reference, is_required,
         template_documents(doc_id, file_name, mime_type, file_size, created_at)
@@ -59,6 +60,7 @@ async function updateService(service) {
     p_description: service.description,
     p_estimated_time: service.estimatedTime,
     p_is_recurring: service.isRecurring ?? false,
+    p_is_retainer_covered: service.isRetainerCovered ?? false,
     p_status: service.status,
     p_tasks: service.workflowTasks.map((t) => ({
       template_id: t.id ?? null,
@@ -78,7 +80,8 @@ async function updateService(service) {
       category, 
       description,
       estimated_time, 
-      is_recurring, 
+      is_recurring,
+      is_retainer_covered,
       status,
       template_tasks(
         template_id, title, has_reference, is_required,
@@ -106,7 +109,7 @@ async function updateServiceStatus({ id, status }) {
       category, 
       description,
       estimated_time, 
-      is_recurring, status,
+      is_recurring, is_retainer_covered, status,
       template_tasks(
         template_id, title, has_reference, is_required,
         template_documents(doc_id, file_name, mime_type, file_size, created_at)
@@ -133,6 +136,7 @@ async function createService(service) {
       description: service.description,
       estimatedTime: service.estimatedTime,
       isRecurring: service.isRecurring ?? false,
+      isRetainerCovered: service.isRetainerCovered ?? false,
       status: service.status,
       tasks: service.workflowTasks.map((t) => ({
         title: t.name,

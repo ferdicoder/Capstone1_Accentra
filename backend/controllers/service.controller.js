@@ -1,7 +1,17 @@
 import { supabaseAdmin } from "../config/supabaseAdmin.js";
 
 async function createService(req, res) {
-  const { price, serviceName, category, description, estimatedTime, isRecurring, status, tasks } = req.body;
+  const {
+    price,
+    serviceName,
+    category,
+    description,
+    estimatedTime,
+    isRecurring,
+    isRetainerCovered,
+    status,
+    tasks
+  } = req.body;
 
   if (!Array.isArray(tasks) || tasks.length === 0) {
     return res.status(400).json({ message: 'At least one task is required.' });
@@ -15,6 +25,7 @@ async function createService(req, res) {
       p_description: description,
       p_estimated_time: estimatedTime,
       p_is_recurring: isRecurring,
+      p_is_retainer_covered: isRetainerCovered,
       p_status: status,
       p_tasks: tasks.map(t => ({
         title: t.title,
@@ -33,8 +44,10 @@ async function createService(req, res) {
         service_name, 
         category, 
         description,
-        estimated_time, 
-        is_recurring, status,
+        estimated_time,
+        is_recurring,
+        is_retainer_covered,
+        status,
         template_tasks(
           template_id, title, has_reference, is_required,
           template_documents(doc_id, file_name, mime_type, file_size, created_at)

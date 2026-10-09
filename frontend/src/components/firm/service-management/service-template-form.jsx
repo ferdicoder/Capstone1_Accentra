@@ -4,6 +4,7 @@ import { ChevronDown, Loader2, Pencil, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import {
   Field,
   FieldDescription,
@@ -71,6 +72,9 @@ export function ServiceTemplateForm({
   const activeCategory = categoryOptions.find((option) => option.value === category)
   const activeStatus = statusFilterOptions.find((option) => option.value === status)
   const [isRecurring] = useState(() => initialValues?.isRecurring ?? false)
+  const [isRetainerCovered, setIsRetainerCovered] = useState(
+    () => initialValues?.isRetainerCovered ?? false
+  )
 
   // Clear stale task errors whenever the task list changes.
   const handleTasksChange = (nextTasks) => {
@@ -117,6 +121,7 @@ export function ServiceTemplateForm({
       estimatedTime: estimatedTime.trim(),
       status,
       isRecurring,
+      isRetainerCovered,
       workflowTasks: tasks.map((task) => ({ ...task, name: task.name.trim() })),
     })
   }
@@ -280,6 +285,18 @@ export function ServiceTemplateForm({
             )}
           </Field>
         </div>
+
+        <Field>
+          <Switch
+            label="Retainer covered"
+            checked={isRetainerCovered}
+            onChange={setIsRetainerCovered}
+            disabled={submitting}
+          />
+          <FieldDescription>
+            Mark this service as covered by a client retainer.
+          </FieldDescription>
+        </Field>
       </FieldGroup>
 
       <div className="flex flex-col gap-1">
