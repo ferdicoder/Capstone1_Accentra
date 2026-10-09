@@ -49,7 +49,7 @@ function getBillingPeriod(billing) {
  * billing detail page.
  *
  * Service Fee:
- *   Billing → Engagement → Client / Business
+ *   Billing → Multiple Engagements → Client / Business
  *
  * Retainer Fee:
  *   Billing → Client / Business
@@ -58,7 +58,7 @@ function getBillingPeriod(billing) {
  */
 export function BillingDetailContent({
   billing,
-  engagement,
+  engagements = [],
   client,
   onVerifyPayment,
 }) {
@@ -123,90 +123,108 @@ export function BillingDetailContent({
           </h3>
 
           <div className="flex flex-col gap-2.5">
+            <InfoRow label="Payment Method">
+              {billing.payment_method
+                ? paymentMethodLabels[billing.payment_method] ??
+                  billing.payment_method
+                : "Not yet selected"}
+            </InfoRow>
 
-              <InfoRow label="Payment Method">
-                {billing.payment_method
-                  ? paymentMethodLabels[billing.payment_method] ??
-                    billing.payment_method
-                  : "Not yet selected"}
-              </InfoRow>
+            <InfoRow label="Payment Proof">
+              {billing.payment_proof_url ? (
+                <a
+                  href={billing.payment_proof_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-forest-900 hover:underline"
+                >
+                  View Uploaded Proof
+                </a>
+              ) : (
+                "Not yet submitted"
+              )}
+            </InfoRow>
 
-              <InfoRow label="Payment Proof">
-                {billing.payment_proof_url ? (
-                  <a
-                    href={billing.payment_proof_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium text-forest-900 hover:underline"
-                  >
-                    View Uploaded Proof
-                  </a>
-                ) : (
-                  "Not yet submitted"
-                )}
-              </InfoRow>
-
-              <InfoRow label="Reference ID">
-                {billing.payment_reference
-                  ? billing.payment_reference
-                  : "Not yet verified"}
-              </InfoRow>
-          
-
-
-
+            <InfoRow label="Reference ID">
+              {billing.payment_reference
+                ? billing.payment_reference
+                : "Not yet verified"}
+            </InfoRow>
           </div>
 
           {verifiable && (
             <div className="mt-4 border-t border-border pt-4">
               <p className="text-xs text-muted-foreground">
-                Review the uploaded payment proof and enter the reference ID shown in the proof before verifying the payment.
+                Review the uploaded payment proof and enter the reference ID
+                shown in the proof before verifying the payment.
               </p>
 
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-
-                {onVerifyPayment && (
+              {onVerifyPayment && (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Button
                     onClick={onVerifyPayment}
                     className="cursor-pointer bg-forest-900 text-white hover:opacity-90"
                   >
                     Verify Payment
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Service Fee → Related Engagement */}
+      {/* Service Fee → Related Engagements */}
       {isServiceFee && (
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold text-foreground">
-            Related Engagement
-          </h3>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-foreground">
+              Related Engagements
+            </h3>
 
-          <div className="flex flex-col gap-2.5">
-            <InfoRow label="Engagement Number">
-              {engagement?.engagementNumber ?? "—"}
-            </InfoRow>
-
-            <InfoRow label="Service">
-              {engagement?.serviceName ?? "—"}
-            </InfoRow>
-
-            <InfoRow label="Client">
-              {engagement?.client &&
-              Object.keys(engagement.client).length > 0
-                ? getClientFullName(engagement.client)
-                : "—"}
-            </InfoRow>
-                
-            <InfoRow label="Business">
-              {engagement?.business?.businessName ?? "—"}
-            </InfoRow>
-
+            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              {engagements.length}{" "}
+              {engagements.length === 1 ? "engagement" : "engagements"}
+            </span>
           </div>
+
+          {engagements.length > 0 ? (
+            <div className="flex flex-col divide-y divide-border">
+              {engagements.map((engagement) => (
+                <div
+                  key={engagement.id}
+                  className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-foreground">
+                      {engagement.engagementNumber ?? "Engagement"}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-2.5">
+                    <InfoRow label="Service">
+                      {engagement.serviceName ?? "—"}
+                    </InfoRow>
+
+                    <InfoRow label="Client">
+                      {engagement.client &&
+                      Object.keys(engagement.client).length > 0
+                        ? getClientFullName(engagement.client)
+                        : "—"}
+                    </InfoRow>
+
+                    <InfoRow label="Business">
+                      {engagement.business?.businessName ?? "—"}
+                    </InfoRow>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No engagements are linked to this invoice.
+            </p>
+          )}
         </div>
       )}
 

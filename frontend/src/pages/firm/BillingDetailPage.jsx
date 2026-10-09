@@ -42,12 +42,19 @@ export default function BillingDetailPage() {
   const billing =
     billings.find((billing) => billing.id === id) ?? null
 
-  const engagement =
-    billing?.invoice_type === "service_fee"
-      ? mockEngagements.find(
-          (engagement) => engagement.id === billing.engagement_id
-        ) ?? null
-      : null
+  const engagements =
+  billing?.invoice_type === "service_fee"
+    ? mockEngagements.filter((engagement) => {
+        const engagementIds =
+          billing.engagement_ids?.length > 0
+            ? billing.engagement_ids
+            : billing.engagement_id
+              ? [billing.engagement_id]
+              : []
+
+        return engagementIds.includes(engagement.id)
+      })
+    : []
 
   const client =
     billing?.invoice_type === "retainer_fee"
@@ -212,7 +219,7 @@ export default function BillingDetailPage() {
 
       <BillingDetailContent
         billing={billing}
-        engagement={engagement}
+        engagements={engagements}
         client={client}
         onVerifyPayment={() => setVerifyOpen(true)}
       />

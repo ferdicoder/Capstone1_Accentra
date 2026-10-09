@@ -1,3 +1,4 @@
+
 import { billingStatusLabels } from "./billing-variants"
 
 export const mockClients = [
@@ -44,6 +45,7 @@ export const mockEngagements = [
     id: "MOCK-ENG-001",
     engagementNumber: "DEMO-ENG-001",
     serviceName: "Annual Tax Filing",
+    client_id: "client-001",
     client: {
       id: "client-001",
       firstName: "Maria",
@@ -57,6 +59,7 @@ export const mockEngagements = [
     id: "MOCK-ENG-002",
     engagementNumber: "DEMO-ENG-002",
     serviceName: "Quarterly VAT Filing",
+    client_id: "client-002",
     client: {
       id: "client-002",
       firstName: "Juan",
@@ -70,6 +73,7 @@ export const mockEngagements = [
     id: "MOCK-ENG-003",
     engagementNumber: "DEMO-ENG-003",
     serviceName: "Business Registration",
+    client_id: "client-003",
     client: {
       id: "client-003",
       firstName: "Angela",
@@ -79,13 +83,45 @@ export const mockEngagements = [
       businessName: "Reyes Online Shop",
     },
   },
+
+  // Additional unbilled engagements for testing
+  // multiple engagements in one Service Fee invoice.
+  {
+    id: "MOCK-ENG-004",
+    engagementNumber: "DEMO-ENG-004",
+    serviceName: "BIR Compliance",
+    client_id: "client-001",
+    client: {
+      id: "client-001",
+      firstName: "Maria",
+      lastName: "Santos",
+    },
+    business: {
+      businessName: "Santos Retail Trading",
+    },
+  },
+  {
+    id: "MOCK-ENG-005",
+    engagementNumber: "DEMO-ENG-005",
+    serviceName: "Business Permit Renewal",
+    client_id: "client-001",
+    client: {
+      id: "client-001",
+      firstName: "Maria",
+      lastName: "Santos",
+    },
+    business: {
+      businessName: "Santos Retail Trading",
+    },
+  },
 ]
 
 let mockBillings = [
-  // Pending payment — no payment submitted yet
+  // Service Fee — pending payment
   {
     id: "BILL-MOCK-0001",
     engagement_id: "MOCK-ENG-001",
+    engagement_ids: ["MOCK-ENG-001"],
     client_id: null,
     billing_month: null,
     billing_year: null,
@@ -98,10 +134,12 @@ let mockBillings = [
     due_date: "2026-11-15",
   },
 
-  // For verification — client paid through GCash and uploaded proof
+  // Retainer Fee — payment submitted for verification.
+  // Retainer invoices are not associated with engagements.
   {
     id: "BILL-MOCK-0002",
     engagement_id: null,
+    engagement_ids: [],
     client_id: "client-002",
     billing_month: 11,
     billing_year: 2026,
@@ -114,10 +152,11 @@ let mockBillings = [
     due_date: "2026-11-08",
   },
 
-  // Paid — verified bank payment
+  // Service Fee — paid
   {
     id: "BILL-MOCK-0003",
     engagement_id: "MOCK-ENG-003",
+    engagement_ids: ["MOCK-ENG-003"],
     client_id: null,
     billing_month: null,
     billing_year: null,
@@ -130,10 +169,11 @@ let mockBillings = [
     due_date: "2026-10-20",
   },
 
-  // Paid — cash payment received at the office
+  // Service Fee — paid in cash
   {
     id: "BILL-MOCK-0004",
     engagement_id: "MOCK-ENG-002",
+    engagement_ids: ["MOCK-ENG-002"],
     client_id: null,
     billing_month: null,
     billing_year: null,
@@ -155,6 +195,7 @@ export function getMockBillings() {
 
 export function createMockBilling({
   engagement_id = null,
+  engagement_ids = [],
   client_id = null,
   billing_month = null,
   billing_year = null,
@@ -165,14 +206,40 @@ export function createMockBilling({
   payment_reference = "",
   payment_proof_url = "",
 }) {
+  // Only Service Fee invoices may contain engagements.
+  const normalizedEngagementIds =
+    invoice_type === "service_fee"
+      ? [
+          ...new Set(
+            [
+              ...(Array.isArray(engagement_ids)
+                ? engagement_ids
+                : []),
+              ...(engagement_id ? [engagement_id] : []),
+            ]
+          ),
+        ]
+      : []
+
+  const primaryEngagementId =
+    normalizedEngagementIds[0] ?? null
+
+  // Retainer Fee invoices must not reference engagements.
+  const normalizedClientId =
+    invoice_type === "retainer_fee" ? client_id : null
+
   const record = {
     id: `BILL-MOCK-${String(nextBillingNumber).padStart(4, "0")}`,
 
-    engagement_id,
-    client_id,
+    // Keep engagement_id for compatibility with existing code.
+    engagement_id: primaryEngagementId,
+    engagement_ids: normalizedEngagementIds,
 
-    billing_month,
-    billing_year,
+    client_id: normalizedClientId,
+    billing_month:
+      invoice_type === "retainer_fee" ? billing_month : null,
+    billing_year:
+      invoice_type === "retainer_fee" ? billing_year : null,
 
     invoice_type,
     amount,
@@ -192,7 +259,9 @@ export function createMockBilling({
 }
 
 export function updateMockBillingStatus(id, status) {
-  if (!Object.hasOwn(billingStatusLabels, status)) return false
+  if (!Object.hasOwn(billingStatusLabels, status)) {
+    return false
+  }
 
   let updated = false
 
@@ -212,8 +281,15 @@ export function updateMockBillingStatus(id, status) {
   return updated
 }
 
-export function verifyMockPayment(id, paymentMethod, referenceId = "") {
-  const billing = mockBillings.find((record) => record.id === id)
+export function verifyMockPayment(
+  id,
+  paymentMethod,
+  referenceId = ""
+) {
+  const billing = mockBillings.find(
+    (record) => record.id === id
+  )
+
   const trimmedReferenceId = referenceId.trim()
 
   if (!billing || !paymentMethod) {
@@ -221,16 +297,21 @@ export function verifyMockPayment(id, paymentMethod, referenceId = "") {
   }
 
   // Only cash payments can be verified directly
-  // when the billing is still pending payment.
-  if (billing.status === "unpaid" && paymentMethod !== "cash") {
+  // when the billing is still unpaid.
+  if (
+    billing.status === "unpaid" &&
+    paymentMethod !== "cash"
+  ) {
     return false
   }
 
-  if (!["unpaid", "for_verification"].includes(billing.status)) {
+  if (
+    !["unpaid", "for_verification"].includes(billing.status)
+  ) {
     return false
   }
 
-  // Cash does not require proof or reference ID.
+  // Cash does not require proof or a reference ID.
   if (paymentMethod === "cash") {
     mockBillings = mockBillings.map((record) => {
       if (record.id !== id) return record
@@ -247,9 +328,7 @@ export function verifyMockPayment(id, paymentMethod, referenceId = "") {
     return true
   }
 
-  // Electronic payments require BOTH:
-  // 1. Payment proof URL
-  // 2. Reference ID
+  // Electronic payments require payment proof and reference ID.
   if (!billing.payment_proof_url || !trimmedReferenceId) {
     return false
   }
