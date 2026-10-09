@@ -15,4 +15,7 @@ export const queryKeys = {
   engagementSummary: (id) => ["engagements", id, "summary"],
   engagementActivity: (engagementId) => ["engagementActivity", engagementId],
   engagementDocuments: (engagementId) => ["engagementDocuments", engagementId],
+  billings: ["billings"],
+  billing: (id) => ["billings", id],
+  businessBillings: (businessId) => ["billings", "business", businessId],
 }
