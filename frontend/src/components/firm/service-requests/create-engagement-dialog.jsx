@@ -46,7 +46,7 @@ export function CreateEngagementDialog({
 }) {
   const isStandalone = !request
 
-  const [serviceName, setServiceName] = useState(() => request?.serviceName ?? "")
+  const [serviceId, setServiceId] = useState(() => request?.serviceId ?? "")
   const [assignedStaff, setAssignedStaff] = useState("")
   const [startDate, setStartDate] = useState("")
   const [targetEndDate, setTargetEndDate] = useState("")
@@ -85,9 +85,8 @@ export function CreateEngagementDialog({
   
   const offeredServices = services
     .filter((service) => {
-      const name = service.name.trim().toLowerCase()
-      const isOfferedCategory =
-        name.startsWith("tax filing") || name.startsWith("business registration")
+      const category = service.category?.trim().toLowerCase()
+      const isOfferedCategory = ["tax-filing", "business-registration"].includes(category)
       return service.status?.trim().toLowerCase() === "active" && isOfferedCategory
     })
     .filter(
@@ -97,7 +96,7 @@ export function CreateEngagementDialog({
             candidate.name.trim().toLowerCase() === service.name.trim().toLowerCase()
         ) === index
     )
-  const selectedService = offeredServices.find((service) => service.name === serviceName)
+  const selectedService = offeredServices.find((service) => service.id === serviceId)
 
   const firmStaffOptions = users
     .filter((u) => u.role === "staff")
@@ -115,7 +114,7 @@ export function CreateEngagementDialog({
     const service = offeredServices.find((item) => item.id === value)
     if (!service) return
 
-    setServiceName(service.name)
+    setServiceId(service.id)
     setServiceFee(String(service.basePrice ?? 0))
   }
 
@@ -129,7 +128,7 @@ export function CreateEngagementDialog({
     event.preventDefault()
 
     const newErrors = {
-      serviceName: !serviceName.trim(),
+      serviceName: !selectedService,
       assignedStaff: !assignedStaff,
       startDate: !startDate,
       targetEndDate: !targetEndDate,
@@ -165,7 +164,8 @@ export function CreateEngagementDialog({
 
     onSubmit?.({
       requestNumber: request?.requestNumber ?? null,
-      serviceName,
+      serviceId: selectedService.id,
+      serviceName: selectedService.name,
       client,
       business,
       assignedStaff,
@@ -235,7 +235,7 @@ export function CreateEngagementDialog({
                     />
                   }
                 >
-                  {serviceName || "Select service"}
+                  {selectedService?.name || "Select service"}
                   <ChevronDown className="size-4 opacity-60" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="min-w-64">
@@ -246,7 +246,9 @@ export function CreateEngagementDialog({
                     <DropdownMenuItem disabled>Unable to load services</DropdownMenuItem>
                   )}
                   {!servicesLoading && !servicesError && offeredServices.length === 0 && (
-                    <DropdownMenuItem disabled>No active services available</DropdownMenuItem>
+                    <DropdownMenuItem disabled>
+                      No active tax filing or business registration services available
+                    </DropdownMenuItem>
                   )}
                   {!servicesLoading && !servicesError && offeredServices.map((service) => (
                     <DropdownMenuItem
