@@ -27,33 +27,52 @@ function mapBilling(row) {
 }
 
 export async function getBillings() {
-  const { data, error } = await supabase.from("billings").select(BILLING_SELECT).order("due_date", { ascending: false })
+  const { data, error } = await supabase
+    .from("billings")
+    .select(BILLING_SELECT)
+    .order("due_date", { ascending: false })
+
   if (error) throw error
   return (data ?? []).map(mapBilling)
 }
 
 export async function getBilling(id) {
-  const { data, error } = await supabase.from("billings").select(BILLING_SELECT).eq("billing_id", id).single()
+  const { data, error } = await supabase
+  .from("billings")
+  .select(BILLING_SELECT)
+  .eq("billing_id", id)
+  .single()
+
   if (error) throw error
   return mapBilling(data)
 }
 
 export async function getBusinessBillings(businessId) {
-  const { data, error } = await supabase.from("billings").select(BILLING_SELECT).eq("business_id", businessId).order("due_date", { ascending: false })
+  const { data, error } = await supabase
+    .from("billings")
+    .select(BILLING_SELECT)
+    .eq("business_id", businessId)
+    .order("due_date", { ascending: false })
+    
   if (error) throw error
   return (data ?? []).map(mapBilling)
 }
 
 export async function createBilling({ invoice_type, amount, due_date, client_id, engagement_ids = [], engagement_amounts = {}, engagements = [] }) {
   const businessId = client_id || engagements.find((e) => engagement_ids.includes(e.id))?.business?.id
+
   if (!businessId) throw new Error("A business is required to create billing.")
-  const { data: billing, error } = await supabase.from("billings").insert({
-    business_id: businessId,
-    billing_type: invoice_type,
-    total_amount: amount,
-    due_date,
-    status: "issued",
-  }).select("billing_id").single()
+
+  const { data: billing, error } = await supabase.from("billings")
+    .insert({
+      business_id: businessId,
+      billing_type: invoice_type,
+      total_amount: amount,
+      due_date,
+      status: "issued",
+    })
+    .select("billing_id").single()
+
   if (error) throw error
 
   const rows = engagement_ids.map((engagementId) => {
@@ -76,23 +95,39 @@ export async function createBilling({ invoice_type, amount, due_date, client_id,
 }
 
 export async function updateBillingStatus({ id, status }) {
-  const { data, error } = await supabase.from("billings").update({ status }).eq("billing_id", id).select(BILLING_SELECT).single()
+  const { data, error } = await supabase
+    .from("billings").update({ status })
+    .eq("billing_id", id)
+    .select(BILLING_SELECT)
+    .single()
+
   if (error) throw error
   return mapBilling(data)
 }
 
 export async function createPayment({ billingId, amount, paymentMethod, proofUrl = null, referenceId = null }) {
-  const { data, error } = await supabase.from("payments").insert({
-    billing_id: billingId, amount, payment_method: paymentMethod, proof_url: proofUrl,
-    reference_id: referenceId, status: "pending",
-  }).select().single()
+  const { data, error } = await supabase
+    .from("payments")
+    .insert({
+      billing_id: billingId, amount, payment_method: paymentMethod, proof_url: proofUrl,
+      reference_id: referenceId, status: "pending",
+    })
+    .select()
+    .single()
+
   if (error) throw error
   return data
 }
 
 export async function updatePaymentStatus({ paymentId, billingId, status, referenceId }) {
-  const { data, error } = await supabase.from("payments").update({ status, reference_id: referenceId ?? undefined }).eq("payment_id", paymentId).select().single()
+  const { data, error } = await supabase
+    .from("payments")
+    .update({ status, reference_id: referenceId ?? undefined })
+    .eq("payment_id", paymentId)
+    .select()
+    .single()
   if (error) throw error
+
   if (billingId && (status === "verified" || status === "rejected" || status === "refunded")) {
     const billing = await getBilling(billingId)
     const verifiedTotal = (billing.payments ?? [])

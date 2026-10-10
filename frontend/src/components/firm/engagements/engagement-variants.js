@@ -39,7 +39,16 @@ export const formatRevenue = (value) => {
 
 export const formatDate = (value) => {
   if (!value) return "—"
-  const date = new Date(`${value}T00:00:00`)
+
+  const dateValue = value instanceof Date ? value : String(value)
+  const datePart =
+    typeof dateValue === "string"
+      ? dateValue.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+      : null
+  const date = datePart
+    ? new Date(`${datePart}T00:00:00`)
+    : new Date(dateValue)
+
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
 }
