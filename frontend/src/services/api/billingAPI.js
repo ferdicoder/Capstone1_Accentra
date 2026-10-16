@@ -69,7 +69,7 @@ export async function createBilling({ invoice_type, amount, due_date, client_id,
       billing_type: invoice_type,
       total_amount: amount,
       due_date,
-      status: "issued",
+      status: "pending",
     })
     .select("billing_id").single()
 
@@ -135,10 +135,10 @@ export async function updatePaymentStatus({ paymentId, billingId, status, refere
       .reduce((total, payment) => total + Number(payment.amount || 0), 0)
     const nextStatus =
       status === "refunded"
-        ? "issued"
+        ? "refunded"
         : verifiedTotal >= Number(billing.total_amount ?? billing.amount ?? 0)
           ? "paid"
-          : "issued"
+          : "pending"
     await updateBillingStatus({ id: billingId, status: nextStatus })
   }
   return data

@@ -16,14 +16,11 @@ export const invoiceTypeFilterOptions = INVOICE_TYPES.map((value) => ({
 }))
 
 export const billingStatusLabels = {
-  issued: "Issued",
+  pending: "Pending",
   paid: "Paid",
   overdue: "Overdue",
+  refunded: "Refunded",
   cancelled: "Cancelled",
-  // Legacy values are retained for records created before the billing schema migration.
-  pending: "Pending Payment",
-  unpaid: "Pending Payment",
-  for_verification: "For Verification",
 }
 
 export const PAYMENT_METHODS = [
@@ -42,42 +39,36 @@ export const paymentMethodLabels = {
 
 /** Semantic hex colors for status values, per the Accentra billing color system. */
 export const statusToneColors = {
-  unpaid: "#F59E0B",
-  for_verification: "#3B82F6",
+  pending: "#3B82F6",
   paid: "#10B981",
   overdue: "#DC2626",
   cancelled: "#6B7280",
+  refunded: "#6B7280",
 }
 
 export const statusBadgeStyles = {
-  issued: "bg-amber-500/10 text-amber-600 ring-amber-500/25",
   pending: "bg-blue-500/10 text-blue-600 ring-blue-500/25",
-  unpaid:
-    "bg-amber-500/10 text-amber-600 ring-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20",
-  for_verification:
-    "bg-blue-500/10 text-blue-600 ring-blue-500/25 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20",
   paid:
     "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20",
   overdue:
     "bg-red-600/10 text-red-700 ring-red-600/25 dark:bg-red-600/10 dark:text-red-400 dark:ring-red-500/20",
   cancelled: "bg-muted text-muted-foreground ring-border dark:bg-muted/50",
+  refunded: "bg-muted text-muted-foreground ring-border dark:bg-muted/50",
 }
 
 export const statusDotStyles = {
-  issued: "bg-amber-500",
   pending: "bg-blue-500",
-  unpaid: "bg-amber-500",
-  for_verification: "bg-blue-500",
   paid: "bg-emerald-500",
   overdue: "bg-red-600",
   cancelled: "bg-muted-foreground",
+  refunded: "bg-muted-foreground",
 }
 
 export const billingStatusFilterOptions = Object.entries(billingStatusLabels).map(
   ([value, label]) => ({ value, label })
 )
 
-export const billingStatusChangeOptions = ["issued", "paid", "overdue", "cancelled"].map(
+export const billingStatusChangeOptions = ["pending", "paid", "overdue", "cancelled", "refunded"].map(
   (value) => ({ value, label: billingStatusLabels[value] })
 )
 

@@ -31,6 +31,7 @@ const statusStyles = {
   overdue: "bg-red-50 text-red-700 border-red-200",
   paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
   cancelled: "bg-slate-100 text-slate-600 border-slate-200",
+  refunded: "bg-slate-100 text-slate-600 border-slate-200",
   Unpaid: "bg-amber-50 text-amber-700 border-amber-200",
   "Under Verification": "bg-blue-50 text-blue-700 border-blue-200",
   "Revision Requested": "bg-orange-50 text-orange-700 border-orange-200",
@@ -55,7 +56,7 @@ export default function ClientBillingDetailPage() {
   const uploadProof = useUploadPaymentProof()
   const createPayment = useCreatePayment()
 
-  const canSubmitPayment = ["issued", "overdue", "rejected"].includes(invoice?.status)
+  const canSubmitPayment = ["pending", "overdue"].includes(invoice?.status)
 
   usePageMeta({
     title: invoice?.id ?? "Billing Details",
