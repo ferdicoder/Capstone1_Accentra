@@ -9,10 +9,24 @@ const BILLING_SELECT = `
   )
 `
 
+function getPaymentCreatedAt(payment) {
+  return Math.max(
+    ...(payment.payment_documents ?? []).map((document) =>
+      new Date(document.created_at ?? 0).getTime()
+    ),
+    0
+  )
+}
+
 function mapBilling(row) {
   const links = row.billing_engagements ?? []
   const payments = row.payments ?? []
-  const payment = payments[0] ?? null
+  const payment = [...payments]
+    .sort((first, second) => {
+      if (first.status === "pending" && second.status !== "pending") return -1
+      if (first.status !== "pending" && second.status === "pending") return 1
+      return getPaymentCreatedAt(second) - getPaymentCreatedAt(first)
+    })[0] ?? null
   return {
     ...row,
     id: row.billing_id,

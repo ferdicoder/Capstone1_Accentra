@@ -39,6 +39,20 @@ const statusStyles = {
   Cancelled: "bg-slate-100 text-slate-600 border-slate-200",
 }
 
+const paymentStatusLabels = {
+  pending: "Payment Under Review",
+  verified: "Payment Verified",
+  rejected: "Payment Proof Rejected",
+  refunded: "Payment Refunded",
+}
+
+const paymentStatusStyles = {
+  pending: "bg-blue-50 text-blue-700 border-blue-200",
+  verified: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  rejected: "bg-orange-50 text-orange-700 border-orange-200",
+  refunded: "bg-slate-100 text-slate-600 border-slate-200",
+}
+
 export default function ClientBillingDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -55,7 +69,11 @@ export default function ClientBillingDetailPage() {
   const { data: invoice, isLoading, error: queryError } = useFetchBilling(id)
   const uploadProof = useUploadPaymentProof()
 
-  const canSubmitPayment = ["pending", "overdue"].includes(invoice?.status)
+  const paymentStatus = invoice?.payment_status
+  const paymentStatusLabel = paymentStatusLabels[paymentStatus]
+  const canSubmitPayment =
+    ["pending", "overdue"].includes(invoice?.status) &&
+    !["pending", "verified"].includes(paymentStatus)
 
   usePageMeta({
     title: invoice?.id ?? "Billing Details",
@@ -246,8 +264,8 @@ export default function ClientBillingDetailPage() {
         {/* Payment submission */}
         <section className="rounded-xl border bg-background p-5">
           <h2 className="font-semibold">
-            {invoice.status === "pending"
-              ? "Payment Under Review"
+            {paymentStatusLabel
+              ? paymentStatusLabel
               : invoice.status === "paid"
                 ? "Payment Confirmed"
                 : invoice.status === "cancelled"
@@ -257,7 +275,7 @@ export default function ClientBillingDetailPage() {
 
           {!canSubmitPayment ? (
             <div className="mt-4 rounded-lg bg-muted/40 p-4">
-              {invoice.status === "pending" ? (
+              {paymentStatus === "pending" ? (
                 <>
                   <Clock className="size-5 text-blue-600" />
                   <p className="mt-2 text-sm font-medium">
@@ -267,7 +285,7 @@ export default function ClientBillingDetailPage() {
                     Your payment submission is being reviewed by the firm.
                   </p>
                 </>
-              ) : invoice.status === "paid" ? (
+              ) : paymentStatus === "verified" || invoice.status === "paid" ? (
                 <>
                   <CheckCircle2 className="size-5 text-emerald-600" />
                   <p className="mt-2 text-sm font-medium">
@@ -285,6 +303,20 @@ export default function ClientBillingDetailPage() {
             </div>
           ) : (
             <>
+              {paymentStatus && (
+                <div className={`mt-4 inline-flex rounded-full border px-3 py-1 text-xs font-medium ${
+                  paymentStatusStyles[paymentStatus] ?? "border-border"
+                }`}>
+                  {paymentStatusLabel ?? paymentStatus}
+                </div>
+              )}
+
+              {paymentStatus === "rejected" && (
+                <p className="mt-3 text-sm text-orange-700">
+                  Your previous payment proof was rejected. Upload a new proof to submit another payment attempt.
+                </p>
+              )}
+
               <p className="mt-1 text-sm text-muted-foreground">
                 Pay using an accepted method, then upload your proof of payment.
               </p>
