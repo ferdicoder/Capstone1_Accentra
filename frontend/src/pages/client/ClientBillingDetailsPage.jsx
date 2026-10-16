@@ -71,6 +71,7 @@ export default function ClientBillingDetailPage() {
 
   const paymentStatus = invoice?.payment_status
   const paymentStatusLabel = paymentStatusLabels[paymentStatus]
+  const hasUploadedProof = Boolean(invoice?.payment_proof_url)
   const canSubmitPayment =
     ["pending", "overdue"].includes(invoice?.status) &&
     !["pending", "verified"].includes(paymentStatus)
@@ -272,6 +273,30 @@ export default function ClientBillingDetailPage() {
                   ? "Billing Cancelled"
                   : "Submit Payment"}
           </h2>
+
+          {hasUploadedProof && (
+            <div className="mt-4 flex items-center gap-3 rounded-lg border p-3">
+              <FileText className="size-5 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground">
+                  Attached payment proof
+                </p>
+                <a
+                  href={invoice.payment_proof_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block truncate text-sm font-medium text-forest-900 hover:underline"
+                >
+                  {invoice.payment_proof_name ?? "View uploaded document"}
+                </a>
+                {invoice.payment_proof_size && (
+                  <p className="text-xs text-muted-foreground">
+                    {(invoice.payment_proof_size / 1024).toFixed(0)} KB
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {!canSubmitPayment ? (
             <div className="mt-4 rounded-lg bg-muted/40 p-4">

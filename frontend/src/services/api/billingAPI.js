@@ -18,6 +18,13 @@ function getPaymentCreatedAt(payment) {
   )
 }
 
+function getLatestPaymentDocument(payment) {
+  return [...(payment?.payment_documents ?? [])]
+    .sort((first, second) =>
+      new Date(second.created_at ?? 0) - new Date(first.created_at ?? 0)
+    )[0] ?? null
+}
+
 function mapBilling(row) {
   const links = row.billing_engagements ?? []
   const payments = row.payments ?? []
@@ -38,6 +45,8 @@ function mapBilling(row) {
     payment_proof_url: payment?.payment_documents?.length
       ? `${import.meta.env.VITE_API_BASE_URL}/payments/${payment.payment_id}/proof`
       : null,
+    payment_proof_name: getLatestPaymentDocument(payment)?.file_name ?? null,
+    payment_proof_size: getLatestPaymentDocument(payment)?.file_size ?? null,
     payment_reference: payment?.reference_id ?? null,
     payment_status: payment?.status ?? null,
     billing_month: null,
