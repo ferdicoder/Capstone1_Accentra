@@ -9,7 +9,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { billingStatusFilterOptions } from "./billing-variants"
+import { billingStatusChangeOptions } from "./billing-variants"
 
 /**
  * @param {Object} billing - Current billing record.
@@ -27,7 +27,7 @@ export function BillingStatusDropdown({ billing, onStatusChange }) {
       <DropdownMenuContent align="end" className="min-w-52 border border-border">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Billing Status</DropdownMenuLabel>
-          {billingStatusFilterOptions.map((option) => {
+          {billingStatusChangeOptions.map((option) => {
             const isCancelOption = option.value === "cancelled"
             const isSelected = billing?.status === option.value
 

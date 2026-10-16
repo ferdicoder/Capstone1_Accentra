@@ -77,6 +77,10 @@ export const billingStatusFilterOptions = Object.entries(billingStatusLabels).ma
   ([value, label]) => ({ value, label })
 )
 
+export const billingStatusChangeOptions = ["issued", "paid", "overdue", "cancelled"].map(
+  (value) => ({ value, label: billingStatusLabels[value] })
+)
+
 /** ₱2,500.00 — consistent Philippine peso formatting. */
 export const formatPeso = (amount) => {
   const value = Number(amount)
