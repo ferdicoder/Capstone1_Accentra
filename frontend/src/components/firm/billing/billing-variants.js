@@ -68,7 +68,7 @@ export const billingStatusFilterOptions = Object.entries(billingStatusLabels).ma
   ([value, label]) => ({ value, label })
 )
 
-export const billingStatusChangeOptions = ["pending", "paid", "overdue", "refunded", "cancelled"].map(
+export const billingStatusChangeOptions = ["pending", "paid", "refunded", "cancelled"].map(
   (value) => ({ value, label: billingStatusLabels[value] })
 )
 
