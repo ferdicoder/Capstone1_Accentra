@@ -3,7 +3,10 @@ import { supabase } from "@/config/supabase"
 const BILLING_SELECT = `
   billing_id, business_id, billing_type, total_amount, status, due_date,
   billing_engagements(billing_id, engagement_id, amount, service_name),
-  payments(payment_id, billing_id, amount, payment_method, proof_url, reference_id, status)
+  payments(
+    payment_id, billing_id, amount, payment_method, reference_id, status,
+    payment_documents(payment_doc_id, file_name, mime_type, file_size, created_at)
+  )
 `
 
 function mapBilling(row) {
@@ -18,7 +21,9 @@ function mapBilling(row) {
     engagement_id: links[0]?.engagement_id ?? null,
     engagement_ids: links.map((link) => link.engagement_id),
     payment_method: payment?.payment_method ?? null,
-    payment_proof_url: payment?.proof_url ?? null,
+    payment_proof_url: payment?.payment_documents?.length
+      ? `${import.meta.env.VITE_API_BASE_URL}/payments/${payment.payment_id}/proof`
+      : null,
     payment_reference: payment?.reference_id ?? null,
     payment_status: payment?.status ?? null,
     billing_month: null,
@@ -105,11 +110,11 @@ export async function updateBillingStatus({ id, status }) {
   return mapBilling(data)
 }
 
-export async function createPayment({ billingId, amount, paymentMethod, proofUrl = null, referenceId = null }) {
+export async function createPayment({ billingId, amount, paymentMethod, referenceId = null }) {
   const { data, error } = await supabase
     .from("payments")
     .insert({
-      billing_id: billingId, amount, payment_method: paymentMethod, proof_url: proofUrl,
+      billing_id: billingId, amount, payment_method: paymentMethod,
       reference_id: referenceId, status: "pending",
     })
     .select()
@@ -117,6 +122,23 @@ export async function createPayment({ billingId, amount, paymentMethod, proofUrl
 
   if (error) throw error
   return data
+}
+
+export async function uploadPaymentProof(file, billingId, paymentMethod, uploadedBy) {
+  const formData = new FormData()
+  formData.append("document", file)
+  formData.append("paymentMethod", paymentMethod)
+  if (uploadedBy) formData.append("uploadedBy", uploadedBy)
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_BASE_URL}/payments/${billingId}`,
+    { method: "POST", body: formData }
+  )
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.error || "Payment submission failed")
+  }
+  return response.json()
 }
 
 export async function updatePaymentStatus({ paymentId, billingId, status, referenceId }) {
@@ -143,5 +165,3 @@ export async function updatePaymentStatus({ paymentId, billingId, status, refere
   }
   return data
 }
-
-

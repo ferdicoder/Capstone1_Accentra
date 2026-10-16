@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
-import { useFetchBilling, useCreatePayment, useUploadPaymentProof } from "@/hooks/useBillings"
+import { useFetchBilling, useUploadPaymentProof } from "@/hooks/useBillings"
 import { authStore } from "@/store/authStore"
 
 function formatCurrency(amount) {
@@ -54,7 +54,6 @@ export default function ClientBillingDetailPage() {
   const { data: business } = useFetchMyBusiness(user?.id)
   const { data: invoice, isLoading, error: queryError } = useFetchBilling(id)
   const uploadProof = useUploadPaymentProof()
-  const createPayment = useCreatePayment()
 
   const canSubmitPayment = ["pending", "overdue"].includes(invoice?.status)
 
@@ -111,12 +110,11 @@ export default function ClientBillingDetailPage() {
 
     try {
       if (invoice.business_id !== business?.id) throw new Error("This billing record does not belong to your business.")
-      const proofUrl = await uploadProof.mutateAsync({ file: proofFile, billingId: invoice.id })
-      await createPayment.mutateAsync({
+      await uploadProof.mutateAsync({
+        file: proofFile,
         billingId: invoice.id,
-        amount: invoice.amount,
         paymentMethod,
-        proofUrl,
+        uploadedBy: user?.id,
       })
       setSuccess("Payment submitted for verification.")
     } catch (err) {

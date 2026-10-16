@@ -23,11 +23,10 @@ export const useFetchBusinessBillings = (businessId) => useQuery({
 export function useCreateBilling() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: createBilling, 
-    onSuccess: () => qc.invalidateQueries({ 
-      queryKey: 
-      queryKeys.billings 
-    }) 
+    mutationFn: createBilling,
+    onSuccess: () => qc.invalidateQueries({
+      queryKey: queryKeys.billings
+    })
   })
 }
 
@@ -56,8 +55,14 @@ export function useUpdatePaymentStatus() {
       } 
     })
 }
-export function useUploadPaymentProof() { 
-  return useMutation({ 
-    mutationFn: ({ file, billingId }) => uploadPaymentProof(file, billingId) }) 
-  }
-
+export function useUploadPaymentProof() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ file, billingId, paymentMethod, uploadedBy }) => uploadPaymentProof(file, billingId, paymentMethod, uploadedBy),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.billing(vars.billingId) })
+      qc.invalidateQueries({ queryKey: queryKeys.billings })
+      qc.invalidateQueries({ queryKey: queryKeys.businessBillings })
+    },
+  })
+}
