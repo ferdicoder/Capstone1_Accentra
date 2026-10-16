@@ -144,10 +144,4 @@ export async function updatePaymentStatus({ paymentId, billingId, status, refere
   return data
 }
 
-export async function uploadPaymentProof(file, billingId) {
-  const path = `billing/${billingId}/${crypto.randomUUID()}-${file.name}`
-  const { error } = await supabase.storage.from("payment-proofs").upload(path, file, { upsert: false })
-  if (error) throw new Error(`Payment proof upload failed. Check that the payment-proofs bucket exists. ${error.message}`)
-  const { data } = supabase.storage.from("payment-proofs").getPublicUrl(path)
-  return data.publicUrl
-}
+
