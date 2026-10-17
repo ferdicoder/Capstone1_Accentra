@@ -18,4 +18,5 @@ export const queryKeys = {
   billings: ["billings"],
   billing: (id) => ["billings", id],
   businessBillings: (businessId) => ["billings", "business", businessId],
+  notifications: (userId) => ["notifications", userId],
 }
