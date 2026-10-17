@@ -93,8 +93,10 @@ export function NavUser({ user, settingsHref = "#" }) {
 
                       <DropdownMenuItem asChild>
                         <Link to={settingsHref}>
-                          <Settings />
-                          Settings
+                          <span className="flex items-center gap-2">
+                            <Settings className="size-4" />
+                            Settings
+                          </span>
                         </Link>
                       </DropdownMenuItem>
                     </DropdownMenuGroup>
