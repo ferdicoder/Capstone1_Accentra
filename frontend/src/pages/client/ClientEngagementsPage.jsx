@@ -192,7 +192,17 @@ export default function ClientEngagementsPage() {
                   return (
                     <tr
                       key={e.id}
-                      className="border-b last:border-b-0 hover:bg-muted/30"
+                      onClick={() => navigate(`/client/engagements/${e.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault()
+                          navigate(`/client/engagements/${e.id}`)
+                        }
+                      }}
+                      tabIndex={0}
+                      role="link"
+                      aria-label={`View engagement ${e.engagementNumber}`}
+                      className="cursor-pointer border-b last:border-b-0 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                     >
                       <td className="px-4 py-4 align-middle">
                         <div className="flex items-center gap-3">
