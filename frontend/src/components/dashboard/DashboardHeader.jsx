@@ -9,12 +9,10 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 
-import { roleConfig } from "@/components/dashboard/NavData"
 import { authStore } from "@/store/authStore"
 
 export function DashboardHeader({
@@ -23,6 +21,7 @@ export function DashboardHeader({
   actions,
   hasUnreadNotifications = false,
   onNotificationsClick,
+  notificationsContent,
   onRequestServiceClick,
 }) {
   const role = authStore((state) => state.role)
@@ -78,18 +77,20 @@ export function DashboardHeader({
           </Button>
         )}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-10 relative"
-          onClick={onNotificationsClick}
-          aria-label="Notifications"
-        >
-          <Bell className="size-5" />
-          {hasUnreadNotifications && (
-            <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-emerald-500" />
-          )}
-        </Button>
+        {notificationsContent ?? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-10 relative"
+            onClick={onNotificationsClick}
+            aria-label="Notifications"
+          >
+            <Bell className="size-5" />
+            {hasUnreadNotifications && (
+              <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-emerald-500" />
+            )}
+          </Button>
+        )}
       </div>
     </header>
   )
