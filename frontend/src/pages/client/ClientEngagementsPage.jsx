@@ -1,28 +1,15 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Briefcase, Eye, FileText, Search } from "lucide-react"
+import { Search } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchMyEngagements } from "@/hooks/useEngagements"
 import { authStore } from "@/store/authStore"
-import { statusDotStyles } from "@/components/firm/engagements/engagement-variants"
 import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
-import { cn } from "@/lib/utils"
 
 
-const statusStyles = {
-  amber: "bg-amber-50 text-amber-700 border border-amber-200",
-  blue: "bg-blue-50 text-blue-700 border border-blue-200",
-  purple: "bg-purple-50 text-purple-700 border border-purple-200",
-  green: "bg-green-50 text-green-700 border border-green-200",
-}
-const iconToneStyles = {
-  "Tax Filing": "bg-blue-50 text-blue-600",
-  "Business Permit": "bg-blue-50 text-blue-600",
-}
- 
 const statusMeta = {
   pending: { label: "Under Review", tone: "blue" },
   active: { label: "Documents Needed", tone: "amber" },
@@ -186,13 +173,21 @@ export default function ClientEngagementsPage() {
                 )}
 
                 {!isLoading && filteredEngagements.map((e) => {
-                  const type = e.category || "Service"
-                  const Icon = type === "Tax Filing" ? FileText : Briefcase
                   const status = getStatusMeta(e.status)
+                  const engagementPath = `/client/engagements/${e.id}`
                   return (
                     <tr
                       key={e.id}
-                      className="border-b last:border-b-0 hover:bg-muted/30"
+                      className="cursor-pointer border-b last:border-b-0 hover:bg-muted/30 focus-visible:bg-muted/30 focus-visible:outline-none"
+                      role="link"
+                      tabIndex={0}
+                      onClick={() => navigate(engagementPath)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault()
+                          navigate(engagementPath)
+                        }
+                      }}
                     >
                       <td className="px-4 py-4 align-middle">
                         <div className="flex items-center gap-3">
