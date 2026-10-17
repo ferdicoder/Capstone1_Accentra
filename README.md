@@ -91,6 +91,8 @@ The Express server mounts its API under `/api/v1`.
 | `POST` | `/api/v1/documents/engagement-task/:engagementTaskId` | Upload an engagement-task document |
 | `GET` | `/api/v1/documents/:docId/download` | Download an engagement document |
 | `DELETE` | `/api/v1/documents/:docId` | Delete an engagement document and its B2 object |
+| `POST` | `/api/v1/payments/:billingId` | Submit a client payment and upload its proof |
+| `GET` | `/api/v1/payments/:paymentId/proof` | Download the latest uploaded payment proof |
 
 Most application data operations currently use the Supabase client directly from frontend API modules. The Express routes mainly handle privileged staff/service operations and file transfer operations.
 
@@ -125,6 +127,7 @@ These are not Express HTTP routes. They are the Supabase Auth, table, and RPC op
 | `engagement_activity` | `select`, `insert` | Record and display engagement activity updates |
 | `engagement_documents` | `select`, `insert`, `delete` | Store document metadata and list or remove engagement documents |
 | `template_documents` | `insert` | Store metadata for service-template document uploads |
+| `payment_documents` | `insert`, `select` | Store metadata for client payment proof uploads |
 
 The frontend also uses relational selects between `businesses` and `users`, `engagements` and `services`, `engagements` and `businesses`, `engagements` and assigned staff, `engagements` and `engagement_tasks`, and `engagement_documents` and `engagement_tasks` or uploaders.
 

@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
-import { useFetchBilling, useCreatePayment, useUploadPaymentProof } from "@/hooks/useBillings"
+import { useFetchBilling, useUploadPaymentProof } from "@/hooks/useBillings"
 import { authStore } from "@/store/authStore"
 
 function formatCurrency(amount) {
@@ -31,11 +31,26 @@ const statusStyles = {
   overdue: "bg-red-50 text-red-700 border-red-200",
   paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
   cancelled: "bg-slate-100 text-slate-600 border-slate-200",
+  refunded: "bg-slate-100 text-slate-600 border-slate-200",
   Unpaid: "bg-amber-50 text-amber-700 border-amber-200",
   "Under Verification": "bg-blue-50 text-blue-700 border-blue-200",
   "Revision Requested": "bg-orange-50 text-orange-700 border-orange-200",
   Paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
   Cancelled: "bg-slate-100 text-slate-600 border-slate-200",
+}
+
+const paymentStatusLabels = {
+  pending: "Payment Under Review",
+  verified: "Payment Verified",
+  rejected: "Payment Proof Rejected",
+  refunded: "Payment Refunded",
+}
+
+const paymentStatusStyles = {
+  pending: "bg-blue-50 text-blue-700 border-blue-200",
+  verified: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  rejected: "bg-orange-50 text-orange-700 border-orange-200",
+  refunded: "bg-slate-100 text-slate-600 border-slate-200",
 }
 
 export default function ClientBillingDetailPage() {
@@ -53,9 +68,13 @@ export default function ClientBillingDetailPage() {
   const { data: business } = useFetchMyBusiness(user?.id)
   const { data: invoice, isLoading, error: queryError } = useFetchBilling(id)
   const uploadProof = useUploadPaymentProof()
-  const createPayment = useCreatePayment()
 
-  const canSubmitPayment = ["issued", "overdue", "rejected"].includes(invoice?.status)
+  const paymentStatus = invoice?.payment_status
+  const paymentStatusLabel = paymentStatusLabels[paymentStatus]
+  const hasUploadedProof = Boolean(invoice?.payment_proof_url)
+  const canSubmitPayment =
+    ["pending", "overdue"].includes(invoice?.status) &&
+    !["pending", "verified"].includes(paymentStatus)
 
   usePageMeta({
     title: invoice?.id ?? "Billing Details",
@@ -110,12 +129,11 @@ export default function ClientBillingDetailPage() {
 
     try {
       if (invoice.business_id !== business?.id) throw new Error("This billing record does not belong to your business.")
-      const proofUrl = await uploadProof.mutateAsync({ file: proofFile, billingId: invoice.id })
-      await createPayment.mutateAsync({
+      await uploadProof.mutateAsync({
+        file: proofFile,
         billingId: invoice.id,
-        amount: invoice.amount,
         paymentMethod,
-        proofUrl,
+        uploadedBy: user?.id,
       })
       setSuccess("Payment submitted for verification.")
     } catch (err) {
@@ -247,8 +265,8 @@ export default function ClientBillingDetailPage() {
         {/* Payment submission */}
         <section className="rounded-xl border bg-background p-5">
           <h2 className="font-semibold">
-            {invoice.status === "pending"
-              ? "Payment Under Review"
+            {paymentStatusLabel
+              ? paymentStatusLabel
               : invoice.status === "paid"
                 ? "Payment Confirmed"
                 : invoice.status === "cancelled"
@@ -256,9 +274,33 @@ export default function ClientBillingDetailPage() {
                   : "Submit Payment"}
           </h2>
 
+          {hasUploadedProof && (
+            <div className="mt-4 flex items-center gap-3 rounded-lg border p-3">
+              <FileText className="size-5 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground">
+                  Attached payment proof
+                </p>
+                <a
+                  href={invoice.payment_proof_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block truncate text-sm font-medium text-forest-900 hover:underline"
+                >
+                  {invoice.payment_proof_name ?? "View uploaded document"}
+                </a>
+                {invoice.payment_proof_size && (
+                  <p className="text-xs text-muted-foreground">
+                    {(invoice.payment_proof_size / 1024).toFixed(0)} KB
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {!canSubmitPayment ? (
             <div className="mt-4 rounded-lg bg-muted/40 p-4">
-              {invoice.status === "pending" ? (
+              {paymentStatus === "pending" ? (
                 <>
                   <Clock className="size-5 text-blue-600" />
                   <p className="mt-2 text-sm font-medium">
@@ -268,7 +310,7 @@ export default function ClientBillingDetailPage() {
                     Your payment submission is being reviewed by the firm.
                   </p>
                 </>
-              ) : invoice.status === "paid" ? (
+              ) : paymentStatus === "verified" || invoice.status === "paid" ? (
                 <>
                   <CheckCircle2 className="size-5 text-emerald-600" />
                   <p className="mt-2 text-sm font-medium">
@@ -286,6 +328,20 @@ export default function ClientBillingDetailPage() {
             </div>
           ) : (
             <>
+              {paymentStatus && (
+                <div className={`mt-4 inline-flex rounded-full border px-3 py-1 text-xs font-medium ${
+                  paymentStatusStyles[paymentStatus] ?? "border-border"
+                }`}>
+                  {paymentStatusLabel ?? paymentStatus}
+                </div>
+              )}
+
+              {paymentStatus === "rejected" && (
+                <p className="mt-3 text-sm text-orange-700">
+                  Your previous payment proof was rejected. Upload a new proof to submit another payment attempt.
+                </p>
+              )}
+
               <p className="mt-1 text-sm text-muted-foreground">
                 Pay using an accepted method, then upload your proof of payment.
               </p>

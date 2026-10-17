@@ -6,7 +6,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/AppSidebar"
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 
-export function DashboardLayout({ onRequestServiceClick }) {
+export function DashboardLayout({ onRequestServiceClick, notificationsContent }) {
   const [pageMeta, setPageMeta] = useState({})
 
   const stableSetPageMeta = useCallback((meta) => {
@@ -28,6 +28,7 @@ export function DashboardLayout({ onRequestServiceClick }) {
           actions={pageMeta.actions}
           hasUnreadNotifications={pageMeta.hasUnreadNotifications}
           onNotificationsClick={pageMeta.onNotificationsClick}
+          notificationsContent={notificationsContent}
           onRequestServiceClick={onRequestServiceClick ?? pageMeta.onRequestServiceClick}
         />
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">

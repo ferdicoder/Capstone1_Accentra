@@ -130,6 +130,12 @@ export function BillingDetailContent({
                 : "Not yet selected"}
             </InfoRow>
 
+            <InfoRow label="Payment Status">
+              {billing.payment_status
+                ? billing.payment_status.charAt(0).toUpperCase() + billing.payment_status.slice(1)
+                : "No payment submitted"}
+            </InfoRow>
+
             <InfoRow label="Payment Proof">
               {billing.payment_proof_url ? (
                 <a

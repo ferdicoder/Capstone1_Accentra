@@ -8,6 +8,7 @@ import { userRouter } from './routes/user.router.js';
 import { serviceRouter } from './routes/service.router.js';
 import templateRouter from './routes/templateDocument.router.js';
 import engagementDocumentRouter from './routes/engagementDocument.router.js';
+import paymentRouter from './routes/payment.router.js';
 
 import { allowedOrigins } from './config/allowedOrigins.js';
 
@@ -39,6 +40,7 @@ server.use('/api/v1/staffs', userRouter);
 server.use('/api/v1/services', serviceRouter);
 server.use('/api/v1/documents', templateRouter);
 server.use('/api/v1/documents', engagementDocumentRouter);
+server.use('/api/v1/payments', paymentRouter);
 
 server.use((req, res) => {
   res.status(404).json({ error: 'Not found' });

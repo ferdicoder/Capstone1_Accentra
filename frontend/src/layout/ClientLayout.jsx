@@ -3,6 +3,7 @@ import { X } from "lucide-react"
 
 import { DashboardLayout } from "@/layout/DashboardLayout"
 import { NewServiceRequestForm } from "@/components/firm/service-requests/NewServiceRequestForm"
+import { ClientNotifications } from "@/components/client/ClientNotifications"
 import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 
@@ -18,7 +19,11 @@ export function ClientLayout() {
   return (
     <>
       {/* The header's "Request Service" button opens the popup on any client page */}
-      <DashboardLayout role="client" onRequestServiceClick={openNewRequest} />
+      <DashboardLayout
+        role="client"
+        onRequestServiceClick={openNewRequest}
+        notificationsContent={<ClientNotifications />}
+      />
 
       {isNewRequestOpen && (
         <div
