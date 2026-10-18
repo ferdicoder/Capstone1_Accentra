@@ -41,14 +41,20 @@ function getNotificationPath(notification, role) {
   }
 }
 
-function NotificationServiceReqLabel(notification) {
-  if (notification.entity_type !== "service_request") return null
+const notificationLabels = new Map([
+  ["payment_verified", "Payment verified"],
+  ["payment_rejected", "Payment rejected"],
+  ["payment_refunded", "Payment refunded"],
+  ["service_request_submitted", "New service request"],
+  ["service_request_approved", "Service request approved"],
+  ["service_request_rejected", "Service request rejected"],
+])
 
-  if (notification.type === "service_request_submitted") return "New service request"
-  if (notification.type === "service_request_approved") return "Service request approved"
-  if (notification.type === "service_request_rejected") return "Service request rejected"
+function getNotificationLabel(notification) {
+  const entity = notification?.entity_type
+  if (entity !== "service_request" && entity !== "payment") return null
 
-  return "Service request update"
+  return notificationLabels.get(notification?.type) ?? null
 }
 
 export function ClientNotifications({ role = "client" }) {
@@ -155,7 +161,7 @@ export function ClientNotifications({ role = "client" }) {
                     }`}
                   />
                   <span className="font-medium">
-                    {NotificationServiceReqLabel(notification) ?? notification.title}
+                    {getNotificationLabel(notification) ?? notification.title}
                   </span>
                 </span>
                 {notification.description && (
