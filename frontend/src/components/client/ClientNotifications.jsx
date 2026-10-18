@@ -41,6 +41,16 @@ function getNotificationPath(notification, role) {
   }
 }
 
+function NotificationServiceReqLabel(notification) {
+  if (notification.entity_type !== "service_request") return null
+
+  if (notification.type === "service_request_submitted") return "New service request"
+  if (notification.type === "service_request_approved") return "Service request approved"
+  if (notification.type === "service_request_rejected") return "Service request rejected"
+
+  return "Service request update"
+}
+
 export function ClientNotifications({ role = "client" }) {
   const navigate = useNavigate()
   const userId = authStore((state) => state.user?.id)
@@ -144,7 +154,9 @@ export function ClientNotifications({ role = "client" }) {
                       notification.read_at ? "bg-transparent" : "bg-emerald-500"
                     }`}
                   />
-                  <span className="font-medium">{notification.title}</span>
+                  <span className="font-medium">
+                    {NotificationServiceReqLabel(notification) ?? notification.title}
+                  </span>
                 </span>
                 {notification.description && (
                   <span className="pl-4 text-sm text-muted-foreground">
