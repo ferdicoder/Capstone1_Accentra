@@ -4,12 +4,16 @@ import { supabase } from "@/config/supabase"
 async function uploadTemplateDocument(templateTaskId, file, onUploadProgress) {
   const formData = new FormData()
   formData.append('document', file)
+  const { data: { session } } = await supabase.auth.getSession()
 
   const res = await axios.post(
     `${import.meta.env.VITE_API_BASE_URL}/documents/template/${templateTaskId}`,
     formData,
     {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
       onUploadProgress,
     }
   )

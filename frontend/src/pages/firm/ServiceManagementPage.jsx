@@ -25,11 +25,14 @@ import {
 } from "@/hooks/useServices"
 
 import { uploadTemplateDocument } from "@/services/api/documentAPI"
+import { authStore } from "@/store/authStore"
 
 const categoryLabel = (value, options) =>
   options.find((option) => option.value === value)?.label ?? value ?? ""
 
 export default function ServiceManagementPage() {
+  const role = authStore((state) => state.role)
+  const canManageServices = role === "admin"
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
@@ -241,8 +244,9 @@ export default function ServiceManagementPage() {
     <>
       <div className="flex flex-wrap items-center gap-3 py-1">
         <p className="text-sm text-muted-foreground">
-          Manage your firm's service catalog. You can add new service templates, edit existing
-          ones, and activate or deactivate services as needed.
+          {canManageServices
+            ? "Manage your firm's service catalog. You can add new service templates, edit existing ones, and activate or deactivate services as needed."
+            : "View your firm's service catalog. Service changes can only be made by an administrator."}
         </p>
         {notice && (
           <span
@@ -268,10 +272,10 @@ export default function ServiceManagementPage() {
         categoryFilter={categoryFilter}
         onCategoryFilterChange={setCategoryFilter}
         categoryOptions={categoryOptions}
-        onManageCategories={() => setCategoryManagementOpen(true)}
+        onManageCategories={canManageServices ? () => setCategoryManagementOpen(true) : undefined}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
-        onAddService={() => setCreateOpen(true)}
+        onAddService={canManageServices ? () => setCreateOpen(true) : undefined}
         resultCount={`${filteredServices.length} of ${services.length} services`}
       />
 
@@ -280,7 +284,7 @@ export default function ServiceManagementPage() {
         loading={isLoading}
         emptyMessage="No services match your filters."
         emptyDescription="Try clearing the search or filters."
-        actions={(service) => (
+        actions={canManageServices ? (service) => (
           <ServiceManagementActionsMenu
             service={service}
             items={[
@@ -293,53 +297,57 @@ export default function ServiceManagementPage() {
               { key: "delete", label: "Delete", icon: Trash2, destructive: true, onSelect: openDeleteDialog },
             ]}
           />
-        )}
+        ) : undefined}
       />
 
-      <ServiceCreateDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onSubmit={handleCreate}
-        categoryOptions={categoryOptions}
-        submitting={createService.isPending || createProgress.active}
-        progress={createProgress}
-      />
+      {canManageServices && (
+        <>
+          <ServiceCreateDialog
+            open={createOpen}
+            onOpenChange={setCreateOpen}
+            onSubmit={handleCreate}
+            categoryOptions={categoryOptions}
+            submitting={createService.isPending || createProgress.active}
+            progress={createProgress}
+          />
 
-      <ServiceEditDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        service={editingService}
-        onSubmit={handleSave}
-        categoryOptions={categoryOptions}
-        submitting={updateService.isPending}
-      />
+          <ServiceEditDialog
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            service={editingService}
+            onSubmit={handleSave}
+            categoryOptions={categoryOptions}
+            submitting={updateService.isPending}
+          />
 
-      <ServiceDeleteDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        service={deletingService}
-        onConfirm={handleDelete}
-        deleting={deleteService.isPending}
-      />
+          <ServiceDeleteDialog
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            service={deletingService}
+            onConfirm={handleDelete}
+            deleting={deleteService.isPending}
+          />
 
-      <CategoryCreateDialog
-        open={categoryCreateOpen}
-        onOpenChange={setCategoryCreateOpen}
-        onSubmit={createCategory}
-        existingCategories={categoryOptions}
-      />
+          <CategoryCreateDialog
+            open={categoryCreateOpen}
+            onOpenChange={setCategoryCreateOpen}
+            onSubmit={createCategory}
+            existingCategories={categoryOptions}
+          />
 
-      <CategoryManagementDialog
-        open={categoryManagementOpen}
-        onOpenChange={setCategoryManagementOpen}
-        categories={categoryOptions}
-        onAdd={() => {
-          setCategoryManagementOpen(false)
-          setCategoryCreateOpen(true)
-        }}
-        onRename={renameCategory}
-        onRemove={removeCategory}
-      />
+          <CategoryManagementDialog
+            open={categoryManagementOpen}
+            onOpenChange={setCategoryManagementOpen}
+            categories={categoryOptions}
+            onAdd={() => {
+              setCategoryManagementOpen(false)
+              setCategoryCreateOpen(true)
+            }}
+            onRename={renameCategory}
+            onRemove={removeCategory}
+          />
+        </>
+      )}
     </>
   )
 }
