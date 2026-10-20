@@ -3,7 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ClientLayout } from "@/layout/ClientLayout";
 import { FirmAdminLayout } from "@/layout/FirmAdminLayout";
 import { FirmStaffLayout } from "@/layout/FirmStaffLayout";
-import {BillingOfficerLayout} from "@/layout/BillingOfficerLayout";
+import { BillingOfficerLayout } from "@/layout/BillingOfficerLayout";
 import { ProtectedRoutes } from "@/routes/ProtectedRoutes";
 import { PublicOnlyRoutes } from "./PublicOnlyRoutes";
 
@@ -15,6 +15,9 @@ import ClientServiceRequestsPage from "@/pages/client/ClientServiceRequestsPage"
 import ClientEngagementsPage from "@/pages/client/ClientEngagementsPage";
 import ClientEngagementDetailPage from "@/pages/client/ClientEngagementDetailPage";
 import ClientBillingPage from "@/pages/client/ClientBillingPage";
+import ClientBillingDetailPage from "@/pages/client/ClientBillingDetailsPage";
+import ClientCalendarPage from "@/pages/client/ClientBillingCalendar/ClientCalendarPage";
+import ClientBillingCalendarPage from "@/pages/client/ClientBillingCalendar/ClientBillingCalendarPage";
 
 import FirmAdminDashboard from "@/pages/firm/FirmAdminDashboard";
 import FirmLoginPage from "@/pages/firm/FirmLoginPage";
@@ -29,11 +32,8 @@ import ClientManagementPage from "@/pages/firm/ClientManagementPage";
 import ClientDetailPage from "@/pages/firm/ClientDetailPage";
 import BillingPage from "@/pages/firm/BillingPage";
 import BillingDetailPage from "@/pages/firm/BillingDetailPage";
-import LandingPage from "@/pages/LandingPage";
-import ClientBillingDetailPage from "@/pages/client/ClientBillingDetailsPage";
-
-
 import BillingOfficerDashboard from "@/pages/firm/BillingOfficerDashboard";
+import LandingPage from "@/pages/LandingPage";
 
 export const router = createBrowserRouter([
   {
@@ -51,7 +51,7 @@ export const router = createBrowserRouter([
       { path: "/firm/signin", element: <FirmLoginPage /> },
     ],
   },
-  { 
+  {
     path: "/client",
     element: <ProtectedRoutes allow={["client"]} />,
     children: [
@@ -65,7 +65,9 @@ export const router = createBrowserRouter([
           { path: "engagements", element: <ClientEngagementsPage /> },
           { path: "engagements/:id", element: <ClientEngagementDetailPage /> },
           { path: "billing", element: <ClientBillingPage /> },
-          { path: "billing/:id", element: <ClientBillingDetailPage /> }
+          { path: "billing/:id", element: <ClientBillingDetailPage /> },
+          { path: "calendar", element: <ClientCalendarPage /> },
+          { path: "billing-calendar", element: <ClientBillingCalendarPage /> },
         ],
       },
     ],

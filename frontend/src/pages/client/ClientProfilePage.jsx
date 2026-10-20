@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Save, Lock, Check, X, ShieldQuestion, Loader2 } from "lucide-react"
+import { Save, Lock, Check, X, ShieldQuestion, Loader2, FileEdit, TriangleAlert } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
@@ -188,6 +188,74 @@ function getInitials(firstName, lastName) {
   return letters.length ? letters.join("").toUpperCase() : "?"
 }
 
+// --- Confirmation modal ---------------------------------------------------
+// Forces the user to double-check before an action proceeds. Same card used
+// for both the Business Information save and the Password change — only the
+// icon, title, description, and confirm label differ per use.
+function ConfirmationModal({
+  open,
+  icon: Icon,
+  title,
+  description,
+  confirmLabel,
+  isConfirming,
+  onCancel,
+  onConfirm,
+}) {
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={isConfirming ? undefined : onCancel}
+        aria-hidden="true"
+      />
+
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-modal-title"
+        aria-describedby="confirm-modal-description"
+        className="relative w-full max-w-xs rounded-3xl border border-border bg-card pt-10 pb-6 px-6 text-center shadow-lg"
+      >
+        {/* Icon circle, half-overlapping the top edge of the card */}
+        <div className="absolute left-1/2 top-0 flex size-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-amber-500 text-white shadow-md">
+          <Icon className="size-7" />
+        </div>
+
+        <h2 id="confirm-modal-title" className="text-base font-bold text-foreground">
+          {title}
+        </h2>
+        <p id="confirm-modal-description" className="mt-1.5 text-sm text-muted-foreground">
+          {description}
+        </p>
+
+        <div className="mt-6 flex flex-col gap-2.5">
+          <Button
+            type="button"
+            onClick={onConfirm}
+            disabled={isConfirming}
+            className="h-11 w-full gap-2 rounded-full bg-forest-900 text-white hover:opacity-90 disabled:opacity-60"
+          >
+            {isConfirming && <Loader2 className="size-4 animate-spin" />}
+            {isConfirming ? "Saving..." : confirmLabel}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isConfirming}
+            className="h-11 w-full rounded-full border-2 text-muted-foreground hover:text-foreground"
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ClientProfilePage() {
   const user = authStore((state) => state.user)
   const authLoading = authStore((state) => state.loading)
@@ -203,6 +271,12 @@ export default function ClientProfilePage() {
   const [saveMessage, setSaveMessage] = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
+  // Gates "Are you sure you want to change your information?" — opened by
+  // handleSaveInfo once the business form is valid; the real save only runs
+  // from confirmInfoChange, once the user clicks Confirm.
+  const [isInfoConfirmOpen, setIsInfoConfirmOpen] = useState(false)
+  // Same idea for the password form.
+  const [isPasswordConfirmOpen, setIsPasswordConfirmOpen] = useState(false)
 
   // Snapshot of the last-saved (or last-loaded) profile, used to detect
   // whether the user actually changed anything before hitting Save.
@@ -312,7 +386,9 @@ export default function ClientProfilePage() {
     (key) => profile[key] !== savedProfileRef.current[key]
   )
 
-  const handleSaveInfo = async (event) => {
+  // Step 1: validate the business info form, then open the confirmation
+  // modal instead of saving immediately.
+  const handleSaveInfo = (event) => {
     event.preventDefault()
     setSaveMessage(null)
 
@@ -347,7 +423,16 @@ export default function ClientProfilePage() {
       return
     }
 
+    setIsInfoConfirmOpen(true)
+  }
+
+  // Step 2: only runs once the user clicks "Confirm" in the modal. Cancel
+  // just closes the modal — nothing is saved.
+  const confirmInfoChange = async () => {
+    const phoneNational = profile.contactNumber.replace(/\D/g, "")
+
     setIsSaving(true)
+    setSaveMessage(null)
     try {
       const updatedBusiness = await updateBusiness.mutateAsync({
         businessId,
@@ -367,17 +452,22 @@ export default function ClientProfilePage() {
       const updatedProfile = buildProfile(user, updatedBusiness)
       setProfile(updatedProfile)
       savedProfileRef.current = updatedProfile
+      setIsInfoConfirmOpen(false)
       setSaveMessage({ type: "success", text: "Profile updated successfully." })
     } catch (err) {
       console.error(err)
+      setIsInfoConfirmOpen(false)
       setSaveMessage({ type: "error", text: "Something went wrong. Please try again." })
     } finally {
       setIsSaving(false)
     }
   }
 
-  const handleSavePassword = async (event) => {
+  // Step 1: validate the password form, then open the confirmation modal
+  // instead of saving immediately.
+  const handleSavePassword = (event) => {
     event.preventDefault()
+    setSaveMessage(null)
 
     if (!security.currentPassword) {
       setSaveMessage({ type: "error", text: "Enter your current password." })
@@ -392,19 +482,27 @@ export default function ClientProfilePage() {
       return
     }
 
+    setIsPasswordConfirmOpen(true)
+  }
+
+  // Step 2: only runs once the user clicks "Confirm" in the modal. Cancel
+  // just closes the modal — nothing is saved.
+  const confirmPasswordChange = async () => {
     setIsSaving(true)
     setSaveMessage(null)
     try {
       // await updateClientPassword(security)
 
       // TODO: remove once updateClientPassword above is wired up — see note
-      // in handleSaveInfo.
+      // in confirmInfoChange.
       await new Promise((resolve) => setTimeout(resolve, 700))
 
       setSecurity(initialSecurity)
+      setIsPasswordConfirmOpen(false)
       setSaveMessage({ type: "success", text: "Password updated successfully." })
     } catch (err) {
       console.error(err)
+      setIsPasswordConfirmOpen(false)
       setSaveMessage({ type: "error", text: "Something went wrong. Please try again." })
     } finally {
       setIsSaving(false)
@@ -912,6 +1010,28 @@ export default function ClientProfilePage() {
         open={isForgotPasswordOpen}
         onClose={() => setIsForgotPasswordOpen(false)}
       />
+
+      <ConfirmationModal
+        open={isInfoConfirmOpen}
+        icon={FileEdit}
+        title="Change Information?"
+        description="Are you sure you want to change your information?"
+        confirmLabel="Yes"
+        isConfirming={isSaving}
+        onCancel={() => setIsInfoConfirmOpen(false)}
+        onConfirm={confirmInfoChange}
+      />
+
+      <ConfirmationModal
+  open={isPasswordConfirmOpen}
+  icon={TriangleAlert}
+  title="Change Password?"
+  description="Are you sure you want to change your password?"
+  confirmLabel="Yes"
+  isConfirming={isSaving}
+  onCancel={() => setIsPasswordConfirmOpen(false)}
+  onConfirm={confirmPasswordChange}
+    />
     </div>
   )
 }
