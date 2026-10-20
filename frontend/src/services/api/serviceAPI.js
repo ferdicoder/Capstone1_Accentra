@@ -149,7 +149,10 @@ async function createService(service) {
       })),
     }),
   })
-  if (!response.ok) throw new Error('Service creation failed')
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.message || body.error || "Service creation failed")
+  }
   const { service: createdService } = await response.json()
   return mapServiceRow(createdService)
 }

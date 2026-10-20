@@ -1,5 +1,5 @@
 const requireRole = (...allowedRoles) => (req, res, next) => {
-  const role = req.user?.app_metadata?.role;
+  const role = req.userRole ?? req.user?.app_metadata?.role;
 
   if (!allowedRoles.includes(role)) {
     return res.status(403).json({

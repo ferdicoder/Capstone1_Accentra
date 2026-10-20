@@ -227,6 +227,7 @@ B2_KEY_ID=
 B2_APPLICATION_KEY=
 B2_BUCKET_ID=
 B2_BUCKET_NAME=
+FRONTEND_URL=https://your-deployed-frontend.example
 ```
 
 `SUPABASE_SECRET_KEY`, `B2_APPLICATION_KEY`, and the other B2 credentials are server secrets and must only be used by the backend.
@@ -238,6 +239,11 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_PUBLISHABLE_KEY=
 VITE_API_BASE_URL=http://localhost:3000/api/v1
 ```
+
+For a deployed frontend, set `VITE_API_BASE_URL` to the deployed backend API
+base URL. Set the backend `FRONTEND_URL` to the exact deployed frontend
+origin, including its scheme and without a trailing slash. Multiple allowed
+origins may be supplied as a comma-separated list.
 
 ## Running Locally
 

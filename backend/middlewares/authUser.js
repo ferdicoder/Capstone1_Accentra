@@ -23,6 +23,17 @@ const authUser = async (req, res, next) => {
     }
 
     req.user = data.user;
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user.id)
+      .maybeSingle();
+
+    if (roleError) {
+      return next(roleError);
+    }
+
+    req.userRole = roleData?.role ?? data.user.app_metadata?.role;
     next();
   } catch (error) {
     next(error);
