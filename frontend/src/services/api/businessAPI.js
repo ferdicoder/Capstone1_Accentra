@@ -130,7 +130,11 @@ export async function getMyBusiness(userId) {
   return mapBusinessRow(data)
 }
 
-export async function updateMyBusiness({ businessId, ...business }) {
+export async function updateMyBusiness({ userId, businessId, ...business }) {
+  if (!userId || !businessId) {
+    throw new Error("A signed-in user and business are required to update a business.")
+  }
+
   const { data, error } = await supabase
     .from("businesses")
     .update({
@@ -147,6 +151,7 @@ export async function updateMyBusiness({ businessId, ...business }) {
       zip_code: business.zipCode,
     })
     .eq("business_id", businessId)
+    .eq("owner_id", userId)
     .select(BUSINESS_SELECT)
     .single()
 

@@ -435,6 +435,7 @@ export default function ClientProfilePage() {
     setSaveMessage(null)
     try {
       const updatedBusiness = await updateBusiness.mutateAsync({
+        userId: user?.id,
         businessId,
         businessName: profile.businessName,
         businessType: profile.businessType,
