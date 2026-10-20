@@ -1,4 +1,5 @@
 import { supabase } from "@/config/supabase"
+import { apiBaseUrl } from "@/config/api"
 
 const BILLING_SELECT = `
   billing_id, business_id, billing_type, total_amount, status, due_date,
@@ -43,7 +44,7 @@ function mapBilling(row) {
     engagement_ids: links.map((link) => link.engagement_id),
     payment_method: payment?.payment_method ?? null,
     payment_proof_url: payment?.payment_documents?.length
-      ? `${import.meta.env.VITE_API_BASE_URL}/payments/${payment.payment_id}/proof`
+      ? `${apiBaseUrl}/payments/${payment.payment_id}/proof`
       : null,
     payment_proof_name: getLatestPaymentDocument(payment)?.file_name ?? null,
     payment_proof_size: getLatestPaymentDocument(payment)?.file_size ?? null,
@@ -154,7 +155,7 @@ export async function uploadPaymentProof(file, billingId, paymentMethod, uploade
   if (uploadedBy) formData.append("uploadedBy", uploadedBy)
 
   const response = await fetch(
-    `${import.meta.env.VITE_API_BASE_URL}/payments/${billingId}`,
+    `${apiBaseUrl}/payments/${billingId}`,
     { method: "POST", body: formData }
   )
   if (!response.ok) {

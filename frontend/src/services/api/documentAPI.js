@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { supabase } from "@/config/supabase"
+import { apiBaseUrl } from "@/config/api"
 
 async function uploadTemplateDocument(templateTaskId, file, onUploadProgress) {
   const formData = new FormData()
@@ -7,7 +8,7 @@ async function uploadTemplateDocument(templateTaskId, file, onUploadProgress) {
   const { data: { session } } = await supabase.auth.getSession()
 
   const res = await axios.post(
-    `${import.meta.env.VITE_API_BASE_URL}/documents/template/${templateTaskId}`,
+    `${apiBaseUrl}/documents/template/${templateTaskId}`,
     formData,
     {
       headers: {
@@ -30,7 +31,7 @@ function mapDocumentRow(row) {
     uploadedBy: uploader ? [uploader.first_name, uploader.last_name].filter(Boolean).join(" ") : "—",
     uploadedDate: row.created_at,
     engagementTaskId: row.engagement_task_id,
-    downloadUrl: `${import.meta.env.VITE_API_BASE_URL}/documents/${row.doc_id}/download`,
+    downloadUrl: `${apiBaseUrl}/documents/${row.doc_id}/download`,
   }
 }
 
@@ -54,7 +55,7 @@ async function uploadEngagementDocument({ engagementTaskId, file, uploadedBy }) 
   if (uploadedBy) formData.append("uploadedBy", uploadedBy)
 
   const response = await fetch(
-    `${import.meta.env.VITE_API_BASE_URL}/documents/engagement-task/${engagementTaskId}`,
+    `${apiBaseUrl}/documents/engagement-task/${engagementTaskId}`,
     { method: "POST", body: formData }
   )
   if (!response.ok) {
@@ -67,7 +68,7 @@ async function uploadEngagementDocument({ engagementTaskId, file, uploadedBy }) 
 
 async function deleteEngagementDocument(docId) {
   const response = await fetch(
-    `${import.meta.env.VITE_API_BASE_URL}/documents/${docId}`,
+    `${apiBaseUrl}/documents/${docId}`,
     { method: "DELETE" }
   )
   if (!response.ok) {

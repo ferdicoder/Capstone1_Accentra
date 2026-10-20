@@ -1,4 +1,5 @@
 import { supabase } from "@/config/supabase"; 
+import { apiBaseUrl } from "@/config/api"
 
 function mapServiceRow(row) {
   const tasks = Array.isArray(row.template_tasks) ? row.template_tasks : []
@@ -127,7 +128,7 @@ async function deleteService(id) {
 
 async function createService(service) {
   const { data: { session } } = await supabase.auth.getSession()
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/services/create`, {
+  const response = await fetch(`${apiBaseUrl}/services/create`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

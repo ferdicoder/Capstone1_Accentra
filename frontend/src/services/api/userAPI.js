@@ -1,5 +1,6 @@
 import { supabase } from "@/config/supabase";
 import { authStore } from "@/store/authStore";
+import { apiBaseUrl } from "@/config/api";
 
 async function setUserRole(user, persist = true) {
   const { data: roleData, error } = await supabase
@@ -110,7 +111,7 @@ function mapAuthUserRow(authUser, fallback = {}) {
 }
 // url from backend with postgrest wrapped in express
 async function createStaff(user) {
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/staffs/create`, {
+  const response = await fetch(`${apiBaseUrl}/staffs/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

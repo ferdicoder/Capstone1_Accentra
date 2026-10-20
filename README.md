@@ -241,7 +241,9 @@ VITE_API_BASE_URL=http://localhost:3000/api/v1
 ```
 
 For a deployed frontend, set `VITE_API_BASE_URL` to the deployed backend API
-base URL. Set the backend `FRONTEND_URL` to the exact deployed frontend
+base URL, including `https://` (for example,
+`https://accentra-backend-test.up.railway.app/api/v1`). Set the backend
+`FRONTEND_URL` to the exact deployed frontend
 origin, including its scheme and without a trailing slash. Multiple allowed
 origins may be supplied as a comma-separated list.
 
