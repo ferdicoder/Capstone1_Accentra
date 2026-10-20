@@ -80,7 +80,25 @@ async function updateUser(user) {
     .single()
 
   if (error) throw error
-  return mapUserRow(data, user.role) // role isn't in this update, so carry it over
+
+  const { data: { session } } = await supabase.auth.getSession()
+  const roleResponse = await fetch(`${apiBaseUrl}/staffs/${user.id}/role`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {}),
+    },
+    body: JSON.stringify({ role: user.role }),
+  })
+
+  if (!roleResponse.ok) {
+    const body = await roleResponse.json().catch(() => null)
+    throw new Error(body?.message ?? "User role update failed")
+  }
+
+  return mapUserRow(data, user.role)
 }
 
 async function updateUserStatus({ id, status }) {
