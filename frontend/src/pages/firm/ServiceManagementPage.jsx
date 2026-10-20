@@ -5,6 +5,7 @@ import { usePageMeta } from "@/hooks/usePageMeta"
 import {
   ServiceManagementActionsMenu,
   ServiceManagementTable,
+  ServiceDetailsDialog,
   ServiceManagementToolbar,
   ServiceDeleteDialog,
   ServiceStatsCards,
@@ -39,6 +40,8 @@ export default function ServiceManagementPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editingService, setEditingService] = useState(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [viewingService, setViewingService] = useState(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deletingService, setDeletingService] = useState(null)
   const [notice, setNotice] = useState(null)
@@ -153,6 +156,11 @@ export default function ServiceManagementPage() {
   const openEdit = (service) => {
     setEditingService(service)
     setEditOpen(true)
+  }
+
+  const openDetails = (service) => {
+    setViewingService(service)
+    setDetailsOpen(true)
   }
 
   const handleSave = (values) => {
@@ -284,6 +292,7 @@ export default function ServiceManagementPage() {
         loading={isLoading}
         emptyMessage="No services match your filters."
         emptyDescription="Try clearing the search or filters."
+        onRowClick={canManageServices ? undefined : openDetails}
         actions={canManageServices ? (service) => (
           <ServiceManagementActionsMenu
             service={service}
@@ -299,6 +308,15 @@ export default function ServiceManagementPage() {
           />
         ) : undefined}
       />
+
+      {!canManageServices && (
+        <ServiceDetailsDialog
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+          service={viewingService}
+          categoryOptions={categoryOptions}
+        />
+      )}
 
       {canManageServices && (
         <>

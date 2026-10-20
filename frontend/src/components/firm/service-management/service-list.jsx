@@ -36,6 +36,7 @@ import { ServiceCategoryBadge, ServiceStatusBadge } from "./service-badges"
 import {
   categoryFilterOptions,
   formatBasePrice,
+  formatBytes,
   statusFilterOptions,
 } from "./service-management-variants"
 
@@ -297,6 +298,125 @@ export function ServiceManagementTable({
         </table>
       </div>
     </div>
+  )
+}
+
+/** Read-only service details shown when a staff member selects a service. */
+export function ServiceDetailsDialog({ open = false, onOpenChange, service, categoryOptions = categoryFilterOptions }) {
+  if (!service) return null
+
+  const categoryLabel =
+    categoryOptions.find((option) => option.value === service.category)?.label ??
+    service.category ??
+    "—"
+  const workflowTasks = service.workflowTasks ?? []
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent data-slot="service-details-dialog" className="max-w-2xl">
+        <DialogHeader className="border-b border-border pb-4">
+          <DialogTitle>{service.name}</DialogTitle>
+          <DialogDescription>
+            Read-only details for this service template.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="overflow-y-auto pr-1">
+          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Description
+              </p>
+              <p className="mt-1 text-sm leading-6 text-foreground">
+                {service.description || "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Category
+              </p>
+              <div className="mt-1">
+                <ServiceCategoryBadge category={service.category} categoryLabels={{ [service.category]: categoryLabel }} />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Status
+              </p>
+              <div className="mt-1">
+                <ServiceStatusBadge status={service.status} />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Base Price
+              </p>
+              <p className="mt-1 text-sm font-medium tabular-nums">{formatBasePrice(service.basePrice)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Estimated Time
+              </p>
+              <p className="mt-1 text-sm">{service.estimatedTime || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Active Engagements
+              </p>
+              <p className="mt-1 text-sm font-medium tabular-nums">{service.activeEngagements ?? 0}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Retainer Coverage
+              </p>
+              <p className="mt-1 text-sm">{service.isRetainerCovered ? "Covered" : "Not covered"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Recurring Service
+              </p>
+              <p className="mt-1 text-sm">{service.isRecurring ? "Yes" : "No"}</p>
+            </div>
+          </div>
+
+          <div className="mt-6 border-t border-border pt-5">
+            <h3 className="text-sm font-medium text-foreground">Workflow Tasks</h3>
+            {workflowTasks.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {workflowTasks.map((task, index) => (
+                  <li
+                    key={task.id ?? `${task.name}-${index}`}
+                    className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm text-foreground">{task.name || "Unnamed task"}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {task.required ? "Required" : "Optional"}
+                        </p>
+                      </div>
+                      {task.hasReferenceDocument && (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          Reference document
+                        </span>
+                      )}
+                    </div>
+                    {task.referenceDocument && (
+                      <p className="mt-2 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+                        {task.referenceDocument.name}
+                        {task.referenceDocument.size ? ` (${formatBytes(task.referenceDocument.size)})` : ""}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">No workflow tasks configured.</p>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
