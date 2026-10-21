@@ -13,3 +13,6 @@ export const engagementStatusOptions = [
 export const getWorkflowStageIndex = (status) => workflowStages.findIndex((s) => s.key === status)
 
 export const isEngagementActive = (status) => status !== "completed" && status !== "cancelled"
+
+// Client-uploaded documents stay hidden until the engagement is moved to For Validation.
+export const canViewEngagementDocuments = (status) => status !== "document_collection"

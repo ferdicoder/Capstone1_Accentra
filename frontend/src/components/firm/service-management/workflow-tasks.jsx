@@ -13,20 +13,42 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { createTaskId, formatBytes } from "./service-management-variants"
+import {
+  createTaskId,
+  formatBytes,
+  getInvalidFileTypeMessage,
+  REFERENCE_DOCUMENT_ACCEPT,
+  REFERENCE_DOCUMENT_MIME_TYPES,
+} from "./service-management-variants"
 
 /**
  * Presentational single-file upload. Fully controlled via `file` +
  * `onSelect`/`onRemove`. No upload API — the raw File object is passed up so
  * a parent can handle it later (e.g. Supabase storage).
+ *
+ * A file outside the supported types is rejected here, so it never reaches
+ * the form state and is never included in an upload.
  */
 export function ReferenceDocumentUpload({ file, onSelect, onRemove, disabled = false, error, className }) {
   const inputRef = useRef(null)
+  const [fileTypeError, setFileTypeError] = useState("")
 
   const handleFiles = (fileList) => {
     const selected = fileList?.[0]
     if (!selected) return
+
+    if (!REFERENCE_DOCUMENT_MIME_TYPES.includes(selected.type)) {
+      setFileTypeError(getInvalidFileTypeMessage(selected.name))
+      return
+    }
+
+    setFileTypeError("")
     onSelect?.({ name: selected.name, size: selected.size, type: selected.type, file: selected })
+  }
+
+  const handleRemove = () => {
+    setFileTypeError("")
+    onRemove?.()
   }
 
   return (
@@ -34,6 +56,7 @@ export function ReferenceDocumentUpload({ file, onSelect, onRemove, disabled = f
       <input
         ref={inputRef}
         type="file"
+        accept={REFERENCE_DOCUMENT_ACCEPT}
         className="hidden"
         disabled={disabled}
         onChange={(event) => {
@@ -70,7 +93,7 @@ export function ReferenceDocumentUpload({ file, onSelect, onRemove, disabled = f
             variant="ghost"
             size="icon-xs"
             disabled={disabled}
-            onClick={onRemove}
+            onClick={handleRemove}
             aria-label="Remove file"
             className="rounded-md text-muted-foreground hover:text-destructive"
           >
@@ -79,6 +102,7 @@ export function ReferenceDocumentUpload({ file, onSelect, onRemove, disabled = f
         </div>
       )}
 
+      {fileTypeError && <p className="mt-1 text-sm text-red-500">{fileTypeError}</p>}
       {error && <p className="mt-1 text-sm text-red-500">Upload a reference document.</p>}
     </div>
   )

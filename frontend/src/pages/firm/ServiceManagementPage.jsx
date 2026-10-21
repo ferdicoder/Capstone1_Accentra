@@ -100,51 +100,67 @@ export default function ServiceManagementPage() {
     setCreateProgress({ active: true, percent: 0, phase: "Saving service…" })
     createService.mutate(values, {
       onSuccess: async (newService) => {
-        setNotice({ tone: "success", message: `${newService.name} added` })
-
-        if (tasksWithFiles.length === 0) {
-          setCreateProgress({ active: false, percent: 100, phase: "Complete" })
-          setCreateOpen(false)
-          return
-        }
-
-        setCreateProgress({ active: true, percent: 10, phase: "Uploading reference documents…" })
         const failedUploads = []
-        const uploadedBytes = new Map()
 
-        await Promise.all(
-          tasksWithFiles.map(async ({ task, index }) => {
-            const matchedTask = newService.workflowTasks?.[index]
-            if (!matchedTask?.id) {
-              failedUploads.push(task.name)
-              return
-            }
-            try {
-              await uploadTemplateDocument(matchedTask.id, task.referenceDocument.file, (event) => {
-                uploadedBytes.set(index, event.loaded)
-                const loaded = [...uploadedBytes.values()].reduce((total, bytes) => total + bytes, 0)
-                const uploadPercent = totalBytes > 0 ? loaded / totalBytes : 1
-                setCreateProgress({
-                  active: true,
-                  percent: Math.min(99, Math.round(10 + uploadPercent * 90)),
-                  phase: "Uploading reference documents…",
+        try {
+          if (tasksWithFiles.length === 0) {
+            setCreateOpen(false)
+            setNotice({ tone: "success", message: `${newService.name} added` })
+            return
+          }
+
+          setCreateProgress({ active: true, percent: 10, phase: "Uploading reference documents…" })
+          const uploadedBytes = new Map()
+
+          await Promise.all(
+            tasksWithFiles.map(async ({ task, index }) => {
+              const matchedTask = newService.workflowTasks?.[index]
+              if (!matchedTask?.id) {
+                failedUploads.push(task.name)
+                return
+              }
+              try {
+                await uploadTemplateDocument(matchedTask.id, task.referenceDocument.file, (event) => {
+                  uploadedBytes.set(index, event.loaded)
+                  const loaded = [...uploadedBytes.values()].reduce((total, bytes) => total + bytes, 0)
+                  const uploadPercent = totalBytes > 0 ? loaded / totalBytes : 1
+                  setCreateProgress({
+                    active: true,
+                    percent: Math.min(99, Math.round(10 + uploadPercent * 90)),
+                    phase: "Uploading reference documents…",
+                  })
                 })
-              })
-            } catch (err) {
-              console.error(`Reference document upload failed for "${task.name}":`, err)
-              failedUploads.push(task.name)
-            }
-          })
-        )
+              } catch (err) {
+                console.error(`Reference document upload failed for "${task.name}":`, err)
+                failedUploads.push(task.name)
+              }
+            })
+          )
 
-        await refetchServices()
-        setCreateProgress({ active: false, percent: 100, phase: "Complete" })
-        setCreateOpen(false)
-        if (failedUploads.length > 0) {
+          await refetchServices()
+          setCreateOpen(false)
+
+          // The service is only reported as added once its reference documents
+          // have finished uploading, so the completion state matches reality.
+          if (failedUploads.length > 0) {
+            setNotice({
+              tone: "danger",
+              message: `Service saved, but reference document(s) failed to upload: ${failedUploads.join(", ")}`,
+            })
+          } else {
+            setNotice({ tone: "success", message: `${newService.name} added` })
+          }
+        } catch (err) {
+          console.error(err)
+          setCreateOpen(false)
           setNotice({
             tone: "danger",
-            message: `Service saved, but reference document(s) failed to upload: ${failedUploads.join(", ")}`,
+            message: err?.message || "Service saved, but the reference documents could not be uploaded.",
           })
+        } finally {
+          // Always release the loading state so the progress bar and the
+          // submit button cannot stay stuck on "Saving…".
+          setCreateProgress({ active: false, percent: 0, phase: "Saving service…" })
         }
       },
       onError: (err) => {
@@ -152,6 +168,13 @@ export default function ServiceManagementPage() {
         setNotice({ tone: "danger", message: err.message || "Failed to add service" })
       },
     })
+  }
+
+  const openCreateDialog = () => {
+    // Start from a clean progress state so a previous run's phase is never
+    // shown on a freshly opened form.
+    setCreateProgress({ active: false, percent: 0, phase: "Saving service…" })
+    setCreateOpen(true)
   }
   const openEdit = (service) => {
     setEditingService(service)
@@ -283,7 +306,7 @@ export default function ServiceManagementPage() {
         onManageCategories={canManageServices ? () => setCategoryManagementOpen(true) : undefined}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
-        onAddService={canManageServices ? () => setCreateOpen(true) : undefined}
+        onAddService={canManageServices ? openCreateDialog : undefined}
         resultCount={`${filteredServices.length} of ${services.length} services`}
       />
 
@@ -325,6 +348,7 @@ export default function ServiceManagementPage() {
             onOpenChange={setCreateOpen}
             onSubmit={handleCreate}
             categoryOptions={categoryOptions}
+            existingServices={services}
             submitting={createService.isPending || createProgress.active}
             progress={createProgress}
           />

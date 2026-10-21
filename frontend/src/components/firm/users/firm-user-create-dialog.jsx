@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { ChevronDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { isEmailAlreadyRegistered } from "@/lib/userAccount"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -26,6 +27,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// Shown when the email address is already registered.
+const DUPLICATE_EMAIL_ERROR = "The user already exist"
 
 /** Accepts 09XXXXXXXXX or +639XXXXXXXXX (digits, spaces, dashes allowed). */
 const PHONE_PATTERN = /^\+?[0-9\s-]{10,14}$/
@@ -72,6 +76,7 @@ export function FirmUserCreateDialog({
   defaultRole = "staff",
   submitting = false,
   error,
+  existingEmails = [],
   title = "Add User",
   description = "Create a new user and assign them a role.",
   submitLabel = "Add User",
@@ -86,11 +91,13 @@ export function FirmUserCreateDialog({
   const [extension, setExtension] = useState("")
   const [email, setEmail] = useState("")
   const [contactNumber, setContactNumber] = useState("")
+  const [birthdate, setBirthdate] = useState("")
   const [temporaryPassword, setTemporaryPassword] = useState("")
   const [role, setRole] = useState(() =>
     roleOptions.some((option) => option.value === defaultRole) ? defaultRole : ""
   )
   const [errors, setErrors] = useState({})
+  const [isChecking, setIsChecking] = useState(false)
 
   // roleOptions often arrives async (fetched from the roles table), so the
   // dialog can open before it's populated. Apply the default once it lands,
@@ -104,7 +111,7 @@ export function FirmUserCreateDialog({
   const activeRole = roleOptions.find((option) => option.value === role)
   const rolesUnavailable = !rolesLoading && roleOptions.length === 0
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
 
     const newErrors = {
@@ -115,8 +122,28 @@ export function FirmUserCreateDialog({
       temporaryPassword: temporaryPassword.length < 8,
       role: !role,
     }
+
+    // The account must not already exist.
+    const emailExists = existingEmails.some(
+      (existing) =>
+        (existing ?? "").trim().toLowerCase() === email.trim().toLowerCase()
+    )
+    if (emailExists) newErrors.email = DUPLICATE_EMAIL_ERROR
+
     setErrors(newErrors)
     if (Object.values(newErrors).some(Boolean)) return
+
+    // Also check the database, so an account that is not in the firm user list
+    // is caught as well.
+    setIsChecking(true)
+    try {
+      if (await isEmailAlreadyRegistered(email)) {
+        setErrors({ email: DUPLICATE_EMAIL_ERROR })
+        return
+      }
+    } finally {
+      setIsChecking(false)
+    }
 
     onSubmit?.({
       firstName: firstName.trim(),
@@ -125,6 +152,7 @@ export function FirmUserCreateDialog({
       extension: extension.trim(),
       email: email.trim(),
       contactNumber: contactNumber.trim(),
+      birthdate: birthdate.trim(),
       temporaryPassword,
       role,
     })
@@ -208,12 +236,21 @@ export function FirmUserCreateDialog({
                 id="firm-user-email"
                 type="email"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => {
+                  setEmail(event.target.value)
+                  if (errors.email) setErrors((current) => ({ ...current, email: false }))
+                }}
                 placeholder="juan@example.com"
                 disabled={submitting}
                 className={cn(errors.email && "border-red-500 focus-visible:ring-red-500")}
               />
-              {errors.email && <p className="text-sm text-red-500">Enter a valid email address.</p>}
+              {errors.email && (
+                <p className="text-sm text-red-500">
+                  {errors.email === DUPLICATE_EMAIL_ERROR
+                    ? errors.email
+                    : "Enter a valid email address."}
+                </p>
+              )}
             </Field>
 
             <Field>
@@ -232,6 +269,18 @@ export function FirmUserCreateDialog({
               {errors.contactNumber && (
                 <p className="text-sm text-red-500">Enter a valid contact number.</p>
               )}
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="firm-user-birthdate">Birthday</FieldLabel>
+              <Input
+                id="firm-user-birthdate"
+                name="birthdate"
+                type="date"
+                value={birthdate}
+                onChange={(event) => setBirthdate(event.target.value)}
+                disabled={submitting}
+              />
             </Field>
 
             <Field>
@@ -321,11 +370,11 @@ export function FirmUserCreateDialog({
             </Button>
             <Button
               type="submit"
-              disabled={submitting || rolesUnavailable}
+              disabled={submitting || isChecking || rolesUnavailable}
               className="bg-forest-900 text-white hover:opacity-90"
             >
-              {submitting && <Loader2 className="size-4 animate-spin" />}
-              {submitting ? `${submitLabel}…` : submitLabel}
+              {(submitting || isChecking) && <Loader2 className="size-4 animate-spin" />}
+              {isChecking ? "Checking…" : submitting ? `${submitLabel}…` : submitLabel}
             </Button>
           </DialogFooter>
         </form>

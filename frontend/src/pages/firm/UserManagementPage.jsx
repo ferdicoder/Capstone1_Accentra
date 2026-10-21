@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
-import { Ban, CheckCircle2, Pencil } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { Ban, CheckCircle2, Pencil, User } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
@@ -8,8 +9,19 @@ import { FirmUserTable } from "@/components/firm/users/firm-user-table"
 import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-menu"
 import { FirmUserCreateDialog } from "@/components/firm/users/firm-user-create-dialog"
 import { FirmUserEditDialog } from "@/components/firm/users/firm-user-edit-dialog"
+import { FirmUserStatusDialog } from "@/components/firm/users/firm-user-status-dialog"
+import { FirmUserPagination } from "@/components/firm/users/firm-user-pagination"
+import { authStore } from "@/store/authStore"
 
-import { useFetchUsers,useUpdateUser, useToggleUserStatus, useCreateStaff, useFetchFirmRoles } from "@/hooks/useUsers"
+import {
+  useFetchUsers,
+  useUpdateUser,
+  useToggleUserStatus,
+  useCreateStaff,
+  useFetchFirmRoles,
+  useUserBirthdays,
+  useSaveUserBirthday,
+} from "@/hooks/useUsers"
 
 
 
@@ -19,12 +31,19 @@ const buildDisplayName = ({ firstName, middleName, lastName, extension, name }) 
   return [firstName, middleName, lastName, extension].filter(Boolean).join(" ")
 }
 
+// Firm users shown per page.
+const PAGE_SIZE = 8
+
 export default function UserManagementPage() {
+  const navigate = useNavigate()
+  const authUser = authStore((state) => state.user)
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [statusTarget, setStatusTarget] = useState(null)
+  const [page, setPage] = useState(1)
   const [notice, setNotice] = useState("")
   const [loading, setLoading] = useState(true)
 
@@ -39,6 +58,22 @@ export default function UserManagementPage() {
   const updateUser = useUpdateUser()
   const toggleStatus = useToggleUserStatus()
   const createStaff = useCreateStaff()
+  const saveBirthday = useSaveUserBirthday()
+
+  // Birthdays are not part of the user list query, so they are read separately.
+  const userIds = useMemo(() => users.map((user) => user.id), [users])
+  const { data: birthdays = {} } = useUserBirthdays(userIds)
+
+  const usersWithBirthday = useMemo(
+    () => users.map((user) => ({ ...user, birthdate: birthdays[user.id] ?? "" })),
+    [users, birthdays]
+  )
+
+  // Emails already taken, so the Add User form can refuse a duplicate.
+  const existingEmails = useMemo(
+    () => users.map((user) => user.email).filter(Boolean),
+    [users]
+  )
 
   // DB-backed role list, shaped for the dropdowns (value = role_id, label = role_name).
   const roleOptions = useMemo(
@@ -50,38 +85,122 @@ export default function UserManagementPage() {
   // for searching
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase()
-    return users.filter((user) => {
+    return usersWithBirthday.filter((user) => {
       const displayName = buildDisplayName(user).toLowerCase()
       const matchesSearch =
         !query || displayName.includes(query) || (user.email ?? "").toLowerCase().includes(query)
       const matchesRole = !roleFilter || user.role === roleFilter
       return matchesSearch && matchesRole
     })
-  }, [users, search, roleFilter])
+  }, [usersWithBirthday, search, roleFilter])
 
-  const toggleDeactivate = (user) => {
-    const nextStatus = user.status === "deactivated" ? "inactive" : "deactivated"
-    toggleStatus.mutate({ id: user.id, status: nextStatus })
-    setNotice(`${user.name} ${nextStatus === "deactivated" ? "deactivated" : "reactivated"}`)
+  // The list is paginated, 8 firm users per page.
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  )
+
+  // Validation for the deactivate / reactivate action. An empty string means
+  // the action may proceed.
+  const validateStatusChange = (user, action) => {
+    if (!user) return "This user could not be found."
+
+    if (action === "reactivate") {
+      if (user.status !== "deactivated") {
+        return "This account is not deactivated, so there is nothing to reactivate."
+      }
+      return ""
+    }
+
+    if (user.id === authUser?.id) {
+      return "You cannot deactivate the account you are signed in with."
+    }
+
+    const activeAdmins = users.filter(
+      (item) => item.role === "admin" && item.status !== "deactivated"
+    )
+    if (user.role === "admin" && activeAdmins.length <= 1) {
+      return "This is the only active firm administrator, so it cannot be deactivated."
+    }
+
+    return ""
+  }
+
+  const openStatusDialog = (user, action) => {
+    setStatusTarget({ user, action })
+  }
+
+  const statusValidationError = statusTarget
+    ? validateStatusChange(statusTarget.user, statusTarget.action)
+    : ""
+
+  const confirmStatusChange = () => {
+    if (!statusTarget || statusValidationError) return
+
+    // The users table only accepts "active" and "deactivated" — a
+    // reactivated account goes back to "active" so it regains access.
+    const nextStatus = statusTarget.action === "deactivate" ? "deactivated" : "active"
+
+    toggleStatus.mutate(
+      { id: statusTarget.user.id, status: nextStatus },
+      {
+        onSuccess: () => {
+          setNotice(
+            `${statusTarget.user.name} ${nextStatus === "deactivated" ? "deactivated" : "reactivated"}`
+          )
+          setStatusTarget(null)
+        },
+        onError: (error) => {
+          console.error("Firm user status update failed:", error?.message)
+          setNotice("We couldn't update this account. Please try again.")
+        },
+      }
+    )
   }
 
   const handleCreate = (values) => {
     createStaff.mutate(values, {
-      onSuccess: () => {
+      onSuccess: (createdUser) => {
+        // The account is created with the birthday in its auth metadata; the
+        // users table column is written here so the list shows it right away.
+        if (values.birthdate && createdUser?.id) {
+          saveBirthday.mutate({ userId: createdUser.id, birthdate: values.birthdate })
+        }
         setDialogOpen(false)
         setNotice(`${values.firstName} ${values.lastName} added`)
       },
     })
   }
 
+  const openCreateDialog = () => {
+    // Clear a previous attempt's error so it can't linger on a fresh form.
+    createStaff.reset()
+    setDialogOpen(true)
+  }
+
+  // The API wrapper reports every failure as "Staff creation failed", so the
+  // most common causes are spelled out here instead.
+  const createError = createStaff.error
+    ? "We couldn't create this account. The email address may already be registered, or the password may not meet the account requirements."
+    : ""
+
   const openEditDialog = (user) => {
     setEditingUser(user)
     setEditDialogOpen(true)
   }
 
+  const openStaffProfile = (user) => {
+    navigate(`/admin/staff/${user.id}`)
+  }
+
   const handleSave = (values) => {
     updateUser.mutate(values, {
       onSuccess: () => {
+        if (values.birthdate !== undefined && values.id) {
+          saveBirthday.mutate({ userId: values.id, birthdate: values.birthdate })
+        }
         setEditDialogOpen(false)
         setNotice(`${values.firstName} ${values.lastName} updated`)
       },
@@ -122,25 +241,33 @@ export default function UserManagementPage() {
         roleFilter={roleFilter}
         onRoleFilterChange={setRoleFilter}
         roleOptions={roleOptions}
-        onAddUser={() => setDialogOpen(true)}
+        onAddUser={openCreateDialog}
         resultCount={`${filteredUsers.length} of ${users.length} users`}
       />
 
       <FirmUserTable
-        users={filteredUsers}
+        users={paginatedUsers}
         loading={isLoading}
         emptyMessage="No users match your filters."
         emptyDescription="Try clearing the search or filters."
         onRowClick={openEditDialog}
+        footer={
+          <FirmUserPagination
+            page={currentPage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        }
         actions={(user) => (
           <FirmUserActionsMenu
             user={user}
             items={[
+              { key: "profile", label: "View profile", icon: User, onSelect: () => openStaffProfile(user) },
               { key: "edit", label: "Edit user", icon: Pencil, onSelect: openEditDialog },
               { type: "separator" },
               user.status === "deactivated"
-                ? { key: "activate", label: "Reactivate", icon: CheckCircle2, onSelect: toggleDeactivate }
-                : { key: "deactivate", label: "Deactivate", icon: Ban, destructive: true, onSelect: toggleDeactivate },
+                ? { key: "activate", label: "Reactivate", icon: CheckCircle2, onSelect: (user) => openStatusDialog(user, "reactivate") }
+                : { key: "deactivate", label: "Deactivate", icon: Ban, destructive: true, onSelect: (user) => openStatusDialog(user, "deactivate") },
             ]}
           />
         )}
@@ -153,6 +280,18 @@ export default function UserManagementPage() {
         roleOptions={roleOptions}
         rolesLoading={rolesLoading}
         submitting={createStaff.isPending}
+        existingEmails={existingEmails}
+        error={createError}
+      />
+
+      <FirmUserStatusDialog
+        open={Boolean(statusTarget)}
+        onOpenChange={(open) => !open && setStatusTarget(null)}
+        user={statusTarget?.user}
+        action={statusTarget?.action}
+        validationError={statusValidationError}
+        submitting={toggleStatus.isPending}
+        onConfirm={confirmStatusChange}
       />
 
       <FirmUserEditDialog

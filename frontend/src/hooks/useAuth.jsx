@@ -3,13 +3,27 @@ import { useEffect } from 'react';
 import { supabase } from '@/config/supabase';
 import { authStore } from '@/store/authStore';
 import { setUserRole } from '../services/api/userAPI';
+import { getAccountStatus } from '@/lib/userAccount';
 
 /**
  * Applies a session to the app's auth state, or clears it when there is no
- * session.
+ * session. A deactivated account is signed out, because the firm admin has
+ * revoked its access.
  */
-const applySession = (session) => {
-  session ? setUserRole(session.user) : authStore.getState().clearAuth();
+const applySession = async (session) => {
+  if (!session) {
+    authStore.getState().clearAuth();
+    return;
+  }
+
+  const status = await getAccountStatus(session.user?.id);
+  if (status === 'deactivated') {
+    await supabase.auth.signOut();
+    authStore.getState().clearAuth();
+    return;
+  }
+
+  setUserRole(session.user);
 };
 
 export function useAuth() {
