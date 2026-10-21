@@ -42,6 +42,97 @@ async function signinUser(email, password){
     }
 }
 
+/**
+ * Number of digits in the recovery code that is emailed to the account owner.
+ *
+ * Matches the length the app already uses for its OTP step (see
+ * components/client/ForgotPasswordModal.jsx) and Supabase Auth's 6-digit
+ * email OTP.
+ */
+const PASSWORD_RECOVERY_OTP_LENGTH = 6
+const PASSWORD_REUSE_MESSAGE = "This password has already been used. Try another."
+
+function getPasswordReuseMessage(error) {
+  const message = `${error?.code ?? ""} ${error?.message ?? ""}`
+  return /password.{0,40}(reuse|used before|previous|same as|different from old)|(?:reuse|used before|previous).{0,40}password/i.test(
+    message
+  )
+    ? PASSWORD_REUSE_MESSAGE
+    : null
+}
+
+/**
+ * Asks Supabase Auth to email a recovery code to the given address.
+ *
+ * The response is intentionally not used to tell the caller whether the
+ * address is registered — the caller must show the same confirmation either
+ * way.
+ *
+ * @param {{ email: string, redirectTo?: string }} params
+ * @returns {Promise<void>}
+ */
+async function requestPasswordRecovery({ email, redirectTo }) {
+  const { error } = await supabase.auth.resetPasswordForEmail(
+    email,
+    redirectTo ? { redirectTo } : undefined
+  )
+  if (error) throw error
+}
+
+/**
+ * Verifies the emailed recovery code and opens a recovery session.
+ *
+ * @param {{ email: string, token: string }} params
+ * @returns {Promise<void>}
+ */
+async function verifyPasswordRecoveryOtp({ email, token }) {
+  const { error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: "recovery",
+  })
+  if (error) throw error
+}
+
+/**
+ * Sets the new password for the account that owns the recovery session.
+ *
+ * @param {{ password: string }} params
+ * @returns {Promise<void>}
+ */
+async function updateRecoveredPassword({ password }) {
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw error
+}
+
+async function changeAuthenticatedPassword({ currentPassword, newPassword }) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+  if (userError) throw userError
+  if (!user?.email) throw new Error("No authenticated account was found.")
+
+  const { error: verificationError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  })
+  if (verificationError) {
+    if (
+      verificationError.code === "invalid_credentials" ||
+      verificationError.message === "Invalid login credentials"
+    ) {
+      throw new Error("Current password is incorrect.")
+    }
+    throw verificationError
+  }
+
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: newPassword,
+  })
+  if (updateError) throw updateError
+}
+
 /*
   add: password hashing
 */
@@ -128,6 +219,12 @@ async function createStaff(email, password, formData){
 */
 
 export{
-  registerClient, 
-  signinUser
+  registerClient,
+  signinUser,
+  PASSWORD_RECOVERY_OTP_LENGTH,
+  requestPasswordRecovery,
+  verifyPasswordRecoveryOtp,
+  updateRecoveredPassword,
+  changeAuthenticatedPassword,
+  getPasswordReuseMessage
 }

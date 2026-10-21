@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 
 import { signinToPortal } from "@/services/authService";
 import { getHome } from "@/config/roles";
+import { AdminForgotPasswordModal } from "@/components/firm/admin-forgot-password-modal";
 
 export function FirmLoginForm({
   className,
@@ -20,6 +21,7 @@ export function FirmLoginForm({
 }) {
     const [errors, setErrors] = useState({})
   const [loginError, setLoginError] = useState("")
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
 
     const navigate = useNavigate(); 
 
@@ -46,6 +48,14 @@ export function FirmLoginForm({
         setLoginError(error.message)
       }
     }
+
+  if (isForgotPasswordOpen) {
+    return (
+      <AdminForgotPasswordModal
+        onClose={() => setIsForgotPasswordOpen(false)}
+      />
+    )
+  }
 
   return (
     <form onSubmit={handleSubmit} className={cn("flex flex-col gap-6", className)} {...props}> {/* this is the form element that wraps the entire login form, applying flexbox layout and spacing between child elements */}
@@ -82,9 +92,13 @@ export function FirmLoginForm({
             <FieldLabel htmlFor="password" className="gap-0 mb-0.5">
               Password<span className=" text-red-500">*</span>
             </FieldLabel>
-            <a href="#" className="ml-auto mb-0.5 text-sm underline-offset-4 text-emerald-700 hover:underline">
+            <button
+              type="button"
+              onClick={() => setIsForgotPasswordOpen(true)}
+              className="ml-auto mb-0.5 cursor-pointer text-sm text-emerald-700 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+            >
               Forgot your password?
-            </a>
+            </button>
           </div>
           <Input 
           id="password" 

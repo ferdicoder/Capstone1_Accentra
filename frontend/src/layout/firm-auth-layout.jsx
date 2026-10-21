@@ -14,7 +14,7 @@ export function FirmAuthLayout({ children }) {
 
       {/* Main Content */}
       <main className="flex min-h-[calc(100svh-80px)] items-center justify-center px-6 pb-6 md:px-10 md:pb-10">
-        <div className="w-full max-w-lg rounded-xl bg-white p-8 shadow-2xl">
+        <div className="w-full max-w-lg rounded-xl bg-white p-8 shadow-2xl has-[>[data-slot=admin-forgot-password-inline]]:max-w-sm">
           {children}
         </div>
       </main>
