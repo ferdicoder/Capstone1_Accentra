@@ -1,26 +1,18 @@
 import { useMemo, useState } from "react"
 import { useParams, Link } from "react-router-dom"
-import {
-  ArrowLeft,
-  Download,
-  Eye,
-  HelpCircle,
-  Search,
-  X,
-} from "lucide-react"
+import { ArrowLeft, Download, Eye, HelpCircle, Search, X } from "lucide-react"
 
+import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 
 import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
 import { ActivityLogItem } from "@/components/firm/engagements/ActivityLogItem"
 import { TaskList } from "@/components/client/ClientEngagementTaskList"
+import { ClientEngagementDeliverables } from "@/components/client/ClientEngagementDeliverables"
 import { authStore } from "@/store/authStore"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
 import {
@@ -83,6 +75,20 @@ const statusDialogTheme = {
   },
 }
 
+// What the Validation Remarks box says for each status.
+function getRemarkText(status, remark) {
+  switch (status) {
+    case "approved":
+      return "No revisions needed — this document was approved as submitted."
+    case "for_review":
+      return "Your firm hasn't reviewed this document yet. Remarks will appear here once they have."
+    case "for_revision":
+      return remark || "Your firm asked for changes to this document. Please upload a revised copy."
+    default:
+      return "Nothing has been submitted for this requirement yet."
+  }
+}
+
 function DocumentStatusDialog({ open, onOpenChange, status, remark }) {
   const [showRemarks, setShowRemarks] = useState(false)
 
@@ -131,9 +137,7 @@ function DocumentStatusDialog({ open, onOpenChange, status, remark }) {
           ) : (
             <>
               <div className={`w-full rounded-lg border px-3 py-2.5 text-sm ${theme.remarkBox}`}>
-                {status === "for_revision" && remark
-                  ? remark
-                  : "No revisions needed — this document was approved as submitted."}
+                {getRemarkText(status, remark)}
               </div>
               <Button
                 variant="outline"
@@ -164,6 +168,11 @@ export default function ClientEngagementDetailPage() {
   const { data: documents = [], isLoading: isDocumentsLoading } = useFetchEngagementDocuments(id)
   const uploadDocument = useUploadEngagementDocument(id)
   const deleteDocument = useDeleteEngagementDocument(id)
+
+  // TODO: point this at your Supabase deliverables data (hook or field).
+  // If you move this to its own hook, pass that hook's isLoading below.
+  const deliverables = engagement?.deliverables ?? []
+  const isDeliverablesLoading = false
 
   // Documents no longer carry their own review status — it lives on the
   // parent task now. Look each document's task up once per render.
@@ -247,22 +256,24 @@ export default function ClientEngagementDetailPage() {
       <div className="flex gap-4  overflow-x-auto max-w-full scrollbar-none border-b sm:gap-6">
         <button
           onClick={() => setActiveTab("overview")}
-          className={`-mb-px shrink-0 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors ${
+          className={cn(
+            "-mb-px shrink-0 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors",
             activeTab === "overview"
               ? "border-emerald-600 text-emerald-700"
               : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
+          )}
         >
           Overview
         </button>
 
         <button
           onClick={() => setActiveTab("documents")}
-          className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors ${
+          className={cn(
+            "-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors",
             activeTab === "documents"
               ? "border-emerald-600 text-emerald-700"
               : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
+          )}
         >
           Documents
           <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
@@ -273,7 +284,14 @@ export default function ClientEngagementDetailPage() {
 
       {activeTab === "overview" && (
         <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-w-0">
+          <div className="flex min-w-0 flex-col gap-5">
+            {/* Deliverables sit above Document Requirements, same as the admin view */}
+            <ClientEngagementDeliverables
+              engagementId={id}
+              deliverables={deliverables}
+              isLoading={isDeliverablesLoading}
+              workflowStage={engagement.status}
+            />
             <TaskList
               engagement={engagement}
               documents={documents}
@@ -380,6 +398,7 @@ export default function ClientEngagementDetailPage() {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     title="View File"
+                                    aria-label={`View ${doc.name} in a new tab`}
                                     className="flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted"
                                   >
                                     <Eye className="size-3.5" />
@@ -387,6 +406,8 @@ export default function ClientEngagementDetailPage() {
                                 ) : (
                                   <span
                                     title="View File"
+                                    aria-label="View file unavailable"
+                                    aria-disabled="true"
                                     className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center rounded-md border text-muted-foreground/40"
                                   >
                                     <Eye className="size-3.5" />
@@ -398,6 +419,7 @@ export default function ClientEngagementDetailPage() {
                                     href={doc.downloadUrl}
                                     download={doc.name}
                                     title="Download"
+                                    aria-label={`Download ${doc.name}`}
                                     className="flex size-6 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
                                   >
                                     <Download className="size-3.5" />
@@ -405,6 +427,8 @@ export default function ClientEngagementDetailPage() {
                                 ) : (
                                   <span
                                     title="Download"
+                                    aria-label="Download unavailable"
+                                    aria-disabled="true"
                                     className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-muted-foreground/40"
                                   >
                                     <Download className="size-3.5" />
