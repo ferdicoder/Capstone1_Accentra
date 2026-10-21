@@ -30,13 +30,25 @@ const fileIconMap = {
 }
 
 function getFileIcon(fileType) {
-  return fileIconMap[fileType?.toUpperCase()] ?? FileText
+  return fileIconMap[resolveFileType(fileType)] ?? FileText
+}
+
+function resolveFileType(file) {
+  const value = typeof file === "string" ? file : file?.fileType ?? file?.mimeType
+  const normalized = value?.toString().toLowerCase()
+  if (normalized === "application/pdf") return "PDF"
+  if (normalized?.startsWith("image/")) return normalized.split("/").pop().toUpperCase()
+  if (normalized?.includes("spreadsheet") || normalized?.includes("excel")) return "XLSX"
+  if (normalized?.includes("word")) return "DOCX"
+  if (normalized?.startsWith("text/csv")) return "CSV"
+  if (normalized?.includes("/")) return null
+  return normalized?.toUpperCase()
 }
 
 // ── Compact Document Row (for the card) ──────────────────────────────────────
 
 function CompactDocumentRow({ document, onPreview }) {
-  const Icon = getFileIcon(document?.fileType)
+  const Icon = getFileIcon(document)
 
   return (
     <button
@@ -60,9 +72,13 @@ function CompactDocumentRow({ document, onPreview }) {
 }
 
 function DocumentPreviewDialog({ open, onOpenChange, document }) {
-  const Icon = getFileIcon(document?.fileType)
-
   if (!document) return null
+
+  const Icon = getFileIcon(document)
+  const fileType = resolveFileType(document)
+  const previewUrl = document.downloadUrl ? `${document.downloadUrl}?inline=true` : null
+  const isPdf = fileType === "PDF"
+  const isImage = ["PNG", "JPG", "JPEG", "GIF", "WEBP"].includes(fileType)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -86,11 +102,27 @@ function DocumentPreviewDialog({ open, onOpenChange, document }) {
             </div>
           </div>
 
-          <div className="mt-4 flex min-h-[200px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-background/70 px-6 py-8 text-center">
-            <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <FileText className="size-5" />
-            </div>
-            <p className="text-sm font-medium text-foreground">Document preview</p>
+          <div className="mt-4 overflow-hidden rounded-lg border border-border bg-background/70">
+            {previewUrl && isPdf && (
+              <iframe
+                src={previewUrl}
+                title={`Preview of ${document.name}`}
+                className="h-[60vh] w-full"
+              />
+            )}
+            {previewUrl && isImage && (
+              <div className="flex max-h-[60vh] items-center justify-center overflow-auto p-2">
+                <img src={previewUrl} alt={document.name} className="max-h-[56vh] max-w-full object-contain" />
+              </div>
+            )}
+            {(!previewUrl || (!isPdf && !isImage)) && (
+              <div className="flex min-h-[200px] flex-col items-center justify-center gap-3 px-6 py-8 text-center">
+                <FileText className="size-5 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">
+                  {previewUrl ? "Preview isn't available for this file type" : "File isn't available"}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -102,15 +134,12 @@ function DocumentPreviewDialog({ open, onOpenChange, document }) {
             type="button"
             variant="secondary"
             className="gap-2"
-            onClick={() => {
-              const link = document.createElement("a")
-              link.href = "#"
-              link.download = document?.name ?? "document"
-              link.click()
-            }}
+            asChild
           >
-            <Download className="size-3.5" />
-            Download
+            <a href={document.downloadUrl} download={document.name}>
+              <Download className="size-3.5" />
+              Download
+            </a>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -121,12 +150,14 @@ function DocumentPreviewDialog({ open, onOpenChange, document }) {
 // ── All Deliverables Dialog Row ──────────────────────────────────────────────
 
 function DeliverableDialogRow({ document, onPreview }) {
-  const Icon = getFileIcon(document?.fileType)
+  const Icon = getFileIcon(document)
 
   const handleDownload = () => {
-    const link = document.createElement("a")
-    link.href = "#"
+    const link = window.document.createElement("a")
+    link.href = document.downloadUrl
     link.download = document?.name ?? "document"
+    link.target = "_blank"
+    link.rel = "noopener noreferrer"
     link.click()
   }
 
@@ -175,6 +206,7 @@ function toFileRecord(file) {
     name: file.name,
     size: file.size,
     type: file.type,
+    file,
   }
 }
 
@@ -182,17 +214,19 @@ function toFileRecord(file) {
 
 const MAX_PREVIEW_DOCS = 1
 
-export function UploadDeliverables({ engagement, className }) {
+export function UploadDeliverables({
+  deliverables = [],
+  isUploading = false,
+  onUpload,
+  className,
+}) {
   const inputRef = useRef(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [allDocsOpen, setAllDocsOpen] = useState(false)
   const [previewDoc, setPreviewDoc] = useState(null)
-  const [files, setFiles] = useState([])
   const [selectedFiles, setSelectedFiles] = useState([])
 
-  // Combine engagement documents with any locally uploaded files
-  const engagementDocs = engagement?.documents ?? []
-  const allDeliverables = [...engagementDocs, ...files]
+  const allDeliverables = deliverables
   const hasDocuments = allDeliverables.length > 0
   const previewDocs = allDeliverables.slice(-1)
 
@@ -206,9 +240,9 @@ export function UploadDeliverables({ engagement, className }) {
     event.target.value = ""
   }
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (selectedFiles.length === 0) return
-    setFiles((current) => [...current, ...selectedFiles])
+    await onUpload?.(selectedFiles.map((item) => item.file))
     setSelectedFiles([])
     setDialogOpen(false)
   }
@@ -277,7 +311,7 @@ export function UploadDeliverables({ engagement, className }) {
           <DialogHeader>
             <DialogTitle>Upload Deliverables</DialogTitle>
             <DialogDescription>
-              Select files to make available for this engagement. Files remain in frontend state for now.
+              Select files to make available for this engagement.
             </DialogDescription>
           </DialogHeader>
           <input
@@ -312,7 +346,9 @@ export function UploadDeliverables({ engagement, className }) {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="button" onClick={handleUpload} disabled={selectedFiles.length === 0}>Upload</Button>
+            <Button type="button" onClick={handleUpload} disabled={selectedFiles.length === 0 || isUploading}>
+              {isUploading ? "Uploading..." : "Upload"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

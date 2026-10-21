@@ -19,6 +19,7 @@ import {
   useFetchEngagement,
   useFetchEngagementActivity,
   useFetchEngagementDocuments,
+  useFetchEngagementDeliverables,
   useDeleteEngagementDocument,
   useUploadEngagementDocument,
 } from "@/hooks/useEngagements"
@@ -169,10 +170,8 @@ export default function ClientEngagementDetailPage() {
   const uploadDocument = useUploadEngagementDocument(id)
   const deleteDocument = useDeleteEngagementDocument(id)
 
-  // TODO: point this at your Supabase deliverables data (hook or field).
-  // If you move this to its own hook, pass that hook's isLoading below.
-  const deliverables = engagement?.deliverables ?? []
-  const isDeliverablesLoading = false
+  const { data: deliverables = [], isLoading: isDeliverablesLoading } =
+    useFetchEngagementDeliverables(id)
 
   // Documents no longer carry their own review status — it lives on the
   // parent task now. Look each document's task up once per render.

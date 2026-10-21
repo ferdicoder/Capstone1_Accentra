@@ -26,6 +26,8 @@ import {
   useUpdateEngagementTaskDeadline,
   useFetchEngagementActivity,
   useFetchEngagementDocuments,
+  useFetchEngagementDeliverables,
+  useUploadEngagementDeliverable,
 } from "@/hooks/useEngagements"
 import { authStore } from "@/store/authStore"
 import { can } from "@/config/roles"
@@ -54,6 +56,10 @@ export default function EngagementDetailsPage() {
   const { data: documents = [] } = useFetchEngagementDocuments(
     canManageEngagements ? id : null
   )
+  const { data: deliverables = [] } = useFetchEngagementDeliverables(
+    canManageEngagements ? id : null
+  )
+  const uploadDeliverable = useUploadEngagementDeliverable(id)
   const updateStatus = useUpdateEngagementStatus()
   const setTaskCompleted = useSetTaskCompleted(id)
   const reviewTask = useReviewEngagementTask(id)
@@ -271,7 +277,18 @@ export default function EngagementDetailsPage() {
         {/* ── Main content ──────────────────────────────────────────────── */}
         {activeTab === "overview" && canManageEngagements && <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-w-0 flex-col gap-5">
-            <UploadDeliverables engagement={engagement} />
+            <UploadDeliverables
+              deliverables={deliverables}
+              isUploading={uploadDeliverable.isPending}
+              onUpload={async (files) => {
+                await Promise.all(
+                  files.map((file) =>
+                    uploadDeliverable.mutateAsync({ engagementId: id, file })
+                  )
+                )
+                showNotice("Deliverables uploaded")
+              }}
+            />
             <TaskList
               engagement={engagement}
               documents={documents}
