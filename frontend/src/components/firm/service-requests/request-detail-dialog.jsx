@@ -23,7 +23,7 @@ import { formatSubmittedDate } from "./service-request-variants"
  * `onApproveAndEngage` instead of `onApprove` so the parent can close this
  * modal and open the Create Engagement modal on top.
  */
-export function RequestDetailDialog({ open = false, onOpenChange, request, onApprove, onReject, onApproveAndEngage }) {
+export function RequestDetailDialog({ open = false, onOpenChange, request, onApprove, onReject, onApproveAndEngage, showPrice = false }) {
   const [processing, setProcessing] = useState(null) // null | "approve" | "reject"
 
   const handleAction = (action) => {
@@ -71,7 +71,7 @@ export function RequestDetailDialog({ open = false, onOpenChange, request, onApp
 
         <div className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-5">
-            <RequestDetailsCard request={request} />
+            <RequestDetailsCard request={request} showPrice={showPrice} />
             <ClientInfoCard request={request} />
           </div>
         </div>

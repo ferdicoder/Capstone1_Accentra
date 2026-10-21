@@ -19,8 +19,13 @@ export function RequestDetailRow({ label, children, className }) {
   )
 }
 
-/** Presentational card showing what the client requested and their notes. */
-export function RequestDetailsCard({ request, className, ...props }) {
+/**
+ * Presentational card showing what the client requested and their notes.
+ *
+ * The Price row is only rendered when `showPrice` is true — the Service
+ * Request page opts in for Billing Officers only.
+ */
+export function RequestDetailsCard({ request, showPrice = false, className, ...props }) {
   return (
     <div
       data-slot="request-details-card"
@@ -38,11 +43,13 @@ export function RequestDetailsCard({ request, className, ...props }) {
         <RequestDetailRow label="Requested Service">
           <span className="font-medium">{request?.serviceName}</span>
         </RequestDetailRow>
-        <RequestDetailRow label="Price">
-          <span className="font-semibold tabular-nums text-foreground">
-            {formatRevenue(request?.revenue)}
-          </span>
-        </RequestDetailRow>
+        {showPrice && (
+          <RequestDetailRow label="Price">
+            <span className="font-semibold tabular-nums text-foreground">
+              {formatRevenue(request?.revenue)}
+            </span>
+          </RequestDetailRow>
+        )}
         <RequestDetailRow label="Status">
           <ServiceRequestStatusBadge status={request?.status} />
         </RequestDetailRow>

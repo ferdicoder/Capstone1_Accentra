@@ -9,9 +9,13 @@ import { CreateEngagementDialog } from "@/components/firm/service-requests/creat
 import { RequiredDocumentsDialog } from "@/components/firm/service-requests/required-documents-dialog"
 import { ServiceRequestFilters } from "@/components/firm/service-requests/service-request-filters"
 import { ServiceRequestList } from "@/components/firm/service-requests/service-request-list"
-import { statusFilterOptions } from "@/components/firm/service-requests/service-request-variants"
+import {
+  statusFilterOptions,
+  canViewServiceRequestPrice,
+} from "@/components/firm/service-requests/service-request-variants"
 import { engagementStore } from "@/components/firm/engagements/engagement-store" // still mocked — no engagements API yet
 import { generateEngagementNumber } from "@/components/firm/engagements/engagement-variants"
+import { authStore } from "@/store/authStore"
 import { useFetchServiceRequests, useUpdateServiceRequestStatus } from "@/hooks/useServiceRequests"
 import { useCreateEngagementFromRequest } from "@/hooks/useEngagements"
 
@@ -19,6 +23,10 @@ export default function ServiceRequestsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
+
+  // The Price of a service request is only visible to Billing Officers.
+  const role = authStore((state) => state.role)
+  const canViewPrice = canViewServiceRequestPrice(role)
 
   const { data: requests = [], isLoading, error } = useFetchServiceRequests()
   const updateStatus = useUpdateServiceRequestStatus()
@@ -132,6 +140,7 @@ export default function ServiceRequestsPage() {
 
       <ServiceRequestList
         requests={filteredRequests}
+        showPrice={canViewPrice}
         loading={isLoading}
         emptyMessage="No service requests match your filters."
         emptyDescription="Try clearing the search or changing the status filter."
@@ -154,6 +163,7 @@ export default function ServiceRequestsPage() {
           if (!open) closeRequest()
         }}
         request={selectedRequest}
+        showPrice={canViewPrice}
         onApprove={handleApproveAndEngage}
         onApproveAndEngage={handleApproveAndEngage}
         onReject={handleReject}

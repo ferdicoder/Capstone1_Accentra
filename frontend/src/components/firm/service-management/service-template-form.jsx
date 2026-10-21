@@ -44,6 +44,7 @@ export function ServiceTemplateForm({
   mode = "create",
   initialValues,
   categoryOptions = categoryFilterOptions,
+  existingServices = [],
   onSubmit,
   submitting = false,
   progress,
@@ -94,6 +95,7 @@ export function ServiceTemplateForm({
 
     const newErrors = {
       name: !name.trim(),
+      duplicateName: false,
       category: !category,
       basePrice: !basePrice.trim() || !Number.isFinite(parsedPrice) || parsedPrice < 0,
       estimatedTime:
@@ -102,10 +104,21 @@ export function ServiceTemplateForm({
         parsedEstimatedTime < 0,
       tasks: taskErrors,
     }
+
+    // A service template is identified by its name, compared the same way the
+    // category duplicate check below compares names.
+    if (mode === "create") {
+      newErrors.duplicateName = existingServices.some(
+        (service) =>
+          (service?.name ?? "").trim().toLowerCase() === name.trim().toLowerCase()
+      )
+    }
+
     setErrors(newErrors)
 
     const invalid =
       newErrors.name ||
+      newErrors.duplicateName ||
       newErrors.category ||
       newErrors.basePrice ||
       newErrors.estimatedTime ||
@@ -149,12 +162,24 @@ export function ServiceTemplateForm({
           <Input
             id="service-name"
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value)
+              if (errors.duplicateName)
+                setErrors((current) => ({ ...current, duplicateName: false }))
+            }}
             placeholder="Tax Filing - Non VAT"
             disabled={submitting}
-            className={cn(errors.name && "border-red-500 focus-visible:ring-red-500")}
+            className={cn(
+              (errors.name || errors.duplicateName) &&
+                "border-red-500 focus-visible:ring-red-500"
+            )}
           />
           {errors.name && <p className="text-sm text-red-500">Service name is required.</p>}
+          {errors.duplicateName && (
+            <p className="text-sm text-red-500">
+              A service with this name already exists.
+            </p>
+          )}
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -356,6 +381,7 @@ export function ServiceCreateDialog({
   onOpenChange,
   onSubmit,
   categoryOptions = categoryFilterOptions,
+  existingServices = [],
   submitting = false,
   progress,
   error,
@@ -377,6 +403,7 @@ export function ServiceCreateDialog({
         <ServiceTemplateForm
           mode="create"
           categoryOptions={categoryOptions}
+          existingServices={existingServices}
           onSubmit={onSubmit}
           submitting={submitting}
           progress={progress}

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Lock } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -14,7 +14,7 @@ import { CancelEngagementDialog } from "@/components/firm/engagements/cancel-eng
 import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
 import { ActivityLogItem } from "@/components/firm/engagements/ActivityLogItem"
 import { EngagementDocumentReviewTab } from "@/components/firm/engagements/engagement-document-review-tab"
-import { engagementStatusOptions } from "@/lib/workflow-stages"
+import { canViewEngagementDocuments, engagementStatusOptions } from "@/lib/workflow-stages"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
 import {
   useFetchEngagement,
@@ -42,7 +42,7 @@ export default function EngagementDetailsPage() {
       : "/admin"
   const role = authStore((state) => state.role)
   const canManageEngagements = can(role, "manage_engagements")
-  const canCancelEngagement = can(role, "cancel_engagement")
+  const hasCancelPermission = can(role, "cancel_engagement")
   // const sectionLabel = basePath === "/firm" ? "Firm Staff" : "Firm Admin"
 
   const { data: engagement, isLoading, error } = useFetchEngagement(id, {
@@ -51,8 +51,14 @@ export default function EngagementDetailsPage() {
   const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(
     canManageEngagements ? id : null
   )
+  // The client's documents are only fetched once the engagement has been moved
+  // to For Validation.
+  const canViewDocuments =
+    Boolean(engagement) &&
+    canManageEngagements &&
+    canViewEngagementDocuments(engagement?.status)
   const { data: documents = [] } = useFetchEngagementDocuments(
-    canManageEngagements ? id : null
+    canViewDocuments ? id : null
   )
   const updateStatus = useUpdateEngagementStatus()
   const setTaskCompleted = useSetTaskCompleted(id)
@@ -77,6 +83,12 @@ export default function EngagementDetailsPage() {
 
   if (isLoading) return <PageSkeleton type="service-requests" />
   if (error || !engagement) return null
+
+  // Completed and Cancelled are terminal workflow states, so the cancel
+  // action is not offered for them.
+  const isTerminalEngagement =
+    engagement.status === "completed" || engagement.status === "cancelled"
+  const canCancelEngagement = hasCancelPermission && !isTerminalEngagement
 
   const showNotice = (message) => {
     setNotice(message)
@@ -255,9 +267,11 @@ export default function EngagementDetailsPage() {
             )}
           >
             Documents
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-              {documents.length}
-            </span>
+            {canViewDocuments && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                {documents.length}
+              </span>
+            )}
           </button>
         </div>}
 
@@ -307,12 +321,29 @@ export default function EngagementDetailsPage() {
         </div>}
 
         {activeTab === "documents" && (
-          <EngagementDocumentReviewTab
-            engagement={engagement}
-            documents={reviewDocuments}
-            history={reviewHistory}
-            onReview={handleDocumentReview}
-          />
+          canViewDocuments ? (
+            <EngagementDocumentReviewTab
+              engagement={engagement}
+              documents={reviewDocuments}
+              history={reviewHistory}
+              onReview={handleDocumentReview}
+            />
+          ) : (
+            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+              <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                  <Lock className="size-5 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-foreground">
+                  Documents are not available yet
+                </p>
+                <p className="max-w-md text-sm text-muted-foreground">
+                  The client's uploaded documents become available once the
+                  engagement is moved to For Validation.
+                </p>
+              </div>
+            </div>
+          )
         )}
         {!canManageEngagements && (
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">

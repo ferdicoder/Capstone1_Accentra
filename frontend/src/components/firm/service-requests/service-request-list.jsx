@@ -1,4 +1,5 @@
 import { Inbox } from "lucide-react"
+import { useMemo } from "react"
 
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -9,6 +10,7 @@ import {
   formatRevenue,
   formatSubmittedDate,
   getClientFullName,
+  hideServiceRequestPriceColumn,
 } from "./service-request-variants"
 
 const defaultServiceRequestColumns = [
@@ -72,10 +74,16 @@ const defaultServiceRequestColumns = [
   },
 ]
 
-/** Presentational, data-driven service request table. Receives everything through props. */
+/**
+ * Presentational, data-driven service request table. Receives everything through props.
+ *
+ * The Price column is only rendered when `showPrice` is true — the Service
+ * Request page opts in for Billing Officers only.
+ */
 export function ServiceRequestList({
   requests = [],
   columns = defaultServiceRequestColumns,
+  showPrice = false,
   getRowKey = (request, index) => request?.id ?? index,
   loading = false,
   skeletonRows = 5,
@@ -88,7 +96,14 @@ export function ServiceRequestList({
 }) {
   const showActions = typeof actions === "function"
   const isEmpty = !loading && requests.length === 0
-  const columnCount = columns.length + (showActions ? 1 : 0)
+
+  // Roles that may not see the Price get the same table without that column.
+  const visibleColumns = useMemo(
+    () => (showPrice ? columns : hideServiceRequestPriceColumn(columns)),
+    [columns, showPrice]
+  )
+
+  const columnCount = visibleColumns.length + (showActions ? 1 : 0)
 
   return (
     <div
@@ -100,7 +115,7 @@ export function ServiceRequestList({
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
-              {columns.map((column) => (
+              {visibleColumns.map((column) => (
                 <th
                   key={column.key ?? column.label}
                   scope="col"
@@ -154,7 +169,7 @@ export function ServiceRequestList({
                     <ServiceRequestRow
                       key={getRowKey(request, index)}
                       request={request}
-                      columns={columns}
+                      columns={visibleColumns}
                       onRowClick={onRowClick}
                     >
                       {showActions && (

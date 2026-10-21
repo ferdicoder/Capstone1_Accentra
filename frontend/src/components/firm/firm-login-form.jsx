@@ -14,6 +14,9 @@ import { useNavigate } from "react-router-dom";
 import { signinToPortal } from "@/services/authService";
 import { getHome } from "@/config/roles";
 import { AdminForgotPasswordModal } from "@/components/firm/admin-forgot-password-modal";
+import { getAccountStatus, getAccountStatusByEmail } from "@/lib/userAccount";
+import { authStore } from "@/store/authStore";
+import { supabase } from "@/config/supabase";
 
 export function FirmLoginForm({
   className,
@@ -42,8 +45,27 @@ export function FirmLoginForm({
 
       // FirmLoginForm: replace the try block
       try {
-        const { role } = await signinToPortal("firm", email, password)
-        navigate(getHome(role))
+        // A deactivated account must not be able to sign in. This is checked
+        // before signing in so the message survives the redirect to the home
+        // page that a successful sign-in triggers.
+        const accountStatus = await getAccountStatusByEmail(email);
+        if (accountStatus === "deactivated") {
+          setLoginError("This account has been deactivated. Please contact your firm administrator.");
+          return;
+        }
+
+        const result = await signinToPortal("firm", email, password)
+
+        // Safety net for an account deactivated while the sign-in was running.
+        const status = await getAccountStatus(result.data?.user?.id);
+        if (status === "deactivated") {
+          await supabase.auth.signOut();
+          authStore.getState().clearAuth();
+          setLoginError("This account has been deactivated. Please contact your firm administrator.");
+          return;
+        }
+
+        navigate(getHome(result.role))
       } catch (error) {
         setLoginError(error.message)
       }

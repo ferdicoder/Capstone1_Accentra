@@ -67,7 +67,7 @@ export const roleConfig = {
     label: "Firm Staff",
     nav: firmUserNav,
     team: { name: "Accentra", plan: "Firm Staff" },
-    profileUrl: "/firm/dashboard",
+    profileUrl: "/firm/profile",
   },
   billing_officer: {
     label: "Billing Officer",

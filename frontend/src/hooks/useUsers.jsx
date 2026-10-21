@@ -1,21 +1,42 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { queryKeys } from "@/config/queryKeys"
 
-import { 
-  getUsers, 
-  updateUser, 
-  updateUserStatus, 
+import {
+  getUsers,
+  updateUser,
+  updateUserStatus,
   createStaff,
   fetchFirmRoles
 } from "@/services/api/userAPI"
+import { fetchUserBirthdays, saveUserBirthday } from "@/lib/userBirthday"
 
 
 export function useFetchUsers() {
   return useQuery({
     queryKey: queryKeys.users,
     queryFn: getUsers,
-    staleTime: 1000 * 60, 
+    staleTime: 1000 * 60,
     gcTime: 1000 * 60
+  })
+}
+
+// Birthdays live in the users table but are not part of the user list query.
+export function useUserBirthdays(userIds = []) {
+  return useQuery({
+    queryKey: queryKeys.userBirthdays(userIds),
+    queryFn: () => fetchUserBirthdays(userIds),
+    enabled: userIds.length > 0,
+    staleTime: 1000 * 60,
+  })
+}
+
+export function useSaveUserBirthday() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: saveUserBirthday,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] })
+    },
   })
 }
 

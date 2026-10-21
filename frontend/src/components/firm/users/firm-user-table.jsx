@@ -21,6 +21,7 @@ import { FirmUserRow } from "./firm-user-row"
  *   short, centered columns are evenly spaced. Default false (auto layout).
  * @param {"right"|"center"} actionsAlign - Alignment of the Actions column. Default "right".
  * @param {Function} onRowClick - Optional (user, event) => void applied to every row.
+ * @param {ReactNode} footer - Optional content rendered under the table rows.
  * @param {string} className - Extra classes merged onto the wrapper card.
  */
 export function FirmUserTable({
@@ -35,6 +36,7 @@ export function FirmUserTable({
   actionsAlign = "right",
   equalColumns = false,
   onRowClick,
+  footer,
   className,
   ...props
 }) {
@@ -125,6 +127,8 @@ export function FirmUserTable({
           </tbody>
         </table>
       </div>
+
+      {footer && <div className="border-t border-border">{footer}</div>}
     </div>
   )
 }
