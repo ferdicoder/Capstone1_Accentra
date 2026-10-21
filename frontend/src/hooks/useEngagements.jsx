@@ -17,6 +17,8 @@ import {
   getEngagementDocuments,
   uploadEngagementDocument,
   deleteEngagementDocument,
+  getEngagementDeliverables,
+  uploadEngagementDeliverable,
 } from "@/services/api/documentAPI"
 import { queryKeys } from "@/config/queryKeys"
 
@@ -142,6 +144,24 @@ export function useFetchEngagementDocuments(engagementId) {
     queryKey: queryKeys.engagementDocuments(engagementId),
     queryFn: () => getEngagementDocuments(engagementId),
     enabled: !!engagementId,
+  })
+}
+
+export function useFetchEngagementDeliverables(engagementId) {
+  return useQuery({
+    queryKey: queryKeys.engagementDeliverables(engagementId),
+    queryFn: () => getEngagementDeliverables(engagementId),
+    enabled: !!engagementId,
+  })
+}
+
+export function useUploadEngagementDeliverable(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: uploadEngagementDeliverable,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementDeliverables(engagementId) })
+    },
   })
 }
 

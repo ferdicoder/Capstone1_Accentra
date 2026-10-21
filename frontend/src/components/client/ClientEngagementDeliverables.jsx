@@ -43,6 +43,20 @@ const MAX_PREVIEW_DELIVERABLES = 1
 // Prefer the stored file type, fall back to the file extension.
 function resolveFileType(file) {
   const explicit = file?.fileType?.toString().toUpperCase()
+  const mimeType = file?.mimeType?.toString().toLowerCase()
+  const mimeExtension = mimeType?.split("/").pop()?.toUpperCase()
+  const normalizedMimeType = mimeType === "application/pdf"
+    ? "PDF"
+    : mimeType?.startsWith("image/")
+      ? mimeExtension
+      : mimeType?.startsWith("text/csv")
+        ? "CSV"
+        : mimeType?.includes("spreadsheet") || mimeType?.includes("excel")
+          ? "XLSX"
+          : mimeType?.includes("word")
+            ? "DOCX"
+            : null
+  if (explicit?.includes("/")) return normalizedMimeType
   if (explicit) return explicit
   const ext = file?.name?.split(".").pop()
   return ext && ext !== file?.name ? ext.toUpperCase() : null
@@ -190,6 +204,7 @@ function DeliverablePreviewDialog({ file, onOpenChange }) {
   const hasUrl = Boolean(shown.downloadUrl)
   const isPdf = type === "PDF"
   const isImage = IMAGE_TYPES.includes(type)
+  const previewUrl = hasUrl ? `${shown.downloadUrl}?inline=true` : null
   const uploader = shown.uploadedBy ?? shown.releasedBy
   const description = shown.description ?? shown.note
 
@@ -214,7 +229,7 @@ function DeliverablePreviewDialog({ file, onOpenChange }) {
         <div className="overflow-hidden rounded-xl border border-border bg-muted/30">
           {hasUrl && isPdf && (
             <iframe
-              src={shown.downloadUrl}
+              src={previewUrl}
               title={`Preview of ${shown.name}`}
               className="h-[60vh] w-full bg-background"
             />
