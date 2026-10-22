@@ -231,14 +231,12 @@ export default function FirmProfilePage() {
 
           {activeTab === "info" && (
             <form onSubmit={handleSaveInfo} className="flex flex-col gap-6">
-              {/* items-stretch (not items-start) so both cards match height even though their
-                  field content differs slightly — avoids the shorter card trailing off with dead space. */}
               <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
-                {/* Firm Details: 3 field-rows */}
                 <div className="flex flex-col rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <h2 className="mb-5 text-sm font-semibold">
-                    Firm Details
-                  </h2>
+                  <h2 className="text-sm font-semibold">Firm Information</h2>
+                  <p className="mb-5 mt-1 text-sm text-muted-foreground">
+                    Details about your accounting firm.
+                  </p>
                   <FieldGroup className="gap-5">
                     <Field>
                       <FieldLabel htmlFor="firmName">Firm Name</FieldLabel>
@@ -278,15 +276,15 @@ export default function FirmProfilePage() {
                         </select>
                       </Field>
                     </div>
+
                   </FieldGroup>
                 </div>
 
-                {/* Admin Contact: 3 field-rows — Contact Number moved here (was previously with Firm
-                    Details), so both cards run the same number of rows and finish at the same height. */}
                 <div className="flex flex-col rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <h2 className="mb-5 text-sm font-semibold">
-                    Admin Contact
-                  </h2>
+                  <h2 className="text-sm font-semibold">Personal Information</h2>
+                  <p className="mb-5 mt-1 text-sm text-muted-foreground">
+                    Contact details for the firm administrator.
+                  </p>
                   <FieldGroup className="gap-5">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field>
@@ -338,17 +336,134 @@ export default function FirmProfilePage() {
               </div>
 
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <h2 className="mb-5 text-sm font-semibold">Office Address</h2>
-                <Field>
-                  <FieldLabel htmlFor="address">Office Address</FieldLabel>
-                  <Input
-                    id="address"
-                    name="address"
-                    value={profile.address}
-                    onChange={updateProfileField}
-                    className={controlClass}
-                  />
-                </Field>
+                  <div className="mb-5">
+                    <h2 className="text-sm font-semibold">Office Address</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Enter the firm’s business address.
+                    </p>
+                  </div>
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="address">
+                        Address Line 1<span className="text-red-500">*</span>
+                      </FieldLabel>
+                      <Input
+                        id="address"
+                        name="address"
+                        value={profile.address}
+                        onChange={updateProfileField}
+                        placeholder="Unit, building, street number and street name"
+                        autoComplete="address-line1"
+                        className={controlClass}
+                      />
+                    </Field>
+
+                    <Field>
+                      <FieldLabel htmlFor="addressLine2">
+                        Address Line 2
+                        <span className="text-xs font-normal text-muted-foreground"> (optional)</span>
+                      </FieldLabel>
+                      <Input
+                        id="addressLine2"
+                        name="addressLine2"
+                        placeholder="Floor, suite, or additional details"
+                        autoComplete="address-line2"
+                        className={controlClass}
+                      />
+                    </Field>
+
+                    <Field>
+                      <FieldLabel htmlFor="barangay">
+                        Barangay<span className="text-red-500">*</span>
+                      </FieldLabel>
+                      <Input
+                        id="barangay"
+                        name="barangay"
+                        placeholder="Barangay"
+                        autoComplete="address-level3"
+                        className={controlClass}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Required for Philippine addresses.
+                      </p>
+                    </Field>
+
+                    <Field>
+                      <FieldLabel htmlFor="city">
+                        City / Municipality<span className="text-red-500">*</span>
+                      </FieldLabel>
+                      <Input
+                        id="city"
+                        name="city"
+                        placeholder="City or municipality"
+                        autoComplete="address-level2"
+                        className={controlClass}
+                      />
+                    </Field>
+
+                    <Field>
+                      <FieldLabel htmlFor="province">
+                        Province
+                        <span className="text-xs font-normal text-muted-foreground"> (conditional)</span>
+                      </FieldLabel>
+                      <Input
+                        id="province"
+                        name="province"
+                        placeholder="Province"
+                        autoComplete="address-level1"
+                        className={controlClass}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enter when applicable; not needed for Metro Manila addresses.
+                      </p>
+                    </Field>
+
+                    <Field>
+                      <FieldLabel htmlFor="region">
+                        Region<span className="text-red-500">*</span>
+                      </FieldLabel>
+                      <Input
+                        id="region"
+                        name="region"
+                        placeholder="Region"
+                        autoComplete="address-level1"
+                        className={controlClass}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Required for Philippine addresses.
+                      </p>
+                    </Field>
+
+                    <Field>
+                      <FieldLabel htmlFor="postalCode">
+                        Postal Code
+                        <span className="text-xs font-normal text-muted-foreground"> (conditional)</span>
+                      </FieldLabel>
+                      <Input
+                        id="postalCode"
+                        name="postalCode"
+                        placeholder="Postal code"
+                        autoComplete="postal-code"
+                        className={controlClass}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enter when applicable for the address.
+                      </p>
+                    </Field>
+
+                    <Field>
+                      <FieldLabel htmlFor="country">
+                        Country<span className="text-red-500">*</span>
+                      </FieldLabel>
+                      <Input
+                        id="country"
+                        name="country"
+                        placeholder="Country"
+                        autoComplete="country-name"
+                        className={controlClass}
+                      />
+                    </Field>
+                  </div>
               </div>
 
               <div className="flex justify-end">
