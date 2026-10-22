@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
-import { useFetchUsers, useUserBirthdays } from "@/hooks/useUsers"
+import { useFetchUsers } from "@/hooks/useUsers"
 import { authStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 
@@ -16,17 +16,6 @@ import { FirmUserStatusBadge } from "@/components/firm/users/firm-user-status-ba
 
 const controlClass = "w-full bg-background"
 const readOnlyClass = cn(controlClass, "cursor-not-allowed bg-muted/50 text-muted-foreground")
-
-const formatDate = (value) => {
-  if (!value) return "—"
-  const date = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  })
-}
 
 const getInitials = (name) => {
   const initials = (name ?? "")
@@ -57,10 +46,6 @@ export default function StaffProfilePage() {
     [isOwnProfile, users, id]
   )
 
-  const { data: birthdays = {} } = useUserBirthdays(
-    useMemo(() => (staffUser ? [staffUser.id] : []), [staffUser])
-  )
-
   const profile = useMemo(() => {
     if (isOwnProfile) {
       return {
@@ -72,7 +57,6 @@ export default function StaffProfilePage() {
         contactNumber: authUser?.contactNumber ?? "",
         role: authRole ?? "",
         status: "",
-        birthday: authUser?.birthDate ?? "",
       }
     }
 
@@ -85,9 +69,8 @@ export default function StaffProfilePage() {
       contactNumber: staffUser?.contactNumber ?? "",
       role: staffUser?.role ?? "",
       status: staffUser?.status ?? "",
-      birthday: birthdays[staffUser?.id] ?? "",
     }
-  }, [isOwnProfile, authUser, authRole, staffUser, birthdays])
+  }, [isOwnProfile, authUser, authRole, staffUser])
 
   usePageMeta({
     title: isOwnProfile ? "My Profile" : "Staff Profile",
@@ -165,16 +148,6 @@ export default function StaffProfilePage() {
                 <Input
                   id="staff-last-name"
                   value={profile.lastName}
-                  readOnly
-                  disabled
-                  className={readOnlyClass}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="staff-birthday">Birthday</FieldLabel>
-                <Input
-                  id="staff-birthday"
-                  value={formatDate(profile.birthday)}
                   readOnly
                   disabled
                   className={readOnlyClass}

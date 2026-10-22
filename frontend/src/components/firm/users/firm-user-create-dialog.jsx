@@ -2,7 +2,6 @@ import { useEffect, useState } from "react"
 import { ChevronDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { isEmailAlreadyRegistered } from "@/lib/userAccount"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -97,7 +96,6 @@ export function FirmUserCreateDialog({
     roleOptions.some((option) => option.value === defaultRole) ? defaultRole : ""
   )
   const [errors, setErrors] = useState({})
-  const [isChecking, setIsChecking] = useState(false)
 
   // roleOptions often arrives async (fetched from the roles table), so the
   // dialog can open before it's populated. Apply the default once it lands,
@@ -111,7 +109,7 @@ export function FirmUserCreateDialog({
   const activeRole = roleOptions.find((option) => option.value === role)
   const rolesUnavailable = !rolesLoading && roleOptions.length === 0
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault()
 
     const newErrors = {
@@ -132,18 +130,6 @@ export function FirmUserCreateDialog({
 
     setErrors(newErrors)
     if (Object.values(newErrors).some(Boolean)) return
-
-    // Also check the database, so an account that is not in the firm user list
-    // is caught as well.
-    setIsChecking(true)
-    try {
-      if (await isEmailAlreadyRegistered(email)) {
-        setErrors({ email: DUPLICATE_EMAIL_ERROR })
-        return
-      }
-    } finally {
-      setIsChecking(false)
-    }
 
     onSubmit?.({
       firstName: firstName.trim(),
@@ -370,11 +356,11 @@ export function FirmUserCreateDialog({
             </Button>
             <Button
               type="submit"
-              disabled={submitting || isChecking || rolesUnavailable}
+              disabled={submitting || rolesUnavailable}
               className="bg-forest-900 text-white hover:opacity-90"
             >
-              {(submitting || isChecking) && <Loader2 className="size-4 animate-spin" />}
-              {isChecking ? "Checking…" : submitting ? `${submitLabel}…` : submitLabel}
+              {submitting && <Loader2 className="size-4 animate-spin" />}
+              {submitting ? `${submitLabel}…` : submitLabel}
             </Button>
           </DialogFooter>
         </form>

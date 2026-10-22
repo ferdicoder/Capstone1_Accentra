@@ -19,8 +19,6 @@ import {
   useToggleUserStatus,
   useCreateStaff,
   useFetchFirmRoles,
-  useUserBirthdays,
-  useSaveUserBirthday,
 } from "@/hooks/useUsers"
 
 
@@ -58,16 +56,6 @@ export default function UserManagementPage() {
   const updateUser = useUpdateUser()
   const toggleStatus = useToggleUserStatus()
   const createStaff = useCreateStaff()
-  const saveBirthday = useSaveUserBirthday()
-
-  // Birthdays are not part of the user list query, so they are read separately.
-  const userIds = useMemo(() => users.map((user) => user.id), [users])
-  const { data: birthdays = {} } = useUserBirthdays(userIds)
-
-  const usersWithBirthday = useMemo(
-    () => users.map((user) => ({ ...user, birthdate: birthdays[user.id] ?? "" })),
-    [users, birthdays]
-  )
 
   // Emails already taken, so the Add User form can refuse a duplicate.
   const existingEmails = useMemo(
@@ -85,14 +73,19 @@ export default function UserManagementPage() {
   // for searching
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase()
-    return usersWithBirthday.filter((user) => {
+    const matchingUsers = users.filter((user) => {
       const displayName = buildDisplayName(user).toLowerCase()
       const matchesSearch =
         !query || displayName.includes(query) || (user.email ?? "").toLowerCase().includes(query)
       const matchesRole = !roleFilter || user.role === roleFilter
       return matchesSearch && matchesRole
     })
-  }, [usersWithBirthday, search, roleFilter])
+    return matchingUsers
+  }, [
+    users,
+    search,
+    roleFilter,
+  ])
 
   // The list is paginated, 8 firm users per page.
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
@@ -162,12 +155,7 @@ export default function UserManagementPage() {
 
   const handleCreate = (values) => {
     createStaff.mutate(values, {
-      onSuccess: (createdUser) => {
-        // The account is created with the birthday in its auth metadata; the
-        // users table column is written here so the list shows it right away.
-        if (values.birthdate && createdUser?.id) {
-          saveBirthday.mutate({ userId: createdUser.id, birthdate: values.birthdate })
-        }
+      onSuccess() {
         setDialogOpen(false)
         setNotice(`${values.firstName} ${values.lastName} added`)
       },
@@ -198,9 +186,6 @@ export default function UserManagementPage() {
   const handleSave = (values) => {
     updateUser.mutate(values, {
       onSuccess: () => {
-        if (values.birthdate !== undefined && values.id) {
-          saveBirthday.mutate({ userId: values.id, birthdate: values.birthdate })
-        }
         setEditDialogOpen(false)
         setNotice(`${values.firstName} ${values.lastName} updated`)
       },

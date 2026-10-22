@@ -1,7 +1,6 @@
 // TODO: stale time ng mga data base sa relevancy
 export const queryKeys = {
   users: ["users"],
-  userBirthdays: (ids) => ["users", "birthdays", (ids ?? []).join(",")],
   services: ["services"],
   roles: ["roles"],
   businesses: ["businesses"],
