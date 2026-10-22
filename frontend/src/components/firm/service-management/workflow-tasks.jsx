@@ -1,9 +1,10 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { FileText, Plus, Upload, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
@@ -21,6 +22,8 @@ import {
   REFERENCE_DOCUMENT_MIME_TYPES,
 } from "./service-management-variants"
 
+const ATTACHMENT_SKELETON_DELAY_MS = 500
+
 /**
  * Presentational single-file upload. Fully controlled via `file` +
  * `onSelect`/`onRemove`. No upload API — the raw File object is passed up so
@@ -29,9 +32,28 @@ import {
  * A file outside the supported types is rejected here, so it never reaches
  * the form state and is never included in an upload.
  */
-export function ReferenceDocumentUpload({ file, onSelect, onRemove, disabled = false, error, className }) {
+export function ReferenceDocumentUpload({
+  file,
+  onSelect,
+  onRemove,
+  disabled = false,
+  uploading = false,
+  error,
+  className,
+}) {
   const inputRef = useRef(null)
+  const attachmentTimerRef = useRef(null)
+  const [pendingFile, setPendingFile] = useState(null)
   const [fileTypeError, setFileTypeError] = useState("")
+
+  useEffect(
+    () => () => {
+      if (attachmentTimerRef.current) {
+        clearTimeout(attachmentTimerRef.current)
+      }
+    },
+    []
+  )
 
   const handleFiles = (fileList) => {
     const selected = fileList?.[0]
@@ -43,11 +65,27 @@ export function ReferenceDocumentUpload({ file, onSelect, onRemove, disabled = f
     }
 
     setFileTypeError("")
-    onSelect?.({ name: selected.name, size: selected.size, type: selected.type, file: selected })
+    const selectedFile = {
+      name: selected.name,
+      size: selected.size,
+      type: selected.type,
+      file: selected,
+    }
+    setPendingFile(selectedFile)
+    attachmentTimerRef.current = setTimeout(() => {
+      onSelect?.(selectedFile)
+      setPendingFile(null)
+      attachmentTimerRef.current = null
+    }, ATTACHMENT_SKELETON_DELAY_MS)
   }
 
   const handleRemove = () => {
     setFileTypeError("")
+    if (attachmentTimerRef.current) {
+      clearTimeout(attachmentTimerRef.current)
+      attachmentTimerRef.current = null
+    }
+    setPendingFile(null)
     onRemove?.()
   }
 
@@ -65,7 +103,24 @@ export function ReferenceDocumentUpload({ file, onSelect, onRemove, disabled = f
         }}
       />
 
-      {!file ? (
+      {pendingFile || (uploading && file) ? (
+        <div
+          role="status"
+          aria-label={
+            pendingFile
+              ? `Attaching ${pendingFile.name}`
+              : `Uploading ${file.name}`
+          }
+          className="flex items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2"
+        >
+          <Skeleton className="size-8 shrink-0 rounded-md" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-3.5 w-3/4" />
+            <Skeleton className="h-3 w-1/3" />
+          </div>
+          <Skeleton className="size-7 shrink-0 rounded-md" />
+        </div>
+      ) : !file ? (
         <Button
           type="button"
           variant="outline"
@@ -109,7 +164,14 @@ export function ReferenceDocumentUpload({ file, onSelect, onRemove, disabled = f
 }
 
 /** Presentational row for a single workflow task. Fully controlled. */
-export function WorkflowTaskItem({ task, onTaskChange, onRemove, disabled = false, error }) {
+export function WorkflowTaskItem({
+  task,
+  onTaskChange,
+  onRemove,
+  disabled = false,
+  uploading = false,
+  error,
+}) {
   const [removeOpen, setRemoveOpen] = useState(false)
 
   return (
@@ -167,6 +229,7 @@ export function WorkflowTaskItem({ task, onTaskChange, onRemove, disabled = fals
             onSelect={(file) => onTaskChange({ referenceDocument: file })}
             onRemove={() => onTaskChange({ referenceDocument: null })}
             disabled={disabled}
+            uploading={uploading}
             error={error?.reference}
           />
         </div>
@@ -202,7 +265,14 @@ export function WorkflowTaskItem({ task, onTaskChange, onRemove, disabled = fals
 }
 
 /** Presentational list of workflow tasks with add/remove/edit row handling. */
-export function WorkflowTaskList({ tasks = [], onChange, disabled = false, errors = [], className }) {
+export function WorkflowTaskList({
+  tasks = [],
+  onChange,
+  disabled = false,
+  uploadingTaskIndexes = [],
+  errors = [],
+  className,
+}) {
   const updateTask = (id, patch) =>
     onChange?.(tasks.map((task) => (task.id === id ? { ...task, ...patch } : task)))
   const removeTask = (id) => onChange?.(tasks.filter((task) => task.id !== id))
@@ -227,6 +297,7 @@ export function WorkflowTaskList({ tasks = [], onChange, disabled = false, error
           key={task.id}
           task={task}
           error={errors?.[index]}
+          uploading={uploadingTaskIndexes.includes(index)}
           onTaskChange={(patch) => updateTask(task.id, patch)}
           onRemove={() => removeTask(task.id)}
           disabled={disabled}
