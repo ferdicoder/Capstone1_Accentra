@@ -69,9 +69,6 @@ function EditUserForm({
   const [contactNumber, setContactNumber] = useState(() =>
     getField(user, "contactNumber", "contact_number")
   )
-  const [birthdate, setBirthdate] = useState(() =>
-    getField(user, "birthdate", "birthDate")
-  )
   // The user's current role value is already known from `user.role` (it was
   // set when the account was created), so unlike the create dialog this
   // doesn't need to wait on roleOptions to arrive — only the human-readable
@@ -104,7 +101,6 @@ function EditUserForm({
       extension: extension.trim(),
       email: email.trim(),
       contactNumber: contactNumber.trim(),
-      birthdate: birthdate.trim(),
       role,
     })
   }
@@ -209,18 +205,6 @@ function EditUserForm({
           {errors.contactNumber && (
             <p className="text-sm text-red-500">Enter a valid contact number.</p>
           )}
-        </Field>
-
-        <Field>
-          <FieldLabel htmlFor="firm-user-edit-birthdate">Birthday</FieldLabel>
-          <Input
-            id="firm-user-edit-birthdate"
-            name="birthdate"
-            type="date"
-            value={birthdate}
-            onChange={(event) => setBirthdate(event.target.value)}
-            disabled={submitting}
-          />
         </Field>
 
         <Field>

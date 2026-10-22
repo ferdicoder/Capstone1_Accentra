@@ -6,22 +6,12 @@ import { usePageMeta } from "@/hooks/usePageMeta"
 import { cn } from "@/lib/utils"
 import { passwordRequirements } from "@/lib/passwordRequirements"
 import {
-  ADDRESS_FIELD_DEFS,
-  emptyAddressParts,
-  formatAddress,
-  getAddressRequirements,
-  isPhilippineAddress,
-  parseAddressString,
-  serializeAddressParts,
-  validateAddressParts,
-} from "@/lib/address"
-import {
   changeAuthenticatedPassword,
   getPasswordReuseMessage,
 } from "@/services/authService"
 
 import { Button } from "@/components/ui/button"
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { AdminForgotPasswordModal } from "@/components/firm/admin-forgot-password-modal"
 
@@ -42,25 +32,8 @@ const initialProfile = {
   licenseNo: "CPA-2024-00123",
   firmType: "sole-practitioner",
   contactNumber: "+63 917 001 0001",
-  // The office address is one string; the parts are serialised into it. See lib/address.js.
   address: "",
-  addressParts: emptyAddressParts(),
 }
-
-// A saved address we cannot split is kept verbatim in Address Line 1.
-const initialAddress = (() => {
-  const parsed = parseAddressString(initialProfile.address)
-
-  if (parsed.isLegacy) {
-    return { ...emptyAddressParts(), line1: parsed.raw, country: "Philippines" }
-  }
-
-  return {
-    ...emptyAddressParts(),
-    ...parsed.parts,
-    country: parsed.parts.country || "Philippines",
-  }
-})()
 
 const initialSecurity = {
   currentPassword: "",
@@ -83,21 +56,15 @@ const selectClass = cn(
 
 export default function FirmProfilePage() {
   const [activeTab, setActiveTab] = useState("info")
-  const [profile, setProfile] = useState({ ...initialProfile, addressParts: initialAddress })
+  const [profile, setProfile] = useState(initialProfile)
   const [security, setSecurity] = useState(initialSecurity)
   const [securityErrors, setSecurityErrors] = useState({})
-  const [addressErrors, setAddressErrors] = useState({})
   const [isSaving, setIsSaving] = useState(false)
   const passwordSaveInProgress = useRef(false)
   const profileSaveInProgress = useRef(false)
   const [saveMessage, setSaveMessage] = useState(null)
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
   const [loading, setLoading] = useState(true)
-
-  // True while the address is a preserved free-text value.
-  const [isLegacyAddress, setIsLegacyAddress] = useState(
-    () => parseAddressString(initialProfile.address).isLegacy
-  )
 
   // Simulated load so the shared skeleton system has something to show.
   useEffect(() => {
@@ -110,33 +77,6 @@ export default function FirmProfilePage() {
     setProfile((current) => ({ ...current, [name]: value }))
   }
 
-  // Edits a part and serialises the whole address back into the string.
-  const updateAddressField = (key, value) => {
-    setProfile((current) => {
-      const addressParts = { ...current.addressParts, [key]: value }
-      return {
-        ...current,
-        addressParts,
-        address: serializeAddressParts(addressParts),
-      }
-    })
-    setAddressErrors((current) =>
-      current[key] ? { ...current, [key]: undefined } : current
-    )
-    setIsLegacyAddress(false)
-  }
-
-  // Philippine postal codes are digits only.
-  const sanitizeAddressInput = (key, value) => {
-    if (key === "postalCode" && isPhilippineAddress(profile.addressParts)) {
-      return value.replace(/\D/g, "")
-    }
-    return value
-  }
-
-  const addressRequirements = getAddressRequirements(profile.addressParts)
-  const formattedAddress = formatAddress(profile.addressParts)
-
   const updateSecurityField = (name, value) => {
     setSecurity((current) => ({ ...current, [name]: value }))
     setSecurityErrors((current) => ({ ...current, [name]: undefined }))
@@ -147,16 +87,6 @@ export default function FirmProfilePage() {
     event.preventDefault()
 
     if (profileSaveInProgress.current) return
-
-    // An incomplete address never reaches the save handler.
-    const nextAddressErrors = validateAddressParts(profile.addressParts, {
-      isLegacy: isLegacyAddress,
-    })
-    setAddressErrors(nextAddressErrors)
-    if (Object.keys(nextAddressErrors).length > 0) {
-      setSaveMessage(null)
-      return
-    }
 
     profileSaveInProgress.current = true
     setIsSaving(true)
@@ -407,85 +337,18 @@ export default function FirmProfilePage() {
                 </div>
               </div>
 
-              {/* Office Address: the single free-text address input is replaced by the
-                  separate components the address is stored in. The parts are serialised
-                  back into the one address string the profile keeps — see lib/address.js. */}
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <h2 className="mb-1 text-sm font-semibold">Office Address</h2>
-
-                <p className="mb-5 text-sm whitespace-pre-line text-muted-foreground">
-                  {formattedAddress || "No office address set yet."}
-                </p>
-
-                {isLegacyAddress && (
-                  <p className="mb-5 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-700 ring-1 ring-amber-500/20 ring-inset">
-                    Your previous address could not be split into separate fields
-                    automatically, so it is kept in Address Line 1. Fill in the other
-                    fields to save it as a structured address.
-                  </p>
-                )}
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {ADDRESS_FIELD_DEFS.map((field) => {
-                    const isRequired = addressRequirements[field.key]
-                    const error = addressErrors[field.key]
-
-                    return (
-                      <Field
-                        key={field.key}
-                        className={field.fullWidth ? "sm:col-span-2" : undefined}
-                        data-invalid={Boolean(error) || undefined}
-                      >
-                        <FieldLabel htmlFor={`address-${field.key}`}>
-                          {field.label}
-                          {isRequired ? (
-                            <span className="text-red-500">*</span>
-                          ) : field.optional ? (
-                            <span className="text-xs font-normal text-muted-foreground">
-                              {" "}
-                              (optional)
-                            </span>
-                          ) : null}
-                        </FieldLabel>
-                        <Input
-                          id={`address-${field.key}`}
-                          name={field.key}
-                          value={profile.addressParts[field.key]}
-                          onChange={(event) =>
-                            updateAddressField(
-                              field.key,
-                              sanitizeAddressInput(field.key, event.target.value)
-                            )
-                          }
-                          placeholder={field.placeholder}
-                          autoComplete={field.autoComplete}
-                          inputMode={
-                            field.key === "postalCode" &&
-                            isPhilippineAddress(profile.addressParts)
-                              ? "numeric"
-                              : undefined
-                          }
-                          maxLength={
-                            field.key === "postalCode" &&
-                            isPhilippineAddress(profile.addressParts)
-                              ? 4
-                              : undefined
-                          }
-                          disabled={isSaving}
-                          aria-invalid={Boolean(error) || undefined}
-                          aria-describedby={error ? `address-${field.key}-error` : undefined}
-                          className={cn(controlClass, error && "border-destructive")}
-                        />
-                        {field.hint && (
-                          <FieldDescription>{field.hint}</FieldDescription>
-                        )}
-                        <FieldError id={`address-${field.key}-error`}>
-                          {error}
-                        </FieldError>
-                      </Field>
-                    )
-                  })}
-                </div>
+                <h2 className="mb-5 text-sm font-semibold">Office Address</h2>
+                <Field>
+                  <FieldLabel htmlFor="address">Office Address</FieldLabel>
+                  <Input
+                    id="address"
+                    name="address"
+                    value={profile.address}
+                    onChange={updateProfileField}
+                    className={controlClass}
+                  />
+                </Field>
               </div>
 
               <div className="flex justify-end">
