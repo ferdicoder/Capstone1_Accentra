@@ -48,7 +48,12 @@ export default function ServiceManagementPage() {
   const [categoryCreateOpen, setCategoryCreateOpen] = useState(false)
   const [categoryManagementOpen, setCategoryManagementOpen] = useState(false)
   const [categoryOptions, setCategoryOptions] = useState(categoryFilterOptions)
-  const [createProgress, setCreateProgress] = useState({ active: false, percent: 0, phase: "Saving service…" })
+  const [createProgress, setCreateProgress] = useState({
+    active: false,
+    percent: 0,
+    phase: "Saving service…",
+    uploadingTaskIndexes: [],
+  })
 
   const { data: services = [], isLoading, error, refetch: refetchServices } = useFetchServices()
   const createService = useCreateService()
@@ -97,7 +102,12 @@ export default function ServiceManagementPage() {
       .filter(({ task }) => task.hasReferenceDocument && task.referenceDocument?.file)
     const totalBytes = tasksWithFiles.reduce((total, { task }) => total + task.referenceDocument.file.size, 0)
 
-    setCreateProgress({ active: true, percent: 0, phase: "Saving service…" })
+    setCreateProgress({
+      active: true,
+      percent: 0,
+      phase: "Saving service…",
+      uploadingTaskIndexes: tasksWithFiles.map(({ index }) => index),
+    })
     createService.mutate(values, {
       onSuccess: async (newService) => {
         const failedUploads = []
@@ -109,7 +119,12 @@ export default function ServiceManagementPage() {
             return
           }
 
-          setCreateProgress({ active: true, percent: 10, phase: "Uploading reference documents…" })
+          setCreateProgress({
+            active: true,
+            percent: 10,
+            phase: "Uploading reference documents…",
+            uploadingTaskIndexes: tasksWithFiles.map(({ index }) => index),
+          })
           const uploadedBytes = new Map()
 
           await Promise.all(
@@ -117,6 +132,12 @@ export default function ServiceManagementPage() {
               const matchedTask = newService.workflowTasks?.[index]
               if (!matchedTask?.id) {
                 failedUploads.push(task.name)
+                setCreateProgress((current) => ({
+                  ...current,
+                  uploadingTaskIndexes: current.uploadingTaskIndexes.filter(
+                    (taskIndex) => taskIndex !== index
+                  ),
+                }))
                 return
               }
               try {
@@ -124,15 +145,23 @@ export default function ServiceManagementPage() {
                   uploadedBytes.set(index, event.loaded)
                   const loaded = [...uploadedBytes.values()].reduce((total, bytes) => total + bytes, 0)
                   const uploadPercent = totalBytes > 0 ? loaded / totalBytes : 1
-                  setCreateProgress({
+                  setCreateProgress((current) => ({
+                    ...current,
                     active: true,
                     percent: Math.min(99, Math.round(10 + uploadPercent * 90)),
                     phase: "Uploading reference documents…",
-                  })
+                  }))
                 })
               } catch (err) {
                 console.error(`Reference document upload failed for "${task.name}":`, err)
                 failedUploads.push(task.name)
+              } finally {
+                setCreateProgress((current) => ({
+                  ...current,
+                  uploadingTaskIndexes: current.uploadingTaskIndexes.filter(
+                    (taskIndex) => taskIndex !== index
+                  ),
+                }))
               }
             })
           )
@@ -160,11 +189,21 @@ export default function ServiceManagementPage() {
         } finally {
           // Always release the loading state so the progress bar and the
           // submit button cannot stay stuck on "Saving…".
-          setCreateProgress({ active: false, percent: 0, phase: "Saving service…" })
+          setCreateProgress({
+            active: false,
+            percent: 0,
+            phase: "Saving service…",
+            uploadingTaskIndexes: [],
+          })
         }
       },
       onError: (err) => {
-        setCreateProgress({ active: false, percent: 0, phase: "Saving service…" })
+        setCreateProgress({
+          active: false,
+          percent: 0,
+          phase: "Saving service…",
+          uploadingTaskIndexes: [],
+        })
         setNotice({ tone: "danger", message: err.message || "Failed to add service" })
       },
     })
@@ -173,7 +212,12 @@ export default function ServiceManagementPage() {
   const openCreateDialog = () => {
     // Start from a clean progress state so a previous run's phase is never
     // shown on a freshly opened form.
-    setCreateProgress({ active: false, percent: 0, phase: "Saving service…" })
+    setCreateProgress({
+      active: false,
+      percent: 0,
+      phase: "Saving service…",
+      uploadingTaskIndexes: [],
+    })
     setCreateOpen(true)
   }
   const openEdit = (service) => {

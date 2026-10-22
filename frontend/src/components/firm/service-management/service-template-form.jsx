@@ -336,6 +336,7 @@ export function ServiceTemplateForm({
         tasks={tasks}
         onChange={handleTasksChange}
         disabled={submitting}
+        uploadingTaskIndexes={progress?.uploadingTaskIndexes}
         errors={errors.tasks}
       />
 
