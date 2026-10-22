@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from "react"
-import { Link } from "react-router-dom"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { Link, useSearchParams } from "react-router-dom"
 import { ArrowRight, ClipboardList, Search, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -138,10 +138,40 @@ function RequestAction({ request, isCancelling, onCancel }) {
   return <span className="text-xs text-muted-foreground">—</span>
 }
 
+// Phone version of one request. The status help text is printed as visible
+// text (the table's `title` tooltip doesn't work on touch screens).
+function RequestCard({ request, isCancelling, onCancel }) {
+  const meta = statusMeta[request.status]
+  const hasAction =
+    CANCELLABLE_STATUSES.includes(request.status) ||
+    ENGAGEMENT_STATUSES.includes(request.status)
+
+  return (
+    <li className="flex flex-col gap-2 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 truncate text-sm font-semibold">{request.requestNumber}</p>
+        <StatusBadge status={request.status} />
+      </div>
+
+      <p className="text-sm font-medium">{request.serviceName}</p>
+      <p className="text-xs text-muted-foreground">Requested {formatDate(request.createdAt)}</p>
+
+      {meta?.help && <p className="text-xs text-muted-foreground">{meta.help}</p>}
+
+      {hasAction && (
+        <div className="mt-1 flex [&>*]:h-9 [&>*]:flex-1">
+          <RequestAction request={request} isCancelling={isCancelling} onCancel={onCancel} />
+        </div>
+      )}
+    </li>
+  )
+}
+
 export default function ClientServiceRequestsPage() {
   const user = authStore((state) => state.user)
   const { data: business } = useFetchMyBusiness(user?.id)
   const businessId = business?.id
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState("all")
@@ -156,6 +186,14 @@ export default function ClientServiceRequestsPage() {
     refetch,
   } = useFetchMyServiceRequests(businessId)
   const cancelRequest = useCancelServiceRequest()
+
+  // Lets other pages link straight to the dialog: /client/service-requests?new=1
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      setIsNewRequestOpen(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const tabCounts = useMemo(
     () =>
@@ -210,6 +248,25 @@ export default function ClientServiceRequestsPage() {
 
   const hasNoRequests = !isLoading && !error && requests.length === 0
   const hasNoMatches = !isLoading && requests.length > 0 && filteredRequests.length === 0
+
+  const emptyState = (
+    <div className="mx-auto flex max-w-xs flex-col items-center gap-2">
+      <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+        <ClipboardList className="size-5" />
+      </div>
+      <p className="text-sm font-medium text-foreground">No service requests yet</p>
+      <p className="text-xs text-muted-foreground">
+        Tell your firm what you need and we'll get started.
+      </p>
+      <Button type="button" size="sm" className="mt-2" onClick={openNewRequest}>
+        Request a Service
+      </Button>
+    </div>
+  )
+
+  const noMatchesText = search.trim()
+    ? `No requests match "${search.trim()}".`
+    : "No requests in this view."
 
   return (
     <>
@@ -271,7 +328,42 @@ export default function ClientServiceRequestsPage() {
         )}
 
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-          <div className="overflow-x-auto">
+          {/* ── Phones: stacked cards ─────────────────────────────────────── */}
+          <div className="md:hidden">
+            {isLoading && (
+              <ul className="divide-y" aria-hidden="true">
+                {[0, 1, 2].map((i) => (
+                  <li key={i} className="flex flex-col gap-2.5 p-4">
+                    <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
+                    <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+                    <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {!isLoading && filteredRequests.length > 0 && (
+              <ul className="divide-y">
+                {filteredRequests.map((r) => (
+                  <RequestCard
+                    key={r.id}
+                    request={r}
+                    isCancelling={cancelRequest.isPending && cancelTarget?.id === r.id}
+                    onCancel={askToCancel}
+                  />
+                ))}
+              </ul>
+            )}
+
+            {hasNoRequests && <div className="px-4 py-14 text-center">{emptyState}</div>}
+
+            {hasNoMatches && (
+              <p className="px-4 py-10 text-center text-sm text-muted-foreground">{noMatchesText}</p>
+            )}
+          </div>
+
+          {/* ── Tablet and up: table ──────────────────────────────────────── */}
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[720px] table-fixed text-sm">
               <colgroup>
                 <col className="w-[24%]" />
@@ -332,18 +424,7 @@ export default function ClientServiceRequestsPage() {
                 {hasNoRequests && (
                   <tr>
                     <td colSpan={5} className="px-4 py-14 text-center">
-                      <div className="mx-auto flex max-w-xs flex-col items-center gap-2">
-                        <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                          <ClipboardList className="size-5" />
-                        </div>
-                        <p className="text-sm font-medium text-foreground">No service requests yet</p>
-                        <p className="text-xs text-muted-foreground">
-                          Tell your firm what you need and we'll get started.
-                        </p>
-                        <Button type="button" size="sm" className="mt-2" onClick={openNewRequest}>
-                          Request a Service
-                        </Button>
-                      </div>
+                      {emptyState}
                     </td>
                   </tr>
                 )}
@@ -351,9 +432,7 @@ export default function ClientServiceRequestsPage() {
                 {hasNoMatches && (
                   <tr>
                     <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                      {search.trim()
-                        ? `No requests match "${search.trim()}".`
-                        : "No requests in this view."}
+                      {noMatchesText}
                     </td>
                   </tr>
                 )}

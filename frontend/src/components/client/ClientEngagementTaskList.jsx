@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from "react"
 import {
   AlertTriangle,
-  Check,
   CheckCircle2,
   Clock,
   ExternalLink,
   FileCheck,
   FileText,
   Inbox,
-  RefreshCw,
+  Loader2,
   Upload,
   UploadCloud,
   X,
@@ -26,7 +25,6 @@ import {
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
 
 // ── Status Helpers ────────────────────────────────────────────────────────────
-
 
 const statusConfig = {
   approved: {
@@ -51,9 +49,14 @@ const statusConfig = {
   },
 }
 
-// Files can only be replaced or deleted while the firm is asking for a
-// revision. Approved and For Review documents are locked.
-const canModifyFiles = (task) => task?.status === "for_revision"
+// The client can only upload when nothing has been submitted yet (missing) or
+// the firm asked for changes (for_revision). Approved and For Review files are
+// locked: view-only, no replace, no delete.
+const canUploadFiles = (task) =>
+  task?.status === "missing" || task?.status === "for_revision"
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
+const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png"]
 
 function TaskStatusBadge({ status }) {
   const config = statusConfig[status] ?? statusConfig.missing
@@ -74,6 +77,22 @@ function formatFileSize(bytes) {
   if (!bytes && bytes !== 0) return null
   const kb = bytes / 1024
   return kb < 1024 ? `${kb.toFixed(0)} KB` : `${(kb / 1024).toFixed(1)} MB`
+}
+
+function summarizeFiles(files) {
+  if (!files || files.length === 0) return ""
+  return files.length === 1
+    ? files[0].name
+    : `${files[0].name} +${files.length - 1} more`
+}
+
+// "Failed to fetch" is the browser's generic network error. Say what it means.
+function friendlyError(error, fallback) {
+  const message = error?.message ?? ""
+  if (error instanceof TypeError || /failed to fetch|network/i.test(message)) {
+    return "We couldn't reach the server. Check your internet connection and try again."
+  }
+  return message || fallback
 }
 
 // ── Task Detail Dialog (view-only) ─────────────────────────────────────────────
@@ -115,24 +134,43 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
   )
 }
 
-// ── Choose Files Dialog ────────────────────────────────────────────────────────
+// ── Attach Files Dialog ────────────────────────────────────────────────────────
+// Step 1: pick the file(s) and "Attach" them to the requirement row.
+// Nothing is sent to the firm yet.
 
 function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
   const [files, setFiles] = useState([])
+  const [error, setError] = useState("")
 
   const handleChange = (e) => {
-    setFiles(Array.from(e.target.files ?? []))
+    const picked = Array.from(e.target.files ?? [])
+    e.target.value = "" // lets the same file be picked again later
+
+    const accepted = []
+    const rejected = []
+    picked.forEach((file) => {
+      if (!ALLOWED_TYPES.includes(file.type)) rejected.push(`${file.name} (not a PDF, JPG, or PNG)`)
+      else if (file.size > MAX_FILE_SIZE) rejected.push(`${file.name} (over 10MB)`)
+      else accepted.push(file)
+    })
+
+    setError(rejected.length ? `Can't attach: ${rejected.join(", ")}` : "")
+    setFiles(accepted)
   }
 
   const handleClose = (next) => {
-    if (!next) setFiles([])
+    if (!next) {
+      setFiles([])
+      setError("")
+    }
     onOpenChange(next)
   }
 
-  const handleStage = () => {
+  const handleAttach = () => {
     if (files.length === 0) return
     onFilesChosen?.(task, files)
     setFiles([])
+    setError("")
     onOpenChange(false)
   }
 
@@ -144,8 +182,8 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
         <DialogHeader>
           <DialogTitle>Upload Files</DialogTitle>
           <DialogDescription>
-            Choose the file(s) needed for &ldquo;{task.name}&rdquo;. You&rsquo;ll get a chance to
-            confirm before it&rsquo;s uploaded.
+            Choose the file(s) needed for &ldquo;{task.name}&rdquo;. Attaching a file doesn&rsquo;t send
+            it yet &mdash; you&rsquo;ll review and submit it next.
           </DialogDescription>
         </DialogHeader>
 
@@ -154,8 +192,20 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
             <UploadCloud className="size-6 text-muted-foreground" />
             <span className="text-sm font-medium text-foreground">Click to choose file(s)</span>
             <span className="text-xs text-muted-foreground">PDF, JPG, or PNG — up to 10MB each</span>
-            <input type="file" multiple className="hidden" onChange={handleChange} />
+            <input
+              type="file"
+              multiple
+              accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+              className="hidden"
+              onChange={handleChange}
+            />
           </label>
+
+          {error && (
+            <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {error}
+            </p>
+          )}
 
           {files.length > 0 && (
             <ul className="flex flex-col gap-1.5">
@@ -165,7 +215,8 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
                   className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-1.5 text-xs text-foreground"
                 >
                   <FileCheck className="size-3.5 shrink-0 text-emerald-600" />
-                  <span className="truncate">{f.name}</span>
+                  <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                  <span className="shrink-0 text-muted-foreground">{formatFileSize(f.size)}</span>
                 </li>
               ))}
             </ul>
@@ -180,9 +231,9 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
             size="sm"
             className="bg-emerald-600 text-white hover:bg-emerald-700"
             disabled={files.length === 0}
-            onClick={handleStage}
+            onClick={handleAttach}
           >
-            Choose
+            Attach
           </Button>
         </div>
       </DialogContent>
@@ -190,35 +241,49 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
   )
 }
 
-// ── Delete Confirmation Dialog ─────────────────────────────────────────────────
-// Confirms before removing an already-uploaded file from a requirement.
+// ── Submit Confirmation Dialog ─────────────────────────────────────────────────
+// Step 2: last chance before the file actually goes to the firm.
 
-function DeleteFileConfirmDialog({ open, onOpenChange, taskName, fileLabel, onConfirm }) {
+function SubmitConfirmDialog({ open, onOpenChange, taskName, files = [], isSubmitting, error, onConfirm }) {
+  const handleOpenChange = (next) => {
+    if (!next && isSubmitting) return // don't close mid-upload
+    onOpenChange(next)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-red-50">
-            <AlertTriangle className="size-5 text-red-600" />
+          <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-amber-50">
+            <AlertTriangle className="size-5 text-amber-600" />
           </div>
-          <DialogTitle className="text-center">Delete this file?</DialogTitle>
+          <DialogTitle className="text-center">Submit this file?</DialogTitle>
           <DialogDescription className="text-center">
-            Are you sure you want to delete{" "}
-            <span className="font-medium text-foreground">{fileLabel}</span>
-            {taskName ? ` from "${taskName}"` : ""}? This can&rsquo;t be undone.
+            Are you sure you want to submit{" "}
+            <span className="font-medium text-foreground">{summarizeFiles(files) || "this file"}</span>
+            {taskName ? ` for "${taskName}"` : ""}? Your firm will be notified to review it, and you
+            won&rsquo;t be able to change or delete it unless the firm asks for a revision.
           </DialogDescription>
         </DialogHeader>
 
+        {error && (
+          <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-center text-xs text-red-700">
+            {error}
+          </p>
+        )}
+
         <div className="mt-2 flex justify-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-            Cancel
+          <Button variant="outline" size="sm" disabled={isSubmitting} onClick={() => onOpenChange(false)}>
+            Go back
           </Button>
           <Button
             size="sm"
-            className="bg-red-600 text-white hover:bg-red-700"
+            className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
+            disabled={isSubmitting}
             onClick={onConfirm}
           >
-            Delete File
+            {isSubmitting && <Loader2 className="size-3.5 animate-spin" />}
+            {isSubmitting ? "Submitting…" : "Yes, submit"}
           </Button>
         </div>
       </DialogContent>
@@ -228,8 +293,7 @@ function DeleteFileConfirmDialog({ open, onOpenChange, taskName, fileLabel, onCo
 
 // ── File Preview Dialog ────────────────────────────────────────────────────────
 // Lets the client click an uploaded file chip and see what they actually
-// submitted. Sized up (max-w-4xl / taller viewer) so images and PDFs are
-// easier to actually read instead of feeling cramped.
+// submitted.
 
 function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -328,12 +392,12 @@ function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
 
 // ── Task Row ────────────────────────────────────────────────────────────────────
 //
-// Actions cell has three states:
-//   1. Nothing staged/uploaded yet → plain "Upload Files" button.
-//   2. File(s) picked but not confirmed → filename + check (confirm) / X (discard).
-//   3. Confirmed/uploaded → clickable filename chip (opens preview).
-//      The replace icon and the delete (X) icon only show when the task is
-//      "for_revision". Approved / For Review files are view-only.
+// Actions cell:
+//   • Attached, not submitted yet → file name + "Submit" + X (remove).
+//   • Missing / For Revision      → "Upload Files" is the only action. A file
+//                                   from an earlier submission can still be
+//                                   opened, but never edited or deleted.
+//   • For Review / Approved       → locked. Uploaded file is view-only.
 
 function TaskRow({
   task,
@@ -341,26 +405,25 @@ function TaskRow({
   uploadedFiles,
   onOpenDetail,
   onOpenUpload,
-  onConfirmUpload,
+  onSubmit,
   onDiscardUpload,
   onPreviewUploaded,
-  onRequestDelete,
 }) {
   const hasPending = pendingFiles && pendingFiles.length > 0
-  const hasUploaded = !hasPending && uploadedFiles && uploadedFiles.length > 0
-  const canModify = canModifyFiles(task)
+  const hasUploaded = uploadedFiles && uploadedFiles.length > 0
+  const canUpload = canUploadFiles(task)
 
-  const pendingLabel = hasPending
-    ? pendingFiles.length === 1
-      ? pendingFiles[0].name
-      : `${pendingFiles[0].name} +${pendingFiles.length - 1} more`
-    : null
-
-  const uploadedLabel = hasUploaded
-    ? uploadedFiles.length === 1
-      ? uploadedFiles[0].name
-      : `${uploadedFiles[0].name} +${uploadedFiles.length - 1} more`
-    : null
+  const uploadedChip = hasUploaded && (
+    <button
+      type="button"
+      title="View uploaded file"
+      onClick={onPreviewUploaded}
+      className="inline-flex min-w-0 max-w-[200px] items-center gap-1 truncate rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+    >
+      <CheckCircle2 className="size-3.5 shrink-0" />
+      <span className="truncate underline-offset-2 hover:underline">{summarizeFiles(uploadedFiles)}</span>
+    </button>
+  )
 
   return (
     <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/30">
@@ -369,7 +432,7 @@ function TaskRow({
         <button
           type="button"
           onClick={onOpenDetail}
-          className="text-sm font-medium text-foreground hover:text-[#02353C] transition-colors"
+          className="text-left text-sm font-medium text-foreground hover:text-[#02353C] transition-colors"
         >
           {task.name}
           {task.required && (
@@ -392,76 +455,57 @@ function TaskRow({
       </td>
 
       {/* Actions */}
-      <td className="w-[250px] py-2.5 pr-6">
+      <td className="w-[280px] py-2.5 pr-6">
         {hasPending ? (
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span
               title={pendingFiles.map((f) => f.name).join(", ")}
               className="inline-flex min-w-0 max-w-[130px] items-center gap-1 truncate rounded-lg border border-[#02353C]/20 bg-[#02353C]/5 px-2 py-1 text-xs font-medium text-[#02353C]"
             >
               <FileCheck className="size-3.5 shrink-0" />
-              <span className="truncate">{pendingLabel}</span>
+              <span className="truncate">{summarizeFiles(pendingFiles)}</span>
             </span>
             <button
               type="button"
-              title="Confirm upload"
-              onClick={onConfirmUpload}
-              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
+              title="Submit to your firm"
+              onClick={onSubmit}
+              className="inline-flex h-6 shrink-0 items-center rounded-md bg-emerald-600 px-2.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700"
             >
-              <Check className="size-3.5" />
+              Submit
             </button>
             <button
               type="button"
-              title="Discard"
+              title="Remove attached file"
+              aria-label="Remove attached file"
               onClick={onDiscardUpload}
               className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
             >
               <X className="size-3.5" />
             </button>
           </div>
-        ) : hasUploaded ? (
-          <div className="flex items-center gap-1.5">
+        ) : canUpload ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {uploadedChip}
             <button
               type="button"
-              title="View uploaded file"
-              onClick={onPreviewUploaded}
-              className="inline-flex min-w-0 max-w-[150px] items-center gap-1 truncate rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+              onClick={onOpenUpload}
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#02353C]/20 bg-[#02353C]/5 px-2.5 py-1 text-xs font-medium text-[#02353C] transition-colors hover:bg-[#02353C]/10"
             >
-              <CheckCircle2 className="size-3.5 shrink-0" />
-              <span className="truncate underline-offset-2 hover:underline">{uploadedLabel}</span>
+              <Upload className="size-3.5" />
+              {task.status === "for_revision" ? "Upload Revision" : "Upload Files"}
             </button>
-
-            {/* Replace + delete: only while the firm is asking for a revision. */}
-            {canModify && (
-              <>
-                <button
-                  type="button"
-                  title="Replace file"
-                  onClick={onOpenUpload}
-                  className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <RefreshCw className="size-3.5" />
-                </button>
-                <button
-                  type="button"
-                  title="Delete file"
-                  onClick={onRequestDelete}
-                  className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
-                >
-                  <X className="size-3.5" />
-                </button>
-              </>
+          </div>
+        ) : hasUploaded ? (
+          <div className="flex flex-col items-start gap-1">
+            {uploadedChip}
+            {task.status === "for_review" && (
+              <span className="text-[11px] text-muted-foreground">
+                Waiting for your firm to review
+              </span>
             )}
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={onOpenUpload}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#02353C]/20 bg-[#02353C]/5 px-2.5 py-1 text-xs font-medium text-[#02353C] transition-colors hover:bg-[#02353C]/10"
-          >
-            <Upload className="size-3.5" />
-            Upload Files
-          </button>
+          <span className="text-xs text-muted-foreground">—</span>
         )}
       </td>
     </tr>
@@ -470,24 +514,27 @@ function TaskRow({
 
 // ── Main ClientEngagementTaskList Component ────────────────────────────────────
 
-export function TaskList({ engagement, documents = [], className, onUploadFiles, onDeleteFile }) {
+export function TaskList({ engagement, documents = [], className, onUploadFiles }) {
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerTask, setPickerTask] = useState(null)
-  const [pendingByTask, setPendingByTask] = useState({}) // taskId -> File[] (picked, not yet confirmed)
-  const [uploadedByTask, setUploadedByTask] = useState({}) // taskId -> File[] (confirmed/uploaded)
+  const [pendingByTask, setPendingByTask] = useState({}) // taskId -> File[] (attached, not yet submitted)
+  const [uploadedByTask, setUploadedByTask] = useState({}) // taskId -> File[] (submitted)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewTask, setPreviewTask] = useState(null)
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
-  const [deleteTask, setDeleteTask] = useState(null)
-  const [uploadError, setUploadError] = useState("")
+  const [submitTask, setSubmitTask] = useState(null) // task waiting on the "are you sure?" dialog
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState("")
   const tasks = engagement?.tasks ?? []
+
   const persistedFilesByTask = useMemo(() => documents.reduce((filesByTask, document) => {
     const files = filesByTask[document.engagementTaskId] ?? []
     filesByTask[document.engagementTaskId] = [...files, document]
     return filesByTask
   }, {}), [documents])
+
+  const filesFor = (taskId) => uploadedByTask[taskId] ?? persistedFilesByTask[taskId]
 
   const handleOpenDetail = (task) => {
     setSelectedTask(task)
@@ -496,32 +543,14 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
 
   const handleOpenUpload = (task) => {
     // Uploading is for a first submission (missing) or a revision only.
-    if (task.status !== "missing" && task.status !== "for_revision") return
+    if (!canUploadFiles(task)) return
     setPickerTask(task)
     setPickerOpen(true)
   }
 
+  // "Attach": stage the files on the row. Nothing is uploaded yet.
   const handleFilesChosen = (task, files) => {
     setPendingByTask((prev) => ({ ...prev, [task.id]: files }))
-  }
-
-  const handleConfirmUpload = async (task) => {
-    const files = pendingByTask[task.id]
-    if (!files || files.length === 0) return
-
-    setUploadError("")
-    try {
-      const uploadedFiles = await onUploadFiles?.(task, files)
-
-      setUploadedByTask((prev) => ({ ...prev, [task.id]: uploadedFiles ?? files }))
-      setPendingByTask((prev) => {
-        const next = { ...prev }
-        delete next[task.id]
-        return next
-      })
-    } catch (error) {
-      setUploadError(error.message || "File upload failed")
-    }
   }
 
   const handleDiscardUpload = (task) => {
@@ -532,50 +561,47 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
     })
   }
 
+  // "Submit" on the row: ask "are you sure?" first.
+  const handleAskSubmit = (task) => {
+    if (!canUploadFiles(task)) return
+    setSubmitError("")
+    setSubmitTask(task)
+  }
+
+  // "Yes, submit": this is where the upload actually happens.
+  const handleConfirmSubmit = async () => {
+    const task = submitTask
+    const files = task ? pendingByTask[task.id] : null
+    if (!task || !files || files.length === 0) return
+
+    setSubmitError("")
+    setIsSubmitting(true)
+    try {
+      const uploadedFiles = await onUploadFiles?.(task, files)
+
+      setUploadedByTask((prev) => ({ ...prev, [task.id]: uploadedFiles ?? files }))
+      handleDiscardUpload(task)
+      setSubmitTask(null)
+    } catch (error) {
+      setSubmitError(friendlyError(error, "File upload failed. Please try again."))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleSubmitDialogChange = (next) => {
+    if (next) return
+    setSubmitTask(null)
+    setSubmitError("")
+  }
+
   const handlePreviewUploaded = (task) => {
     setPreviewTask(task)
     setPreviewOpen(true)
   }
 
-  // X on an already-uploaded file — ask for confirmation first, don't
-  // remove anything until the user confirms in the dialog.
-  // Only allowed while the task is "for_revision".
-  const handleRequestDelete = (task) => {
-    if (!canModifyFiles(task)) return
-    setDeleteTask(task)
-    setDeleteConfirmOpen(true)
-  }
-
-  const handleConfirmDelete = async () => {
-    if (!deleteTask || !canModifyFiles(deleteTask)) return
-
-    const files = uploadedByTask[deleteTask.id] ?? persistedFilesByTask[deleteTask.id] ?? []
-    setUploadError("")
-    try {
-      await onDeleteFile?.(deleteTask, files)
-
-      setUploadedByTask((prev) => {
-        const next = { ...prev }
-        delete next[deleteTask.id]
-        return next
-      })
-
-      setDeleteConfirmOpen(false)
-      setDeleteTask(null)
-    } catch (error) {
-      setUploadError(error.message || "File deletion failed")
-    }
-  }
-
   const requiredCount = tasks.filter((t) => t.required).length
   const completedCount = tasks.filter((t) => t.status === "approved").length
-
-  const deleteFileLabel =
-    deleteTask && (uploadedByTask[deleteTask.id] ?? persistedFilesByTask[deleteTask.id])
-      ? (uploadedByTask[deleteTask.id] ?? persistedFilesByTask[deleteTask.id]).length === 1
-        ? (uploadedByTask[deleteTask.id] ?? persistedFilesByTask[deleteTask.id])[0].name
-        : `${(uploadedByTask[deleteTask.id] ?? persistedFilesByTask[deleteTask.id]).length} files`
-      : "this file"
 
   return (
     <div className={cn("min-w-0 rounded-xl border border-border bg-card shadow-sm", className)}>
@@ -590,12 +616,6 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
         </div>
       </div>
 
-      {uploadError && (
-        <p className="border-b border-red-200 bg-red-50 px-6 py-2.5 text-sm text-red-700">
-          {uploadError}
-        </p>
-      )}
-
       {/* Table */}
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
@@ -609,13 +629,13 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
         </div>
       ) : (
         <div className="min-w-0 overflow-x-auto">
-          <table className="w-full min-w-[650px] table-fixed">
+          <table className="w-full min-w-[680px] table-fixed">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-6 py-2.5 text-xs font-medium text-muted-foreground">Requirement</th>
                 <th className="w-[120px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
                 <th className="w-[140px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Deadline</th>
-                <th className="w-[250px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Actions</th>
+                <th className="w-[280px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -624,13 +644,12 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
                   key={task.id}
                   task={task}
                   pendingFiles={pendingByTask[task.id]}
-                  uploadedFiles={uploadedByTask[task.id] ?? persistedFilesByTask[task.id]}
+                  uploadedFiles={filesFor(task.id)}
                   onOpenDetail={() => handleOpenDetail(task)}
                   onOpenUpload={() => handleOpenUpload(task)}
-                  onConfirmUpload={() => handleConfirmUpload(task)}
+                  onSubmit={() => handleAskSubmit(task)}
                   onDiscardUpload={() => handleDiscardUpload(task)}
                   onPreviewUploaded={() => handlePreviewUploaded(task)}
-                  onRequestDelete={() => handleRequestDelete(task)}
                 />
               ))}
             </tbody>
@@ -651,19 +670,21 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
         onFilesChosen={handleFilesChosen}
       />
 
+      <SubmitConfirmDialog
+        open={Boolean(submitTask)}
+        onOpenChange={handleSubmitDialogChange}
+        taskName={submitTask?.name}
+        files={submitTask ? pendingByTask[submitTask.id] ?? [] : []}
+        isSubmitting={isSubmitting}
+        error={submitError}
+        onConfirm={handleConfirmSubmit}
+      />
+
       <FilePreviewDialog
         open={previewOpen}
         onOpenChange={setPreviewOpen}
-        files={previewTask ? uploadedByTask[previewTask.id] ?? persistedFilesByTask[previewTask.id] ?? [] : []}
+        files={previewTask ? filesFor(previewTask.id) ?? [] : []}
         taskName={previewTask?.name}
-      />
-
-      <DeleteFileConfirmDialog
-        open={deleteConfirmOpen}
-        onOpenChange={setDeleteConfirmOpen}
-        taskName={deleteTask?.name}
-        fileLabel={deleteFileLabel}
-        onConfirm={handleConfirmDelete}
       />
     </div>
   )

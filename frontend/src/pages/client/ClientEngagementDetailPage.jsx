@@ -156,6 +156,60 @@ function DocumentStatusDialog({ open, onOpenChange, status, remark }) {
   )
 }
 
+// View + download icon buttons for one document. `large` gives phone-sized
+// (32px) touch targets; the table keeps the compact 24px version.
+function DocumentFileActions({ doc, large = false }) {
+  const box = large ? "size-8" : "size-6"
+  const icon = large ? "size-4" : "size-3.5"
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {doc.downloadUrl ? (
+        <a
+          href={doc.downloadUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="View File"
+          aria-label={`View ${doc.name} in a new tab`}
+          className={`flex ${box} shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted`}
+        >
+          <Eye className={icon} />
+        </a>
+      ) : (
+        <span
+          title="View File"
+          aria-label="View file unavailable"
+          aria-disabled="true"
+          className={`flex ${box} shrink-0 cursor-not-allowed items-center justify-center rounded-md border text-muted-foreground/40`}
+        >
+          <Eye className={icon} />
+        </span>
+      )}
+
+      {doc.downloadUrl ? (
+        <a
+          href={doc.downloadUrl}
+          download={doc.name}
+          title="Download"
+          aria-label={`Download ${doc.name}`}
+          className={`flex ${box} shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100`}
+        >
+          <Download className={icon} />
+        </a>
+      ) : (
+        <span
+          title="Download"
+          aria-label="Download unavailable"
+          aria-disabled="true"
+          className={`flex ${box} shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-muted-foreground/40`}
+        >
+          <Download className={icon} />
+        </span>
+      )}
+    </div>
+  )
+}
+
 export default function ClientEngagementDetailPage() {
   const { id } = useParams()
   const user = authStore((state) => state.user)
@@ -317,6 +371,7 @@ export default function ClientEngagementDetailPage() {
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search documents..."
+              aria-label="Search documents"
               className="pl-9"
               value={documentSearch}
               onChange={(e) => setDocumentSearch(e.target.value)}
@@ -324,7 +379,64 @@ export default function ClientEngagementDetailPage() {
           </div>
 
           <div className="overflow-hidden rounded-xl border bg-background">
-            <div className="overflow-x-auto">
+            {/* ── Phones: stacked cards ─────────────────────────────────── */}
+            <div className="md:hidden">
+              {isDocumentsLoading && (
+                <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  Loading documents...
+                </p>
+              )}
+
+              {!isDocumentsLoading && filteredDocuments.length === 0 && (
+                <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  {documentSearch.trim()
+                    ? `No documents match "${documentSearch}".`
+                    : "No documents uploaded yet."}
+                </p>
+              )}
+
+              {!isDocumentsLoading && filteredDocuments.length > 0 && (
+                <ul className="divide-y">
+                  {filteredDocuments.map((doc) => {
+                    const task = taskById.get(doc.engagementTaskId)
+                    const status = task?.status ?? "missing"
+                    return (
+                      <li key={doc.id} className="flex flex-col gap-3 p-4">
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-medium">{doc.name}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {doc.uploadedBy ?? "—"} · {doc.uploadedDate ?? "—"}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <button
+                            type="button"
+                            onClick={() => openStatus(doc)}
+                            aria-label={`View status of ${doc.name}`}
+                            className={`rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-opacity hover:opacity-80 ${statusBadgeStyles[status]}`}
+                          >
+                            {statusLabels[status]}
+                          </button>
+                          <DocumentFileActions doc={doc} large />
+                        </div>
+
+                        {/* Revision feedback visible without extra taps. */}
+                        {status === "for_revision" && (
+                          <p className="rounded-md border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs text-orange-800">
+                            <span className="font-semibold">Your firm asked for changes: </span>
+                            {task?.remark || "Please upload a revised copy."}
+                          </p>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+
+            {/* ── Tablet and up: table ──────────────────────────────────── */}
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[600px] table-fixed text-sm">
                 <colgroup>
                   <col className="w-[34%]" />
@@ -390,50 +502,7 @@ export default function ClientEngagementDetailPage() {
                                 {statusLabels[status]}
                               </button>
 
-                              <div className="flex items-center gap-1">
-                                {doc.downloadUrl ? (
-                                  <a
-                                    href={doc.downloadUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title="View File"
-                                    aria-label={`View ${doc.name} in a new tab`}
-                                    className="flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted"
-                                  >
-                                    <Eye className="size-3.5" />
-                                  </a>
-                                ) : (
-                                  <span
-                                    title="View File"
-                                    aria-label="View file unavailable"
-                                    aria-disabled="true"
-                                    className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center rounded-md border text-muted-foreground/40"
-                                  >
-                                    <Eye className="size-3.5" />
-                                  </span>
-                                )}
-
-                                {doc.downloadUrl ? (
-                                  <a
-                                    href={doc.downloadUrl}
-                                    download={doc.name}
-                                    title="Download"
-                                    aria-label={`Download ${doc.name}`}
-                                    className="flex size-6 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
-                                  >
-                                    <Download className="size-3.5" />
-                                  </a>
-                                ) : (
-                                  <span
-                                    title="Download"
-                                    aria-label="Download unavailable"
-                                    aria-disabled="true"
-                                    className="flex size-6 shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-muted-foreground/40"
-                                  >
-                                    <Download className="size-3.5" />
-                                  </span>
-                                )}
-                              </div>
+                              <DocumentFileActions doc={doc} />
                             </div>
                           </td>
                         </tr>
@@ -446,7 +515,9 @@ export default function ClientEngagementDetailPage() {
                         colSpan={4}
                         className="px-4 py-10 text-center text-sm text-muted-foreground"
                       >
-                        No documents match "{documentSearch}".
+                        {documentSearch.trim()
+                          ? `No documents match "${documentSearch}".`
+                          : "No documents uploaded yet."}
                       </td>
                     </tr>
                   )}
