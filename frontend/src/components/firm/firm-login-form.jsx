@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import { CircleAlert } from "lucide-react"
 import {
   Field,
   FieldDescription,
@@ -40,7 +41,6 @@ export function FirmLoginForm({
       setLoginError("")
       if (newErrors.email || newErrors.password) return
 
-      // FirmLoginForm: replace the try block
       try {
         const result = await signinToPortal("firm", email, password)
         navigate(getHome(result.role))
@@ -112,7 +112,13 @@ export function FirmLoginForm({
         </Field>
 
         {loginError && (
-          <p role="alert" className="text-sm text-red-500">{loginError}</p>
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+          >
+            <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <p>{loginError}</p>
+          </div>
         )}
 
         <Field> {/* this component represents the submit button and the sign-up link */}
