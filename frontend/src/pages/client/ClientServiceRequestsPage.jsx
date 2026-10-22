@@ -1,27 +1,57 @@
-import { useCallback, useState } from "react"
-import { Briefcase, Eye, Search, X } from "lucide-react"
+import { useCallback, useMemo, useState } from "react"
+import { Link } from "react-router-dom"
+import { ArrowRight, ClipboardList, Search, X } from "lucide-react"
 
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { NewServiceRequestForm } from "@/components/firm/service-requests/NewServiceRequestForm"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchMyServiceRequests, useCancelServiceRequest } from "@/hooks/useServiceRequests"
 
-// Requests can still be cancelled by the client while pending, approved,
-// or actively in progress. Once declined, there's nothing left to cancel.
-const CANCELLABLE_STATUSES = ["pending", "approved", "in-progress"]
+// Clients can only cancel while the firm hasn't acted on the request yet.
+// Once it's approved, the work belongs to the engagement.
+const CANCELLABLE_STATUSES = ["pending"]
 
-// Declined requests never show a Cancel action at all.
-const DECLINED_STATUS = "rejected"
+// Statuses where the client can jump straight to the engagement.
+const ENGAGEMENT_STATUSES = ["approved", "in-progress"]
 
 const statusMeta = {
-  pending: { label: "Pending Review", tone: "amber" },
-  approved: { label: "Approved", tone: "blue" },
-  "in-progress": { label: "In Progress", tone: "blue" },
-  rejected: { label: "Declined", tone: "red" },
-  cancelled: { label: "Cancelled", tone: "gray" },
+  pending: {
+    label: "Pending Review",
+    tone: "amber",
+    help: "Your firm hasn't reviewed this request yet. You can still cancel it.",
+  },
+  approved: {
+    label: "Approved",
+    tone: "blue",
+    help: "Your firm accepted this request. Track progress in My Engagements.",
+  },
+  "in-progress": {
+    label: "In Progress",
+    tone: "blue",
+    help: "Your firm is working on this request.",
+  },
+  rejected: {
+    label: "Declined",
+    tone: "red",
+    help: "Your firm couldn't take this request.",
+  },
+  cancelled: {
+    label: "Cancelled",
+    tone: "gray",
+    help: "This request was cancelled.",
+  },
 }
 
 const toneClass = {
@@ -31,10 +61,82 @@ const toneClass = {
   gray: "bg-gray-100 text-gray-600",
 }
 
+const FILTER_TABS = [
+  { value: "all", label: "All" },
+  { value: "pending", label: "Pending" },
+  { value: "active", label: "Active" },
+  { value: "closed", label: "Closed" },
+]
+
+function matchesTab(status, tab) {
+  switch (tab) {
+    case "pending":
+      return status === "pending"
+    case "active":
+      return status === "approved" || status === "in-progress"
+    case "closed":
+      return status === "rejected" || status === "cancelled"
+    default:
+      return true
+  }
+}
+
 const formatDate = (isoString) =>
   isoString
     ? new Date(isoString).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
     : "—"
+
+function StatusBadge({ status }) {
+  const meta = statusMeta[status] ?? { label: status, tone: "gray", help: "" }
+  return (
+    <span
+      title={meta.help}
+      className={cn(
+        "inline-flex cursor-help items-center rounded-full px-2 py-0.5 text-xs font-medium",
+        toneClass[meta.tone]
+      )}
+    >
+      {meta.label}
+    </span>
+  )
+}
+
+function RequestAction({ request, isCancelling, onCancel }) {
+  const canCancel = CANCELLABLE_STATUSES.includes(request.status)
+  const canViewEngagement = ENGAGEMENT_STATUSES.includes(request.status)
+
+  if (canCancel) {
+    return (
+      <Button
+        variant="destructive"
+        size="sm"
+        disabled={isCancelling}
+        onClick={() => onCancel(request)}
+        className="gap-1.5 whitespace-nowrap"
+      >
+        <X className="size-3.5" />
+        {isCancelling ? "Cancelling…" : "Cancel"}
+      </Button>
+    )
+  }
+
+  if (canViewEngagement) {
+    const href = request.engagementId
+      ? `/client/engagements/${request.engagementId}`
+      : "/client/engagements"
+    return (
+      <Link
+        to={href}
+        className="inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/40 focus-visible:ring-offset-2"
+      >
+        View
+        <ArrowRight className="size-3.5 shrink-0" />
+      </Link>
+    )
+  }
+
+  return <span className="text-xs text-muted-foreground">—</span>
+}
 
 export default function ClientServiceRequestsPage() {
   const user = authStore((state) => state.user)
@@ -42,20 +144,60 @@ export default function ClientServiceRequestsPage() {
   const businessId = business?.id
 
   const [search, setSearch] = useState("")
+  const [activeTab, setActiveTab] = useState("all")
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false)
+  const [cancelTarget, setCancelTarget] = useState(null)
+  const [cancelError, setCancelError] = useState("")
 
-  const { data: requests = [], isLoading, error } = useFetchMyServiceRequests(businessId)
+  const {
+    data: requests = [],
+    isLoading,
+    error,
+    refetch,
+  } = useFetchMyServiceRequests(businessId)
   const cancelRequest = useCancelServiceRequest()
 
-  const handleCancelRequest = (id) => {
-    cancelRequest.mutate(id)
+  const tabCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        FILTER_TABS.map((tab) => [
+          tab.value,
+          requests.filter((r) => matchesTab(r.status, tab.value)).length,
+        ])
+      ),
+    [requests]
+  )
+
+  const filteredRequests = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return requests.filter((r) => {
+      if (!matchesTab(r.status, activeTab)) return false
+      if (!query) return true
+      return [r.requestNumber, r.serviceName, r.category].some((field) =>
+        field?.toLowerCase().includes(query)
+      )
+    })
+  }, [requests, activeTab, search])
+
+  const askToCancel = (request) => {
+    setCancelError("")
+    setCancelTarget(request)
   }
 
-  const filteredRequests = requests.filter((r) =>
-    [r.requestNumber, r.serviceName, r.category].some((field) =>
-      field?.toLowerCase().includes(search.toLowerCase())
-    )
-  )
+  const confirmCancel = () => {
+    if (!cancelTarget) return
+    cancelRequest.mutate(cancelTarget.id, {
+      onSuccess: () => setCancelTarget(null),
+      onError: () =>
+        setCancelError("We couldn't cancel this request. Please try again."),
+    })
+  }
+
+  const closeCancelDialog = (open) => {
+    if (open || cancelRequest.isPending) return
+    setCancelTarget(null)
+    setCancelError("")
+  }
 
   const openNewRequest = useCallback(() => setIsNewRequestOpen(true), [])
 
@@ -66,152 +208,215 @@ export default function ClientServiceRequestsPage() {
     onRequestServiceClick: openNewRequest,
   })
 
+  const hasNoRequests = !isLoading && !error && requests.length === 0
+  const hasNoMatches = !isLoading && requests.length > 0 && filteredRequests.length === 0
+
   return (
     <>
       <div className="flex flex-1 flex-col gap-5 px-2 py-2">
         <div>
           <h1 className="text-xl font-semibold">My Service Requests</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {requests.length} total requests
+            {requests.length} total request{requests.length === 1 ? "" : "s"}
           </p>
         </div>
 
-        <div className="relative max-w-sm">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search requests..."
-            aria-label="Search requests"
-            className="pl-8"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div
+            role="tablist"
+            aria-label="Filter requests by status"
+            className="flex gap-4 overflow-x-auto border-b sm:gap-6"
+          >
+            {FILTER_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.value}
+                onClick={() => setActiveTab(tab.value)}
+                className={cn(
+                  "-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors",
+                  activeTab === tab.value
+                    ? "border-emerald-600 text-emerald-700"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab.label}
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                  {tabCounts[tab.value]}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search requests..."
+              aria-label="Search requests"
+              className="pl-8"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
 
         {error && (
-          <p className="text-sm text-destructive">Failed to load your service requests.</p>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span>We couldn't load your service requests.</span>
+            <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+              Try again
+            </Button>
+          </div>
         )}
 
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-          <table className="w-full table-fixed text-sm">
-            <colgroup>
-              <col className="w-[26%]" />
-              <col className="w-[32%]" />
-              <col className="w-[16%]" />
-              <col className="w-[13%]" />
-              <col className="w-[13%]" />
-            </colgroup>
-            <thead>
-              <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
-                <th className="px-4 py-3.5 align-middle font-semibold">Request</th>
-                <th className="px-4 py-3.5 align-middle font-semibold">Service</th>
-                <th className="px-4 py-3.5 text-center align-middle font-semibold">Status</th>
-                <th className="px-4 py-3.5 align-middle font-semibold">Requested</th>
-                <th className="px-4 py-3.5 text-center align-middle font-semibold">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    Loading your requests…
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] table-fixed text-sm">
+              <colgroup>
+                <col className="w-[24%]" />
+                <col className="w-[32%]" />
+                <col className="w-[16%]" />
+                <col className="w-[14%]" />
+                <col className="w-[14%]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+                  <th className="px-4 py-3.5 align-middle font-semibold">Request</th>
+                  <th className="px-4 py-3.5 align-middle font-semibold">Service</th>
+                  <th className="px-4 py-3.5 text-center align-middle font-semibold">Status</th>
+                  <th className="px-4 py-3.5 align-middle font-semibold">Requested</th>
+                  <th className="px-4 py-3.5 text-center align-middle font-semibold">Action</th>
                 </tr>
-              )}
+              </thead>
+              <tbody>
+                {isLoading &&
+                  [0, 1, 2, 3].map((i) => (
+                    <tr key={i} className="border-b border-border/60 last:border-b-0" aria-hidden="true">
+                      {[0, 1, 2, 3, 4].map((cell) => (
+                        <td key={cell} className="px-4 py-5">
+                          <div className="mx-auto h-3 w-3/4 animate-pulse rounded bg-muted" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
 
-              {!isLoading &&
-                filteredRequests.map((r) => {
-                  const meta = statusMeta[r.status] ?? { label: r.status, tone: "gray" }
-                  const canCancel = CANCELLABLE_STATUSES.includes(r.status)
-                  const isDeclined = r.status === DECLINED_STATUS
-                  return (
+                {!isLoading &&
+                  filteredRequests.map((r) => (
                     <tr
                       key={r.id}
                       className="border-b border-border/60 last:border-b-0 hover:bg-muted/50"
                     >
                       <td className="px-4 py-4 align-middle">
-                        <div className="flex items-center gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate font-medium">{r.requestNumber}</p>
-                          </div>
-                        </div>
+                        <p className="truncate font-medium">{r.requestNumber}</p>
                       </td>
                       <td className="px-4 py-4 align-middle font-medium">
                         <span className="line-clamp-2">{r.serviceName}</span>
                       </td>
-                        <td className="px-4 py-4 text-center align-middle">
-                         <span
-                          className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${toneClass[meta.tone]}`}>
-                          {meta.label}
-                        </span>
+                      <td className="px-4 py-4 text-center align-middle">
+                        <StatusBadge status={r.status} />
                       </td>
                       <td className="px-4 py-4 align-middle text-muted-foreground">
                         {formatDate(r.createdAt)}
                       </td>
-                    
                       <td className="px-4 py-4 text-center align-middle">
-                        {isDeclined ? (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        ) : (
-                          <Button
-                            variant={canCancel ? "destructive" : "outline"}
-                            size="sm"
-                            disabled={!canCancel || cancelRequest.isPending}
-                            onClick={() => canCancel && handleCancelRequest(r.id)}
-                            className="gap-1.5"
-                          >
-                            <X className="size-3.5" />
-                            Cancel
-                          </Button>
-                        )}
+                        <RequestAction
+                          request={r}
+                          isCancelling={cancelRequest.isPending && cancelTarget?.id === r.id}
+                          onCancel={askToCancel}
+                        />
                       </td>
                     </tr>
-                  )
-                })}
+                  ))}
 
-              {!isLoading && filteredRequests.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    No service requests match "{search}".
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                {hasNoRequests && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-14 text-center">
+                      <div className="mx-auto flex max-w-xs flex-col items-center gap-2">
+                        <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                          <ClipboardList className="size-5" />
+                        </div>
+                        <p className="text-sm font-medium text-foreground">No service requests yet</p>
+                        <p className="text-xs text-muted-foreground">
+                          Tell your firm what you need and we'll get started.
+                        </p>
+                        <Button type="button" size="sm" className="mt-2" onClick={openNewRequest}>
+                          Request a Service
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+
+                {hasNoMatches && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                      {search.trim()
+                        ? `No requests match "${search.trim()}".`
+                        : "No requests in this view."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      {isNewRequestOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={() => setIsNewRequestOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-y-auto rounded-2xl bg-background p-6 shadow-lg"
-          >
-            <div className="mb-2 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold">New Service Request</h2>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  Tell us what you need and we'll get started.
-                </p>
-              </div>
-              <button
-                onClick={() => setIsNewRequestOpen(false)}
-                className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
+      {/* ── Confirm cancel dialog ─────────────────────────────────────────── */}
+      <Dialog open={Boolean(cancelTarget)} onOpenChange={closeCancelDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cancel this request?</DialogTitle>
+            <DialogDescription>
+              {cancelTarget?.requestNumber} · {cancelTarget?.serviceName}
+              <br />
+              This can't be undone. You'll need to submit a new request if you change your mind.
+            </DialogDescription>
+          </DialogHeader>
 
-            <NewServiceRequestForm
-              businessId={businessId}
-              onSubmitted={() => setIsNewRequestOpen(false)}
-              onCancel={() => setIsNewRequestOpen(false)}
-            />
-          </div>
-        </div>
-      )}
+          {cancelError && (
+            <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {cancelError}
+            </p>
+          )}
+
+          <DialogFooter className="sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={cancelRequest.isPending}
+              onClick={() => closeCancelDialog(false)}
+            >
+              Keep request
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={cancelRequest.isPending}
+              onClick={confirmCancel}
+            >
+              {cancelRequest.isPending ? "Cancelling…" : "Cancel request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── New request dialog ────────────────────────────────────────────── */}
+      <Dialog open={isNewRequestOpen} onOpenChange={setIsNewRequestOpen}>
+        <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>New Service Request</DialogTitle>
+            <DialogDescription>Tell us what you need and we'll get started.</DialogDescription>
+          </DialogHeader>
+
+          <NewServiceRequestForm
+            businessId={businessId}
+            onSubmitted={() => setIsNewRequestOpen(false)}
+            onCancel={() => setIsNewRequestOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

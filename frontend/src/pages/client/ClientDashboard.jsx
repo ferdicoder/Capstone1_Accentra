@@ -6,24 +6,17 @@ import {
   Briefcase,
   CalendarDays,
   CheckCircle2,
-  ClipboardList,
+  ChevronRight,
   Clock,
+  Download,
   FileText,
-  Hourglass,
   Receipt,
-  Upload,
 } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
-import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
-import { ActivityLogItem } from "@/components/firm/engagements/ActivityLogItem"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
-import {
-  useFetchMyEngagements,
-  useFetchEngagementActivity,
-} from "@/hooks/useEngagements"
-import { useFetchMyServiceRequests } from "@/hooks/useServiceRequests"
+import { useFetchMyEngagements } from "@/hooks/useEngagements"
 import { useFetchBusinessBillings } from "@/hooks/useBillings"
 import { authStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
@@ -45,18 +38,28 @@ const engagementStatusLabels = {
   cancelled: "Cancelled",
 }
 
-const requestStatusMeta = {
-  pending: { label: "Pending Review", tone: "bg-amber-50 text-amber-700" },
-  approved: { label: "Approved", tone: "bg-blue-50 text-blue-700" },
-  "in-progress": { label: "In Progress", tone: "bg-blue-50 text-blue-700" },
-  rejected: { label: "Declined", tone: "bg-red-50 text-red-700" },
-  cancelled: { label: "Cancelled", tone: "bg-gray-100 text-gray-600" },
-}
-
-const OPEN_REQUEST_STATUSES = ["pending", "approved", "in-progress"]
 const OPEN_ENGAGEMENT_STATUSES = ["pending", "active"]
 // Task statuses where the client still has to upload something.
 const CLIENT_TASK_STATUSES = ["missing", "for_revision"]
+// Rows shown per section on the dashboard. "View all" goes to the full page.
+const MAX_ROWS = 4
+
+// Badge shown on each "Documents to Submit" row.
+const documentBadges = {
+  missing: { label: "Pending Submission", tone: "bg-orange-50 text-orange-700" },
+  for_revision: { label: "Needs Revision", tone: "bg-red-50 text-red-700" },
+  needed: { label: "Documents Needed", tone: "bg-amber-50 text-amber-700" },
+}
+
+// Badge shown on each "Outstanding Billing" row.
+const billingBadges = {
+  rejected: { label: "Proof Rejected", tone: "bg-orange-50 text-orange-700" },
+  overdue: { label: "Overdue", tone: "bg-red-50 text-red-700" },
+  open: { label: "Awaiting Payment", tone: "bg-amber-50 text-amber-700" },
+  review: { label: "Under Review", tone: "bg-blue-50 text-blue-700" },
+}
+// Lower number = shown first.
+const billingPriority = { rejected: 0, overdue: 1, open: 2, review: 3 }
 
 const focusRing =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1"
@@ -65,16 +68,15 @@ const focusRing =
 
 const getDueDate = (invoice) => invoice.dueDate ?? invoice.due_date ?? null
 
-const formatDay = (value) => {
-  const date = parseDate(value)
-  return date
-    ? date.toLocaleDateString("en-PH", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    : "—"
-}
+const humanize = (value) =>
+  String(value)
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+
+// Known statuses use the shared labels; anything else (in_progress,
+// for_payment, ...) is turned into readable text instead of showing raw values.
+const getStatusLabel = (status) =>
+  engagementStatusLabels[status] ?? (status ? humanize(status) : "Unknown")
 
 const greeting = () => {
   const hour = new Date().getHours()
@@ -94,27 +96,13 @@ function classifyInvoice(invoice, today) {
   return "open"
 }
 
-// Documents the client still has to upload for an engagement. Uses the task
-// list when the hook returns it, otherwise falls back to the engagement status.
-function getDocumentsNeeded(engagement) {
-  if (Array.isArray(engagement.tasks) && engagement.tasks.length > 0) {
-    return engagement.tasks.filter((task) =>
-      CLIENT_TASK_STATUSES.includes(task.status)
-    ).length
-  }
-  return engagement.status === "active" ? 1 : 0
-}
-
-// Approved tasks / total tasks, or null when tasks are not available.
-function getTaskProgress(engagement) {
-  const tasks = engagement.tasks
-  if (!Array.isArray(tasks) || tasks.length === 0) return null
-  const approved = tasks.filter((task) => task.status === "approved").length
-  return {
-    approved,
-    total: tasks.length,
-    percent: Math.round((approved / tasks.length) * 100),
-  }
+const byDueDate = (a, b) => {
+  const da = parseDate(getDueDate(a.invoice ?? a))
+  const db = parseDate(getDueDate(b.invoice ?? b))
+  if (da && db) return da - db
+  if (da) return -1
+  if (db) return 1
+  return 0
 }
 
 // --- Small building blocks -----------------------------------------------------
@@ -129,31 +117,33 @@ function StatCard({ to, icon: Icon, label, value, hint, tone }) {
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2 text-sm text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
           <span
             className={cn(
-              "flex size-7 items-center justify-center rounded-lg bg-muted text-muted-foreground",
+              "flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground",
               tone
             )}
           >
             <Icon className="size-4" aria-hidden="true" />
           </span>
-          {label}
+          <span className="truncate">{label}</span>
         </span>
         <ArrowRight
-          className="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+          className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
           aria-hidden="true"
         />
       </div>
-      <p className="mt-3 text-2xl font-semibold tracking-tight">{value}</p>
+      <p className="mt-3 truncate text-2xl font-semibold tabular-nums tracking-tight">
+        {value}
+      </p>
       <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
     </Link>
   )
 }
 
-function Panel({ title, description, to, linkLabel = "View all", children, className }) {
+function Panel({ title, description, to, linkLabel = "View all", children }) {
   return (
-    <section className={cn("overflow-hidden rounded-xl border bg-background", className)}>
+    <section className="overflow-hidden rounded-xl border bg-background">
       <div className="flex items-start justify-between gap-3 border-b px-4 py-3.5">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">{title}</h2>
@@ -191,21 +181,30 @@ function EmptyState({ icon: Icon, title, children }) {
   )
 }
 
-function ProgressBar({ percent, label }) {
+// Shown instead of the empty state when a request failed, so an error is never
+// mistaken for "nothing to show".
+function InlineError() {
   return (
     <div
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={percent}
-      aria-label={label}
-      className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+      role="alert"
+      className="flex items-center gap-2 px-4 py-6 text-sm text-red-700"
     >
-      <div
-        className="h-full rounded-full bg-emerald-600 transition-[width]"
-        style={{ width: `${percent}%` }}
-      />
+      <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+      This section could not be loaded. Refresh the page to try again.
     </div>
+  )
+}
+
+function Badge({ tone, children }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex w-fit shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
+        tone
+      )}
+    >
+      {children}
+    </span>
   )
 }
 
@@ -225,11 +224,6 @@ export default function ClientDashboard() {
     isLoading: engagementsLoading,
     error: engagementsError,
   } = useFetchMyEngagements(businessId)
-  const {
-    data: requests = [],
-    isLoading: requestsLoading,
-    error: requestsError,
-  } = useFetchMyServiceRequests(businessId)
   const {
     data: invoices = [],
     isLoading: billingLoading,
@@ -271,16 +265,63 @@ export default function ClientDashboard() {
     [engagements]
   )
 
-  const documentsNeeded = useMemo(
+  // Newest first. Falls back to the original order when there is no date.
+  const recentEngagements = useMemo(
     () =>
-      openEngagements.reduce((sum, e) => sum + getDocumentsNeeded(e), 0),
-    [openEngagements]
+      [...engagements]
+        .sort((a, b) => {
+          const da = new Date(a.createdAt ?? a.created_at ?? 0).getTime() || 0
+          const db = new Date(b.createdAt ?? b.created_at ?? 0).getTime() || 0
+          return db - da
+        })
+        .slice(0, MAX_ROWS),
+    [engagements]
   )
 
-  // Engagement whose activity log is shown on the dashboard.
-  const featuredEngagement = openEngagements[0] ?? engagements[0] ?? null
-  const { data: activity = [], isLoading: activityLoading } =
-    useFetchEngagementActivity(featuredEngagement?.id)
+  // Deliverables the client can download. Counted from completed engagements
+  // (final documents are downloaded from each completed engagement).
+  const availableDeliverables = completedEngagements.length
+
+  // --- Documents to submit ---------------------------------------------------
+  // One row per document the client still has to provide. When the engagement
+  // has no task list yet, one generic row is shown for that engagement.
+
+  const documentItems = useMemo(() => {
+    const items = []
+    openEngagements.forEach((engagement) => {
+      const tasks = Array.isArray(engagement.tasks) ? engagement.tasks : []
+      const base = {
+        engagementId: engagement.id,
+        serviceName: engagement.serviceName,
+        stage: getStatusLabel(engagement.status),
+      }
+
+      if (tasks.length > 0) {
+        tasks
+          .filter((task) => CLIENT_TASK_STATUSES.includes(task.status))
+          .forEach((task, index) =>
+            items.push({
+              ...base,
+              id: `${engagement.id}-${task.id ?? index}`,
+              title:
+                task.name ??
+                task.title ??
+                task.documentName ??
+                "Document requested",
+              kind: task.status,
+            })
+          )
+      } else if (engagement.status === "active") {
+        items.push({
+          ...base,
+          id: `${engagement.id}-needed`,
+          title: "Documents needed",
+          kind: "needed",
+        })
+      }
+    })
+    return items
+  }, [openEngagements])
 
   // --- Billing ----------------------------------------------------------------
 
@@ -298,97 +339,40 @@ export default function ClientDashboard() {
       ...groups,
       payable,
       payableTotal: sum(payable),
-      reviewTotal: sum(groups.review),
     }
   }, [invoices, today])
 
-  const upcomingPayments = useMemo(
-    () =>
-      [...billing.payable]
-        .sort((a, b) => {
-          const da = parseDate(getDueDate(a))
-          const db = parseDate(getDueDate(b))
-          if (da && db) return da - db
-          if (da) return -1
-          if (db) return 1
-          return 0
-        })
-        .slice(0, 4),
-    [billing.payable]
-  )
-
-  // --- Needs attention ---------------------------------------------------------
-
-  const attention = useMemo(() => {
-    const items = []
-
-    invoices
-      .filter((invoice) => invoice.payment_status === "rejected")
-      .forEach((invoice) =>
-        items.push({
-          id: `rejected-${invoice.id}`,
-          icon: Upload,
-          tone: "bg-orange-50 text-orange-700 border-orange-200",
-          title: "Payment proof was rejected",
-          detail: `${invoice.id} · Upload a new proof of payment`,
-          to: `/client/billing/${invoice.id}`,
-        })
-      )
-
-    billing.overdue.forEach((invoice) =>
-      items.push({
-        id: `overdue-${invoice.id}`,
-        icon: AlertTriangle,
-        tone: "bg-red-50 text-red-700 border-red-200",
-        title: `${invoice.billing_type ?? "Invoice"} is overdue`,
-        detail: `${invoice.id} · ${formatCurrency(invoice.amount)}`,
-        to: `/client/billing/${invoice.id}`,
+  // Billing records awaiting payment or verification, most urgent first.
+  const outstandingBilling = useMemo(() => {
+    const rows = []
+    const add = (list, bucket) =>
+      list.forEach((invoice) => {
+        const kind =
+          invoice.payment_status === "rejected" && bucket !== "review"
+            ? "rejected"
+            : bucket
+        rows.push({ invoice, kind })
       })
-    )
+    add(billing.overdue, "overdue")
+    add(billing.open, "open")
+    add(billing.review, "review")
 
-    openEngagements.forEach((engagement) => {
-      const count = getDocumentsNeeded(engagement)
-      if (count === 0) return
-      const tasksKnown =
-        Array.isArray(engagement.tasks) && engagement.tasks.length > 0
-      items.push({
-        id: `docs-${engagement.id}`,
-        icon: FileText,
-        tone: "bg-amber-50 text-amber-700 border-amber-200",
-        title: tasksKnown
-          ? `${pluralize(count, "document")} to upload or revise`
-          : "Documents needed",
-        detail: `${engagement.serviceName} · Due ${formatDay(engagement.targetEndDate)}`,
-        to: `/client/engagements/${engagement.id}`,
-      })
+    return rows.sort((a, b) => {
+      const priority = billingPriority[a.kind] - billingPriority[b.kind]
+      return priority !== 0 ? priority : byDueDate(a, b)
     })
-
-    return items
-  }, [invoices, billing.overdue, openEngagements])
-
-  const recentRequests = useMemo(
-    () =>
-      [...requests]
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .slice(0, 3),
-    [requests]
-  )
-  const openRequestCount = requests.filter((r) =>
-    OPEN_REQUEST_STATUSES.includes(r.status)
-  ).length
+  }, [billing])
 
   // --- Render -------------------------------------------------------------------
 
   const loading =
     authLoading ||
     businessLoading ||
-    (Boolean(businessId) &&
-      (engagementsLoading || requestsLoading || billingLoading))
+    (Boolean(businessId) && (engagementsLoading || billingLoading))
 
   if (loading) return <PageSkeleton type="dashboard" />
 
-  const loadError = engagementsError || requestsError || billingError
-  const shownAttention = attention.slice(0, 5)
+  const loadError = engagementsError || billingError
 
   return (
     <div className="flex flex-1 flex-col gap-5 px-2 py-2 sm:px-4 lg:px-6">
@@ -425,13 +409,13 @@ export default function ClientDashboard() {
         </div>
       )}
 
-      {/* Summary cards: each one counts a different thing, nothing is double counted */}
+      {/* KPI cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           to="/client/engagements"
           icon={Briefcase}
-          label="Active engagements"
-          value={openEngagements.length}
+          label="Active Engagements"
+          value={engagementsError ? "—" : openEngagements.length}
           hint={
             completedEngagements.length
               ? `${completedEngagements.length} completed`
@@ -440,17 +424,19 @@ export default function ClientDashboard() {
         />
         <StatCard
           to="/client/engagements"
-          icon={Upload}
-          label="Documents to submit"
-          value={documentsNeeded}
-          tone={documentsNeeded ? "bg-amber-50 text-amber-700" : undefined}
-          hint={documentsNeeded ? "Needed by the firm" : "Nothing needed from you"}
+          icon={FileText}
+          label="Documents to Submit"
+          value={engagementsError ? "—" : documentItems.length}
+          tone={documentItems.length ? "bg-amber-50 text-amber-700" : undefined}
+          hint={
+            documentItems.length ? "Needed by the firm" : "Nothing needed from you"
+          }
         />
         <StatCard
           to="/client/billing"
           icon={Receipt}
-          label="Amount to pay"
-          value={formatCurrency(billing.payableTotal)}
+          label="Amount to Pay"
+          value={billingError ? "—" : formatCurrency(billing.payableTotal)}
           tone={billing.overdue.length ? "bg-red-50 text-red-700" : undefined}
           hint={
             billing.payable.length
@@ -461,312 +447,194 @@ export default function ClientDashboard() {
           }
         />
         <StatCard
-          to="/client/billing"
-          icon={Hourglass}
-          label="Payments under review"
-          value={billing.review.length}
-          tone={billing.review.length ? "bg-blue-50 text-blue-700" : undefined}
+          to="/client/engagements"
+          icon={Download}
+          label="Available Deliverables"
+          value={engagementsError ? "—" : availableDeliverables}
+          tone={availableDeliverables ? "bg-emerald-50 text-emerald-700" : undefined}
           hint={
-            billing.review.length
-              ? `${formatCurrency(billing.reviewTotal)} awaiting the firm`
-              : "No submissions pending"
+            availableDeliverables ? "Ready to download" : "None available yet"
           }
         />
       </div>
 
-      {/* Needs attention */}
-      {shownAttention.length > 0 && (
-        <section
-          aria-labelledby="client-attention-heading"
-          className="rounded-xl border border-amber-200 bg-amber-50/50 p-4"
-        >
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="client-attention-heading" className="text-sm font-semibold">
-              Needs your attention
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {pluralize(attention.length, "item")}
-            </p>
-          </div>
-
-          <ul className="mt-3 flex flex-col gap-2">
-            {shownAttention.map((item) => {
-              const Icon = item.icon
+      {/* Documents to Submit */}
+      <Panel
+        title="Documents to Submit"
+        description="Documents the client still needs to provide."
+        to="/client/engagements"
+      >
+        {engagementsError ? (
+          <InlineError />
+        ) : documentItems.length === 0 ? (
+          <EmptyState icon={CheckCircle2} title="Nothing to submit">
+            When the firm needs a document from you, it will appear here.
+          </EmptyState>
+        ) : (
+          <ul className="flex flex-col gap-3 p-4">
+            {documentItems.slice(0, MAX_ROWS).map((item) => {
+              const badge = documentBadges[item.kind] ?? documentBadges.needed
               return (
-                <li key={item.id}>
+                <li
+                  key={item.id}
+                  className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                      <FileText className="size-4" aria-hidden="true" />
+                    </span>
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <p className="break-words text-sm font-medium">
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.serviceName} · {item.stage}
+                      </p>
+                      <Badge tone={badge.tone}>{badge.label}</Badge>
+                    </div>
+                  </div>
                   <Link
-                    to={item.to}
+                    to={`/client/engagements/${item.engagementId}`}
                     className={cn(
-                      "flex items-center justify-between gap-3 rounded-lg border bg-background p-3 text-sm transition-colors hover:bg-muted/40",
+                      "inline-flex w-fit shrink-0 items-center rounded-full border bg-background px-3.5 py-1.5 text-xs font-medium hover:bg-muted/40 sm:self-end",
                       focusRing
                     )}
                   >
-                    <span className="flex min-w-0 items-center gap-2.5">
-                      <span
-                        className={cn(
-                          "flex size-7 shrink-0 items-center justify-center rounded-full border",
-                          item.tone
-                        )}
-                      >
-                        <Icon className="size-3.5" aria-hidden="true" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block break-words font-medium">
-                          {item.title}
-                        </span>
-                        <span className="block text-xs text-muted-foreground">
-                          {item.detail}
-                        </span>
-                      </span>
-                    </span>
-                    <ArrowRight
-                      className="size-4 shrink-0 text-muted-foreground"
-                      aria-hidden="true"
-                    />
+                    Submit Document
                   </Link>
                 </li>
               )
             })}
           </ul>
+        )}
+        {!engagementsError && documentItems.length > MAX_ROWS && (
+          <p className="border-t px-4 py-3 text-xs text-muted-foreground">
+            Showing {MAX_ROWS} of {documentItems.length}.
+          </p>
+        )}
+      </Panel>
 
-          {attention.length > shownAttention.length && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Showing {shownAttention.length} of {attention.length}.
-            </p>
-          )}
-        </section>
-      )}
-
-      {/* Main content */}
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="flex min-w-0 flex-col gap-5">
-          {/* Engagements */}
-          <Panel
-            title="My engagements"
-            description="Track the progress of your services"
-            to="/client/engagements"
-          >
-            {openEngagements.length === 0 ? (
-              <EmptyState icon={Briefcase} title="No active engagements">
-                When the firm approves a service request, your engagement and its
-                required documents will appear here.
-              </EmptyState>
-            ) : (
-              <ul className="divide-y">
-                {openEngagements.slice(0, 4).map((engagement) => {
-                  const progress = getTaskProgress(engagement)
-                  return (
-                    <li key={engagement.id}>
-                      <Link
-                        to={`/client/engagements/${engagement.id}`}
+      {/* Outstanding Billing */}
+      <Panel
+        title="Outstanding Billing"
+        description="Billing records awaiting payment or verification."
+        to="/client/billing"
+      >
+        {billingError ? (
+          <InlineError />
+        ) : outstandingBilling.length === 0 ? (
+          <EmptyState icon={CheckCircle2} title="You are all caught up">
+            There are no unpaid invoices right now.
+          </EmptyState>
+        ) : (
+          <ul className="flex flex-col gap-3 p-4">
+            {outstandingBilling.slice(0, MAX_ROWS).map(({ invoice, kind }) => {
+              const badge = billingBadges[kind]
+              const due = parseDate(getDueDate(invoice))
+              const isUrgent = kind === "overdue" || kind === "rejected"
+              return (
+                <li key={invoice.id}>
+                  <Link
+                    to={`/client/billing/${invoice.id}`}
+                    className={cn(
+                      "flex items-center justify-between gap-3 rounded-xl border p-4 transition-colors hover:bg-muted/40",
+                      focusRing
+                    )}
+                  >
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <p className="truncate text-sm font-medium">
+                        {invoice.billing_type ?? invoice.id}
+                      </p>
+                      <p
                         className={cn(
-                          "block p-4 transition-colors hover:bg-muted/40",
-                          focusRing
+                          "flex items-center gap-1 text-xs",
+                          isUrgent
+                            ? "font-medium text-red-700"
+                            : "text-muted-foreground"
                         )}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">
-                              {engagement.serviceName}
-                            </p>
-                            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                              {engagement.engagementNumber} · Due{" "}
-                              {formatDay(engagement.targetEndDate)}
-                            </p>
-                          </div>
-                          <EngagementStatusBadge
-                            status={
-                              engagementStatusLabels[engagement.status] ??
-                              engagement.status ??
-                              "Unknown"
-                            }
+                        {isUrgent ? (
+                          <AlertTriangle
+                            className="size-3 shrink-0"
+                            aria-hidden="true"
                           />
-                        </div>
-
-                        {progress && (
-                          <div className="mt-3">
-                            <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                              <span>
-                                {progress.approved} of {pluralize(progress.total, "task")}{" "}
-                                approved
-                              </span>
-                              <span className="font-medium text-foreground">
-                                {progress.percent}%
-                              </span>
-                            </div>
-                            <ProgressBar
-                              percent={progress.percent}
-                              label={`${engagement.serviceName} progress`}
-                            />
-                          </div>
+                        ) : (
+                          <Clock className="size-3 shrink-0" aria-hidden="true" />
                         )}
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-
-            {completedEngagements.length > 0 && (
-              <div className="flex items-center justify-between gap-3 border-t bg-muted/30 px-4 py-3 text-xs">
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <CheckCircle2
-                    className="size-3.5 text-emerald-600"
-                    aria-hidden="true"
-                  />
-                  {pluralize(completedEngagements.length, "completed engagement")}.
-                  Final documents can be downloaded from each engagement.
-                </span>
-              </div>
-            )}
-          </Panel>
-
-          {/* Service requests */}
-          <Panel
-            title="Service requests"
-            description={
-              requests.length
-                ? `${openRequestCount} open · ${requests.length} total. Use Request Service at the top to start a new one.`
-                : "Use Request Service at the top to start a new one."
-            }
-            to="/client/service-requests"
-          >
-            {recentRequests.length === 0 ? (
-              <EmptyState icon={ClipboardList} title="No service requests yet">
-                Choose a service offered by the firm and send your first request.
-              </EmptyState>
-            ) : (
-              <ul className="divide-y">
-                {recentRequests.map((request) => {
-                  const meta = requestStatusMeta[request.status] ?? {
-                    label: request.status,
-                    tone: "bg-gray-100 text-gray-600",
-                  }
-                  return (
-                    <li
-                      key={request.id}
-                      className="flex items-center justify-between gap-3 px-4 py-3.5"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                          {request.serviceName}
-                        </p>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {request.requestNumber} · Requested{" "}
-                          {formatDay(request.createdAt)}
-                        </p>
-                      </div>
-                      <span
-                        className={cn(
-                          "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                          meta.tone
-                        )}
-                      >
-                        {meta.label}
-                      </span>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </Panel>
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-5">
-          {/* Upcoming payments */}
-          <Panel
-            title="Upcoming payments"
-            description="Unpaid invoices, earliest due date first"
-            to="/client/billing"
-          >
-            {upcomingPayments.length === 0 ? (
-              <EmptyState icon={CheckCircle2} title="You are all caught up">
-                There are no unpaid invoices right now.
-              </EmptyState>
-            ) : (
-              <ul className="divide-y">
-                {upcomingPayments.map((invoice) => {
-                  const due = parseDate(getDueDate(invoice))
-                  const isOverdue = classifyInvoice(invoice, today) === "overdue"
-                  return (
-                    <li key={invoice.id}>
-                      <Link
-                        to={`/client/billing/${invoice.id}`}
-                        className={cn(
-                          "flex items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-muted/40",
-                          focusRing
-                        )}
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">
-                            {invoice.billing_type ?? invoice.id}
-                          </p>
-                          <p
-                            className={cn(
-                              "mt-0.5 flex items-center gap-1 text-xs",
-                              isOverdue
-                                ? "font-medium text-red-700"
-                                : "text-muted-foreground"
-                            )}
-                          >
-                            {isOverdue ? (
-                              <AlertTriangle className="size-3" aria-hidden="true" />
-                            ) : (
-                              <Clock className="size-3" aria-hidden="true" />
-                            )}
-                            {due
+                        {kind === "review"
+                          ? "Payment proof submitted"
+                          : kind === "rejected"
+                            ? "Upload a new proof of payment"
+                            : due
                               ? describeDueDate(due, today)
                               : "No due date set"}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-sm font-semibold">
-                          {formatCurrency(invoice.amount)}
-                        </span>
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </Panel>
+                      </p>
+                      <Badge tone={badge.tone}>{badge.label}</Badge>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-sm font-semibold tabular-nums">
+                        {formatCurrency(invoice.amount)}
+                      </span>
+                      <ChevronRight
+                        className="size-4 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    </div>
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        {!billingError && outstandingBilling.length > MAX_ROWS && (
+          <p className="border-t px-4 py-3 text-xs text-muted-foreground">
+            Showing {MAX_ROWS} of {outstandingBilling.length}.
+          </p>
+        )}
+      </Panel>
 
-          {/* Latest activity */}
-          <Panel
-            title="Latest activity"
-            description={
-              featuredEngagement
-                ? `Updates from the firm on ${featuredEngagement.serviceName}`
-                : "Updates from the firm appear here"
-            }
-            to={
-              featuredEngagement
-                ? `/client/engagements/${featuredEngagement.id}`
-                : undefined
-            }
-            linkLabel="Open"
-          >
-            {!featuredEngagement ? (
-              <EmptyState icon={Clock} title="No activity yet">
-                Updates will show up once you have an engagement.
-              </EmptyState>
-            ) : activityLoading ? (
-              <p className="px-4 py-6 text-sm text-muted-foreground">
-                Loading activity…
-              </p>
-            ) : activity.length === 0 ? (
-              <EmptyState icon={Clock} title="No activity yet">
-                The firm has not posted any updates for this engagement.
-              </EmptyState>
-            ) : (
-              <div className="space-y-4 p-4">
-                {activity.slice(0, 4).map((entry) => (
-                  <ActivityLogItem key={entry.id} entry={entry} />
-                ))}
-              </div>
-            )}
-          </Panel>
-        </div>
-      </div>
+      {/* Recent Engagements */}
+      <Panel
+        title="Recent Engagements"
+        description="A quick view of current service progress."
+        to="/client/engagements"
+      >
+        {engagementsError ? (
+          <InlineError />
+        ) : recentEngagements.length === 0 ? (
+          <EmptyState icon={Briefcase} title="No engagements yet">
+            When the firm approves a service request, your engagement will appear
+            here.
+          </EmptyState>
+        ) : (
+          <ul className="flex flex-col gap-3 p-4">
+            {recentEngagements.map((engagement) => (
+              <li key={engagement.id}>
+                <Link
+                  to={`/client/engagements/${engagement.id}`}
+                  className={cn(
+                    "flex items-center justify-between gap-3 rounded-xl border p-4 transition-colors hover:bg-muted/40",
+                    focusRing
+                  )}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">
+                      {engagement.serviceName}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {getStatusLabel(engagement.status)}
+                    </p>
+                  </div>
+                  <ChevronRight
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
     </div>
   )
 }

@@ -51,6 +51,10 @@ const statusConfig = {
   },
 }
 
+// Files can only be replaced or deleted while the firm is asking for a
+// revision. Approved and For Review documents are locked.
+const canModifyFiles = (task) => task?.status === "for_revision"
+
 function TaskStatusBadge({ status }) {
   const config = statusConfig[status] ?? statusConfig.missing
   return (
@@ -327,8 +331,9 @@ function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
 // Actions cell has three states:
 //   1. Nothing staged/uploaded yet → plain "Upload Files" button.
 //   2. File(s) picked but not confirmed → filename + check (confirm) / X (discard).
-//   3. Confirmed/uploaded → clickable filename chip (opens preview) + a small
-//      replace icon + a delete (X) icon that asks for confirmation first.
+//   3. Confirmed/uploaded → clickable filename chip (opens preview).
+//      The replace icon and the delete (X) icon only show when the task is
+//      "for_revision". Approved / For Review files are view-only.
 
 function TaskRow({
   task,
@@ -343,6 +348,7 @@ function TaskRow({
 }) {
   const hasPending = pendingFiles && pendingFiles.length > 0
   const hasUploaded = !hasPending && uploadedFiles && uploadedFiles.length > 0
+  const canModify = canModifyFiles(task)
 
   const pendingLabel = hasPending
     ? pendingFiles.length === 1
@@ -424,22 +430,28 @@ function TaskRow({
               <CheckCircle2 className="size-3.5 shrink-0" />
               <span className="truncate underline-offset-2 hover:underline">{uploadedLabel}</span>
             </button>
-            <button
-              type="button"
-              title="Replace file"
-              onClick={onOpenUpload}
-              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <RefreshCw className="size-3.5" />
-            </button>
-            <button
-              type="button"
-              title="Delete file"
-              onClick={onRequestDelete}
-              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
-            >
-              <X className="size-3.5" />
-            </button>
+
+            {/* Replace + delete: only while the firm is asking for a revision. */}
+            {canModify && (
+              <>
+                <button
+                  type="button"
+                  title="Replace file"
+                  onClick={onOpenUpload}
+                  className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <RefreshCw className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title="Delete file"
+                  onClick={onRequestDelete}
+                  className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <button
@@ -483,6 +495,8 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
   }
 
   const handleOpenUpload = (task) => {
+    // Uploading is for a first submission (missing) or a revision only.
+    if (task.status !== "missing" && task.status !== "for_revision") return
     setPickerTask(task)
     setPickerOpen(true)
   }
@@ -525,13 +539,15 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles,
 
   // X on an already-uploaded file — ask for confirmation first, don't
   // remove anything until the user confirms in the dialog.
+  // Only allowed while the task is "for_revision".
   const handleRequestDelete = (task) => {
+    if (!canModifyFiles(task)) return
     setDeleteTask(task)
     setDeleteConfirmOpen(true)
   }
 
   const handleConfirmDelete = async () => {
-    if (!deleteTask) return
+    if (!deleteTask || !canModifyFiles(deleteTask)) return
 
     const files = uploadedByTask[deleteTask.id] ?? persistedFilesByTask[deleteTask.id] ?? []
     setUploadError("")
