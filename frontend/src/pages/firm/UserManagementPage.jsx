@@ -43,7 +43,15 @@ export default function UserManagementPage() {
   const [statusTarget, setStatusTarget] = useState(null)
   const [page, setPage] = useState(1)
   const [notice, setNotice] = useState("")
+  const [updateSuccess, setUpdateSuccess] = useState("")
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!updateSuccess) return
+
+    const timer = setTimeout(() => setUpdateSuccess(""), 2500)
+    return () => clearTimeout(timer)
+  }, [updateSuccess])
 
   // Simulated load so the shared skeleton system has something to show.
   useEffect(() => {
@@ -176,6 +184,7 @@ export default function UserManagementPage() {
 
   const openEditDialog = (user) => {
     setEditingUser(user)
+    setUpdateSuccess("")
     setEditDialogOpen(true)
   }
 
@@ -184,10 +193,11 @@ export default function UserManagementPage() {
   }
 
   const handleSave = (values) => {
+    setUpdateSuccess("")
     updateUser.mutate(values, {
       onSuccess: () => {
         setEditDialogOpen(false)
-        setNotice(`${values.firstName} ${values.lastName} updated`)
+        setUpdateSuccess(`${values.firstName} ${values.lastName} updated successfully.`)
       },
     })
   }
@@ -210,6 +220,15 @@ export default function UserManagementPage() {
         <p className="text-sm text-muted-foreground">
           Manage your firm's users and their access to the platform.
         </p>
+        {updateSuccess && (
+          <div
+            role="status"
+            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+          >
+            <CheckCircle2 aria-hidden="true" className="size-4 shrink-0" />
+            <span>{updateSuccess}</span>
+          </div>
+        )}
         {notice && (
           <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
             {notice}
