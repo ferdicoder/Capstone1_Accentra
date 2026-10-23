@@ -7,7 +7,9 @@ import {
   FileCheck,
   FileText,
   Inbox,
+  Info,
   Loader2,
+  Lock,
   Upload,
   UploadCloud,
   X,
@@ -49,11 +51,25 @@ const statusConfig = {
   },
 }
 
-// The client can only upload when nothing has been submitted yet (missing) or
-// the firm asked for changes (for_revision). Approved and For Review files are
-// locked: view-only, no replace, no delete.
+// "For Review", "for-review" and "for_review" all mean the same status.
+const normalizeStatus = (status) =>
+  String(status ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_")
+
+// Only these two are locked. Everything else (Missing, For Revision, and any
+// status the badge shows as Missing) can be uploaded to.
+const LOCKED_STATUSES = ["approved", "for_review"]
+
 const canUploadFiles = (task) =>
-  task?.status === "missing" || task?.status === "for_revision"
+  Boolean(task) && !LOCKED_STATUSES.includes(task.status)
+
+// Shown instead of the upload actions when a task is locked.
+const lockedNotes = {
+  approved: "Approved. No further action needed.",
+  for_review: "Waiting for your firm to review.",
+}
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
 const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png"]
@@ -73,6 +89,17 @@ function TaskStatusBadge({ status }) {
   )
 }
 
+function LockedNote({ status }) {
+  const note = lockedNotes[status]
+  if (!note) return null
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+      <Lock className="size-3 shrink-0" aria-hidden="true" />
+      {note}
+    </span>
+  )
+}
+
 function formatFileSize(bytes) {
   if (!bytes && bytes !== 0) return null
   const kb = bytes / 1024
@@ -84,15 +111,6 @@ function summarizeFiles(files) {
   return files.length === 1
     ? files[0].name
     : `${files[0].name} +${files.length - 1} more`
-}
-
-// "Failed to fetch" is the browser's generic network error. Say what it means.
-function friendlyError(error, fallback) {
-  const message = error?.message ?? ""
-  if (error instanceof TypeError || /failed to fetch|network/i.test(message)) {
-    return "We couldn't reach the server. Check your internet connection and try again."
-  }
-  return message || fallback
 }
 
 // ── Task Detail Dialog (view-only) ─────────────────────────────────────────────
@@ -126,6 +144,15 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
             <div className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2.5 text-sm text-orange-800">
               <p className="mb-1 text-xs font-medium uppercase tracking-wide text-orange-600">What needs to change</p>
               {task.remark}
+            </div>
+          )}
+          {lockedNotes[task.status] && (
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
+              <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <span>
+                {lockedNotes[task.status]} Uploads are turned off for this requirement unless your
+                firm asks for a revision.
+              </span>
             </div>
           )}
         </div>
@@ -167,7 +194,7 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
   }
 
   const handleAttach = () => {
-    if (files.length === 0) return
+    if (files.length === 0 || !canUploadFiles(task)) return
     onFilesChosen?.(task, files)
     setFiles([])
     setError("")
@@ -175,6 +202,9 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
   }
 
   if (!task) return null
+
+  // The task can change while this dialog is open (for example after a refresh).
+  const locked = !canUploadFiles(task)
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -188,18 +218,28 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
-          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-4 py-8 text-center transition-colors hover:border-[#02353C]/40 hover:bg-muted/30">
-            <UploadCloud className="size-6 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">Click to choose file(s)</span>
-            <span className="text-xs text-muted-foreground">PDF, JPG, or PNG — up to 10MB each</span>
-            <input
-              type="file"
-              multiple
-              accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-              className="hidden"
-              onChange={handleChange}
-            />
-          </label>
+          {locked ? (
+            <p
+              role="alert"
+              className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+            >
+              <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+              This requirement is no longer open for uploads.
+            </p>
+          ) : (
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-4 py-8 text-center transition-colors hover:border-[#02353C]/40 hover:bg-muted/30">
+              <UploadCloud className="size-6 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Click to choose file(s)</span>
+              <span className="text-xs text-muted-foreground">PDF, JPG, or PNG — up to 10MB each</span>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                className="hidden"
+                onChange={handleChange}
+              />
+            </label>
+          )}
 
           {error && (
             <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -230,7 +270,7 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
           <Button
             size="sm"
             className="bg-emerald-600 text-white hover:bg-emerald-700"
-            disabled={files.length === 0}
+            disabled={locked || files.length === 0}
             onClick={handleAttach}
           >
             Attach
@@ -394,10 +434,13 @@ function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
 //
 // Actions cell:
 //   • Attached, not submitted yet → file name + "Submit" + X (remove).
+//     Only possible while the task is Missing / For Revision.
 //   • Missing / For Revision      → "Upload Files" is the only action. A file
 //                                   from an earlier submission can still be
 //                                   opened, but never edited or deleted.
-//   • For Review / Approved       → locked. Uploaded file is view-only.
+//   • For Review / Approved       → locked. No upload, no resubmit. Any
+//                                   uploaded file is view-only, with a note
+//                                   explaining why.
 
 function TaskRow({
   task,
@@ -409,9 +452,9 @@ function TaskRow({
   onDiscardUpload,
   onPreviewUploaded,
 }) {
-  const hasPending = pendingFiles && pendingFiles.length > 0
-  const hasUploaded = uploadedFiles && uploadedFiles.length > 0
   const canUpload = canUploadFiles(task)
+  const hasPending = canUpload && pendingFiles && pendingFiles.length > 0
+  const hasUploaded = uploadedFiles && uploadedFiles.length > 0
 
   const uploadedChip = hasUploaded && (
     <button
@@ -495,14 +538,10 @@ function TaskRow({
               {task.status === "for_revision" ? "Upload Revision" : "Upload Files"}
             </button>
           </div>
-        ) : hasUploaded ? (
+        ) : lockedNotes[task.status] || hasUploaded ? (
           <div className="flex flex-col items-start gap-1">
             {uploadedChip}
-            {task.status === "for_review" && (
-              <span className="text-[11px] text-muted-foreground">
-                Waiting for your firm to review
-              </span>
-            )}
+            <LockedNote status={task.status} />
           </div>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
@@ -514,19 +553,76 @@ function TaskRow({
 
 // ── Main ClientEngagementTaskList Component ────────────────────────────────────
 
+const omitKeys = (object, keys) => {
+  const next = { ...object }
+  keys.forEach((key) => delete next[key])
+  return next
+}
+
 export function TaskList({ engagement, documents = [], className, onUploadFiles }) {
   const [detailOpen, setDetailOpen] = useState(false)
-  const [selectedTask, setSelectedTask] = useState(null)
+  const [detailTaskId, setDetailTaskId] = useState(null)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [pickerTask, setPickerTask] = useState(null)
+  const [pickerTaskId, setPickerTaskId] = useState(null)
   const [pendingByTask, setPendingByTask] = useState({}) // taskId -> File[] (attached, not yet submitted)
   const [uploadedByTask, setUploadedByTask] = useState({}) // taskId -> File[] (submitted)
+  // taskId -> the status the task had when the client submitted it. Until the
+  // server reports a new status, the row is treated as "For Review" so the
+  // client can't submit the same requirement twice.
+  const [submittedFrom, setSubmittedFrom] = useState({})
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewTask, setPreviewTask] = useState(null)
-  const [submitTask, setSubmitTask] = useState(null) // task waiting on the "are you sure?" dialog
+  const [previewTaskId, setPreviewTaskId] = useState(null)
+  const [submitTaskId, setSubmitTaskId] = useState(null) // task waiting on the "are you sure?" dialog
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState("")
-  const tasks = engagement?.tasks ?? []
+
+  const rawTasks = engagement?.tasks
+
+  // Statuses are cleaned up here once, so every check below sees the same value.
+  // Tasks the client just submitted show as "For Review" until the server catches up.
+  const tasks = useMemo(
+    () =>
+      (rawTasks ?? []).map((task) => {
+        const status = normalizeStatus(task.status)
+        return submittedFrom[task.id] !== undefined && submittedFrom[task.id] === status
+          ? { ...task, status: "for_review" }
+          : { ...task, status }
+      }),
+    [rawTasks, submittedFrom]
+  )
+
+  const findTask = (taskId) => tasks.find((t) => t.id === taskId) ?? null
+  const detailTask = findTask(detailTaskId)
+  const pickerTask = findTask(pickerTaskId)
+  const previewTask = findTask(previewTaskId)
+  const submitTask = findTask(submitTaskId)
+
+  // When the server reports a different status than the one we submitted from,
+  // drop the local lock and the local copy of the files (the persisted
+  // documents take over).
+  useEffect(() => {
+    const serverTasks = rawTasks ?? []
+
+    const released = Object.keys(submittedFrom).filter((id) => {
+      const task = serverTasks.find((t) => String(t.id) === id)
+      return !task || normalizeStatus(task.status) !== submittedFrom[id]
+    })
+    if (released.length > 0) {
+      setSubmittedFrom((prev) => omitKeys(prev, released))
+      setUploadedByTask((prev) => omitKeys(prev, released))
+    }
+  }, [rawTasks, submittedFrom])
+
+  // Drop attached-but-unsent files for any task that can no longer be uploaded to.
+  useEffect(() => {
+    const stalePending = Object.keys(pendingByTask).filter((id) => {
+      const task = tasks.find((t) => String(t.id) === id)
+      return !task || !canUploadFiles(task)
+    })
+    if (stalePending.length > 0) {
+      setPendingByTask((prev) => omitKeys(prev, stalePending))
+    }
+  }, [tasks, pendingByTask])
 
   const persistedFilesByTask = useMemo(() => documents.reduce((filesByTask, document) => {
     const files = filesByTask[document.engagementTaskId] ?? []
@@ -537,42 +633,47 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
   const filesFor = (taskId) => uploadedByTask[taskId] ?? persistedFilesByTask[taskId]
 
   const handleOpenDetail = (task) => {
-    setSelectedTask(task)
+    setDetailTaskId(task.id)
     setDetailOpen(true)
   }
 
   const handleOpenUpload = (task) => {
     // Uploading is for a first submission (missing) or a revision only.
     if (!canUploadFiles(task)) return
-    setPickerTask(task)
+    setPickerTaskId(task.id)
     setPickerOpen(true)
   }
 
   // "Attach": stage the files on the row. Nothing is uploaded yet.
   const handleFilesChosen = (task, files) => {
+    if (!canUploadFiles(findTask(task.id))) return
     setPendingByTask((prev) => ({ ...prev, [task.id]: files }))
   }
 
   const handleDiscardUpload = (task) => {
-    setPendingByTask((prev) => {
-      const next = { ...prev }
-      delete next[task.id]
-      return next
-    })
+    setPendingByTask((prev) => omitKeys(prev, [task.id]))
   }
 
   // "Submit" on the row: ask "are you sure?" first.
   const handleAskSubmit = (task) => {
     if (!canUploadFiles(task)) return
     setSubmitError("")
-    setSubmitTask(task)
+    setSubmitTaskId(task.id)
   }
 
   // "Yes, submit": this is where the upload actually happens.
   const handleConfirmSubmit = async () => {
+    if (isSubmitting) return
+
     const task = submitTask
     const files = task ? pendingByTask[task.id] : null
     if (!task || !files || files.length === 0) return
+
+    // The task may have been locked since the dialog opened.
+    if (!canUploadFiles(task)) {
+      setSubmitError("This requirement is no longer open for uploads.")
+      return
+    }
 
     setSubmitError("")
     setIsSubmitting(true)
@@ -580,10 +681,12 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
       const uploadedFiles = await onUploadFiles?.(task, files)
 
       setUploadedByTask((prev) => ({ ...prev, [task.id]: uploadedFiles ?? files }))
+      setSubmittedFrom((prev) => ({ ...prev, [task.id]: task.status }))
       handleDiscardUpload(task)
-      setSubmitTask(null)
+      setSubmitTaskId(null)
     } catch (error) {
-      setSubmitError(friendlyError(error, "File upload failed. Please try again."))
+      console.error("Task upload failed:", error)
+      setSubmitError(error?.message || "File upload failed. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -591,12 +694,12 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
 
   const handleSubmitDialogChange = (next) => {
     if (next) return
-    setSubmitTask(null)
+    setSubmitTaskId(null)
     setSubmitError("")
   }
 
   const handlePreviewUploaded = (task) => {
-    setPreviewTask(task)
+    setPreviewTaskId(task.id)
     setPreviewOpen(true)
   }
 
@@ -615,6 +718,21 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
           </p>
         </div>
       </div>
+
+      {/* Upload rules, so clients know when they can and can't upload */}
+      {tasks.length > 0 && (
+        <div className="flex items-start gap-2 border-b border-border bg-muted/30 px-6 py-2.5 text-xs text-muted-foreground">
+          <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          <p>
+            You can upload files for requirements that are{" "}
+            <span className="font-medium text-foreground">Missing</span> or{" "}
+            <span className="font-medium text-foreground">For Revision</span>. Requirements that are{" "}
+            <span className="font-medium text-foreground">For Review</span> or{" "}
+            <span className="font-medium text-foreground">Approved</span> are locked, so you can&rsquo;t
+            upload or replace files for them.
+          </p>
+        </div>
+      )}
 
       {/* Table */}
       {tasks.length === 0 ? (
@@ -660,7 +778,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
       <TaskDetailDialog
         open={detailOpen}
         onOpenChange={setDetailOpen}
-        task={selectedTask}
+        task={detailTask}
       />
 
       <TaskFilePickerDialog

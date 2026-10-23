@@ -1,41 +1,26 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { Link, useSearchParams } from "react-router-dom"
-import { ArrowRight, ClipboardList, Search, X } from "lucide-react"
+import { useMemo, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { ChevronRight, ClipboardList, Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { NewServiceRequestForm } from "@/components/firm/service-requests/NewServiceRequestForm"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
-import { useFetchMyServiceRequests, useCancelServiceRequest } from "@/hooks/useServiceRequests"
-
-// Clients can only cancel while the firm hasn't acted on the request yet.
-// Once it's approved, the work belongs to the engagement.
-const CANCELLABLE_STATUSES = ["pending"]
-
-// Statuses where the client can jump straight to the engagement.
-const ENGAGEMENT_STATUSES = ["approved", "in-progress"]
+import { useFetchMyServiceRequests } from "@/hooks/useServiceRequests"
+import { useFetchMyEngagements } from "@/hooks/useEngagements"
 
 const statusMeta = {
   pending: {
     label: "Pending Review",
     tone: "amber",
-    help: "Your firm hasn't reviewed this request yet. You can still cancel it.",
+    help: "Your firm hasn't reviewed this request yet.",
   },
   approved: {
     label: "Approved",
     tone: "blue",
-    help: "Your firm accepted this request. Track progress in My Engagements.",
+    help: "Your firm accepted this request. Open it to see the engagement and its requirements.",
   },
   "in-progress": {
     label: "In Progress",
@@ -68,6 +53,10 @@ const FILTER_TABS = [
   { value: "closed", label: "Closed" },
 ]
 
+// Only these requests open an engagement when clicked. Add "in-progress" here
+// if those rows should be clickable too.
+const CLICKABLE_STATUSES = ["approved"]
+
 function matchesTab(status, tab) {
   switch (tab) {
     case "pending":
@@ -86,13 +75,29 @@ const formatDate = (isoString) =>
     ? new Date(isoString).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
     : "—"
 
+// Finds the engagement that was created from a request.
+// 1) The request itself may carry the engagement id.
+// 2) Otherwise match it against the client's engagements by the request id.
+// If your API uses different field names, change them here (only place).
+function getEngagementId(request, engagements) {
+  const direct =
+    request.engagementId ?? request.engagement_id ?? request.engagement?.id ?? null
+  if (direct) return direct
+
+  const match = engagements.find(
+    (e) =>
+      (e.serviceRequestId ?? e.service_request_id ?? e.requestId ?? e.request_id) === request.id
+  )
+  return match?.id ?? null
+}
+
 function StatusBadge({ status }) {
   const meta = statusMeta[status] ?? { label: status, tone: "gray", help: "" }
   return (
     <span
       title={meta.help}
       className={cn(
-        "inline-flex cursor-help items-center rounded-full px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
         toneClass[meta.tone]
       )}
     >
@@ -101,53 +106,38 @@ function StatusBadge({ status }) {
   )
 }
 
-function RequestAction({ request, isCancelling, onCancel }) {
-  const canCancel = CANCELLABLE_STATUSES.includes(request.status)
-  const canViewEngagement = ENGAGEMENT_STATUSES.includes(request.status)
-
-  if (canCancel) {
-    return (
-      <Button
-        variant="destructive"
-        size="sm"
-        disabled={isCancelling}
-        onClick={() => onCancel(request)}
-        className="gap-1.5 whitespace-nowrap"
-      >
-        <X className="size-3.5" />
-        {isCancelling ? "Cancelling…" : "Cancel"}
-      </Button>
-    )
+// Props that turn a row / card into a keyboard-accessible link. Requests that
+// can't be opened get no props, so they behave like plain, non-clickable rows.
+function getRowProps(request, path, navigate) {
+  if (!path) return {}
+  const go = () => navigate(path)
+  return {
+    role: "link",
+    tabIndex: 0,
+    "aria-label": `Open engagement for request ${request.requestNumber ?? ""}`.trim(),
+    onClick: go,
+    onKeyDown: (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault()
+        go()
+      }
+    },
   }
-
-  if (canViewEngagement) {
-    const href = request.engagementId
-      ? `/client/engagements/${request.engagementId}`
-      : "/client/engagements"
-    return (
-      <Link
-        to={href}
-        className="inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/40 focus-visible:ring-offset-2"
-      >
-        View
-        <ArrowRight className="size-3.5 shrink-0" />
-      </Link>
-    )
-  }
-
-  return <span className="text-xs text-muted-foreground">—</span>
 }
+
+const clickableRowClass =
+  "cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600/40"
 
 // Phone version of one request. The status help text is printed as visible
 // text (the table's `title` tooltip doesn't work on touch screens).
-function RequestCard({ request, isCancelling, onCancel }) {
+function RequestCard({ request, path, navigate }) {
   const meta = statusMeta[request.status]
-  const hasAction =
-    CANCELLABLE_STATUSES.includes(request.status) ||
-    ENGAGEMENT_STATUSES.includes(request.status)
 
   return (
-    <li className="flex flex-col gap-2 p-4">
+    <li
+      {...getRowProps(request, path, navigate)}
+      className={cn("flex flex-col gap-2 p-4", path && clickableRowClass)}
+    >
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 truncate text-sm font-semibold">{request.requestNumber}</p>
         <StatusBadge status={request.status} />
@@ -158,26 +148,24 @@ function RequestCard({ request, isCancelling, onCancel }) {
 
       {meta?.help && <p className="text-xs text-muted-foreground">{meta.help}</p>}
 
-      {hasAction && (
-        <div className="mt-1 flex [&>*]:h-9 [&>*]:flex-1">
-          <RequestAction request={request} isCancelling={isCancelling} onCancel={onCancel} />
-        </div>
+      {path && (
+        <p className="flex items-center gap-1 text-xs font-medium text-emerald-700">
+          View engagement
+          <ChevronRight className="size-3.5" aria-hidden="true" />
+        </p>
       )}
     </li>
   )
 }
 
 export default function ClientServiceRequestsPage() {
+  const navigate = useNavigate()
   const user = authStore((state) => state.user)
   const { data: business } = useFetchMyBusiness(user?.id)
   const businessId = business?.id
-  const [searchParams, setSearchParams] = useSearchParams()
 
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState("all")
-  const [isNewRequestOpen, setIsNewRequestOpen] = useState(false)
-  const [cancelTarget, setCancelTarget] = useState(null)
-  const [cancelError, setCancelError] = useState("")
 
   const {
     data: requests = [],
@@ -185,15 +173,7 @@ export default function ClientServiceRequestsPage() {
     error,
     refetch,
   } = useFetchMyServiceRequests(businessId)
-  const cancelRequest = useCancelServiceRequest()
-
-  // Lets other pages link straight to the dialog: /client/service-requests?new=1
-  useEffect(() => {
-    if (searchParams.get("new") === "1") {
-      setIsNewRequestOpen(true)
-      setSearchParams({}, { replace: true })
-    }
-  }, [searchParams, setSearchParams])
+  const { data: engagements = [] } = useFetchMyEngagements(businessId)
 
   const tabCounts = useMemo(
     () =>
@@ -217,33 +197,23 @@ export default function ClientServiceRequestsPage() {
     })
   }, [requests, activeTab, search])
 
-  const askToCancel = (request) => {
-    setCancelError("")
-    setCancelTarget(request)
-  }
-
-  const confirmCancel = () => {
-    if (!cancelTarget) return
-    cancelRequest.mutate(cancelTarget.id, {
-      onSuccess: () => setCancelTarget(null),
-      onError: () =>
-        setCancelError("We couldn't cancel this request. Please try again."),
+  // request id -> where clicking it goes (undefined = not clickable).
+  // The engagement page opens on the Overview tab, which holds the task list.
+  const pathByRequest = useMemo(() => {
+    const paths = {}
+    requests.forEach((r) => {
+      if (!CLICKABLE_STATUSES.includes(r.status)) return
+      const engagementId = getEngagementId(r, engagements)
+      // No match found: send them to their engagements list instead of a dead row.
+      paths[r.id] = engagementId ? `/client/engagements/${engagementId}` : "/client/engagements"
     })
-  }
-
-  const closeCancelDialog = (open) => {
-    if (open || cancelRequest.isPending) return
-    setCancelTarget(null)
-    setCancelError("")
-  }
-
-  const openNewRequest = useCallback(() => setIsNewRequestOpen(true), [])
+    return paths
+  }, [requests, engagements])
 
   usePageMeta({
     title: "Service Requests",
     breadcrumbs: [{ label: "Home", href: "/client/dashboard" }],
     hasUnreadNotifications: true,
-    onRequestServiceClick: openNewRequest,
   })
 
   const hasNoRequests = !isLoading && !error && requests.length === 0
@@ -256,11 +226,8 @@ export default function ClientServiceRequestsPage() {
       </div>
       <p className="text-sm font-medium text-foreground">No service requests yet</p>
       <p className="text-xs text-muted-foreground">
-        Tell your firm what you need and we'll get started.
+        Service requests will appear here once they are submitted.
       </p>
-      <Button type="button" size="sm" className="mt-2" onClick={openNewRequest}>
-        Request a Service
-      </Button>
     </div>
   )
 
@@ -269,135 +236,136 @@ export default function ClientServiceRequestsPage() {
     : "No requests in this view."
 
   return (
-    <>
-      <div className="flex flex-1 flex-col gap-5 px-2 py-2">
-        <div>
-          <h1 className="text-xl font-semibold">My Service Requests</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {requests.length} total request{requests.length === 1 ? "" : "s"}
-          </p>
+    <div className="flex flex-1 flex-col gap-5 px-2 py-2">
+      <div>
+        <h1 className="text-xl font-semibold">My Service Requests</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          {requests.length} total request{requests.length === 1 ? "" : "s"}
+          {" · "}Approved requests open their engagement.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* overflow-y-hidden stops the 1px underline overhang (-mb-px) from
+            creating a tiny vertical scrollbar with up/down arrows. */}
+        <div
+          role="tablist"
+          aria-label="Filter requests by status"
+          className="flex gap-4 overflow-x-auto overflow-y-hidden border-b sm:gap-6"
+        >
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.value}
+              onClick={() => setActiveTab(tab.value)}
+              className={cn(
+                "-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors",
+                activeTab === tab.value
+                  ? "border-emerald-600 text-emerald-700"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.label}
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                {tabCounts[tab.value]}
+              </span>
+            </button>
+          ))}
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div
-            role="tablist"
-            aria-label="Filter requests by status"
-            className="flex gap-4 overflow-x-auto border-b sm:gap-6"
-          >
-            {FILTER_TABS.map((tab) => (
-              <button
-                key={tab.value}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === tab.value}
-                onClick={() => setActiveTab(tab.value)}
-                className={cn(
-                  "-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors",
-                  activeTab === tab.value
-                    ? "border-emerald-600 text-emerald-700"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {tab.label}
-                <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                  {tabCounts[tab.value]}
-                </span>
-              </button>
-            ))}
-          </div>
+        <div className="relative w-full sm:max-w-xs">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search requests..."
+            aria-label="Search requests"
+            className="pl-8"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
 
-          <div className="relative w-full sm:max-w-xs">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search requests..."
-              aria-label="Search requests"
-              className="pl-8"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+      {error && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span>We couldn't load your service requests.</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+            Try again
+          </Button>
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        {/* ── Phones: stacked cards ─────────────────────────────────────── */}
+        <div className="md:hidden">
+          {isLoading && (
+            <ul className="divide-y" aria-hidden="true">
+              {[0, 1, 2].map((i) => (
+                <li key={i} className="flex flex-col gap-2.5 p-4">
+                  <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
+                  <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+                  <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {!isLoading && filteredRequests.length > 0 && (
+            <ul className="divide-y">
+              {filteredRequests.map((r) => (
+                <RequestCard key={r.id} request={r} path={pathByRequest[r.id]} navigate={navigate} />
+              ))}
+            </ul>
+          )}
+
+          {hasNoRequests && <div className="px-4 py-14 text-center">{emptyState}</div>}
+
+          {hasNoMatches && (
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">{noMatchesText}</p>
+          )}
         </div>
 
-        {error && (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <span>We couldn't load your service requests.</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
-              Try again
-            </Button>
-          </div>
-        )}
-
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-          {/* ── Phones: stacked cards ─────────────────────────────────────── */}
-          <div className="md:hidden">
-            {isLoading && (
-              <ul className="divide-y" aria-hidden="true">
-                {[0, 1, 2].map((i) => (
-                  <li key={i} className="flex flex-col gap-2.5 p-4">
-                    <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
-                    <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
-                    <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
-                  </li>
+        {/* ── Tablet and up: table ──────────────────────────────────────── */}
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full min-w-[640px] table-fixed text-sm">
+            <colgroup>
+              <col className="w-[28%]" />
+              <col className="w-[38%]" />
+              <col className="w-[18%]" />
+              <col className="w-[16%]" />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+                <th className="px-4 py-3.5 align-middle font-semibold">Request</th>
+                <th className="px-4 py-3.5 align-middle font-semibold">Service</th>
+                <th className="px-4 py-3.5 text-center align-middle font-semibold">Status</th>
+                <th className="px-4 py-3.5 align-middle font-semibold">Requested</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading &&
+                [0, 1, 2, 3].map((i) => (
+                  <tr key={i} className="border-b border-border/60 last:border-b-0" aria-hidden="true">
+                    {[0, 1, 2, 3].map((cell) => (
+                      <td key={cell} className="px-4 py-5">
+                        <div className="mx-auto h-3 w-3/4 animate-pulse rounded bg-muted" />
+                      </td>
+                    ))}
+                  </tr>
                 ))}
-              </ul>
-            )}
 
-            {!isLoading && filteredRequests.length > 0 && (
-              <ul className="divide-y">
-                {filteredRequests.map((r) => (
-                  <RequestCard
-                    key={r.id}
-                    request={r}
-                    isCancelling={cancelRequest.isPending && cancelTarget?.id === r.id}
-                    onCancel={askToCancel}
-                  />
-                ))}
-              </ul>
-            )}
-
-            {hasNoRequests && <div className="px-4 py-14 text-center">{emptyState}</div>}
-
-            {hasNoMatches && (
-              <p className="px-4 py-10 text-center text-sm text-muted-foreground">{noMatchesText}</p>
-            )}
-          </div>
-
-          {/* ── Tablet and up: table ──────────────────────────────────────── */}
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[720px] table-fixed text-sm">
-              <colgroup>
-                <col className="w-[24%]" />
-                <col className="w-[32%]" />
-                <col className="w-[16%]" />
-                <col className="w-[14%]" />
-                <col className="w-[14%]" />
-              </colgroup>
-              <thead>
-                <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
-                  <th className="px-4 py-3.5 align-middle font-semibold">Request</th>
-                  <th className="px-4 py-3.5 align-middle font-semibold">Service</th>
-                  <th className="px-4 py-3.5 text-center align-middle font-semibold">Status</th>
-                  <th className="px-4 py-3.5 align-middle font-semibold">Requested</th>
-                  <th className="px-4 py-3.5 text-center align-middle font-semibold">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading &&
-                  [0, 1, 2, 3].map((i) => (
-                    <tr key={i} className="border-b border-border/60 last:border-b-0" aria-hidden="true">
-                      {[0, 1, 2, 3, 4].map((cell) => (
-                        <td key={cell} className="px-4 py-5">
-                          <div className="mx-auto h-3 w-3/4 animate-pulse rounded bg-muted" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-
-                {!isLoading &&
-                  filteredRequests.map((r) => (
+              {!isLoading &&
+                filteredRequests.map((r) => {
+                  const path = pathByRequest[r.id]
+                  return (
                     <tr
                       key={r.id}
-                      className="border-b border-border/60 last:border-b-0 hover:bg-muted/50"
+                      {...getRowProps(r, path, navigate)}
+                      className={cn(
+                        "border-b border-border/60 last:border-b-0",
+                        path ? clickableRowClass : "hover:bg-muted/30"
+                      )}
                     >
                       <td className="px-4 py-4 align-middle">
                         <p className="truncate font-medium">{r.requestNumber}</p>
@@ -411,91 +379,29 @@ export default function ClientServiceRequestsPage() {
                       <td className="px-4 py-4 align-middle text-muted-foreground">
                         {formatDate(r.createdAt)}
                       </td>
-                      <td className="px-4 py-4 text-center align-middle">
-                        <RequestAction
-                          request={r}
-                          isCancelling={cancelRequest.isPending && cancelTarget?.id === r.id}
-                          onCancel={askToCancel}
-                        />
-                      </td>
                     </tr>
-                  ))}
+                  )
+                })}
 
-                {hasNoRequests && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-14 text-center">
-                      {emptyState}
-                    </td>
-                  </tr>
-                )}
+              {hasNoRequests && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-14 text-center">
+                    {emptyState}
+                  </td>
+                </tr>
+              )}
 
-                {hasNoMatches && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                      {noMatchesText}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+              {hasNoMatches && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                    {noMatchesText}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
-
-      {/* ── Confirm cancel dialog ─────────────────────────────────────────── */}
-      <Dialog open={Boolean(cancelTarget)} onOpenChange={closeCancelDialog}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Cancel this request?</DialogTitle>
-            <DialogDescription>
-              {cancelTarget?.requestNumber} · {cancelTarget?.serviceName}
-              <br />
-              This can't be undone. You'll need to submit a new request if you change your mind.
-            </DialogDescription>
-          </DialogHeader>
-
-          {cancelError && (
-            <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {cancelError}
-            </p>
-          )}
-
-          <DialogFooter className="sm:justify-between">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={cancelRequest.isPending}
-              onClick={() => closeCancelDialog(false)}
-            >
-              Keep request
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={cancelRequest.isPending}
-              onClick={confirmCancel}
-            >
-              {cancelRequest.isPending ? "Cancelling…" : "Cancel request"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── New request dialog ────────────────────────────────────────────── */}
-      <Dialog open={isNewRequestOpen} onOpenChange={setIsNewRequestOpen}>
-        <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>New Service Request</DialogTitle>
-            <DialogDescription>Tell us what you need and we'll get started.</DialogDescription>
-          </DialogHeader>
-
-          <NewServiceRequestForm
-            businessId={businessId}
-            onSubmitted={() => setIsNewRequestOpen(false)}
-            onCancel={() => setIsNewRequestOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
-    </>
+    </div>
   )
 }
