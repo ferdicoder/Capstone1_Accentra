@@ -88,7 +88,13 @@ export async function getBusinessBillings(businessId) {
 }
 
 export async function createBilling({ invoice_type, amount, due_date, client_id, engagement_ids = [], engagement_amounts = {}, engagements = [] }) {
-  const businessId = client_id || engagements.find((e) => engagement_ids.includes(e.id))?.business?.id
+  if (engagement_ids.length === 0) {
+    throw new Error("At least one engagement is required to create billing.")
+  }
+
+  const businessId = engagements.find((engagement) =>
+    engagement_ids.includes(engagement.id)
+  )?.business?.id || client_id
 
   if (!businessId) throw new Error("A business is required to create billing.")
 

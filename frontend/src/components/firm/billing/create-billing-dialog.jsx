@@ -1,65 +1,49 @@
-
-import { useEffect, useMemo, useRef, useState } from "react"
-import { Plus, Search, X } from "lucide-react"
-
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field"
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, Search, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from '@/components/ui/dropdown-menu';
+import { INVOICE_TYPES, invoiceTypeLabels } from './billing-variants';
 
-import {
-  INVOICE_TYPES,
-  invoiceTypeLabels,
-} from "./billing-variants"
-
-const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/
-
+const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
 const MONTHS = [
-  { value: 1, label: "January" },
-  { value: 2, label: "February" },
-  { value: 3, label: "March" },
-  { value: 4, label: "April" },
-  { value: 5, label: "May" },
-  { value: 6, label: "June" },
-  { value: 7, label: "July" },
-  { value: 8, label: "August" },
-  { value: 9, label: "September" },
-  { value: 10, label: "October" },
-  { value: 11, label: "November" },
-  { value: 12, label: "December" },
-]
-
-const CURRENT_YEAR = new Date().getFullYear()
-
-const YEARS = [
-  CURRENT_YEAR - 1,
-  CURRENT_YEAR,
-  CURRENT_YEAR + 1,
-]
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+].map((label, index) => ({ value: index + 1, label }));
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = [CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1];
 
 function getEngagementClientId(engagement) {
   return (
     engagement?.client_id ??
     engagement?.client?.id ??
+    engagement?.business?.id ??
     null
-  )
+  );
 }
 
 export function CreateBillingDialog({
@@ -71,72 +55,52 @@ export function CreateBillingDialog({
   billings = [],
   submitting = false,
   error,
-  initialEngagementId = "",
+  initialEngagementId = '',
 }) {
-  const now = new Date()
-  const currentBillingMonth = now.getMonth() + 1
-  const currentBillingYear = now.getFullYear()
-
-  const engagementSearchRef = useRef(null)
-
-  // Service Fee supports multiple engagements.
+  const now = new Date();
+  const currentBillingMonth = now.getMonth() + 1;
+  const currentBillingYear = now.getFullYear();
+  const engagementSearchRef = useRef(null);
   const [engagementIds, setEngagementIds] = useState(
     initialEngagementId ? [initialEngagementId] : []
-  )
-  const [engagementSearch, setEngagementSearch] = useState("")
-
-  // Retainer Fee remains client + billing period based.
-  const [clientId, setClientId] = useState("")
-  const [clientSearch, setClientSearch] = useState("")
-
-  const [invoiceType, setInvoiceType] = useState("")
-  const [billingMonth, setBillingMonth] = useState(
-    String(currentBillingMonth)
-  )
-  const [billingYear, setBillingYear] = useState(
-    String(currentBillingYear)
-  )
-
-  const [amount, setAmount] = useState("")
-  const [engagementAmounts, setEngagementAmounts] = useState({})
-  const [dueDate, setDueDate] = useState("")
-  const [errors, setErrors] = useState({})
-
-  const isServiceFee = invoiceType === "service_fee"
-  const isRetainerFee = invoiceType === "retainer_fee"
-
-  const engagementsUnavailable = engagements.length === 0
-  const clientsUnavailable = clients.length === 0
-
-  const selectedEngagements = engagements.filter(
-    (engagement) => engagementIds.includes(engagement.id)
-  )
-
-  const selectedClient = clients.find(
-    (client) => client.id === clientId
-  )
+  );
+  const [engagementSearch, setEngagementSearch] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
+  const [invoiceType, setInvoiceType] = useState('');
+  const [billingMonth, setBillingMonth] = useState(String(currentBillingMonth));
+  const [billingYear, setBillingYear] = useState(String(currentBillingYear));
+  const [amount, setAmount] = useState('');
+  const [engagementAmounts, setEngagementAmounts] = useState({});
+  const [dueDate, setDueDate] = useState('');
+  const [errors, setErrors] = useState({});
+  const isServiceFee = invoiceType === 'service_fee';
+  const isRetainerFee = invoiceType === 'retainer_fee';
+  const selectedClient = clients.find((client) => client.id === clientId);
+  const selectedEngagements = engagements.filter((engagement) =>
+    engagementIds.includes(engagement.id)
+  );
+  const engagementsUnavailable = engagements.length === 0;
   const serviceTotal = selectedEngagements.reduce(
-    (total, engagement) => total + (Number(engagementAmounts[engagement.id]) || 0),
+    (total, engagement) =>
+      total + (Number(engagementAmounts[engagement.id]) || 0),
     0
-  )
-
-  const engagementLabel = (engagement) =>
-    `${engagement.engagementNumber ?? engagement.id} — ${
-      engagement.serviceName ?? "Untitled service"
-    }`
-
-  const clientLabel = (client) =>
-    `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() ||
-    client.email ||
-    "Unnamed client"
-
+  );
+  const selectedMonthLabel =
+    MONTHS.find((month) => month.value === Number(billingMonth))?.label ?? '';
+  const selectedBillingPeriod =
+    billingMonth && billingYear ? `${selectedMonthLabel} ${billingYear}` : '';
   const filteredEngagements = useMemo(() => {
-    const query = engagementSearch.trim().toLowerCase()
-
-    if (!query) return []
-
+    const query = engagementSearch.trim().toLowerCase();
+    if (!query) return [];
     return engagements.filter((engagement) => {
-      const searchableText = [
+      if (
+        isRetainerFee &&
+        (!selectedClient ||
+          getEngagementClientId(engagement) !== selectedClient.id)
+      )
+        return false;
+      return [
         engagement.engagementNumber,
         engagement.serviceName,
         engagement.business?.businessName,
@@ -144,310 +108,186 @@ export function CreateBillingDialog({
         engagement.client?.lastName,
       ]
         .filter(Boolean)
-        .join(" ")
+        .join(' ')
         .toLowerCase()
-
-      return searchableText.includes(query)
-    })
-  }, [engagementSearch, engagements])
-
+        .includes(query);
+    });
+  }, [engagementSearch, engagements, isRetainerFee, selectedClient]);
   const filteredClients = useMemo(() => {
-    const query = clientSearch.trim().toLowerCase()
-
-    if (!query) return []
-
+    const query = clientSearch.trim().toLowerCase();
+    if (!query) return [];
     return clients.filter((client) => {
+      const isRetainerClient =
+        client.clientType === 'retainer' || client.type === 'retainer';
       const searchableText = [
         client.firstName,
         client.lastName,
         client.email,
-        client.business?.businessName,
+        client.businessName,
       ]
         .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-
-      return searchableText.includes(query)
-    })
-  }, [clientSearch, clients])
-
-  const selectedMonthLabel =
-    MONTHS.find(
-      (month) => Number(month.value) === Number(billingMonth)
-    )?.label ?? ""
-
-  const selectedBillingPeriod =
-    billingMonth && billingYear
-      ? `${selectedMonthLabel} ${billingYear}`
-      : ""
-
-  // Prevent an engagement from being billed twice
-  // through a non-cancelled Service Fee invoice.
-  const duplicateServiceFee = isServiceFee &&
-    engagementIds.some((selectedId) =>
+        .join(' ')
+        .toLowerCase();
+      return isRetainerClient && searchableText.includes(query);
+    });
+  }, [clientSearch, clients]);
+  const duplicateServiceFee =
+    isServiceFee &&
+    engagementIds.some((id) =>
       billings.some(
         (billing) =>
-          billing.invoice_type === "service_fee" &&
-          billing.status !== "cancelled" &&
-          (
-            billing.engagement_ids?.includes(selectedId) ||
-            billing.engagement_id === selectedId
-          )
+          billing.invoice_type === 'service_fee' &&
+          billing.status !== 'cancelled' &&
+          (billing.engagement_ids?.includes(id) || billing.engagement_id === id)
       )
-    )
-
-  // Retainer duplicate check remains unchanged.
+    );
   const duplicateRetainer =
     isRetainerFee &&
     billings.some(
       (billing) =>
-        billing.invoice_type === "retainer_fee" &&
-        billing.client_id === clientId &&
+        billing.invoice_type === 'retainer_fee' &&
+        billing.status !== 'cancelled' &&
+        engagementIds.some(
+          (id) =>
+            billing.engagement_ids?.includes(id) || billing.engagement_id === id
+        ) &&
         billing.billing_month === Number(billingMonth) &&
-        billing.billing_year === Number(billingYear) &&
-        billing.status !== "cancelled"
-    )
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const selectedDueDate = dueDate
-    ? new Date(`${dueDate}T00:00:00`)
-    : null
-
+        billing.billing_year === Number(billingYear)
+    );
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const selectedDueDate = dueDate ? new Date(`${dueDate}T00:00:00`) : null;
   const dueDateInvalid =
     !selectedDueDate ||
     Number.isNaN(selectedDueDate.getTime()) ||
-    selectedDueDate < today
+    selectedDueDate < today;
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
+    setEngagementIds(initialEngagementId ? [initialEngagementId] : []);
+    setEngagementSearch('');
+    setClientId('');
+    setClientSearch('');
+    setInvoiceType('');
+    setBillingMonth(String(currentBillingMonth));
+    setBillingYear(String(currentBillingYear));
+    setAmount('');
+    setEngagementAmounts({});
+    setDueDate('');
+    setErrors({});
+  }, [open, initialEngagementId, currentBillingMonth, currentBillingYear]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-    setEngagementIds(
-      initialEngagementId ? [initialEngagementId] : []
-    )
-    setEngagementSearch("")
-
-    setInvoiceType("")
-    setClientId("")
-    setClientSearch("")
-
-    setBillingMonth(String(currentBillingMonth))
-    setBillingYear(String(currentBillingYear))
-
-    setAmount("")
-    setEngagementAmounts({})
-    setDueDate("")
-    setErrors({})
-  }, [
-    open,
-    initialEngagementId,
-    currentBillingMonth,
-    currentBillingYear,
-  ])
-
+  const engagementLabel = (engagement) =>
+    `${engagement.engagementNumber ?? engagement.id} — ${engagement.serviceName ?? 'Untitled service'}`;
   const handleInvoiceTypeChange = (value) => {
-    setInvoiceType(value)
-
-    // Clear fields belonging to the previous billing type.
-    setEngagementIds([])
-    setEngagementSearch("")
-    setClientId("")
-    setClientSearch("")
-
-    setBillingMonth(String(currentBillingMonth))
-    setBillingYear(String(currentBillingYear))
-
-    setErrors({})
-  }
-
-  const handleSelectEngagement = (engagement) => {
-    if (engagementIds.includes(engagement.id)) return
-
-    const firstEngagement = selectedEngagements[0]
-
-    if (firstEngagement) {
-      const firstClientId = getEngagementClientId(firstEngagement)
-      const candidateClientId = getEngagementClientId(engagement)
-
-      // Require known client IDs so engagements cannot be
-      // accidentally combined when ownership is unknown.
-      if (
-        !firstClientId ||
-        !candidateClientId ||
-        firstClientId !== candidateClientId
-      ) {
-        setErrors((previous) => ({
-          ...previous,
-          engagement:
-            "Select engagements belonging to the same client.",
-        }))
-        return
-      }
-    }
-
-    setEngagementIds((previous) => [
-      ...previous,
-      engagement.id,
-    ])
-    setEngagementSearch("")
-
+    setInvoiceType(value);
+    setEngagementIds([]);
+    setEngagementSearch('');
+    setClientId('');
+    setClientSearch('');
+    setBillingMonth(String(currentBillingMonth));
+    setBillingYear(String(currentBillingYear));
+    setErrors({});
+  };
+  const handleSelectClient = (client) => {
+    setClientId(client.id);
+    setClientSearch('');
+    setEngagementIds([]);
+    setEngagementSearch('');
     setErrors((previous) => ({
       ...previous,
+      client: false,
       engagement: false,
-    }))
-  }
-
+    }));
+  };
+  const handleSelectEngagement = (engagement) => {
+    if (engagementIds.includes(engagement.id)) return;
+    const firstEngagement = selectedEngagements[0];
+    if (
+      firstEngagement &&
+      (!getEngagementClientId(firstEngagement) ||
+        !getEngagementClientId(engagement) ||
+        getEngagementClientId(firstEngagement) !==
+          getEngagementClientId(engagement))
+    ) {
+      setErrors((previous) => ({
+        ...previous,
+        engagement: 'Select engagements belonging to the same client.',
+      }));
+      return;
+    }
+    setEngagementIds((previous) => [...previous, engagement.id]);
+    setEngagementSearch('');
+    setErrors((previous) => ({ ...previous, engagement: false }));
+  };
   const handleRemoveEngagement = (id) => {
     setEngagementIds((previous) =>
       previous.filter((engagementId) => engagementId !== id)
-    )
+    );
     setEngagementAmounts((previous) => {
-      const next = { ...previous }
-      delete next[id]
-      return next
-    })
-
-    setErrors((previous) => ({
-      ...previous,
-      engagement: false,
-    }))
-  }
-
-  const handleEngagementSearch = (value) => {
-    setEngagementSearch(value)
-
-    setErrors((previous) => ({
-      ...previous,
-      engagement: false,
-    }))
-  }
-
-  const handleSelectClient = (client) => {
-    setClientId(client.id)
-    setClientSearch("")
-
-    setErrors((previous) => ({
-      ...previous,
-      client: false,
-      billingPeriod: false,
-    }))
-  }
-
-  const handleClientSearch = (value) => {
-    setClientSearch(value)
-
-    if (selectedClient) {
-      setClientId("")
-    }
-
-    setErrors((previous) => ({
-      ...previous,
-      client: false,
-    }))
-  }
-
-  const handleBillingMonthChange = (value) => {
-    setBillingMonth(String(value))
-
-    setErrors((previous) => ({
-      ...previous,
-      billingPeriod: false,
-    }))
-  }
-
-  const handleBillingYearChange = (value) => {
-    setBillingYear(String(value))
-
-    setErrors((previous) => ({
-      ...previous,
-      billingPeriod: false,
-    }))
-  }
-
+      const next = { ...previous };
+      delete next[id];
+      return next;
+    });
+    setErrors((previous) => ({ ...previous, engagement: false }));
+  };
   const handleSubmit = (event) => {
-    event.preventDefault()
-
-    const trimmedAmount = amount.trim()
-    const numericAmount = Number(trimmedAmount)
-    const lineAmounts = engagementIds.map((id) => Number(engagementAmounts[id]))
+    event.preventDefault();
+    const trimmedAmount = amount.trim();
+    const numericAmount = Number(trimmedAmount);
+    const lineAmounts = engagementIds.map((id) =>
+      Number(engagementAmounts[id])
+    );
     const lineAmountsValid =
       !isServiceFee ||
       (lineAmounts.length > 0 &&
-        lineAmounts.every((value) => Number.isFinite(value) && value > 0))
-    const serviceTotal = lineAmounts.reduce((total, value) => total + value, 0)
-
+        lineAmounts.every((value) => Number.isFinite(value) && value > 0));
     const newErrors = {
       invoiceType: !invoiceType,
-
-      engagement:
-        isServiceFee &&
-        (engagementIds.length === 0 || duplicateServiceFee),
-
       client: isRetainerFee && !clientId,
-
+      engagement:
+        (isServiceFee || isRetainerFee) &&
+        (engagementIds.length === 0 ||
+          duplicateServiceFee ||
+          duplicateRetainer),
       billingPeriod:
-        isRetainerFee &&
-        (
-          !billingMonth ||
-          !billingYear ||
-          duplicateRetainer
-        ),
-
-      amount:
-        isServiceFee
-          ? !lineAmountsValid
-          : !trimmedAmount ||
-            !AMOUNT_PATTERN.test(trimmedAmount) ||
-            !Number.isFinite(numericAmount) ||
-            numericAmount <= 0,
-
+        isRetainerFee && (!billingMonth || !billingYear || duplicateRetainer),
+      amount: isServiceFee
+        ? !lineAmountsValid
+        : !trimmedAmount ||
+          !AMOUNT_PATTERN.test(trimmedAmount) ||
+          !Number.isFinite(numericAmount) ||
+          numericAmount <= 0,
       dueDate: dueDateInvalid,
-    }
-
-    setErrors(newErrors)
-
-    if (Object.values(newErrors).some(Boolean)) return
-
+    };
+    setErrors(newErrors);
+    if (Object.values(newErrors).some(Boolean)) return;
     onSubmit?.({
-      // Legacy field: first engagement for existing consumers.
-      engagement_id: isServiceFee
-        ? engagementIds[0] ?? null
-        : null,
-
-      // New field: all engagements in this Service Fee invoice.
-      engagement_ids: isServiceFee
-        ? engagementIds
-        : [],
-
-      // Retainer Fee remains client + billing period based.
+      engagement_id: engagementIds[0] ?? null,
+      engagement_ids: engagementIds,
       client_id: isRetainerFee ? clientId : null,
-
-      billing_month: isRetainerFee
-        ? Number(billingMonth)
-        : null,
-
-      billing_year: isRetainerFee
-        ? Number(billingYear)
-        : null,
-
+      billing_month: isRetainerFee ? Number(billingMonth) : null,
+      billing_year: isRetainerFee ? Number(billingYear) : null,
       invoice_type: invoiceType,
       amount: isServiceFee ? serviceTotal : numericAmount,
-      engagement_amounts: Object.fromEntries(
-        engagementIds.map((id) => [id, Number(engagementAmounts[id])])
-      ),
+      engagement_amounts: isServiceFee
+        ? Object.fromEntries(
+            engagementIds.map((id) => [id, Number(engagementAmounts[id])])
+          )
+        : {},
       due_date: dueDate,
-
       payment_method: null,
-      payment_reference: "",
-      payment_proof_url: "",
-    })
-  }
-
-  const submitDisabled =
-    submitting ||
-    (isServiceFee && engagementsUnavailable) ||
-    (isRetainerFee && clientsUnavailable)
+      payment_reference: '',
+      payment_proof_url: '',
+    });
+  };
+  const updatePeriod = (key, value) => {
+    if (key === 'month') setBillingMonth(String(value));
+    if (key === 'year') setBillingYear(String(value));
+    setErrors((previous) => ({ ...previous, billingPeriod: false }));
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -455,32 +295,28 @@ export function CreateBillingDialog({
         <DialogHeader>
           <DialogTitle>Create Billing</DialogTitle>
         </DialogHeader>
-
         <form onSubmit={handleSubmit}>
           <FieldGroup className="space-y-4">
-            {/* BILLING TYPE */}
             <Field>
               <FieldLabel>
                 Billing Type <span className="text-red-500">*</span>
               </FieldLabel>
-
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     type="button"
                     variant="outline"
                     className={cn(
-                      "w-full justify-between font-normal",
-                      !invoiceType && "text-muted-foreground"
+                      'w-full justify-between font-normal',
+                      !invoiceType && 'text-muted-foreground'
                     )}
                   >
                     {invoiceType
                       ? invoiceTypeLabels[invoiceType]
-                      : "Select billing type"}
+                      : 'Select billing type'}
                     <span className="text-xs opacity-60">▼</span>
                   </Button>
                 </DropdownMenuTrigger>
-
                 <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
                   {INVOICE_TYPES.map((type) => (
                     <DropdownMenuItem
@@ -492,177 +328,234 @@ export function CreateBillingDialog({
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-
               {errors.invoiceType && (
                 <p className="text-xs text-red-500">
                   Please select an invoice type.
                 </p>
               )}
             </Field>
-
-            {/* SERVICE FEE: MULTIPLE ENGAGEMENTS */}
-            {isServiceFee && (
+            {isRetainerFee && (
+              <Field>
+                <FieldLabel>
+                  Client <span className="text-red-500">*</span>
+                </FieldLabel>
+                {selectedClient ? (
+                  <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                    <span>
+                      {selectedClient.businessName ||
+                        `${selectedClient.firstName ?? ''} ${selectedClient.lastName ?? ''}`.trim() ||
+                        selectedClient.email ||
+                        'Unnamed client'}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setClientId('');
+                        setClientSearch('');
+                        setEngagementIds([]);
+                        setEngagementSearch('');
+                      }}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={clientSearch}
+                        onChange={(event) => {
+                          setClientSearch(event.target.value);
+                          setErrors((previous) => ({
+                            ...previous,
+                            client: false,
+                          }));
+                        }}
+                        placeholder="Search client..."
+                        className="pl-9"
+                        disabled={clients.length === 0}
+                      />
+                    </div>
+                    {clientSearch && filteredClients.length > 0 && (
+                      <div className="mt-1 max-h-48 overflow-y-auto rounded-md border bg-background">
+                        {filteredClients.map((client) => (
+                          <button
+                            key={client.id}
+                            type="button"
+                            className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-muted"
+                            onClick={() => handleSelectClient(client)}
+                          >
+                            <span className="font-medium">
+                              {client.businessName ||
+                                `${client.firstName ?? ''} ${client.lastName ?? ''}`.trim() ||
+                                'Unnamed client'}
+                            </span>
+                            {client.email && (
+                              <span className="text-xs text-muted-foreground">
+                                {client.email}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {clientSearch && filteredClients.length === 0 && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        No matching clients found.
+                      </p>
+                    )}
+                  </>
+                )}
+                {errors.client && (
+                  <p className="text-xs text-red-500">
+                    Please select a client.
+                  </p>
+                )}
+              </Field>
+            )}
+            {(isServiceFee || isRetainerFee) && (
               <Field>
                 <FieldLabel>
                   Engagements <span className="text-red-500">*</span>
                 </FieldLabel>
-
-                {selectedEngagements.length > 0 && (
-                  <div className="space-y-2">
-                    {selectedEngagements.map((engagement) => (
-                      <div
-                        key={engagement.id}
-                        className="flex items-center gap-3 rounded-md border p-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium">
-                            {engagementLabel(engagement)}
-                          </p>
-
-                          {engagement.business?.businessName && (
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {engagement.business.businessName}
-                            </p>
-                          )}
-                        </div>
-                        <Input
-                          className="w-28"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="Amount"
-                          value={engagementAmounts[engagement.id] ?? ""}
-                          onChange={(event) => setEngagementAmounts((previous) => ({
+                {selectedEngagements.map((engagement) => (
+                  <div
+                    key={engagement.id}
+                    className="mt-2 flex items-center gap-3 rounded-md border p-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">
+                        {engagementLabel(engagement)}
+                      </p>
+                      {engagement.business?.businessName && (
+                        <p className="text-xs text-muted-foreground">
+                          {engagement.business.businessName}
+                        </p>
+                      )}
+                    </div>
+                    {isServiceFee && (
+                      <Input
+                        className="w-28"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Amount"
+                        value={engagementAmounts[engagement.id] ?? ''}
+                        onChange={(event) =>
+                          setEngagementAmounts((previous) => ({
                             ...previous,
                             [engagement.id]: event.target.value,
-                          }))}
-                          aria-label={`Amount for ${engagementLabel(engagement)}`}
-                        />
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 shrink-0"
-                          onClick={() =>
-                            handleRemoveEngagement(engagement.id)
-                          }
-                          aria-label={`Remove ${engagementLabel(engagement)}`}
-                        >
-                          <X className="size-4" />
-                        </Button>
-                      </div>
-                    ))}
+                          }))
+                        }
+                        aria-label={`Amount for ${engagementLabel(engagement)}`}
+                      />
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 shrink-0"
+                      onClick={() => handleRemoveEngagement(engagement.id)}
+                      aria-label={`Remove ${engagementLabel(engagement)}`}
+                    >
+                      <X className="size-4" />
+                    </Button>
                   </div>
-                )}
-
+                ))}
                 <div className="relative mt-2">
                   <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-
                   <Input
                     ref={engagementSearchRef}
                     value={engagementSearch}
-                    onChange={(event) =>
-                      handleEngagementSearch(event.target.value)
+                    onChange={(event) => {
+                      setEngagementSearch(event.target.value);
+                      setErrors((previous) => ({
+                        ...previous,
+                        engagement: false,
+                      }));
+                    }}
+                    placeholder={
+                      isRetainerFee && !selectedClient
+                        ? 'Select a client first'
+                        : 'Search engagement...'
                     }
-                    placeholder="Search engagement..."
                     className="pl-9"
-                    disabled={engagementsUnavailable}
+                    disabled={
+                      engagementsUnavailable ||
+                      (isRetainerFee && !selectedClient)
+                    }
                   />
                 </div>
-
-                {engagementSearch &&
-                  filteredEngagements.length > 0 && (
-                    <div className="mt-1 max-h-48 overflow-y-auto rounded-md border bg-background">
-                      {filteredEngagements.map((engagement) => {
-                        const alreadySelected =
-                          engagementIds.includes(engagement.id)
-
-                        const firstEngagement = selectedEngagements[0]
-                        const firstClientId =
-                          getEngagementClientId(firstEngagement)
-                        const candidateClientId =
-                          getEngagementClientId(engagement)
-
-                        const differentClient =
-                          Boolean(firstEngagement) &&
-                          (
-                            !firstClientId ||
-                            !candidateClientId ||
-                            firstClientId !== candidateClientId
-                          )
-
-                        const alreadyBilled = billings.some(
-                          (billing) =>
-                            billing.invoice_type === "service_fee" &&
-                            billing.status !== "cancelled" &&
-                            (
-                              billing.engagement_ids?.includes(
-                                engagement.id
-                              ) ||
-                              billing.engagement_id === engagement.id
-                            )
-                        )
-
-                        const disabled =
-                          alreadySelected ||
-                          differentClient ||
-                          alreadyBilled
-
-                        return (
-                          <button
-                            key={engagement.id}
-                            type="button"
-                            disabled={disabled}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                            onClick={() =>
-                              handleSelectEngagement(engagement)
-                            }
-                          >
-                            <Plus className="size-4 shrink-0" />
-
-                            <span className="min-w-0 flex-1">
-                              <span className="block font-medium">
-                                {engagementLabel(engagement)}
-                              </span>
-
-                              {engagement.business?.businessName && (
-                                <span className="block text-xs text-muted-foreground">
-                                  {engagement.business.businessName}
-                                </span>
-                              )}
-
-                              {alreadySelected && (
-                                <span className="block text-xs text-muted-foreground">
-                                  Already selected
-                                </span>
-                              )}
-
-                              {differentClient && (
-                                <span className="block text-xs text-muted-foreground">
-                                  Belongs to a different client
-                                </span>
-                              )}
-
-                              {alreadyBilled && !alreadySelected && (
-                                <span className="block text-xs text-muted-foreground">
-                                  Already billed
-                                </span>
-                              )}
+                {engagementSearch && filteredEngagements.length > 0 && (
+                  <div className="mt-1 max-h-48 overflow-y-auto rounded-md border bg-background">
+                    {filteredEngagements.map((engagement) => {
+                      const alreadySelected = engagementIds.includes(
+                        engagement.id
+                      );
+                      const firstClientId = getEngagementClientId(
+                        selectedEngagements[0]
+                      );
+                      const candidateClientId =
+                        getEngagementClientId(engagement);
+                      const differentClient =
+                        Boolean(selectedEngagements[0]) &&
+                        (!firstClientId ||
+                          !candidateClientId ||
+                          firstClientId !== candidateClientId);
+                      const alreadyBilled = billings.some(
+                        (billing) =>
+                          billing.invoice_type === invoiceType &&
+                          billing.status !== 'cancelled' &&
+                          (billing.engagement_ids?.includes(engagement.id) ||
+                            billing.engagement_id === engagement.id) &&
+                          (isServiceFee ||
+                            (billing.billing_month === Number(billingMonth) &&
+                              billing.billing_year === Number(billingYear)))
+                      );
+                      return (
+                        <button
+                          key={engagement.id}
+                          type="button"
+                          disabled={
+                            alreadySelected || differentClient || alreadyBilled
+                          }
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                          onClick={() => handleSelectEngagement(engagement)}
+                        >
+                          <Plus className="size-4 shrink-0" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-medium">
+                              {engagementLabel(engagement)}
                             </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-
-                {engagementSearch &&
-                  filteredEngagements.length === 0 && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      No matching engagements found.
-                    </p>
-                  )}
-
+                            {alreadySelected && (
+                              <span className="block text-xs text-muted-foreground">
+                                Already selected
+                              </span>
+                            )}
+                            {differentClient && (
+                              <span className="block text-xs text-muted-foreground">
+                                Belongs to a different client
+                              </span>
+                            )}
+                            {alreadyBilled && !alreadySelected && (
+                              <span className="block text-xs text-muted-foreground">
+                                Already billed
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {engagementSearch && filteredEngagements.length === 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    No matching engagements found.
+                  </p>
+                )}
                 {selectedEngagements.length > 0 && (
                   <Button
                     type="button"
@@ -675,17 +568,15 @@ export function CreateBillingDialog({
                     Add Engagement
                   </Button>
                 )}
-
                 {errors.engagement && (
                   <p className="text-xs text-red-500">
-                    {typeof errors.engagement === "string"
+                    {typeof errors.engagement === 'string'
                       ? errors.engagement
-                      : duplicateServiceFee
-                        ? "One or more selected engagements already have a Service Fee invoice."
-                        : "Please select at least one engagement."}
+                      : duplicateServiceFee || duplicateRetainer
+                        ? 'One or more selected engagements already have this billing type for the selected period.'
+                        : 'Please select at least one engagement.'}
                   </p>
                 )}
-
                 {engagementsUnavailable && (
                   <p className="text-xs text-muted-foreground">
                     No engagements are available.
@@ -693,235 +584,116 @@ export function CreateBillingDialog({
                 )}
               </Field>
             )}
-
-            {/* RETAINER FEE: CLIENT */}
             {isRetainerFee && (
-              <>
-                <Field>
-                  <FieldLabel>
-                    Client <span className="text-red-500">*</span>
-                  </FieldLabel>
-
-                  {selectedClient ? (
-                    <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                      <span>{clientLabel(selectedClient)}</span>
+              <Field>
+                <FieldLabel>
+                  Billing Period <span className="text-red-500">*</span>
+                </FieldLabel>
+                <div className="grid grid-cols-2 gap-3">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setClientId("")
-                          setClientSearch("")
-                        }}
+                        variant="outline"
+                        className="w-full justify-between font-normal"
                       >
-                        Change
+                        {selectedMonthLabel}
+                        <span className="text-xs opacity-60">▼</span>
                       </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-
-                        <Input
-                          value={clientSearch}
-                          onChange={(event) =>
-                            handleClientSearch(event.target.value)
-                          }
-                          placeholder="Search client..."
-                          className="pl-9"
-                          disabled={clientsUnavailable}
-                        />
-                      </div>
-
-                      {clientSearch &&
-                        filteredClients.length > 0 && (
-                          <div className="mt-1 max-h-48 overflow-y-auto rounded-md border bg-background">
-                            {filteredClients.map((client) => (
-                              <button
-                                key={client.id}
-                                type="button"
-                                className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-muted"
-                                onClick={() => handleSelectClient(client)}
-                              >
-                                <span className="font-medium">
-                                  {clientLabel(client)}
-                                </span>
-
-                                {client.email && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {client.email}
-                                  </span>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                      {clientSearch &&
-                        filteredClients.length === 0 && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            No matching clients found.
-                          </p>
-                        )}
-                    </>
-                  )}
-
-                  {errors.client && (
-                    <p className="text-xs text-red-500">
-                      Please select a client.
-                    </p>
-                  )}
-
-                  {clientsUnavailable && (
-                    <p className="text-xs text-muted-foreground">
-                      No clients are available.
-                    </p>
-                  )}
-                </Field>
-
-                {/* RETAINER BILLING PERIOD */}
-                <Field>
-                  <FieldLabel>
-                    Billing Period <span className="text-red-500">*</span>
-                  </FieldLabel>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-between font-normal",
-                            !billingMonth && "text-muted-foreground"
-                          )}
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="max-h-64 w-[220px] overflow-y-auto">
+                      {MONTHS.map((month) => (
+                        <DropdownMenuItem
+                          key={month.value}
+                          onClick={() => updatePeriod('month', month.value)}
                         >
-                          {selectedMonthLabel || "Select month"}
-                          <span className="text-xs opacity-60">▼</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-
-                      <DropdownMenuContent className="max-h-64 w-[220px] overflow-y-auto">
-                        {MONTHS.map((month) => (
-                          <DropdownMenuItem
-                            key={month.value}
-                            onClick={() =>
-                              handleBillingMonthChange(month.value)
-                            }
-                          >
-                            {month.label}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-between font-normal",
-                            !billingYear && "text-muted-foreground"
-                          )}
+                          {month.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full justify-between font-normal"
+                      >
+                        {billingYear}
+                        <span className="text-xs opacity-60">▼</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {YEARS.map((year) => (
+                        <DropdownMenuItem
+                          key={year}
+                          onClick={() => updatePeriod('year', year)}
                         >
-                          {billingYear || "Select year"}
-                          <span className="text-xs opacity-60">▼</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-
-                      <DropdownMenuContent>
-                        {YEARS.map((year) => (
-                          <DropdownMenuItem
-                            key={year}
-                            onClick={() =>
-                              handleBillingYearChange(year)
-                            }
-                          >
-                            {year}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  <p className="text-xs text-muted-foreground">
-                    Defaults to the current billing period. Change it if billing for a different period.
+                          {year}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Defaults to the current billing period. Change it if billing
+                  for a different period.
+                </p>
+                {errors.billingPeriod && (
+                  <p className="text-xs text-red-500">
+                    {duplicateRetainer
+                      ? `A retainer fee already exists for the selected engagements for ${selectedBillingPeriod}.`
+                      : 'Please select a billing period.'}
                   </p>
-
-                  {errors.billingPeriod && (
-                    <p className="text-xs text-red-500">
-                      {duplicateRetainer
-                        ? `A retainer fee already exists for this client for ${selectedBillingPeriod}.`
-                        : "Please select a billing period."}
-                    </p>
-                  )}
-                </Field>
-              </>
+                )}
+              </Field>
             )}
-
-            {/* AMOUNT */}
             <Field>
               <FieldLabel>
                 Amount <span className="text-red-500">*</span>
               </FieldLabel>
-
               <Input
                 type="text"
                 inputMode="decimal"
                 value={isServiceFee ? serviceTotal.toFixed(2) : amount}
                 onChange={(event) => {
-                  if (isServiceFee) return
-                  setAmount(event.target.value)
-                  setErrors((previous) => ({
-                    ...previous,
-                    amount: false,
-                  }))
+                  if (!isServiceFee) {
+                    setAmount(event.target.value);
+                    setErrors((previous) => ({ ...previous, amount: false }));
+                  }
                 }}
                 placeholder="0.00"
                 readOnly={isServiceFee}
               />
-
               {errors.amount && (
                 <p className="text-xs text-red-500">
                   {isServiceFee
-                    ? "Enter a valid amount for every selected engagement."
-                    : "Enter a valid amount greater than 0."}
+                    ? 'Enter a valid amount for every selected engagement.'
+                    : 'Enter a valid amount greater than 0.'}
                 </p>
               )}
             </Field>
-
-            {/* DUE DATE */}
             <Field>
               <FieldLabel>
                 Due Date <span className="text-red-500">*</span>
               </FieldLabel>
-
               <Input
                 type="date"
                 value={dueDate}
-                min={new Date().toISOString().split("T")[0]}
+                min={new Date().toISOString().split('T')[0]}
                 onChange={(event) => {
-                  setDueDate(event.target.value)
-                  setErrors((previous) => ({
-                    ...previous,
-                    dueDate: false,
-                  }))
+                  setDueDate(event.target.value);
+                  setErrors((previous) => ({ ...previous, dueDate: false }));
                 }}
               />
-
               {errors.dueDate && (
                 <p className="text-xs text-red-500">
                   Due date must be today or a future date.
                 </p>
               )}
             </Field>
-
-            {error && (
-              <p className="text-sm text-red-500">{error}</p>
-            )}
+            {error && <p className="text-sm text-red-500">{error}</p>}
           </FieldGroup>
-
           <DialogFooter className="mt-6">
             <Button
               type="button"
@@ -931,13 +703,15 @@ export function CreateBillingDialog({
             >
               Cancel
             </Button>
-
-            <Button type="submit" disabled={submitDisabled}>
-              {submitting ? "Creating..." : "Create Billing"}
+            <Button
+              type="submit"
+              disabled={submitting || engagementsUnavailable}
+            >
+              {submitting ? 'Creating...' : 'Create Billing'}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
