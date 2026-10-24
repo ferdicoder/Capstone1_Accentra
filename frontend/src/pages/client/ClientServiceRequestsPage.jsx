@@ -1,11 +1,21 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronRight, ClipboardList, Search } from "lucide-react"
+import {
+  ChevronRight,
+  ClipboardList,
+  MessageSquareText,
+  Search,
+} from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
@@ -31,7 +41,7 @@ const statusMeta = {
   rejected: {
     label: "Declined",
     tone: "red",
-    help: "Your firm couldn't take this request.",
+    help: "Your firm couldn't take this request. Open it to see the reason.",
   },
   cancelled: {
     label: "Cancelled",
@@ -51,12 +61,15 @@ const FILTER_TABS = [
   { value: "all", label: "All" },
   { value: "pending", label: "Pending" },
   { value: "active", label: "Active" },
-  { value: "closed", label: "Closed" },
+  { value: "rejected", label: "Rejected" },
 ]
 
 // Only these requests open an engagement when clicked. Add "in-progress" here
 // if those rows should be clickable too.
 const CLICKABLE_STATUSES = ["approved"]
+
+// Declined requests open the "reason for decline" dialog when clicked.
+const DECLINED_STATUS = "rejected"
 
 function matchesTab(status, tab) {
   switch (tab) {
@@ -64,8 +77,8 @@ function matchesTab(status, tab) {
       return status === "pending"
     case "active":
       return status === "approved" || status === "in-progress"
-    case "closed":
-      return status === "rejected" || status === "cancelled"
+    case "rejected":
+      return status === "rejected"
     default:
       return true
   }
@@ -75,6 +88,36 @@ const formatDate = (isoString) =>
   isoString
     ? new Date(isoString).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
     : "—"
+
+// The reason the firm gave when declining a request. Only decline-specific
+// field names are read on purpose, so the client's own notes on the request
+// are never shown as if they were the firm's reason.
+// If your API names these differently, change them here (only place).
+function getDeclineRemark(request) {
+  const raw =
+    request.rejectionReason ??
+    request.rejection_reason ??
+    request.rejectionRemarks ??
+    request.rejection_remarks ??
+    request.declineReason ??
+    request.decline_reason ??
+    request.declineRemarks ??
+    request.decline_remarks ??
+    null
+  const text = typeof raw === "string" ? raw.trim() : ""
+  return text || null
+}
+
+// When the request was declined, if the API provides it.
+function getDeclinedDate(request) {
+  return (
+    request.rejectedAt ??
+    request.rejected_at ??
+    request.declinedAt ??
+    request.declined_at ??
+    null
+  )
+}
 
 // Finds the engagement that was created from a request.
 // 1) The request itself may carry the engagement id.
@@ -107,37 +150,180 @@ function StatusBadge({ status }) {
   )
 }
 
-// Props that turn a row / card into a keyboard-accessible link. Requests that
-// can't be opened get no props, so they behave like plain, non-clickable rows.
-function getRowProps(request, path, navigate) {
-  if (!path) return {}
-  const go = () => navigate(path)
+// Props that turn a row / card into a keyboard-accessible control:
+//   - declined request  -> opens the reason dialog (role "button")
+//   - request with path -> opens its engagement (role "link")
+//   - anything else     -> plain, non-clickable row
+function getRowProps(request, path, navigate, openRemark) {
+  const isDeclined = request.status === DECLINED_STATUS
+  if (!isDeclined && !path) return {}
+
+  const activate = isDeclined ? () => openRemark(request) : () => navigate(path)
+  const number = request.requestNumber ?? ""
+
   return {
-    role: "link",
+    role: isDeclined ? "button" : "link",
     tabIndex: 0,
-    "aria-label": `Open engagement for request ${request.requestNumber ?? ""}`.trim(),
-    onClick: go,
+    "aria-label": isDeclined
+      ? `View why request ${number} was declined`.replace("  ", " ")
+      : `Open engagement for request ${number}`.trim(),
+    onClick: activate,
     onKeyDown: (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault()
-        go()
+        activate()
       }
     },
   }
 }
 
 const clickableRowClass =
-  "cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600/40"
+  "group cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600/40"
+
+const detailLabelClass =
+  "text-xs font-medium uppercase tracking-wide text-muted-foreground"
+
+// Small original illustration for the dialog: a request form with a declined
+// mark, on a soft blob. Pure SVG, colored with the app's red scale.
+function DeclinedIllustration() {
+  return (
+    <svg
+      viewBox="0 0 320 180"
+      className="h-40 w-auto sm:h-44"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {/* soft blob */}
+      <path
+        className="fill-red-50"
+        d="M58 98C48 58 108 28 170 36c60 8 112 2 122 52 9 46-42 78-102 78-62 0-122-14-132-68Z"
+      />
+
+      {/* scattered accents */}
+      <g className="stroke-red-200" fill="none" strokeWidth="2" strokeLinecap="round">
+        <circle cx="38" cy="58" r="6" />
+        <circle cx="272" cy="28" r="5" />
+        <circle cx="304" cy="122" r="4" />
+        <path d="M90 20v10M85 25h10" />
+        <path d="M250 154v10M245 159h10" />
+        <path d="M28 118v8M24 122h8" />
+      </g>
+      <g className="stroke-red-100" fill="none" strokeWidth="4" strokeLinecap="round">
+        <path d="M14 92h42" />
+        <path d="M268 104h40" />
+      </g>
+
+      {/* shadow */}
+      <ellipse className="fill-red-900/10" cx="160" cy="170" rx="58" ry="5" />
+
+      {/* request form */}
+      <rect className="fill-white" x="115" y="42" width="90" height="116" rx="10" />
+      <path
+        className="fill-red-100"
+        d="M125 42h70a10 10 0 0 1 10 10v12H115V52a10 10 0 0 1 10-10Z"
+      />
+      <rect
+        className="stroke-red-500"
+        x="115"
+        y="42"
+        width="90"
+        height="116"
+        rx="10"
+        fill="none"
+        strokeWidth="3"
+      />
+      <g className="stroke-red-200" strokeWidth="4" strokeLinecap="round">
+        <path d="M130 84h56" />
+        <path d="M130 98h40" />
+        <path d="M130 112h48" />
+      </g>
+
+      {/* declined mark */}
+      <circle className="fill-red-500 stroke-white" cx="206" cy="140" r="25" strokeWidth="4" />
+      <path
+        d="M197 131l18 18M215 131l-18 18"
+        stroke="white"
+        strokeWidth="5"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+// Shows why a request was declined. Centered layout with a soft illustration
+// on top. `sm:max-w-2xl` is needed because the Dialog's own `sm:max-w-lg`
+// would win over a plain `max-w-*`.
+function DeclineRemarkDialog({ open, onOpenChange, request }) {
+  if (!request) return null
+
+  const remark = getDeclineRemark(request)
+  const declinedAt = getDeclinedDate(request)
+
+  const meta = [
+    request.requestNumber,
+    `Requested ${formatDate(request.createdAt)}`,
+    declinedAt ? `Declined ${formatDate(declinedAt)}` : null,
+  ].filter(Boolean)
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto rounded-2xl p-0 sm:max-w-2xl">
+        <div aria-hidden="true" className="h-1.5 shrink-0 bg-red-500" />
+
+        <div className="flex flex-col items-center px-6 pt-8 pb-8 text-center sm:px-12">
+          <DeclinedIllustration />
+
+          <DialogTitle className="mt-4 text-xl font-semibold tracking-tight">
+            Request declined
+          </DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-muted-foreground">
+            {request.serviceName}
+          </DialogDescription>
+          <p className="mt-2 text-xs text-muted-foreground">{meta.join("  ·  ")}</p>
+
+          <div className="mt-6 w-full max-w-lg text-left">
+            <p className={detailLabelClass}>Reason from your firm</p>
+            {remark ? (
+              <p className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-red-100 bg-red-50/60 px-4 py-3 text-sm leading-relaxed break-words whitespace-pre-line text-red-900">
+                {remark}
+              </p>
+            ) : (
+              <p className="mt-2 flex items-start gap-2 rounded-xl border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                <MessageSquareText className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                Your firm didn't leave a reason for this decision. You can contact them if
+                you'd like to know more.
+              </p>
+            )}
+          </div>
+
+          <Button
+            type="button"
+            className="mt-7 min-w-36 rounded-full bg-red-600 px-8 text-white hover:bg-red-700"
+            onClick={() => onOpenChange(false)}
+          >
+            Close
+          </Button>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Questions about this decision? Contact your firm.
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 // Phone version of one request. The status help text is printed as visible
 // text (the table's `title` tooltip doesn't work on touch screens).
-function RequestCard({ request, path, navigate }) {
+function RequestCard({ request, path, navigate, openRemark }) {
   const meta = statusMeta[request.status]
+  const isDeclined = request.status === DECLINED_STATUS
+  const remark = isDeclined ? getDeclineRemark(request) : null
+  const interactive = isDeclined || Boolean(path)
 
   return (
     <li
-      {...getRowProps(request, path, navigate)}
-      className={cn("flex flex-col gap-2 p-4", path && clickableRowClass)}
+      {...getRowProps(request, path, navigate, openRemark)}
+      className={cn("flex flex-col gap-2 p-4", interactive && clickableRowClass)}
     >
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 truncate text-sm font-semibold">{request.requestNumber}</p>
@@ -147,7 +333,19 @@ function RequestCard({ request, path, navigate }) {
       <p className="text-sm font-medium">{request.serviceName}</p>
       <p className="text-xs text-muted-foreground">Requested {formatDate(request.createdAt)}</p>
 
-      {meta?.help && <p className="text-xs text-muted-foreground">{meta.help}</p>}
+      {isDeclined ? (
+        <div className="mt-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+          <p className="line-clamp-2 text-xs text-red-800">
+            {remark ?? "Your firm didn't leave a reason for this decision."}
+          </p>
+          <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-700">
+            <MessageSquareText className="size-3.5" aria-hidden="true" />
+            View full reason
+          </p>
+        </div>
+      ) : (
+        meta?.help && <p className="text-xs text-muted-foreground">{meta.help}</p>
+      )}
 
       {path && (
         <p className="flex items-center gap-1 text-xs font-medium text-emerald-700">
@@ -167,7 +365,16 @@ export default function ClientServiceRequestsPage() {
 
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState("all")
-  const [page, setPage] = useState(1)
+
+  // The request is kept after the dialog closes so its content doesn't blank
+  // out during the closing animation.
+  const [remarkOpen, setRemarkOpen] = useState(false)
+  const [remarkRequest, setRemarkRequest] = useState(null)
+
+  const openRemark = (request) => {
+    setRemarkRequest(request)
+    setRemarkOpen(true)
+  }
 
   const {
     data: requests = [],
@@ -187,6 +394,7 @@ export default function ClientServiceRequestsPage() {
       ),
     [requests]
   )
+
   const filteredRequests = useMemo(() => {
     const query = search.trim().toLowerCase()
     return requests.filter((r) => {
@@ -197,12 +405,6 @@ export default function ClientServiceRequestsPage() {
       )
     })
   }, [requests, activeTab, search])
-  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / PAGE_SIZE))
-  const visiblePage = Math.min(page, totalPages)
-  const paginatedRequests = filteredRequests.slice(
-    (visiblePage - 1) * PAGE_SIZE,
-    visiblePage * PAGE_SIZE
-  )
 
   // request id -> where clicking it goes (undefined = not clickable).
   // The engagement page opens on the Overview tab, which holds the task list.
@@ -248,7 +450,8 @@ export default function ClientServiceRequestsPage() {
         <h1 className="text-xl font-semibold">My Service Requests</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {requests.length} total request{requests.length === 1 ? "" : "s"}
-          {" · "}Approved requests open their engagement.
+          {" · "}Approved requests open their engagement. Declined requests show
+          the reason.
         </p>
       </div>
 
@@ -266,10 +469,7 @@ export default function ClientServiceRequestsPage() {
               type="button"
               role="tab"
               aria-selected={activeTab === tab.value}
-              onClick={() => {
-                setActiveTab(tab.value)
-                setPage(1)
-              }}
+              onClick={() => setActiveTab(tab.value)}
               className={cn(
                 "-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors",
                 activeTab === tab.value
@@ -292,10 +492,7 @@ export default function ClientServiceRequestsPage() {
             aria-label="Search requests"
             className="pl-8"
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
@@ -324,10 +521,16 @@ export default function ClientServiceRequestsPage() {
             </ul>
           )}
 
-          {!isLoading && paginatedRequests.length > 0 && (
+          {!isLoading && filteredRequests.length > 0 && (
             <ul className="divide-y">
-              {paginatedRequests.map((r) => (
-                <RequestCard key={r.id} request={r} path={pathByRequest[r.id]} navigate={navigate} />
+              {filteredRequests.map((r) => (
+                <RequestCard
+                  key={r.id}
+                  request={r}
+                  path={pathByRequest[r.id]}
+                  navigate={navigate}
+                  openRemark={openRemark}
+                />
               ))}
             </ul>
           )}
@@ -368,15 +571,18 @@ export default function ClientServiceRequestsPage() {
                   </tr>
                 ))}
 
-              {!isLoading && paginatedRequests.map((r) => {
+              {!isLoading &&
+                filteredRequests.map((r) => {
                   const path = pathByRequest[r.id]
+                  const isDeclined = r.status === DECLINED_STATUS
+                  const interactive = isDeclined || Boolean(path)
                   return (
                     <tr
                       key={r.id}
-                      {...getRowProps(r, path, navigate)}
+                      {...getRowProps(r, path, navigate, openRemark)}
                       className={cn(
                         "border-b border-border/60 last:border-b-0",
-                        path ? clickableRowClass : "hover:bg-muted/30"
+                        interactive ? clickableRowClass : "hover:bg-muted/30"
                       )}
                     >
                       <td className="px-4 py-4 align-middle">
@@ -386,7 +592,15 @@ export default function ClientServiceRequestsPage() {
                         <span className="line-clamp-2">{r.serviceName}</span>
                       </td>
                       <td className="px-4 py-4 text-center align-middle">
-                        <StatusBadge status={r.status} />
+                        <div className="flex flex-col items-center gap-1">
+                          <StatusBadge status={r.status} />
+                          {isDeclined && (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 group-hover:underline">
+                              <MessageSquareText className="size-3" aria-hidden="true" />
+                              View reason
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-4 align-middle text-muted-foreground">
                         {formatDate(r.createdAt)}
@@ -413,12 +627,13 @@ export default function ClientServiceRequestsPage() {
             </tbody>
           </table>
         </div>
-        <PaginationFooter
-          page={visiblePage}
-          totalPages={totalPages}
-          onPageChange={setPage}
-        />
       </div>
+
+      <DeclineRemarkDialog
+        open={remarkOpen}
+        onOpenChange={setRemarkOpen}
+        request={remarkRequest}
+      />
     </div>
   )
 }

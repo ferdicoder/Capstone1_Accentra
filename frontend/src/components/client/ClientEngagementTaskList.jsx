@@ -74,6 +74,51 @@ const lockedNotes = {
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
 const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png"]
 
+// The backend takes one file per request, so files picked together are
+// uploaded one after another and can be saved minutes apart. Files saved this
+// close to the newest one count as the same submission.
+const SAME_SUBMISSION_WINDOW_MS = 10 * 60 * 1000
+
+// ── Document Helpers ──────────────────────────────────────────────────────────
+
+// One shape for every file in this component. A document can arrive as:
+//   - a row straight from the upload endpoint (file_name, doc_id, created_at, ...)
+//   - a mapped document from the documents list (name, id, downloadUrl, ...)
+// Pass the original File as the second argument for a file that was just
+// uploaded, so it can still be previewed before it has a download link.
+function normalizeDocument(source, file = null) {
+  const raw = source ?? {}
+  const downloadUrl = raw.downloadUrl ?? null
+  return {
+    id: raw.id ?? raw.doc_id ?? null,
+    taskId: raw.engagementTaskId ?? raw.engagement_task_id ?? null,
+    name: raw.name ?? raw.file_name ?? raw.fileName ?? file?.name ?? "Untitled file",
+    mimeType: raw.mimeType ?? raw.mime_type ?? raw.fileType ?? file?.type ?? null,
+    size: raw.size ?? raw.fileSize ?? raw.file_size ?? file?.size ?? null,
+    uploadedAt: raw.uploadedAt ?? raw.created_at ?? raw.uploadedDate ?? null,
+    downloadUrl,
+    file: downloadUrl ? null : file,
+  }
+}
+
+const toTime = (value) => {
+  const time = value ? new Date(value).getTime() : NaN
+  return Number.isNaN(time) ? null : time
+}
+
+// Every upload is kept on the server, so a task that was rejected and
+// resubmitted has the old files and the new ones. Only the newest submission
+// is shown. When files carry no upload time there's nothing to compare, so
+// all of them are kept.
+function latestSubmission(files) {
+  const times = files.map((file) => toTime(file.uploadedAt))
+  const newest = Math.max(...times.filter((time) => time !== null))
+  if (!Number.isFinite(newest)) return files
+  return files.filter(
+    (_, index) => times[index] === null || newest - times[index] <= SAME_SUBMISSION_WINDOW_MS
+  )
+}
+
 function TaskStatusBadge({ status }) {
   const config = statusConfig[status] ?? statusConfig.missing
   return (
@@ -284,11 +329,26 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
 // ── Submit Confirmation Dialog ─────────────────────────────────────────────────
 // Step 2: last chance before the file actually goes to the firm.
 
-function SubmitConfirmDialog({ open, onOpenChange, taskName, files = [], isSubmitting, error, onConfirm }) {
+function SubmitConfirmDialog({
+  open,
+  onOpenChange,
+  taskName,
+  files = [],
+  isSubmitting,
+  progress,
+  error,
+  onConfirm,
+}) {
   const handleOpenChange = (next) => {
     if (!next && isSubmitting) return // don't close mid-upload
     onOpenChange(next)
   }
+
+  // Files go up one at a time, so show which one is in flight.
+  const submittingLabel =
+    progress && progress.total > 1
+      ? `Uploading ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…`
+      : "Submitting…"
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -323,7 +383,7 @@ function SubmitConfirmDialog({ open, onOpenChange, taskName, files = [], isSubmi
             onClick={onConfirm}
           >
             {isSubmitting && <Loader2 className="size-3.5 animate-spin" />}
-            {isSubmitting ? "Submitting…" : "Yes, submit"}
+            {isSubmitting ? submittingLabel : error ? "Try again" : "Yes, submit"}
           </Button>
         </div>
       </DialogContent>
@@ -333,16 +393,23 @@ function SubmitConfirmDialog({ open, onOpenChange, taskName, files = [], isSubmi
 
 // ── File Preview Dialog ────────────────────────────────────────────────────────
 // Lets the client click an uploaded file chip and see what they actually
-// submitted.
+// submitted. Files come from normalizeDocument().
 
 function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
   const [selectedIndex, setSelectedIndex] = useState(0)
 
+  // Start on the first file each time the dialog opens.
+  useEffect(() => {
+    if (open) setSelectedIndex(0)
+  }, [open, taskName])
+
   const selectedFile = files[selectedIndex] ?? files[0] ?? null
 
+  // A file that was just uploaded has no download link yet, so preview the
+  // copy that is still in the browser.
   const objectUrl = useMemo(() => {
-    if (!selectedFile || selectedFile.downloadUrl) return null
-    return URL.createObjectURL(selectedFile)
+    if (!selectedFile || selectedFile.downloadUrl || !selectedFile.file) return null
+    return URL.createObjectURL(selectedFile.file)
   }, [selectedFile])
 
   useEffect(() => {
@@ -353,7 +420,7 @@ function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
 
   if (!selectedFile) return null
 
-  const fileType = selectedFile.mimeType ?? selectedFile.type
+  const fileType = selectedFile.mimeType
   const fileUrl = selectedFile.downloadUrl ?? objectUrl
   const isImage = fileType?.startsWith("image/")
   const isPdf = fileType === "application/pdf"
@@ -435,11 +502,11 @@ function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
 // Actions cell:
 //   • Attached, not submitted yet → file name + "Submit" + X (remove).
 //     Only possible while the task is Missing / For Revision.
-//   • Missing / For Revision      → "Upload Files" is the only action. A file
-//                                   from an earlier submission can still be
-//                                   opened, but never edited or deleted.
-//   • For Review / Approved       → locked. No upload, no resubmit. Any
-//                                   uploaded file is view-only, with a note
+//   • Missing / For Revision      → "Upload Files" is the only action. Files
+//                                   from an earlier, rejected submission are
+//                                   not shown.
+//   • For Review / Approved       → locked. No upload, no resubmit. The latest
+//                                   submission is view-only, with a note
 //                                   explaining why.
 
 function TaskRow({
@@ -559,13 +626,20 @@ const omitKeys = (object, keys) => {
   return next
 }
 
+// onUploadFiles(task, files) must upload the given files and resolve to the
+// server's response for them (one entry per file, in the same order). This
+// component calls it with ONE file at a time, because the upload endpoint
+// accepts a single file per request.
 export function TaskList({ engagement, documents = [], className, onUploadFiles }) {
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailTaskId, setDetailTaskId] = useState(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerTaskId, setPickerTaskId] = useState(null)
   const [pendingByTask, setPendingByTask] = useState({}) // taskId -> File[] (attached, not yet submitted)
-  const [uploadedByTask, setUploadedByTask] = useState({}) // taskId -> File[] (submitted)
+  const [uploadedByTask, setUploadedByTask] = useState({}) // taskId -> normalized docs (submitted)
+  // taskId -> files that were saved before a later file in the same submission
+  // failed. They are already on the server, so a retry only sends the rest.
+  const [partialByTask, setPartialByTask] = useState({})
   // taskId -> the status the task had when the client submitted it. Until the
   // server reports a new status, the row is treated as "For Review" so the
   // client can't submit the same requirement twice.
@@ -574,6 +648,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
   const [previewTaskId, setPreviewTaskId] = useState(null)
   const [submitTaskId, setSubmitTaskId] = useState(null) // task waiting on the "are you sure?" dialog
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(null) // { done, total } while uploading
   const [submitError, setSubmitError] = useState("")
 
   const rawTasks = engagement?.tasks
@@ -610,6 +685,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
     if (released.length > 0) {
       setSubmittedFrom((prev) => omitKeys(prev, released))
       setUploadedByTask((prev) => omitKeys(prev, released))
+      setPartialByTask((prev) => omitKeys(prev, released))
     }
   }, [rawTasks, submittedFrom])
 
@@ -624,13 +700,29 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
     }
   }, [tasks, pendingByTask])
 
-  const persistedFilesByTask = useMemo(() => documents.reduce((filesByTask, document) => {
-    const files = filesByTask[document.engagementTaskId] ?? []
-    filesByTask[document.engagementTaskId] = [...files, document]
-    return filesByTask
-  }, {}), [documents])
+  // Saved documents grouped by task, in one shape (see normalizeDocument).
+  const persistedFilesByTask = useMemo(() => {
+    const grouped = {}
+    documents.forEach((document) => {
+      const file = normalizeDocument(document)
+      if (file.taskId === null || file.taskId === undefined) return
+      if (!grouped[file.taskId]) grouped[file.taskId] = []
+      grouped[file.taskId].push(file)
+    })
+    return grouped
+  }, [documents])
 
-  const filesFor = (taskId) => uploadedByTask[taskId] ?? persistedFilesByTask[taskId]
+  // The files to show for a task:
+  //   - just submitted this session -> exactly those files
+  //   - Missing / For Revision      -> none (what is on file was rejected,
+  //                                    or nothing was ever sent)
+  //   - For Review / Approved       -> the latest submission only
+  const filesFor = (task) => {
+    const local = uploadedByTask[task.id]
+    if (local) return local
+    if (!LOCKED_STATUSES.includes(task.status)) return []
+    return latestSubmission(persistedFilesByTask[task.id] ?? [])
+  }
 
   const handleOpenDetail = (task) => {
     setDetailTaskId(task.id)
@@ -662,12 +754,20 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
   }
 
   // "Yes, submit": this is where the upload actually happens.
+  // The backend saves one file per request, so the files go up one after
+  // another. If one fails, the files before it are already saved, so only the
+  // rest stay attached. Retrying then can't create duplicates.
   const handleConfirmSubmit = async () => {
     if (isSubmitting) return
 
     const task = submitTask
     const files = task ? pendingByTask[task.id] : null
     if (!task || !files || files.length === 0) return
+
+    if (!onUploadFiles) {
+      setSubmitError("Uploading isn't available right now.")
+      return
+    }
 
     // The task may have been locked since the dialog opened.
     if (!canUploadFiles(task)) {
@@ -677,18 +777,47 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
 
     setSubmitError("")
     setIsSubmitting(true)
-    try {
-      const uploadedFiles = await onUploadFiles?.(task, files)
+    setUploadProgress({ done: 0, total: files.length })
 
-      setUploadedByTask((prev) => ({ ...prev, [task.id]: uploadedFiles ?? files }))
+    const saved = []
+    try {
+      for (const file of files) {
+        const result = await onUploadFiles(task, [file])
+        const record = Array.isArray(result) ? result[0] : result
+        saved.push(normalizeDocument(record, file))
+        setUploadProgress({ done: saved.length, total: files.length })
+      }
+
+      setUploadedByTask((prev) => ({
+        ...prev,
+        [task.id]: [...(partialByTask[task.id] ?? []), ...saved],
+      }))
+      setPartialByTask((prev) => omitKeys(prev, [task.id]))
       setSubmittedFrom((prev) => ({ ...prev, [task.id]: task.status }))
       handleDiscardUpload(task)
       setSubmitTaskId(null)
     } catch (error) {
       console.error("Task upload failed:", error)
-      setSubmitError(error?.message || "File upload failed. Please try again.")
+      const message = error?.message || "File upload failed."
+
+      if (saved.length > 0) {
+        const remaining = files.slice(saved.length)
+        setPartialByTask((prev) => ({
+          ...prev,
+          [task.id]: [...(prev[task.id] ?? []), ...saved],
+        }))
+        setPendingByTask((prev) => ({ ...prev, [task.id]: remaining }))
+        setSubmitError(
+          `${saved.length} of ${files.length} files uploaded. ${message} Try again to send the remaining ${
+            remaining.length === 1 ? "file" : "files"
+          }.`
+        )
+      } else {
+        setSubmitError(`${message} Please try again.`)
+      }
     } finally {
       setIsSubmitting(false)
+      setUploadProgress(null)
     }
   }
 
@@ -762,7 +891,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
                   key={task.id}
                   task={task}
                   pendingFiles={pendingByTask[task.id]}
-                  uploadedFiles={filesFor(task.id)}
+                  uploadedFiles={filesFor(task)}
                   onOpenDetail={() => handleOpenDetail(task)}
                   onOpenUpload={() => handleOpenUpload(task)}
                   onSubmit={() => handleAskSubmit(task)}
@@ -794,6 +923,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
         taskName={submitTask?.name}
         files={submitTask ? pendingByTask[submitTask.id] ?? [] : []}
         isSubmitting={isSubmitting}
+        progress={uploadProgress}
         error={submitError}
         onConfirm={handleConfirmSubmit}
       />
@@ -801,7 +931,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
       <FilePreviewDialog
         open={previewOpen}
         onOpenChange={setPreviewOpen}
-        files={previewTask ? filesFor(previewTask.id) ?? [] : []}
+        files={previewTask ? filesFor(previewTask) : []}
         taskName={previewTask?.name}
       />
     </div>

@@ -1,12 +1,22 @@
 import { useMemo, useState } from "react"
 import { useParams, Link } from "react-router-dom"
-import { ArrowLeft, Download, Eye, HelpCircle, Search, X } from "lucide-react"
+import {
+  ArrowLeft,
+  Check,
+  Clock,
+  Download,
+  Eye,
+  MessageSquareText,
+  RotateCcw,
+  Search,
+  X,
+} from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 
 import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
@@ -39,44 +49,76 @@ const statusBadgeStyles = {
   missing: "bg-red-50 text-red-700 border border-red-200",
 }
 
-const statusHelp = {
-  approved: "This document has been reviewed and accepted by the firm.",
-  for_review: "This document has been submitted and is waiting for the firm to review it.",
-  for_revision: "This document needs changes before it can be accepted. See Validation Remarks for details.",
-  missing: "This requirement hasn't been submitted yet.",
-}
-
-// Per-status theme for the Status card — header banner, tooltip icon, and
-// the Validation Remarks button all switch color together based on the
-// parent task's status.
+// Per-status theme for the Status dialog. Every color is the same hue as the
+// status badge in the Actions column, so the popup you open from a badge looks
+// like a bigger version of it.
+//   bar      → thin strip across the top of the popup
+//   soft     → big blob behind the illustration
+//   softDark → header strip on the little document
+//   docBorder / docLine → the document outline and its text lines
+//   solid    → round status badge on the document
+//   deco     → the small decorative lines / dots around the illustration
+//   button   → the pill "Close" button
 const statusDialogTheme = {
   approved: {
-    header: "bg-emerald-600",
-    icon: "text-emerald-600",
-    button: "bg-emerald-600 hover:bg-emerald-700",
-    remarkBox: "border-green-200 bg-green-50 text-green-800",
+    title: "Document approved",
+    Icon: Check,
+    bar: "bg-green-500",
+    soft: "bg-green-50",
+    softDark: "bg-green-100",
+    docBorder: "border-green-500",
+    docLine: "bg-green-200",
+    solid: "bg-green-500",
+    decoLine: "bg-green-300",
+    decoRing: "border-green-300",
+    decoPlus: "text-green-300",
+    button: "bg-green-600 hover:bg-green-700",
   },
   for_review: {
-    header: "bg-amber-500",
-    icon: "text-amber-600",
+    title: "Waiting for review",
+    Icon: Clock,
+    bar: "bg-amber-500",
+    soft: "bg-amber-50",
+    softDark: "bg-amber-100",
+    docBorder: "border-amber-500",
+    docLine: "bg-amber-200",
+    solid: "bg-amber-500",
+    decoLine: "bg-amber-300",
+    decoRing: "border-amber-300",
+    decoPlus: "text-amber-300",
     button: "bg-amber-500 hover:bg-amber-600",
-    remarkBox: "border-amber-200 bg-amber-50 text-amber-800",
   },
   for_revision: {
-    header: "bg-orange-500",
-    icon: "text-orange-600",
+    title: "Revision requested",
+    Icon: RotateCcw,
+    bar: "bg-orange-500",
+    soft: "bg-orange-50",
+    softDark: "bg-orange-100",
+    docBorder: "border-orange-500",
+    docLine: "bg-orange-200",
+    solid: "bg-orange-500",
+    decoLine: "bg-orange-300",
+    decoRing: "border-orange-300",
+    decoPlus: "text-orange-300",
     button: "bg-orange-500 hover:bg-orange-600",
-    remarkBox: "border-orange-200 bg-orange-50 text-orange-800",
   },
   missing: {
-    header: "bg-red-500",
-    icon: "text-red-600",
+    title: "Nothing submitted yet",
+    Icon: X,
+    bar: "bg-red-500",
+    soft: "bg-red-50",
+    softDark: "bg-red-100",
+    docBorder: "border-red-500",
+    docLine: "bg-red-200",
+    solid: "bg-red-500",
+    decoLine: "bg-red-300",
+    decoRing: "border-red-300",
+    decoPlus: "text-red-300",
     button: "bg-red-500 hover:bg-red-600",
-    remarkBox: "border-red-200 bg-red-50 text-red-800",
   },
 }
 
-// What the Validation Remarks box says for each status.
+// What the remarks box says for each status.
 function getRemarkText(status, remark) {
   switch (status) {
     case "approved":
@@ -90,66 +132,104 @@ function getRemarkText(status, remark) {
   }
 }
 
-function DocumentStatusDialog({ open, onOpenChange, status, remark }) {
-  const [showRemarks, setShowRemarks] = useState(false)
+// Small document drawing with a round status badge, tinted per status.
+function StatusIllustration({ theme }) {
+  const { Icon } = theme
+  return (
+    <div className="relative mx-auto h-36 w-64" aria-hidden="true">
+      {/* blob */}
+      <div className={`absolute inset-x-10 top-3 bottom-4 rounded-[50%] ${theme.soft}`} />
 
-  const handleOpenChange = (next) => {
-    if (!next) setShowRemarks(false)
-    onOpenChange(next)
-  }
+      {/* decorations */}
+      <span className={`absolute left-2 top-[46%] h-0.5 w-14 rounded opacity-60 ${theme.decoLine}`} />
+      <span className={`absolute right-1 top-[52%] h-0.5 w-12 rounded opacity-60 ${theme.decoLine}`} />
+      <span className={`absolute left-[26%] top-2 text-base font-light leading-none ${theme.decoPlus}`}>+</span>
+      <span className={`absolute left-[16%] top-[30%] size-3 rounded-full border-2 ${theme.decoRing}`} />
+      <span className={`absolute right-[18%] top-2 size-3 rounded-full border-2 ${theme.decoRing}`} />
+      <span className={`absolute right-[26%] bottom-2 text-base font-light leading-none ${theme.decoPlus}`}>+</span>
 
+      {/* shadow */}
+      <div className="absolute bottom-1.5 left-1/2 h-2 w-28 -translate-x-1/2 rounded-[50%] bg-black/10" />
+
+      {/* document */}
+      <div
+        className={`absolute left-1/2 top-3 h-[92px] w-[76px] -translate-x-1/2 overflow-hidden rounded-lg border-2 bg-white ${theme.docBorder}`}
+      >
+        <div className={`h-3.5 ${theme.softDark}`} />
+        <div className="flex flex-col gap-1.5 px-2.5 pt-3">
+          <span className={`h-1 w-full rounded ${theme.docLine}`} />
+          <span className={`h-1 w-4/5 rounded ${theme.docLine}`} />
+          <span className={`h-1 w-3/5 rounded ${theme.docLine}`} />
+        </div>
+      </div>
+
+      {/* status badge */}
+      <div
+        className={`absolute left-[55%] top-[64px] flex size-11 items-center justify-center rounded-full border-4 border-white text-white ${theme.solid}`}
+      >
+        <Icon className="size-5" strokeWidth={3} />
+      </div>
+    </div>
+  )
+}
+
+function DocumentStatusDialog({ open, onOpenChange, status, remark, doc }) {
   if (!status) return null
 
-  const label = statusLabels[status] ?? statusLabels.missing
-  const badgeClass = statusBadgeStyles[status] ?? statusBadgeStyles.missing
-  const helpText = statusHelp[status] ?? ""
   const theme = statusDialogTheme[status] ?? statusDialogTheme.missing
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-sm gap-0 overflow-hidden p-0">
-        <div className={`px-6 py-4 text-center ${theme.header}`}>
-          <h2 className="text-base font-semibold text-white">Status</h2>
-        </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* `[&>button]:hidden` hides the dialog's default corner X so only our own shows. */}
+      <DialogContent className="max-w-xl gap-0 overflow-hidden rounded-3xl border-0 p-0 [&>button]:hidden">
+        <div className={`h-1.5 w-full ${theme.bar}`} />
 
-        <div className="flex flex-col items-center gap-4 px-6 py-6">
-          {!showRemarks ? (
-            <>
-              <div className="flex items-center gap-1.5">
-                <span className={`rounded-full px-3 py-1 text-sm font-semibold ${badgeClass}`}>
-                  {label}
-                </span>
-                <span title={helpText} className={`cursor-help ${theme.icon}`}>
-                  <HelpCircle className="size-4" />
-                </span>
+        <button
+          type="button"
+          onClick={() => onOpenChange(false)}
+          aria-label="Close"
+          className="absolute right-5 top-6 flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+        >
+          <X className="size-5" />
+        </button>
+
+        <div className="flex flex-col px-6 pb-6 pt-8 sm:px-8">
+          <StatusIllustration theme={theme} />
+
+          <div className="mt-4 text-center">
+            <DialogTitle className="text-2xl font-bold">{theme.title}</DialogTitle>
+            <DialogDescription asChild>
+              <div>
+                {doc?.name && (
+                  <p className="mt-2 break-words text-base text-muted-foreground">{doc.name}</p>
+                )}
+                {doc && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {doc.uploadedBy ?? "—"} · Uploaded {doc.uploadedDate ?? "—"}
+                  </p>
+                )}
               </div>
+            </DialogDescription>
+          </div>
 
-              <Button
-                className={`w-full py-6 text-base font-semibold text-white ${theme.button}`}
-                onClick={() => setShowRemarks(true)}
-              >
-                Validation Remarks
-              </Button>
+          <p className="mt-6 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Remarks from your firm
+          </p>
+          <div className="mt-2 flex items-start gap-3 rounded-2xl border bg-muted/30 px-4 py-3.5 text-base text-muted-foreground">
+            <MessageSquareText className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+            <p className="min-w-0 break-words">{getRemarkText(status, remark)}</p>
+          </div>
 
-              <p className="text-center text-sm text-muted-foreground">
-                Click "Validation Remarks" for more specific updates
-              </p>
-            </>
-          ) : (
-            <>
-              <div className={`w-full rounded-lg border px-3 py-2.5 text-sm ${theme.remarkBox}`}>
-                {getRemarkText(status, remark)}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => setShowRemarks(false)}
-              >
-                Back to Status
-              </Button>
-            </>
-          )}
+          <Button
+            className={`mx-auto mt-6 h-11 w-44 rounded-full text-base font-semibold text-white shadow-none ${theme.button}`}
+            onClick={() => onOpenChange(false)}
+          >
+            Close
+          </Button>
+
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Questions about this document? Contact your firm.
+          </p>
         </div>
       </DialogContent>
     </Dialog>
@@ -533,6 +613,7 @@ export default function ClientEngagementDetailPage() {
         onOpenChange={setIsStatusOpen}
         status={statusDocTask?.status}
         remark={statusDocTask?.remark}
+        doc={statusDoc}
       />
 
       {/* ================================================================
