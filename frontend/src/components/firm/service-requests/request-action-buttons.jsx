@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 export function RequestActionButtons({
   status = "pending",
   processing = null,
+  canReject = false,
   onApprove,
   onReject,
   className,
@@ -20,8 +21,8 @@ export function RequestActionButtons({
         type="button"
         variant="destructive"
         onClick={onReject}
-        disabled={isDecided || isProcessing}
-        title="Reject Request"
+        disabled={!canReject || isDecided || isProcessing}
+        title={canReject ? "Reject Request" : "Only admins can reject service requests"}
         className="h-9 gap-1.5"
       >
         {processing === "reject" ? (

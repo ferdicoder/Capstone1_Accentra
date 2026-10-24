@@ -37,6 +37,14 @@ const formatDate = (isoString) =>
     ? new Date(isoString).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
     : "—"
 
+const getRejectionReason = (request) =>
+  [
+    request.rejectionReason,
+    request.rejection_reason,
+    request.rejectionRemarks,
+    request.rejection_remarks,
+  ].find((reason) => typeof reason === "string" && reason.trim())?.trim() ?? ""
+
 export default function ClientServiceRequestsPage() {
   const user = authStore((state) => state.user)
   const { data: business } = useFetchMyBusiness(user?.id)
@@ -134,6 +142,7 @@ export default function ClientServiceRequestsPage() {
                   const meta = statusMeta[r.status] ?? { label: r.status, tone: "gray" }
                   const canCancel = CANCELLABLE_STATUSES.includes(r.status)
                   const isDeclined = r.status === DECLINED_STATUS
+                  const rejectionReason = isDeclined ? getRejectionReason(r) : ""
                   return (
                     <tr
                       key={r.id}
@@ -154,6 +163,11 @@ export default function ClientServiceRequestsPage() {
                           className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${toneClass[meta.tone]}`}>
                           {meta.label}
                         </span>
+                         {rejectionReason && (
+                           <p className="mt-1 max-w-56 whitespace-normal text-left text-xs font-normal text-muted-foreground">
+                             Reason: {rejectionReason}
+                           </p>
+                         )}
                       </td>
                       <td className="px-4 py-4 align-middle text-muted-foreground">
                         {formatDate(r.createdAt)}
