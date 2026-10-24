@@ -1,6 +1,7 @@
 import { ReceiptText } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BillingStatusBadge } from "./billing-status-badge"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
@@ -75,12 +76,20 @@ export function BillingTable({
   emptyDescription,
   actions,
   onRowClick,
+  page = 1,
+  onPageChange,
   className,
   ...props
 }) {
   const showActions = typeof actions === "function"
   const isEmpty = !loading && billings.length === 0
   const columnCount = 6 + (showActions ? 1 : 0)
+  const totalPages = Math.max(1, Math.ceil(billings.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedBillings = billings.slice(
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE
+  )
 
   return (
     <div
@@ -170,7 +179,7 @@ export function BillingTable({
                 </td>
               </tr>
             ) : (
-              billings.map((billing) => {
+              paginatedBillings.map((billing) => {
                 const billingFor =
                   getBillingForDisplay({
                     billing,
@@ -239,6 +248,11 @@ export function BillingTable({
           </tbody>
         </table>
       </div>
+      <PaginationFooter
+        page={visiblePage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
     </div>
   )
 }

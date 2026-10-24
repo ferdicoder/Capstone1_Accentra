@@ -10,7 +10,7 @@ import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-m
 import { FirmUserCreateDialog } from "@/components/firm/users/firm-user-create-dialog"
 import { FirmUserEditDialog } from "@/components/firm/users/firm-user-edit-dialog"
 import { FirmUserStatusDialog } from "@/components/firm/users/firm-user-status-dialog"
-import { FirmUserPagination } from "@/components/firm/users/firm-user-pagination"
+import { PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { authStore } from "@/store/authStore"
 
 import {
@@ -28,9 +28,6 @@ const buildDisplayName = ({ firstName, middleName, lastName, extension, name }) 
 
   return [firstName, middleName, lastName, extension].filter(Boolean).join(" ")
 }
-
-// Firm users shown per page.
-const PAGE_SIZE = 8
 
 export default function UserManagementPage() {
   const navigate = useNavigate()
@@ -98,10 +95,6 @@ export default function UserManagementPage() {
   // The list is paginated, 8 firm users per page.
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  )
 
   // Validation for the deactivate / reactivate action. An empty string means
   // the action may proceed.
@@ -241,27 +234,28 @@ export default function UserManagementPage() {
 
       <FirmUsersToolbar
         searchValue={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => {
+          setSearch(value)
+          setPage(1)
+        }}
         roleFilter={roleFilter}
-        onRoleFilterChange={setRoleFilter}
+        onRoleFilterChange={(value) => {
+          setRoleFilter(value)
+          setPage(1)
+        }}
         roleOptions={roleOptions}
         onAddUser={openCreateDialog}
         resultCount={`${filteredUsers.length} of ${users.length} users`}
       />
 
       <FirmUserTable
-        users={paginatedUsers}
+        users={filteredUsers}
         loading={isLoading}
         emptyMessage="No users match your filters."
         emptyDescription="Try clearing the search or filters."
         onRowClick={openEditDialog}
-        footer={
-          <FirmUserPagination
-            page={currentPage}
-            totalPages={totalPages}
-            onPageChange={setPage}
-          />
-        }
+        page={currentPage}
+        onPageChange={setPage}
         actions={(user) => (
           <FirmUserActionsMenu
             user={user}

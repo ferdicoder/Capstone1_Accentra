@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -212,12 +213,20 @@ export function ServiceManagementTable({
   emptyDescription,
   actions,
   onRowClick,
+  page = 1,
+  onPageChange,
   className,
   ...props
 }) {
   const showActions = typeof actions === "function"
   const isEmpty = !loading && services.length === 0
   const columnCount = columns.length + (showActions ? 1 : 0)
+  const totalPages = Math.max(1, Math.ceil(services.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedServices = services.slice(
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE
+  )
 
   return (
     <div
@@ -277,9 +286,9 @@ export function ServiceManagementTable({
                       </td>
                     </tr>
                   )
-                : services.map((service, index) => (
+                : paginatedServices.map((service, index) => (
                     <ServiceManagementRow
-                      key={getRowKey(service, index)}
+                      key={getRowKey(service, (visiblePage - 1) * PAGE_SIZE + index)}
                       service={service}
                       columns={columns}
                       onRowClick={onRowClick}
@@ -297,6 +306,11 @@ export function ServiceManagementTable({
           </tbody>
         </table>
       </div>
+      <PaginationFooter
+        page={visiblePage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
     </div>
   )
 }

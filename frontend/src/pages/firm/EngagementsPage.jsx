@@ -33,6 +33,7 @@ export default function EngagementsPage() {
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
   const [notice, setNotice] = useState("")
   const [newEngagementOpen, setNewEngagementOpen] = useState(false)
   const createEngagement = useCreateStandaloneEngagement()
@@ -117,10 +118,16 @@ export default function EngagementsPage() {
 
       <EngagementFilters
         searchValue={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => {
+          setSearch(value)
+          setCurrentPage(1)
+        }}
         searchPlaceholder="Search by client, engagement no., or service..."
         statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
+        onStatusFilterChange={(value) => {
+          setStatusFilter(value)
+          setCurrentPage(1)
+        }}
         statusOptions={statusOptions}
         resultCount={`${filteredEngagements.length} of ${allEngagements.length} engagements`}
         actions={canManageEngagements && (
@@ -157,6 +164,8 @@ export default function EngagementsPage() {
         ) : undefined}
         emptyMessage="No engagements match your filters."
         emptyDescription="Try clearing the search or changing the status filter."
+        page={currentPage}
+        onPageChange={setCurrentPage}
       />
 
       {canManageEngagements && (
