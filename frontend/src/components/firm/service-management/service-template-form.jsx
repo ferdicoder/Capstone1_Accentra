@@ -373,6 +373,47 @@ export function ServiceCreateDialog({
   )
 }
 
+export function ServiceDuplicateDialog({ open = false, onOpenChange }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>The service already exists</DialogTitle>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" onClick={() => onOpenChange?.(false)}>
+            Okay
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function ServiceCreateFailureDialog({ open = false, onOpenChange }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Service creation failed</DialogTitle>
+          <DialogDescription>
+            The service could not be created. Please try again.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            type="button"
+            className="bg-forest-900 text-white hover:opacity-90"
+            onClick={() => onOpenChange?.(false)}
+          >
+            Okay
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 /**
  * Floating "Edit Service" dialog, pre-filled from `service`. Mirrors the
  * create dialog so both share the exact same layout.

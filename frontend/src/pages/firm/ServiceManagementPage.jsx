@@ -11,6 +11,8 @@ import {
 } from "@/components/firm/service-management/service-list"
 import {
   ServiceCreateDialog,
+  ServiceCreateFailureDialog,
+  ServiceDuplicateDialog,
   ServiceEditDialog,
   CategoryCreateDialog,
   CategoryManagementDialog,
@@ -25,9 +27,50 @@ import {
 } from "@/hooks/useServices"
 
 import { uploadTemplateDocument } from "@/services/api/documentAPI"
+import { authStore } from "@/store/authStore"
 
 const categoryLabel = (value, options) =>
   options.find((option) => option.value === value)?.label ?? value ?? ""
+
+const normalizeTemplateValue = (value) =>
+  String(value ?? "").toLowerCase().replace(/[\s\p{Pd}]+/gu, "")
+
+const hasSameTemplateDetails = (service, values) => {
+  const sameText = (first, second) =>
+    normalizeTemplateValue(first) === normalizeTemplateValue(second)
+
+  const existingTasks = service.workflowTasks ?? []
+  const newTasks = values.workflowTasks ?? []
+  const sameTasks =
+    existingTasks.length === newTasks.length &&
+    existingTasks.every((task, index) => {
+      const newTask = newTasks[index]
+      const existingDocumentName =
+        task.referenceDocument?.name ?? task.referenceDocument?.file?.name
+      const newDocumentName =
+        newTask.referenceDocument?.name ?? newTask.referenceDocument?.file?.name
+
+      return (
+        sameText(task.name, newTask.name) &&
+        Boolean(task.required) === Boolean(newTask.required) &&
+        Boolean(task.hasReferenceDocument) === Boolean(newTask.hasReferenceDocument) &&
+        sameText(existingDocumentName, newDocumentName)
+      )
+    })
+
+  return (
+    sameText(service.category, values.category) &&
+    sameText(service.description, values.description) &&
+    Number(service.basePrice) === Number(values.basePrice) &&
+    Number(service.estimatedTime) === Number(values.estimatedTime) &&
+    Boolean(service.isRecurring) === Boolean(values.isRecurring) &&
+    sameTasks
+  )
+}
+
+const isDuplicateServiceTemplate = (service, values) =>
+  normalizeTemplateValue(service.name) === normalizeTemplateValue(values.name) ||
+  hasSameTemplateDetails(service, values)
 
 export default function ServiceManagementPage() {
   const [search, setSearch] = useState("")
@@ -35,6 +78,8 @@ export default function ServiceManagementPage() {
   const [statusFilter, setStatusFilter] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
+  const [createFailureOpen, setCreateFailureOpen] = useState(false)
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editingService, setEditingService] = useState(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -45,6 +90,8 @@ export default function ServiceManagementPage() {
   const [categoryOptions, setCategoryOptions] = useState(categoryFilterOptions)
   const [createProgress, setCreateProgress] = useState({ active: false, percent: 0, phase: "Saving service…" })
 
+  const role = authStore((state) => state.role)
+  const isAdmin = role === "admin"
   const { data: services = [], isLoading, error, refetch: refetchServices } = useFetchServices()
   const createService = useCreateService()
   const updateService = useUpdateService()
@@ -90,6 +137,21 @@ export default function ServiceManagementPage() {
   }, [services, search, categoryFilter, statusFilter, categoryOptions])
 
   const handleCreate = (values) => {
+    if (isAdmin) {
+      if (isLoading || error) {
+        setNotice({
+          tone: "danger",
+          message: "Unable to check existing service templates. Please try again.",
+        })
+        return
+      }
+
+      if (services.some((service) => isDuplicateServiceTemplate(service, values))) {
+        setDuplicateDialogOpen(true)
+        return
+      }
+    }
+
     const tasksWithFiles = values.workflowTasks
       .map((task, index) => ({ task, index }))
       .filter(({ task }) => task.hasReferenceDocument && task.referenceDocument?.file)
@@ -147,7 +209,8 @@ export default function ServiceManagementPage() {
       },
       onError: (err) => {
         setCreateProgress({ active: false, percent: 0, phase: "Saving service…" })
-        setNotice({ tone: "danger", message: err.message || "Failed to add service" })
+        setCreateFailureOpen(true)
+        console.error("Service creation failed:", err)
       },
     })
   }
@@ -318,6 +381,16 @@ export default function ServiceManagementPage() {
         categoryOptions={categoryOptions}
         submitting={createService.isPending || createProgress.active}
         progress={createProgress}
+      />
+
+      <ServiceCreateFailureDialog
+        open={createFailureOpen}
+        onOpenChange={setCreateFailureOpen}
+      />
+
+      <ServiceDuplicateDialog
+        open={duplicateDialogOpen}
+        onOpenChange={setDuplicateDialogOpen}
       />
 
       <ServiceEditDialog
