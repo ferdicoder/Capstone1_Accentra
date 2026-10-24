@@ -30,6 +30,7 @@ export default function BillingPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(
     () => Boolean(location.state?.createBillingFor)
   )
@@ -156,12 +157,21 @@ export default function BillingPage() {
 
           <BillingToolbar
             searchValue={search}
-            onSearchChange={setSearch}
+            onSearchChange={(value) => {
+              setSearch(value)
+              setCurrentPage(1)
+            }}
             searchPlaceholder="Search by invoice, engagement, service, or reference..."
             statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
+            onStatusFilterChange={(value) => {
+              setStatusFilter(value)
+              setCurrentPage(1)
+            }}
             typeFilter={typeFilter}
-            onTypeFilterChange={setTypeFilter}
+            onTypeFilterChange={(value) => {
+              setTypeFilter(value)
+              setCurrentPage(1)
+            }}
             onCreateBilling={() => setCreateOpen(true)}
             resultCount={`${filteredBillings.length} of ${billings.length} records`}
           />
@@ -181,6 +191,8 @@ export default function BillingPage() {
                 : "Try clearing the search or filters."
             }
             onRowClick={(billing) => navigate(`${basePath}/billing/${billing.id}`)}
+            page={currentPage}
+            onPageChange={setCurrentPage}
             actions={(billing) => (
               <FirmUserActionsMenu
                 user={billing}

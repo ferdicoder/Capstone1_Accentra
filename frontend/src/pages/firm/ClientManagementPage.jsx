@@ -61,6 +61,7 @@ export default function ClientManagementPage() {
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
 
   const filteredClients = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -97,10 +98,16 @@ export default function ClientManagementPage() {
 
       <FirmUsersToolbar
         searchValue={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => {
+          setSearch(value)
+          setCurrentPage(1)
+        }}
         searchPlaceholder="Search clients..."
         roleFilter={statusFilter}
-        onRoleFilterChange={setStatusFilter}
+        onRoleFilterChange={(value) => {
+          setStatusFilter(value)
+          setCurrentPage(1)
+        }}
         roleOptions={clientStatusFilterOptions}
         filterLabel="Status"
         filterHeading="Filter by status"
@@ -119,6 +126,8 @@ export default function ClientManagementPage() {
             ? "Clients appear here once they submit a service request."
             : "Try clearing the search or filters."
         }
+        page={currentPage}
+        onPageChange={setCurrentPage}
       />
     </>
   )

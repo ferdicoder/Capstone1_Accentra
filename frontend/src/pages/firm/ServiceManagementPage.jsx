@@ -33,6 +33,7 @@ export default function ServiceManagementPage() {
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editingService, setEditingService] = useState(null)
@@ -66,7 +67,10 @@ export default function ServiceManagementPage() {
   const removeCategory = (value) => {
     const category = categoryOptions.find((option) => option.value === value)
     setCategoryOptions((current) => current.filter((option) => option.value !== value))
-    if (categoryFilter === value) setCategoryFilter("")
+    if (categoryFilter === value) {
+      setCategoryFilter("")
+      setCurrentPage(1)
+    }
     setNotice({ tone: "success", message: `${category?.label ?? "Category"} removed` })
   }
 
@@ -264,13 +268,22 @@ export default function ServiceManagementPage() {
 
       <ServiceManagementToolbar
         searchValue={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => {
+          setSearch(value)
+          setCurrentPage(1)
+        }}
         categoryFilter={categoryFilter}
-        onCategoryFilterChange={setCategoryFilter}
+        onCategoryFilterChange={(value) => {
+          setCategoryFilter(value)
+          setCurrentPage(1)
+        }}
         categoryOptions={categoryOptions}
         onManageCategories={() => setCategoryManagementOpen(true)}
         statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
+        onStatusFilterChange={(value) => {
+          setStatusFilter(value)
+          setCurrentPage(1)
+        }}
         onAddService={() => setCreateOpen(true)}
         resultCount={`${filteredServices.length} of ${services.length} services`}
       />
@@ -280,6 +293,8 @@ export default function ServiceManagementPage() {
         loading={isLoading}
         emptyMessage="No services match your filters."
         emptyDescription="Try clearing the search or filters."
+        page={currentPage}
+        onPageChange={setCurrentPage}
         actions={(service) => (
           <ServiceManagementActionsMenu
             service={service}

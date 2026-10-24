@@ -1,6 +1,7 @@
 import { Users } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { Skeleton } from "@/components/ui/skeleton"
 import { defaultUserColumns } from "./firm-user-columns"
 import { FirmUserRow } from "./firm-user-row"
@@ -21,6 +22,8 @@ import { FirmUserRow } from "./firm-user-row"
  *   short, centered columns are evenly spaced. Default false (auto layout).
  * @param {"right"|"center"} actionsAlign - Alignment of the Actions column. Default "right".
  * @param {Function} onRowClick - Optional (user, event) => void applied to every row.
+ * @param {number} page - Current page number. Defaults to 1.
+ * @param {Function} onPageChange - Optional (page: number) => void callback.
  * @param {string} className - Extra classes merged onto the wrapper card.
  */
 export function FirmUserTable({
@@ -35,12 +38,17 @@ export function FirmUserTable({
   actionsAlign = "right",
   equalColumns = false,
   onRowClick,
+  page = 1,
+  onPageChange,
   className,
   ...props
 }) {
   const showActions = typeof actions === "function"
   const isEmpty = !loading && users.length === 0
   const columnCount = columns.length + (showActions ? 1 : 0)
+  const totalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedUsers = users.slice((visiblePage - 1) * PAGE_SIZE, visiblePage * PAGE_SIZE)
 
   return (
     <div
@@ -105,9 +113,9 @@ export function FirmUserTable({
                       </td>
                     </tr>
                   )
-                : users.map((user, index) => (
+                : paginatedUsers.map((user, index) => (
                     <FirmUserRow
-                      key={getRowKey(user, index)}
+                      key={getRowKey(user, (visiblePage - 1) * PAGE_SIZE + index)}
                       user={user}
                       columns={columns}
                       onRowClick={onRowClick}
@@ -125,6 +133,11 @@ export function FirmUserTable({
           </tbody>
         </table>
       </div>
+      <PaginationFooter
+        page={visiblePage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
     </div>
   )
 }

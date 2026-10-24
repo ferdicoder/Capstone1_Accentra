@@ -1,6 +1,7 @@
 import { Inbox } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ServiceRequestAvatar } from "./service-request-avatar"
 import { ServiceRequestRow } from "./service-request-row"
@@ -83,12 +84,20 @@ export function ServiceRequestList({
   emptyDescription,
   actions,
   onRowClick,
+  page = 1,
+  onPageChange,
   className,
   ...props
 }) {
   const showActions = typeof actions === "function"
   const isEmpty = !loading && requests.length === 0
   const columnCount = columns.length + (showActions ? 1 : 0)
+  const totalPages = Math.max(1, Math.ceil(requests.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedRequests = requests.slice(
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE
+  )
 
   return (
     <div
@@ -150,9 +159,9 @@ export function ServiceRequestList({
                       </td>
                     </tr>
                   )
-                : requests.map((request, index) => (
+                : paginatedRequests.map((request, index) => (
                     <ServiceRequestRow
-                      key={getRowKey(request, index)}
+                      key={getRowKey(request, (visiblePage - 1) * PAGE_SIZE + index)}
                       request={request}
                       columns={columns}
                       onRowClick={onRowClick}
@@ -170,6 +179,11 @@ export function ServiceRequestList({
           </tbody>
         </table>
       </div>
+      <PaginationFooter
+        page={visiblePage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { Inbox } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { EngagementStatusBadge } from "./engagement-status-badge"
@@ -88,11 +89,19 @@ export function EngagementList({
   actions,
   showActions = typeof actions === "function", // Show the actions column if actions is a function
   onRowClick,
+  page = 1,
+  onPageChange,
   className,
   ...props
 }) {
   const isEmpty = !loading && engagements.length === 0
   const columnCount = columns.length + (showActions ? 1 : 0)
+  const totalPages = Math.max(1, Math.ceil(engagements.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedEngagements = engagements.slice(
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE
+  )
 
   return (
     <div
@@ -154,9 +163,9 @@ export function EngagementList({
                       </td>
                     </tr>
                   )
-                : engagements.map((engagement, index) => (
+                : paginatedEngagements.map((engagement, index) => (
                     <tr
-                      key={getRowKey(engagement, index)}
+                      key={getRowKey(engagement, (visiblePage - 1) * PAGE_SIZE + index)}
                       className={cn(
                         "border-b border-border/60 transition-colors last:border-b-0",
                         onRowClick && "cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
@@ -187,6 +196,11 @@ export function EngagementList({
           </tbody>
         </table>
       </div>
+      <PaginationFooter
+        page={visiblePage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
     </div>
   )
 }

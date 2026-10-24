@@ -28,6 +28,7 @@ export default function ServiceRequestsPage() {
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
   const [selectedId, setSelectedId] = useState(null)
   const [engagementRequest, setEngagementRequest] = useState(null)
   const [activeEngagement, setActiveEngagement] = useState(null)
@@ -122,10 +123,16 @@ export default function ServiceRequestsPage() {
 
       <ServiceRequestFilters
         searchValue={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => {
+          setSearch(value)
+          setCurrentPage(1)
+        }}
         searchPlaceholder="Search by client, request no., or service..."
         statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
+        onStatusFilterChange={(value) => {
+          setStatusFilter(value)
+          setCurrentPage(1)
+        }}
         statusOptions={statusOptions}
         resultCount={`${filteredRequests.length} of ${requests.length} requests`}
       />
@@ -136,6 +143,8 @@ export default function ServiceRequestsPage() {
         emptyMessage="No service requests match your filters."
         emptyDescription="Try clearing the search or changing the status filter."
         onRowClick={(request) => openRequest(request)}
+        page={currentPage}
+        onPageChange={setCurrentPage}
         actions={(request) => (
           <Button
             size="sm"

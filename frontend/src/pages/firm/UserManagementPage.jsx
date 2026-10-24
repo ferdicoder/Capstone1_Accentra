@@ -22,6 +22,7 @@ const buildDisplayName = ({ firstName, middleName, lastName, extension, name }) 
 export default function UserManagementPage() {
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -118,9 +119,15 @@ export default function UserManagementPage() {
 
       <FirmUsersToolbar
         searchValue={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => {
+          setSearch(value)
+          setCurrentPage(1)
+        }}
         roleFilter={roleFilter}
-        onRoleFilterChange={setRoleFilter}
+        onRoleFilterChange={(value) => {
+          setRoleFilter(value)
+          setCurrentPage(1)
+        }}
         roleOptions={roleOptions}
         onAddUser={() => setDialogOpen(true)}
         resultCount={`${filteredUsers.length} of ${users.length} users`}
@@ -132,6 +139,8 @@ export default function UserManagementPage() {
         emptyMessage="No users match your filters."
         emptyDescription="Try clearing the search or filters."
         onRowClick={openEditDialog}
+        page={currentPage}
+        onPageChange={setCurrentPage}
         actions={(user) => (
           <FirmUserActionsMenu
             user={user}
