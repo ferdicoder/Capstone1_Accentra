@@ -3,6 +3,7 @@ import { Briefcase, Eye, Search, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { NewServiceRequestForm } from "@/components/firm/service-requests/NewServiceRequestForm"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { authStore } from "@/store/authStore"
@@ -42,6 +43,7 @@ export default function ClientServiceRequestsPage() {
   const businessId = business?.id
 
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false)
 
   const { data: requests = [], isLoading, error } = useFetchMyServiceRequests(businessId)
@@ -55,6 +57,12 @@ export default function ClientServiceRequestsPage() {
     [r.requestNumber, r.serviceName, r.category].some((field) =>
       field?.toLowerCase().includes(search.toLowerCase())
     )
+  )
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedRequests = filteredRequests.slice(
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE
   )
 
   const openNewRequest = useCallback(() => setIsNewRequestOpen(true), [])
@@ -83,7 +91,10 @@ export default function ClientServiceRequestsPage() {
             aria-label="Search requests"
             className="pl-8"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
           />
         </div>
 
@@ -119,7 +130,7 @@ export default function ClientServiceRequestsPage() {
               )}
 
               {!isLoading &&
-                filteredRequests.map((r) => {
+                paginatedRequests.map((r) => {
                   const meta = statusMeta[r.status] ?? { label: r.status, tone: "gray" }
                   const canCancel = CANCELLABLE_STATUSES.includes(r.status)
                   const isDeclined = r.status === DECLINED_STATUS
@@ -177,6 +188,11 @@ export default function ClientServiceRequestsPage() {
               )}
             </tbody>
           </table>
+          <PaginationFooter
+            page={visiblePage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         </div>
       </div>
 

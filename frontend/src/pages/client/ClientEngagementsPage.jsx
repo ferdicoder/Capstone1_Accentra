@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchMyEngagements } from "@/hooks/useEngagements"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { authStore } from "@/store/authStore"
 import { statusDotStyles } from "@/components/firm/engagements/engagement-variants"
 import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
@@ -54,6 +55,7 @@ export default function ClientEngagementsPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("All Statuses")
   const [typeFilter, setTypeFilter] = useState("All Services")
+  const [page, setPage] = useState(1)
  
   const filteredEngagements = useMemo(() => {
     return engagements.filter((e) => {
@@ -69,6 +71,12 @@ export default function ClientEngagementsPage() {
       return matchesSearch && matchesStatus && matchesType
     })
   }, [engagements, search, statusFilter, typeFilter])
+  const totalPages = Math.max(1, Math.ceil(filteredEngagements.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedEngagements = filteredEngagements.slice(
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE
+  )
  
   const hasActiveFilters =
     search !== "" ||
@@ -79,6 +87,7 @@ export default function ClientEngagementsPage() {
     setSearch("")
     setStatusFilter("All Statuses")
     setTypeFilter("All Services")
+    setPage(1)
   }
 
   usePageMeta({
@@ -103,13 +112,19 @@ export default function ClientEngagementsPage() {
                 placeholder="Search engagements..."
                 className="pl-9"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setPage(1)
+                }}
               />
             </div>
  
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value)
+                setPage(1)
+              }}
               className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
             >
               {statusOptions.map((status) => (
@@ -121,7 +136,10 @@ export default function ClientEngagementsPage() {
  
             <select
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
+              onChange={(e) => {
+                setTypeFilter(e.target.value)
+                setPage(1)
+              }}
               className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
             >
               {TYPE_OPTIONS.map((type) => (
@@ -185,7 +203,7 @@ export default function ClientEngagementsPage() {
                   </tr>
                 )}
 
-                {!isLoading && filteredEngagements.map((e) => {
+                {!isLoading && paginatedEngagements.map((e) => {
                   const type = e.category || "Service"
                   const Icon = type === "Tax Filing" ? FileText : Briefcase
                   const status = getStatusMeta(e.status)
@@ -232,6 +250,11 @@ export default function ClientEngagementsPage() {
                 )}
               </tbody>
             </table>
+            <PaginationFooter
+              page={visiblePage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
           </div>
         </div>
   )
