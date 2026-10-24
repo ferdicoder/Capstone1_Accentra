@@ -107,7 +107,6 @@ export const router = createBrowserRouter([
           { index: true, element: <Navigate to="dashboard" replace /> },
           { path: "dashboard", element: <FirmStaffDashboard /> },
           { path: "profile", element: <StaffProfilePage /> },
-          { path: "service-requests", element: <ServiceRequestsPage /> },
           { path: "services", element: <ServiceManagementPage /> },
           { path: "engagements", element: <EngagementsPage /> },
           { path: "engagements/:id", element: <EngagementDetailsPage /> },
@@ -116,6 +115,11 @@ export const router = createBrowserRouter([
         ],
       },
     ],
+  },
+  {
+    path: "/firm/service-requests",
+    element: <ProtectedRoutes allow={["admin"]} />,
+    children: [{ index: true, element: <Navigate to="/admin/service-requests" replace /> }],
   },
   {
     path: "/firm-admin/engagements",

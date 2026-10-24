@@ -29,7 +29,6 @@ export const firmAdminNav = [
 
 export const firmUserNav = [
   { title: "Home", url: "/firm/dashboard", icon: LayoutDashboard, items: [] },
-  { title: "Service Requests", url: "/firm/service-requests", icon: UserCog, items: [] },
   { title: "Services", url: "/firm/services", icon: ClipboardList, items: [] },
   { title: "Engagements", url: "/firm/engagements", icon: Briefcase, items: [] },
   {

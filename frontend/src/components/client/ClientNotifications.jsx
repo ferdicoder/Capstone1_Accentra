@@ -35,7 +35,7 @@ function getNotificationPath(notification, role) {
         ? `/billing-officer/billing/${notification.entity_id}`
         : `/client/billing/${notification.entity_id}`
     case "service_request":
-      return `/${role === "staff" ? "firm" : "client"}/service-requests`
+      return role === "staff" ? null : "/client/service-requests"
     default:
       return null
   }

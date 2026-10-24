@@ -70,11 +70,10 @@ The frontend currently exposes these application areas:
 | `/admin/users` | User management |
 | `/admin/profile` | Firm profile |
 | `/admin/services` | Service management |
-| `/admin/service-requests` | Firm service requests |
+| `/admin/service-requests` | Admin service requests |
 | `/admin/engagements` | Firm engagements |
 | `/admin/engagements/:id` | Firm engagement details |
 | `/firm/dashboard` | Staff dashboard |
-| `/firm/service-requests` | Staff service requests |
 | `/firm/services` | Staff service management |
 | `/firm/engagements` | Staff engagements |
 | `/firm/engagements/:id` | Staff engagement details |
