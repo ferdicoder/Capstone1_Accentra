@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchMyEngagements } from "@/hooks/useEngagements"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { authStore } from "@/store/authStore"
 import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
@@ -135,6 +136,7 @@ export default function ClientEngagementsPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState(ALL_STATUSES)
   const [typeFilter, setTypeFilter] = useState(ALL_SERVICES)
+  const [page, setPage] = useState(1)
 
   // Set by the Service Requests page when the client picks an approved request.
   const [highlightedId, setHighlightedId] = useState(
@@ -170,7 +172,12 @@ export default function ClientEngagementsPage() {
       })
       .sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0))
   }, [engagements, search, statusFilter, typeFilter])
-
+  const totalPages = Math.max(1, Math.ceil(filteredEngagements.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedEngagements = filteredEngagements.slice(
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE
+  )
   const hasActiveFilters =
     search.trim() !== "" || statusFilter !== ALL_STATUSES || typeFilter !== ALL_SERVICES
 
@@ -178,6 +185,7 @@ export default function ClientEngagementsPage() {
     setSearch("")
     setStatusFilter(ALL_STATUSES)
     setTypeFilter(ALL_SERVICES)
+    setPage(1)
   }
 
   // Scroll to the picked engagement once the list has loaded, flash it, then
@@ -250,13 +258,19 @@ export default function ClientEngagementsPage() {
             aria-label="Search engagements"
             className="pl-9"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
           />
         </div>
 
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => {
+            setStatusFilter(e.target.value)
+            setPage(1)
+          }}
           aria-label="Filter by status"
           className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
         >
@@ -269,7 +283,10 @@ export default function ClientEngagementsPage() {
 
         <select
           value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
+          onChange={(e) => {
+            setTypeFilter(e.target.value)
+            setPage(1)
+          }}
           aria-label="Filter by service type"
           className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
         >
@@ -318,9 +335,9 @@ export default function ClientEngagementsPage() {
             </ul>
           )}
 
-          {!isLoading && filteredEngagements.length > 0 && (
+          {!isLoading && paginatedEngagements.length > 0 && (
             <ul className="divide-y">
-              {filteredEngagements.map((e) => (
+              {paginatedEngagements.map((e) => (
                 <EngagementCard
                   key={e.id}
                   engagement={e}
@@ -368,8 +385,7 @@ export default function ClientEngagementsPage() {
                   </tr>
                 ))}
 
-              {!isLoading &&
-                filteredEngagements.map((e) => {
+              {!isLoading && paginatedEngagements.map((e) => {
                   const status = getStatusMeta(e.status)
                   return (
                     <tr
@@ -407,7 +423,6 @@ export default function ClientEngagementsPage() {
                     </tr>
                   )
                 })}
-
               {hasNoEngagements && (
                 <tr>
                   <td colSpan={6} className="px-4 py-14 text-center">
@@ -426,6 +441,11 @@ export default function ClientEngagementsPage() {
             </tbody>
           </table>
         </div>
+        <PaginationFooter
+          page={visiblePage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
       </div>
     </div>
   )

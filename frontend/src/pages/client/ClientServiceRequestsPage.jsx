@@ -5,6 +5,7 @@ import { ChevronRight, ClipboardList, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
@@ -166,6 +167,7 @@ export default function ClientServiceRequestsPage() {
 
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState("all")
+  const [page, setPage] = useState(1)
 
   const {
     data: requests = [],
@@ -185,7 +187,6 @@ export default function ClientServiceRequestsPage() {
       ),
     [requests]
   )
-
   const filteredRequests = useMemo(() => {
     const query = search.trim().toLowerCase()
     return requests.filter((r) => {
@@ -196,6 +197,12 @@ export default function ClientServiceRequestsPage() {
       )
     })
   }, [requests, activeTab, search])
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedRequests = filteredRequests.slice(
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE
+  )
 
   // request id -> where clicking it goes (undefined = not clickable).
   // The engagement page opens on the Overview tab, which holds the task list.
@@ -259,7 +266,10 @@ export default function ClientServiceRequestsPage() {
               type="button"
               role="tab"
               aria-selected={activeTab === tab.value}
-              onClick={() => setActiveTab(tab.value)}
+              onClick={() => {
+                setActiveTab(tab.value)
+                setPage(1)
+              }}
               className={cn(
                 "-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors",
                 activeTab === tab.value
@@ -282,7 +292,10 @@ export default function ClientServiceRequestsPage() {
             aria-label="Search requests"
             className="pl-8"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
           />
         </div>
       </div>
@@ -311,9 +324,9 @@ export default function ClientServiceRequestsPage() {
             </ul>
           )}
 
-          {!isLoading && filteredRequests.length > 0 && (
+          {!isLoading && paginatedRequests.length > 0 && (
             <ul className="divide-y">
-              {filteredRequests.map((r) => (
+              {paginatedRequests.map((r) => (
                 <RequestCard key={r.id} request={r} path={pathByRequest[r.id]} navigate={navigate} />
               ))}
             </ul>
@@ -355,8 +368,7 @@ export default function ClientServiceRequestsPage() {
                   </tr>
                 ))}
 
-              {!isLoading &&
-                filteredRequests.map((r) => {
+              {!isLoading && paginatedRequests.map((r) => {
                   const path = pathByRequest[r.id]
                   return (
                     <tr
@@ -401,6 +413,11 @@ export default function ClientServiceRequestsPage() {
             </tbody>
           </table>
         </div>
+        <PaginationFooter
+          page={visiblePage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
       </div>
     </div>
   )
