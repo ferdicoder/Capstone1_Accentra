@@ -23,9 +23,10 @@ export default function ServiceRequestsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
+  const role = authStore((state) => state.role)
+  const canRejectRequest = role === "admin"
 
   // The Price of a service request is only visible to Billing Officers.
-  const role = authStore((state) => state.role)
   const canViewPrice = canViewServiceRequestPrice(role)
 
   const { data: requests = [], isLoading, error } = useFetchServiceRequests()
@@ -68,7 +69,10 @@ export default function ServiceRequestsPage() {
     })
   }, [requests, search, statusFilter])
 
-  const openRequest = (request) => setSelectedId(request.id)
+  const openRequest = (request) => {
+    updateStatus.reset()
+    setSelectedId(request.id)
+  }
   const closeRequest = () => setSelectedId(null)
 
   const handleApproveAndEngage = (request) => {
@@ -77,9 +81,17 @@ export default function ServiceRequestsPage() {
     setEngagementRequest(request)
   }
 
-  const handleReject = (request) => {
+  const handleReject = (request, _reason, onSuccess) => {
     if (!request) return
-    updateStatus.mutate({ id: request.id, status: "rejected" })
+    updateStatus.mutate(
+      { id: request.id, status: "rejected" },
+      {
+        onSuccess: () => {
+          onSuccess?.()
+          closeRequest()
+        },
+      }
+    )
   }
 
   const handleEngagementSubmit = (values) => {
@@ -176,6 +188,13 @@ export default function ServiceRequestsPage() {
         onApprove={handleApproveAndEngage}
         onApproveAndEngage={handleApproveAndEngage}
         onReject={handleReject}
+        canReject={canRejectRequest}
+        rejecting={updateStatus.isPending}
+        rejectionError={
+          updateStatus.isError
+            ? updateStatus.error?.message || "Unable to reject the request. Please try again."
+            : ""
+        }
       />
 
       <CreateEngagementDialog
