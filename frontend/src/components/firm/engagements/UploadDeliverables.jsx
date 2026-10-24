@@ -3,6 +3,7 @@ import { FileText, FileSpreadsheet, FileImage, File, Upload, X, Download, Eye } 
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog,
   DialogContent,
@@ -280,7 +281,7 @@ export function UploadDeliverables({
         </div>
 
         {/* Content */}
-        {!hasDocuments ? (
+        {!hasDocuments && !isUploading ? (
           /* Empty state */
           <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
             <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
@@ -301,6 +302,21 @@ export function UploadDeliverables({
                 </p>
               </div>
             )}
+            {isUploading &&
+              Array.from({ length: Math.max(1, selectedFiles.length) }, (_, index) => (
+                <div
+                  key={`uploading-${index}`}
+                  className="flex items-center gap-3 px-6 py-2.5"
+                  role="status"
+                  aria-label="Uploading deliverable"
+                >
+                  <Skeleton className="size-8 shrink-0 rounded-lg" />
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <Skeleton className="h-3.5 w-2/3" />
+                    <Skeleton className="h-3 w-1/3" />
+                  </div>
+                </div>
+              ))}
           </div>
         )}
       </div>
