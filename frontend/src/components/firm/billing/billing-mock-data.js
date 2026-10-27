@@ -1,4 +1,4 @@
-import { billingStatusLabels } from "./billing-variants"
+import { billingStatusLabels, isFinalBillingStatus } from "./billing-variants"
 
 export const mockClients = [
   {
@@ -197,7 +197,11 @@ export function updateMockBillingStatus(id, status) {
   let updated = false
 
   mockBillings = mockBillings.map((billing) => {
-    if (billing.id !== id || billing.status === status) {
+    if (
+      billing.id !== id ||
+      billing.status === status ||
+      isFinalBillingStatus(billing.status)
+    ) {
       return billing
     }
 

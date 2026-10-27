@@ -260,7 +260,7 @@ export function ServiceTemplateForm({
 
           <Field>
             <FieldLabel htmlFor="service-estimated-time">
-              Estimated Time<span className="text-red-500">*</span>
+              Estimated Processing Days<span className="text-red-500">*</span>
             </FieldLabel>
             <Input
               id="service-estimated-time"
@@ -381,7 +381,11 @@ export function ServiceDuplicateDialog({ open = false, onOpenChange }) {
           <DialogTitle>The service already exists</DialogTitle>
         </DialogHeader>
         <DialogFooter>
-          <Button type="button" onClick={() => onOpenChange?.(false)}>
+          <Button
+            type="button"
+            className="bg-forest-900 text-white hover:opacity-90"
+            onClick={() => onOpenChange?.(false)}
+          >
             Okay
           </Button>
         </DialogFooter>
@@ -423,6 +427,7 @@ export function ServiceEditDialog({
   onOpenChange,
   onSubmit,
   service,
+  confirmBeforeSave = false,
   categoryOptions = categoryFilterOptions,
   submitting = false,
   error,
@@ -433,27 +438,76 @@ export function ServiceEditDialog({
   className,
   ...props
 }) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange} {...props}>
-      <DialogContent data-slot="service-edit-dialog" className={className}>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+  const [pendingValues, setPendingValues] = useState(null)
 
-        <ServiceTemplateForm
-          mode="edit"
-          initialValues={service}
-          categoryOptions={categoryOptions}
-          onSubmit={onSubmit}
-          submitting={submitting}
-          error={error}
-          onCancel={() => onOpenChange?.(false)}
-          submitLabel={submitLabel}
-          cancelLabel={cancelLabel}
-        />
-      </DialogContent>
-    </Dialog>
+  const handleSubmit = (values) => {
+    if (confirmBeforeSave) {
+      setPendingValues(values)
+      return
+    }
+
+    onSubmit?.(values)
+  }
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange} {...props}>
+        <DialogContent data-slot="service-edit-dialog" className={className}>
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
+
+          <ServiceTemplateForm
+            mode="edit"
+            initialValues={service}
+            categoryOptions={categoryOptions}
+            onSubmit={handleSubmit}
+            submitting={submitting}
+            error={error}
+            onCancel={() => onOpenChange?.(false)}
+            submitLabel={submitLabel}
+            cancelLabel={cancelLabel}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {confirmBeforeSave && (
+        <Dialog
+          open={pendingValues !== null}
+          onOpenChange={(nextOpen) => !nextOpen && setPendingValues(null)}
+        >
+          <DialogContent data-slot="service-edit-confirmation">
+            <DialogHeader>
+              <DialogTitle>Save service changes?</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to save these changes to this service template?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-row justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPendingValues(null)}
+              >
+                Continue Editing
+              </Button>
+              <Button
+                type="button"
+                className="bg-forest-900 text-white hover:opacity-90"
+                onClick={() => {
+                  const values = pendingValues
+                  setPendingValues(null)
+                  onSubmit?.(values)
+                }}
+              >
+                Confirm Save
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   )
 }
 

@@ -202,12 +202,12 @@ export default function ClientServiceRequestsPage() {
               )}
             </tbody>
           </table>
-          <PaginationFooter
-            page={visiblePage}
-            totalPages={totalPages}
-            onPageChange={setPage}
-          />
         </div>
+        <PaginationFooter
+          page={visiblePage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
       </div>
 
       {isNewRequestOpen && (

@@ -9,19 +9,30 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { billingStatusFilterOptions } from "./billing-variants"
+import { billingStatusFilterOptions, isFinalBillingStatus } from "./billing-variants"
 
 /**
  * @param {Object} billing - Current billing record.
  * @param {Function} onStatusChange - (status: string) => void
  */
 export function BillingStatusDropdown({ billing, onStatusChange }) {
+  const isLocked = isFinalBillingStatus(billing?.status)
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={<Button variant="outline" size="default" className="h-9 gap-1.5 rounded-lg px-3 text-sm" />}
+        render={
+          <Button
+            variant="outline"
+            size="default"
+            disabled={isLocked}
+            className={`h-9 gap-1.5 rounded-lg px-3 text-sm ${
+              isLocked ? "border-border bg-muted text-muted-foreground opacity-100" : ""
+            }`}
+          />
+        }
       >
-        Change Status
+        {isLocked ? "Status Locked" : "Change Status"}
         <ChevronDown aria-hidden="true" className="size-3.5 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-52 border border-border">

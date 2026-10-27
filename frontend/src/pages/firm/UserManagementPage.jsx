@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
-import { Ban, CheckCircle2, Pencil } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { Ban, CheckCircle2 } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
@@ -7,9 +8,8 @@ import { FirmUsersToolbar } from "@/components/firm/users/firm-users-toolbar"
 import { FirmUserTable } from "@/components/firm/users/firm-user-table"
 import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-menu"
 import { FirmUserCreateDialog } from "@/components/firm/users/firm-user-create-dialog"
-import { FirmUserEditDialog } from "@/components/firm/users/firm-user-edit-dialog"
 
-import { useFetchUsers,useUpdateUser, useToggleUserStatus, useCreateStaff, useFetchFirmRoles } from "@/hooks/useUsers"
+import { useFetchUsers, useToggleUserStatus, useCreateStaff, useFetchFirmRoles } from "@/hooks/useUsers"
 
 
 
@@ -20,12 +20,11 @@ const buildDisplayName = ({ firstName, middleName, lastName, extension, name }) 
 }
 
 export default function UserManagementPage() {
+  const navigate = useNavigate()
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingUser, setEditingUser] = useState(null)
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [notice, setNotice] = useState("")
   const [loading, setLoading] = useState(true)
 
@@ -37,7 +36,6 @@ export default function UserManagementPage() {
 
   const { data: users = [], isLoading, error } = useFetchUsers()
   const { data: roles = [], isLoading: rolesLoading } = useFetchFirmRoles()
-  const updateUser = useUpdateUser()
   const toggleStatus = useToggleUserStatus()
   const createStaff = useCreateStaff()
 
@@ -71,20 +69,6 @@ export default function UserManagementPage() {
       onSuccess: () => {
         setDialogOpen(false)
         setNotice(`${values.firstName} ${values.lastName} added`)
-      },
-    })
-  }
-
-  const openEditDialog = (user) => {
-    setEditingUser(user)
-    setEditDialogOpen(true)
-  }
-
-  const handleSave = (values) => {
-    updateUser.mutate(values, {
-      onSuccess: () => {
-        setEditDialogOpen(false)
-        setNotice(`${values.firstName} ${values.lastName} updated`)
       },
     })
   }
@@ -138,15 +122,13 @@ export default function UserManagementPage() {
         loading={isLoading}
         emptyMessage="No users match your filters."
         emptyDescription="Try clearing the search or filters."
-        onRowClick={openEditDialog}
+        onRowClick={(user) => navigate(`/admin/users/${user.id}`)}
         page={currentPage}
         onPageChange={setCurrentPage}
         actions={(user) => (
           <FirmUserActionsMenu
             user={user}
             items={[
-              { key: "edit", label: "Edit user", icon: Pencil, onSelect: openEditDialog },
-              { type: "separator" },
               user.status === "deactivated"
                 ? { key: "activate", label: "Reactivate", icon: CheckCircle2, onSelect: toggleDeactivate }
                 : { key: "deactivate", label: "Deactivate", icon: Ban, destructive: true, onSelect: toggleDeactivate },
@@ -164,15 +146,6 @@ export default function UserManagementPage() {
         submitting={createStaff.isPending}
       />
 
-      <FirmUserEditDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        user={editingUser}
-        onSubmit={handleSave}
-        roleOptions={roleOptions}
-        rolesLoading={rolesLoading}
-        submitting={updateUser.isPending}
-      />
         </>
       )}
     </>

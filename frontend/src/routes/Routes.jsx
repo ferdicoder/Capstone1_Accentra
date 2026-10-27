@@ -19,6 +19,7 @@ import FirmAdminDashboard from "@/pages/firm/FirmAdminDashboard";
 import FirmLoginPage from "@/pages/firm/FirmLoginPage";
 import FirmStaffDashboard from "@/pages/firm/FirmStaffDashboard";
 import UserManagementPage from "@/pages/firm/UserManagementPage";
+import FirmUserDetailPage from "@/pages/firm/FirmUserDetailPage";
 import FirmProfilePage from "@/pages/firm/FirmProfilePage";
 import ServiceManagementPage from "@/pages/firm/ServiceManagementPage";
 import ServiceRequestsPage from "@/pages/firm/ServiceRequestsPage";
@@ -76,6 +77,7 @@ export const router = createBrowserRouter([
           { index: true, element: <Navigate to="dashboard" replace /> },
           { path: "dashboard", element: <FirmAdminDashboard /> },
           { path: "users", element: <UserManagementPage /> },
+          { path: "users/:id", element: <FirmUserDetailPage /> },
           { path: "profile", element: <FirmProfilePage /> },
           { path: "services", element: <ServiceManagementPage /> },
           { path: "service-requests", element: <ServiceRequestsPage /> },

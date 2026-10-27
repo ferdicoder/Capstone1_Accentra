@@ -250,12 +250,12 @@ export default function ClientEngagementsPage() {
                 )}
               </tbody>
             </table>
-            <PaginationFooter
-              page={visiblePage}
-              totalPages={totalPages}
-              onPageChange={setPage}
-            />
           </div>
+          <PaginationFooter
+            page={visiblePage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         </div>
   )
 }

@@ -51,13 +51,14 @@ export function FirmUserTable({
   const paginatedUsers = users.slice((visiblePage - 1) * PAGE_SIZE, visiblePage * PAGE_SIZE)
 
   return (
-    <div
-      data-slot="firm-user-table"
-      className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
-      {...props}
-    >
-      <div className="overflow-x-auto">
-        <table className={cn("w-full border-collapse text-sm", equalColumns && "table-fixed")}>
+    <>
+      <div
+        data-slot="firm-user-table"
+        className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
+        {...props}
+      >
+        <div className="overflow-x-auto">
+          <table className={cn("w-full border-collapse text-sm", equalColumns && "table-fixed")}>
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
               {columns.map((column) => (
@@ -131,13 +132,14 @@ export function FirmUserTable({
                     </FirmUserRow>
                   ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
       <PaginationFooter
         page={visiblePage}
         totalPages={totalPages}
         onPageChange={onPageChange}
       />
-    </div>
+    </>
   )
 }

@@ -21,6 +21,26 @@ import {
 } from "@/components/ui/dialog"
 import { formatDate } from "./engagement-variants"
 
+/**
+ * A task deadline may not fall after its parent engagement's deadline.
+ * Reuses the same date handling as `formatDate` (date-only values parsed as
+ * local midnight) so comparisons stay consistent with how deadlines render.
+ */
+const isTaskDeadlineAfterEngagement = (taskDeadline, engagementDeadline) => {
+  if (!taskDeadline || !engagementDeadline) return false
+
+  const taskDate = new Date(`${taskDeadline}T00:00:00`)
+  const engagementDate = new Date(
+    `${String(engagementDeadline).slice(0, 10)}T00:00:00`
+  )
+
+  if (Number.isNaN(taskDate.getTime()) || Number.isNaN(engagementDate.getTime())) {
+    return false
+  }
+
+  return taskDate > engagementDate
+}
+
 // ── Status Helpers ────────────────────────────────────────────────────────────
 
 const statusConfig = {
@@ -55,7 +75,7 @@ function taskToFormData(task) {
 
 // ── Deadline Display / Editor ─────────────────────────────────────────────────
 
-function DeadlineCell({ deadline, onChange }) {
+function DeadlineCell({ deadline, onChange, max }) {
   const [editing, setEditing] = useState(false)
 
   if (editing) {
@@ -63,6 +83,7 @@ function DeadlineCell({ deadline, onChange }) {
       <input
         type="date"
         defaultValue={deadline || ""}
+        max={max}
         onChange={(e) => { onChange(e.target.value); setEditing(false) }}
         onBlur={() => setEditing(false)}
         autoFocus
@@ -83,7 +104,7 @@ function DeadlineCell({ deadline, onChange }) {
   )
 }
 
-function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, submitting }) {
+function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, submitting, engagement }) {
   const updateField = (field, value) => setFormData((current) => ({ ...current, [field]: value }))
 
   return (
@@ -122,7 +143,11 @@ function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, sub
           type="date"
           value={formData.deadline}
           onChange={(event) => updateField("deadline", event.target.value)}
+          max={engagement?.targetEndDate ?? engagement?.startDate ?? undefined}
         />
+        {errors.deadline && (
+          <p className="text-xs text-red-500">Task deadline cannot be later than the engagement deadline.</p>
+        )}
       </div>
 
       <DialogFooter>
@@ -135,7 +160,7 @@ function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, sub
   )
 }
 
-function TaskDialog({ open, mode, formData, setFormData, errors, onOpenChange, onSubmit, submitting }) {
+function TaskDialog({ open, mode, formData, setFormData, errors, onOpenChange, onSubmit, submitting, engagement }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -145,7 +170,7 @@ function TaskDialog({ open, mode, formData, setFormData, errors, onOpenChange, o
             {mode === "edit" ? "Update this task for the engagement." : "Create a task for this engagement."}
           </DialogDescription>
         </DialogHeader>
-        <TaskForm mode={mode} formData={formData} setFormData={setFormData} errors={errors} onSubmit={onSubmit} onCancel={() => onOpenChange(false)} submitting={submitting} />
+        <TaskForm mode={mode} formData={formData} setFormData={setFormData} errors={errors} onSubmit={onSubmit} onCancel={() => onOpenChange(false)} submitting={submitting} engagement={engagement} />
       </DialogContent>
     </Dialog>
   )
@@ -238,7 +263,7 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
 
 // ── Task Row ──────────────────────────────────────────────────────────────────
 
-function TaskRow({ task, documents = [], onEdit, onSendReminder, onDeadlineChange, onOpenDetail, onComplete, onApprove, onRequestRevision }) {
+function TaskRow({ task, documents = [], engagement, onEdit, onSendReminder, onDeadlineChange, onOpenDetail, onComplete, onApprove, onRequestRevision }) {
   const isDocBacked = task.hasReferenceDocument
   const canReview = isDocBacked && (task.status === "for_review" || task.status === "for_revision")
 
@@ -288,7 +313,11 @@ function TaskRow({ task, documents = [], onEdit, onSendReminder, onDeadlineChang
       <td className="w-[160px] px-5 py-2.5"><TaskStatusBadge status={task.status} /></td>
 
       <td className="w-[180px] px-5 py-2.5">
-        <DeadlineCell deadline={task.deadline} onChange={(val) => onDeadlineChange(task.id, val)} />
+        <DeadlineCell
+          deadline={task.deadline}
+          onChange={(val) => onDeadlineChange(task.id, val)}
+          max={engagement?.targetEndDate ?? engagement?.startDate ?? undefined}
+        />
       </td>
 
       <td className="w-[100px] px-4 py-2.5 text-right">
@@ -383,10 +412,19 @@ export function TaskList({
   const handleTaskSubmit = async (event) => {
     event.preventDefault()
     const name = taskFormData.name.trim()
+    const taskDeadlineInvalid = isTaskDeadlineAfterEngagement(taskFormData.deadline, engagement?.targetEndDate ?? engagement?.startDate)
+
     if (!name) {
       setTaskFormErrors({ name: true })
       return
     }
+
+    if (taskDeadlineInvalid) {
+      setTaskFormErrors({ deadline: true })
+      return
+    }
+
+    setTaskFormErrors({})
 
     setTaskSubmitting(true)
     setTaskSubmitError("")
@@ -482,6 +520,7 @@ export function TaskList({
                   key={task.id}
                   task={task}
                   documents={documentsByTask[task.id]}
+                  engagement={engagement}
                   onEdit={() => openEditTask(task)}
                   onSendReminder={() => handleSendReminder(task)}
                   onDeadlineChange={onDeadlineChange}

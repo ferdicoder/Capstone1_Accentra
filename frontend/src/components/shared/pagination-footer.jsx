@@ -1,4 +1,3 @@
-import { useState } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -6,47 +5,66 @@ import { Button } from "@/components/ui/button"
 export const PAGE_SIZE = 8
 
 export function PaginationFooter({ page, totalPages, onPageChange }) {
-  const [activeButton, setActiveButton] = useState(null)
-  const visiblePage = Math.min(page, totalPages)
+  const visiblePage = Math.max(1, Math.min(page, totalPages))
+  const pageCount = Math.min(5, totalPages)
+  const firstVisiblePage = Math.min(
+    Math.max(visiblePage - 2, 1),
+    Math.max(1, totalPages - 4)
+  )
+  const visiblePages = Array.from(
+    { length: pageCount },
+    (_, index) => firstVisiblePage + index
+  )
 
   return (
-    <div className="flex items-center justify-end gap-3 border-t border-border px-4 py-2.5">
-      <span className="text-sm text-muted-foreground" aria-live="polite">
-        Page {visiblePage} of {totalPages}
-      </span>
+    <nav
+      aria-label="Pagination"
+      className="mt-4 flex items-center justify-center gap-2"
+    >
       <Button
         type="button"
         variant="outline"
-        size="icon-sm"
-        className="rounded-xl hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300"
-        aria-label="Previous page"
+        size="sm"
+        className="gap-1.5"
         disabled={visiblePage === 1}
-        onMouseEnter={() => setActiveButton("Previous")}
-        onMouseLeave={() => setActiveButton(null)}
-        onFocus={() => setActiveButton("Previous")}
-        onBlur={() => setActiveButton(null)}
         onClick={() => onPageChange?.(Math.max(1, visiblePage - 1))}
       >
-        <ChevronLeft />
+        <ChevronLeft aria-hidden="true" />
+        Previous
       </Button>
-      <span className="w-14 text-center text-sm font-medium text-emerald-700 dark:text-emerald-300" aria-hidden="true">
-        {activeButton}
-      </span>
+
+      <div className="flex items-center gap-1">
+        {visiblePages.map((pageNumber) => (
+          <Button
+            key={pageNumber}
+            type="button"
+            variant={pageNumber === visiblePage ? "default" : "outline"}
+            size="icon-sm"
+            className={
+              pageNumber === visiblePage
+                ? "bg-forest-900 text-white hover:opacity-90"
+                : ""
+            }
+            aria-label={`Page ${pageNumber}`}
+            aria-current={pageNumber === visiblePage ? "page" : undefined}
+            onClick={() => onPageChange?.(pageNumber)}
+          >
+            {pageNumber}
+          </Button>
+        ))}
+      </div>
+
       <Button
         type="button"
         variant="outline"
-        size="icon-sm"
-        className="rounded-xl hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300"
-        aria-label="Next page"
+        size="sm"
+        className="gap-1.5"
         disabled={visiblePage === totalPages}
-        onMouseEnter={() => setActiveButton("Next")}
-        onMouseLeave={() => setActiveButton(null)}
-        onFocus={() => setActiveButton("Next")}
-        onBlur={() => setActiveButton(null)}
         onClick={() => onPageChange?.(Math.min(totalPages, visiblePage + 1))}
       >
-        <ChevronRight />
+        Next
+        <ChevronRight aria-hidden="true" />
       </Button>
-    </div>
+    </nav>
   )
 }

@@ -10,7 +10,15 @@ import { authStore } from "@/store/authStore"
 import { can } from "@/config/roles"
 import { ClientDetailsCard } from "@/components/firm/clients/client-details-card"
 import { ClientEngagementHistory } from "@/components/firm/clients/client-engagement-history"
-import { EditClientDialog } from "@/components/firm/clients/edit-client-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { clientTypeLabels } from "@/components/firm/clients/client-variants"
 import { clientStore } from "@/components/firm/clients/client-store"
 
 export default function ClientDetailPage() {
@@ -29,7 +37,9 @@ export default function ClientDetailPage() {
   const { client, history, isLoading } = useFetchClient(id)
   const updateClient = clientStore((state) => state.updateClient)
 
-  const [editOpen, setEditOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [selectedClientType, setSelectedClientType] = useState("")
+  const [confirmationOpen, setConfirmationOpen] = useState(false)
   const [notice, setNotice] = useState("")
 
   usePageMeta({
@@ -67,18 +77,11 @@ export default function ClientDetailPage() {
     )
   }
 
-  const handleSave = (values) => {
-    updateClient(client.id, values)
-    setEditOpen(false)
-    setNotice("Client information updated")
-    setTimeout(() => setNotice(""), 3000)
-  }
-
-  const handleToggleDeactivate = () => {
-    const deactivating = client.status !== "deactivated"
-    updateClient(client.id, { deactivated: deactivating })
-    setEditOpen(false)
-    setNotice(`Client ${deactivating ? "deactivated" : "reactivated"}`)
+  const handleConfirmClientType = () => {
+    updateClient(client.id, { clientType: selectedClientType })
+    setEditing(false)
+    setConfirmationOpen(false)
+    setNotice("Client type updated")
     setTimeout(() => setNotice(""), 3000)
   }
 
@@ -101,34 +104,95 @@ export default function ClientDetailPage() {
           </p>
         </div>
 
-        {canManageClients && (
+        {canManageClients && (editing ? (
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedClientType(client.clientType)
+                setEditing(false)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="bg-forest-900 text-white hover:opacity-90"
+              disabled={!selectedClientType || selectedClientType === client.clientType}
+              onClick={() => setConfirmationOpen(true)}
+            >
+              Save Changes
+            </Button>
+          </div>
+        ) : (
           <Button
+            type="button"
             size="sm"
             className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
-            onClick={() => setEditOpen(true)}
+            onClick={() => {
+              setSelectedClientType(client.clientType)
+              setEditing(true)
+            }}
           >
             <Pencil className="size-4" />
-            Edit Client
+            Edit Client Type
           </Button>
-        )}
+        ))}
       </div>
 
-      <ClientDetailsCard client={client} />
+      <ClientDetailsCard
+        client={client}
+        editing={canManageClients && editing}
+        clientType={selectedClientType}
+        onClientTypeChange={setSelectedClientType}
+      />
 
       <ClientEngagementHistory
         engagements={history}
         onViewEngagement={(engagement) => navigate(`${basePath}/engagements/${engagement.id}`)}
       />
 
-      {canManageClients && (
-        <EditClientDialog
-          open={editOpen}
-          onOpenChange={setEditOpen}
-          client={client}
-          onSubmit={handleSave}
-          onDeactivate={handleToggleDeactivate}
-        />
-      )}
+      <Dialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
+        <DialogContent data-slot="client-type-confirmation">
+          <DialogHeader>
+            <DialogTitle>Confirm client type change</DialogTitle>
+            <DialogDescription>
+              Change this client&apos;s type from{" "}
+              <span className="font-medium text-foreground">
+                {clientTypeLabels[client.clientType] ?? client.clientType}
+              </span>{" "}
+              to{" "}
+              <span className="font-medium text-foreground">
+                {clientTypeLabels[selectedClientType] ?? selectedClientType}
+              </span>
+              ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setSelectedClientType(client.clientType)
+                setEditing(false)
+                setConfirmationOpen(false)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-forest-900 text-white hover:opacity-90"
+              onClick={handleConfirmClientType}
+            >
+              Okay
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

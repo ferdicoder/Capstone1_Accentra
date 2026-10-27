@@ -69,6 +69,9 @@ export const billingStatusFilterOptions = Object.entries(billingStatusLabels).ma
   ([value, label]) => ({ value, label })
 )
 
+export const isFinalBillingStatus = (status) =>
+  status === "paid" || status === "cancelled"
+
 /** ₱2,500.00 — consistent Philippine peso formatting. */
 export const formatPeso = (amount) => {
   const value = Number(amount)
