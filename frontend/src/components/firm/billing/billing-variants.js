@@ -72,6 +72,9 @@ export const billingStatusChangeOptions = ["pending", "paid", "refunded", "cance
   (value) => ({ value, label: billingStatusLabels[value] })
 )
 
+export const isFinalBillingStatus = (status) =>
+  status === "paid" || status === "cancelled"
+
 /** ₱2,500.00 — consistent Philippine peso formatting. */
 export const formatPeso = (amount) => {
   const value = Number(amount)

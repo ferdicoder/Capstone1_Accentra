@@ -285,6 +285,7 @@ export default function ServiceManagementPage() {
     setCreateOpen(true)
   }
   const openEdit = (service) => {
+    updateService.reset()
     setEditingService(service)
     setEditOpen(true)
   }
@@ -486,8 +487,10 @@ export default function ServiceManagementPage() {
             onOpenChange={setEditOpen}
             service={editingService}
             onSubmit={handleSave}
+            confirmBeforeSave={canManageServices}
             categoryOptions={categoryOptions}
             submitting={updateService.isPending}
+            error={updateService.error?.message ?? ""}
           />
 
           <ServiceDeleteDialog

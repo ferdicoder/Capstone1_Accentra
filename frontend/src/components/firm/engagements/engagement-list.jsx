@@ -104,13 +104,14 @@ export function EngagementList({
   )
 
   return (
-    <div
-      data-slot="engagement-list"
-      className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
-      {...props}
-    >
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
+    <>
+      <div
+        data-slot="engagement-list"
+        className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
+        {...props}
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
               {columns.map((column) => (
@@ -194,13 +195,14 @@ export function EngagementList({
                     </tr>
                   ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
       <PaginationFooter
         page={visiblePage}
         totalPages={totalPages}
         onPageChange={onPageChange}
       />
-    </div>
+    </>
   )
 }

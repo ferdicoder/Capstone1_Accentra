@@ -114,13 +114,14 @@ export function ServiceRequestList({
   )
 
   return (
-    <div
-      data-slot="service-request-list"
-      className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
-      {...props}
-    >
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
+    <>
+      <div
+        data-slot="service-request-list"
+        className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
+        {...props}
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
               {visibleColumns.map((column) => (
@@ -191,13 +192,14 @@ export function ServiceRequestList({
                     </ServiceRequestRow>
                   ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
       <PaginationFooter
         page={visiblePage}
         totalPages={totalPages}
         onPageChange={onPageChange}
       />
-    </div>
+    </>
   )
 }

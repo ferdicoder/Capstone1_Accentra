@@ -1,13 +1,32 @@
 import { cn } from "@/lib/utils"
+import { ChevronDown } from "lucide-react"
 import { RequestDetailRow } from "@/components/firm/service-requests/request-details-card"
 import { ClientTypeBadge } from "./client-type-badge"
 import { FirmUserAvatar } from "@/components/firm/users/firm-user-avatar"
 import { FirmUserStatusBadge } from "@/components/firm/users/firm-user-status-badge"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { clientTypeOptions } from "./client-variants"
 
 /** Renders a label/value row only when the underlying field has a value. */
-function OptionalRow({ label, value }) {
+function OptionalRow({ label, value, editing = false }) {
   if (!value) return null
-  return <RequestDetailRow label={label}>{value}</RequestDetailRow>
+  return (
+    <RequestDetailRow label={label}>
+      {editing ? (
+        <span className="inline-flex min-h-8 items-center rounded-md bg-muted px-2.5 text-sm text-muted-foreground">
+          {value}
+        </span>
+      ) : (
+        value
+      )}
+    </RequestDetailRow>
+  )
 }
 
 /**
@@ -15,7 +34,14 @@ function OptionalRow({ label, value }) {
  * these fields; the list only shows a summary). Read-only by design: edit
  * controls live on the page and are only rendered for Firm Admin.
  */
-export function ClientDetailsCard({ client, className, ...props }) {
+export function ClientDetailsCard({
+  client,
+  editing = false,
+  clientType,
+  onClientTypeChange,
+  className,
+  ...props
+}) {
   return (
     <div
       data-slot="client-details-card"
@@ -39,10 +65,39 @@ export function ClientDetailsCard({ client, className, ...props }) {
             Client / Account
           </p>
           <dl className="divide-y divide-border/60">
-            <OptionalRow label="Client Name" value={client?.name} />
-            <OptionalRow label="Client Type" value={<ClientTypeBadge type={client?.clientType} />} />
-            <OptionalRow label="Email" value={client?.email} />
-            <OptionalRow label="Contact No." value={client?.contactNo} />
+            <OptionalRow label="Client Name" value={client?.name} editing={editing} />
+            <RequestDetailRow label="Client Type">
+              {editing ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 w-full justify-between rounded-lg px-3 font-normal sm:max-w-64"
+                      />
+                    }
+                  >
+                    {clientTypeOptions.find((option) => option.value === clientType)?.label ?? "Select client type"}
+                    <ChevronDown className="size-4 opacity-60" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="min-w-40">
+                    {clientTypeOptions.map((option) => (
+                      <DropdownMenuItem
+                        key={option.value}
+                        onClick={() => onClientTypeChange?.(option.value)}
+                      >
+                        {option.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <ClientTypeBadge type={client?.clientType} />
+              )}
+            </RequestDetailRow>
+            <OptionalRow label="Email" value={client?.email} editing={editing} />
+            <OptionalRow label="Contact No." value={client?.contactNo} editing={editing} />
           </dl>
         </div>
 
@@ -51,14 +106,15 @@ export function ClientDetailsCard({ client, className, ...props }) {
             Business
           </p>
           <dl className="divide-y divide-border/60">
-            <OptionalRow label="Business Name" value={client?.businessName} />
-            <OptionalRow label="Business Type" value={client?.businessType} />
-            <OptionalRow label="Industry" value={client?.industry} />
+            <OptionalRow label="Business Name" value={client?.businessName} editing={editing} />
+            <OptionalRow label="Business Type" value={client?.businessType} editing={editing} />
+            <OptionalRow label="Industry" value={client?.industry} editing={editing} />
             <OptionalRow
               label="TIN / UEN"
               value={client?.tinNo && <span className="tabular-nums">{client.tinNo}</span>}
+              editing={editing}
             />
-            <OptionalRow label="Address" value={client?.address} />
+            <OptionalRow label="Address" value={client?.address} editing={editing} />
           </dl>
         </div>
       </div>

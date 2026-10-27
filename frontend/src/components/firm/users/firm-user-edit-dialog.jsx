@@ -23,6 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { authStore } from "@/store/authStore"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -76,33 +77,44 @@ function EditUserForm({
   const [role, setRole] = useState(() => user?.role ?? "")
   const [errors, setErrors] = useState({})
 
+  const currentUserId = authStore((state) => state.user?.id)
+  // Personal information of another firm admin account is not editable from
+  // this dialog — only the role may be changed for protected firm admins.
+  const isProtectedFirmAdmin = user?.role === "admin" && user?.id !== currentUserId
+
   const activeRole = roleOptions.find((option) => option.value === role)
   const rolesUnavailable = !rolesLoading && roleOptions.length === 0
 
   const handleSubmit = (event) => {
     event.preventDefault()
 
-    const newErrors = {
-      firstName: !firstName.trim(),
-      lastName: !lastName.trim(),
-      email: !email.trim() || !EMAIL_PATTERN.test(email.trim()),
-      contactNumber:
-        !contactNumber.trim() || !PHONE_PATTERN.test(contactNumber.trim()),
-      role: !role,
-    }
+    const newErrors = isProtectedFirmAdmin
+      ? { role: !role }
+      : {
+          firstName: !firstName.trim(),
+          lastName: !lastName.trim(),
+          email: !email.trim() || !EMAIL_PATTERN.test(email.trim()),
+          contactNumber:
+            !contactNumber.trim() || !PHONE_PATTERN.test(contactNumber.trim()),
+          role: !role,
+        }
     setErrors(newErrors)
     if (Object.values(newErrors).some(Boolean)) return
 
-    onSubmit?.({
-      id: user?.id,
-      firstName: firstName.trim(),
-      middleName: middleName.trim(),
-      lastName: lastName.trim(),
-      extension: extension.trim(),
-      email: email.trim(),
-      contactNumber: contactNumber.trim(),
-      role,
-    })
+    onSubmit?.(
+      isProtectedFirmAdmin
+        ? { id: user?.id, role }
+        : {
+            id: user?.id,
+            firstName: firstName.trim(),
+            middleName: middleName.trim(),
+            lastName: lastName.trim(),
+            extension: extension.trim(),
+            email: email.trim(),
+            contactNumber: contactNumber.trim(),
+            role,
+          }
+    )
   }
 
   return (
@@ -121,7 +133,7 @@ function EditUserForm({
               value={firstName}
               onChange={(event) => setFirstName(event.target.value)}
               placeholder="Juan"
-              disabled={submitting}
+              disabled={submitting || isProtectedFirmAdmin}
               className={cn(errors.firstName && "border-red-500 focus-visible:ring-red-500")}
             />
             {errors.firstName && (
@@ -138,7 +150,7 @@ function EditUserForm({
               value={lastName}
               onChange={(event) => setLastName(event.target.value)}
               placeholder="Dela Cruz"
-              disabled={submitting}
+              disabled={submitting || isProtectedFirmAdmin}
               className={cn(errors.lastName && "border-red-500 focus-visible:ring-red-500")}
             />
             {errors.lastName && (
@@ -155,7 +167,7 @@ function EditUserForm({
               value={middleName}
               onChange={(event) => setMiddleName(event.target.value)}
               placeholder="Santos"
-              disabled={submitting}
+              disabled={submitting || isProtectedFirmAdmin}
             />
           </Field>
 
@@ -166,7 +178,7 @@ function EditUserForm({
               value={extension}
               onChange={(event) => setExtension(event.target.value)}
               placeholder="Jr., Sr., III"
-              disabled={submitting}
+              disabled={submitting || isProtectedFirmAdmin}
             />
           </Field>
         </div>
@@ -181,7 +193,7 @@ function EditUserForm({
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="juan@example.com"
-            disabled={submitting}
+            disabled={submitting || isProtectedFirmAdmin}
             className={cn(errors.email && "border-red-500 focus-visible:ring-red-500")}
           />
           {errors.email && (
@@ -199,13 +211,20 @@ function EditUserForm({
             value={contactNumber}
             onChange={(event) => setContactNumber(event.target.value)}
             placeholder="0917 123 4567"
-            disabled={submitting}
+            disabled={submitting || isProtectedFirmAdmin}
             className={cn(errors.contactNumber && "border-red-500 focus-visible:ring-red-500")}
           />
           {errors.contactNumber && (
             <p className="text-sm text-red-500">Enter a valid contact number.</p>
           )}
         </Field>
+
+        {isProtectedFirmAdmin && (
+          <p className="text-xs text-muted-foreground">
+            Personal information cannot be edited for firm admin accounts. Only
+            the role can be changed.
+          </p>
+        )}
 
         <Field>
           <FieldLabel>Role<span className="text-red-500">*</span></FieldLabel>

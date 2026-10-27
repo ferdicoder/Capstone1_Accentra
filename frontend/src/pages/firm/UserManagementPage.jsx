@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Ban, CheckCircle2, Pencil, User } from "lucide-react"
+import { Ban, CheckCircle2 } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
@@ -8,14 +8,12 @@ import { FirmUsersToolbar } from "@/components/firm/users/firm-users-toolbar"
 import { FirmUserTable } from "@/components/firm/users/firm-user-table"
 import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-menu"
 import { FirmUserCreateDialog } from "@/components/firm/users/firm-user-create-dialog"
-import { FirmUserEditDialog } from "@/components/firm/users/firm-user-edit-dialog"
 import { FirmUserStatusDialog } from "@/components/firm/users/firm-user-status-dialog"
 import { PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { authStore } from "@/store/authStore"
 
 import {
   useFetchUsers,
-  useUpdateUser,
   useToggleUserStatus,
   useCreateStaff,
   useFetchFirmRoles,
@@ -35,20 +33,10 @@ export default function UserManagementPage() {
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingUser, setEditingUser] = useState(null)
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [statusTarget, setStatusTarget] = useState(null)
   const [page, setPage] = useState(1)
   const [notice, setNotice] = useState("")
-  const [updateSuccess, setUpdateSuccess] = useState("")
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!updateSuccess) return
-
-    const timer = setTimeout(() => setUpdateSuccess(""), 2500)
-    return () => clearTimeout(timer)
-  }, [updateSuccess])
 
   // Simulated load so the shared skeleton system has something to show.
   useEffect(() => {
@@ -58,7 +46,6 @@ export default function UserManagementPage() {
 
   const { data: users = [], isLoading, error } = useFetchUsers()
   const { data: roles = [], isLoading: rolesLoading } = useFetchFirmRoles()
-  const updateUser = useUpdateUser()
   const toggleStatus = useToggleUserStatus()
   const createStaff = useCreateStaff()
 
@@ -174,27 +161,6 @@ export default function UserManagementPage() {
   const createError = createStaff.error
     ? "We couldn't create this account. The email address may already be registered, or the password may not meet the account requirements."
     : ""
-
-  const openEditDialog = (user) => {
-    setEditingUser(user)
-    setUpdateSuccess("")
-    setEditDialogOpen(true)
-  }
-
-  const openStaffProfile = (user) => {
-    navigate(`/admin/staff/${user.id}`)
-  }
-
-  const handleSave = (values) => {
-    setUpdateSuccess("")
-    updateUser.mutate(values, {
-      onSuccess: () => {
-        setEditDialogOpen(false)
-        setUpdateSuccess(`${values.firstName} ${values.lastName} updated successfully.`)
-      },
-    })
-  }
-
   usePageMeta({
     title: "Firm Users",
     breadcrumbs: [
@@ -213,15 +179,6 @@ export default function UserManagementPage() {
         <p className="text-sm text-muted-foreground">
           Manage your firm's users and their access to the platform.
         </p>
-        {updateSuccess && (
-          <div
-            role="status"
-            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
-          >
-            <CheckCircle2 aria-hidden="true" className="size-4 shrink-0" />
-            <span>{updateSuccess}</span>
-          </div>
-        )}
         {notice && (
           <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
             {notice}
@@ -253,16 +210,13 @@ export default function UserManagementPage() {
         loading={isLoading}
         emptyMessage="No users match your filters."
         emptyDescription="Try clearing the search or filters."
-        onRowClick={openEditDialog}
+        onRowClick={(user) => navigate(`/admin/users/${user.id}`)}
         page={currentPage}
         onPageChange={setPage}
         actions={(user) => (
           <FirmUserActionsMenu
             user={user}
             items={[
-              { key: "profile", label: "View profile", icon: User, onSelect: () => openStaffProfile(user) },
-              { key: "edit", label: "Edit user", icon: Pencil, onSelect: openEditDialog },
-              { type: "separator" },
               user.status === "deactivated"
                 ? { key: "activate", label: "Reactivate", icon: CheckCircle2, onSelect: (user) => openStatusDialog(user, "reactivate") }
                 : { key: "deactivate", label: "Deactivate", icon: Ban, destructive: true, onSelect: (user) => openStatusDialog(user, "deactivate") },
@@ -292,15 +246,6 @@ export default function UserManagementPage() {
         onConfirm={confirmStatusChange}
       />
 
-      <FirmUserEditDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        user={editingUser}
-        onSubmit={handleSave}
-        roleOptions={roleOptions}
-        rolesLoading={rolesLoading}
-        submitting={updateUser.isPending}
-      />
         </>
       )}
     </>

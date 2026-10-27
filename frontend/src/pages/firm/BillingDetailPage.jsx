@@ -3,16 +3,24 @@ import { Link, useLocation, useParams } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
 
 import { PageNotFound } from "@/components/shared/loading/page-skeleton"
-import { buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { BillingDetailContent } from "@/components/firm/billing/billing-detail-content"
 import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
 import { BillingStatusDropdown } from "@/components/firm/billing/billing-status-dropdown"
 import { VerifyPaymentDialog } from "@/components/firm/billing/verify-payment-dialog"
-import { CancelBillingDialog } from "@/components/firm/billing/cancel-billing-dialog"
 import {
   billingStatusLabels,
   invoiceTypeLabels,
+  isFinalBillingStatus,
 } from "@/components/firm/billing/billing-variants"
 import { useFetchBilling, useUpdateBillingStatus, useUpdatePaymentStatus } from "@/hooks/useBillings"
 import { useFetchEngagements } from "@/hooks/useEngagements"
@@ -35,7 +43,7 @@ export default function BillingDetailPage() {
   const updatePayment = useUpdatePaymentStatus()
 
   const [verifyOpen, setVerifyOpen] = useState(false)
-  const [cancelOpen, setCancelOpen] = useState(false)
+  const [pendingStatus, setPendingStatus] = useState("")
   const [notice, setNotice] = useState("")
 
   const engagements =
@@ -73,26 +81,29 @@ export default function BillingDetailPage() {
   }
 
   const handleStatusChange = (status) => {
-    if (!billing || billing.status === status) return
+    if (!billing || isFinalBillingStatus(billing.status) || billing.status === status) return
+    setPendingStatus(status)
+  }
 
-    if (status === "cancelled") {
-      setCancelOpen(true)
+  const handleConfirmStatusChange = () => {
+    if (!billing || !pendingStatus || isFinalBillingStatus(billing.status)) {
+      setPendingStatus("")
       return
     }
 
-    updateStatus.mutate({ id: billing.id, status }, {
-      onSuccess: () => showNotice(`Status updated to "${billingStatusLabels[status] ?? status}"`),
-      onError: (err) => showNotice(err.message),
-    })
-  }
-
-  const handleConfirmCancellation = () => {
-    if (!billing) return
-
-    updateStatus.mutate({ id: billing.id, status: "cancelled" }, {
-      onSuccess: () => { setCancelOpen(false); showNotice(`${billing.id} cancelled`) },
-      onError: (err) => showNotice(err.message),
-    })
+    updateStatus.mutate(
+      { id: billing.id, status: pendingStatus },
+      {
+        onSuccess: () => {
+          setPendingStatus("")
+          showNotice(`Status updated to "${billingStatusLabels[pendingStatus] ?? pendingStatus}"`)
+        },
+        onError: (err) => {
+          setPendingStatus("")
+          showNotice(err?.message ?? "Failed to update billing status.")
+        },
+      }
+    )
   }
 
  const handleConfirmVerification = (paymentMethod, referenceId) => {
@@ -199,10 +210,17 @@ export default function BillingDetailPage() {
           </p>
         </div>
 
-        <BillingStatusDropdown
-          billing={billing}
-          onStatusChange={handleStatusChange}
-        />
+        <div className="flex flex-col items-end gap-1">
+          <BillingStatusDropdown
+            billing={billing}
+            onStatusChange={handleStatusChange}
+          />
+          {isFinalBillingStatus(billing.status) && (
+            <p className="text-xs text-muted-foreground">
+              Paid or cancelled billing statuses cannot be changed.
+            </p>
+          )}
+        </div>
       </div>
 
       <BillingDetailContent
@@ -220,12 +238,43 @@ export default function BillingDetailPage() {
         onReject={handleConfirmRejection}
       />
 
-      <CancelBillingDialog
-        billing={billing}
-        open={cancelOpen}
-        onOpenChange={setCancelOpen}
-        onConfirm={handleConfirmCancellation}
-      />
+      <Dialog
+        open={Boolean(pendingStatus)}
+        onOpenChange={(open) => !open && setPendingStatus("")}
+      >
+        <DialogContent data-slot="billing-status-confirmation">
+          <DialogHeader>
+            <DialogTitle>Confirm billing status change</DialogTitle>
+            <DialogDescription>
+              Change this billing status from{" "}
+              <span className="font-medium text-foreground">
+                {billingStatusLabels[billing.status] ?? billing.status}
+              </span>{" "}
+              to{" "}
+              <span className="font-medium text-foreground">
+                {billingStatusLabels[pendingStatus] ?? pendingStatus}
+              </span>
+              ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPendingStatus("")}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-forest-900 text-white hover:opacity-90"
+              onClick={handleConfirmStatusChange}
+            >
+              Okay
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
