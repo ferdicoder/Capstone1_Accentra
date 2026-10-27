@@ -22,10 +22,12 @@ import {
 } from "@/services/api/documentAPI"
 import { queryKeys } from "@/config/queryKeys"
 
-export function useFetchEngagements({ includeTasks = true } = {}) {
+export function useFetchEngagements({ includeTasks = true, status } = {}) {
   return useQuery({ 
-    queryKey: includeTasks ? queryKeys.engagements : queryKeys.engagementSummaries,
-    queryFn: () => getEngagements(includeTasks),
+    queryKey: includeTasks
+      ? [...queryKeys.engagements, status ?? "all"]
+      : [...queryKeys.engagementSummaries, status ?? "all"],
+    queryFn: () => getEngagements(includeTasks, status),
     staleTime: 1000 * 30
   })
 }

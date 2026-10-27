@@ -29,10 +29,12 @@ export default function EngagementsPage() {
 
   const { data: engagements = [], isLoading, error } = useFetchEngagements({
     includeTasks: canManageEngagements,
+    status: isBillingOfficer ? "completed" : undefined,
   })
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [clientTypeFilter, setClientTypeFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [notice, setNotice] = useState("")
   const [newEngagementOpen, setNewEngagementOpen] = useState(false)
@@ -53,12 +55,26 @@ export default function EngagementsPage() {
   )
 
   const allEngagements = engagements
+  const clientTypeOptions = useMemo(
+    () => [
+      { value: "all", label: "All client types" },
+      { value: "retainer", label: "Retainer" },
+      { value: "non_retainer", label: "Non-retainer" },
+    ],
+    []
+  )
 
   const filteredEngagements = useMemo(() => {
     const query = search.trim().toLowerCase()
     return allEngagements.filter((engagement) => {
       const matchesStatus =
-        statusFilter === "all" || getEngagementDisplayStatus(engagement.status) === statusFilter
+        isBillingOfficer ||
+        statusFilter === "all" ||
+        getEngagementDisplayStatus(engagement.status) === statusFilter
+      const matchesClientType =
+        !isBillingOfficer ||
+        clientTypeFilter === "all" ||
+        engagement.business?.clientType === clientTypeFilter
       const matchesSearch =
         !query ||
         [
@@ -68,9 +84,9 @@ export default function EngagementsPage() {
           engagement.client?.firstName,
           engagement.client?.lastName,
         ].some((field) => field?.toLowerCase().includes(query))
-      return matchesStatus && matchesSearch
+      return matchesStatus && matchesClientType && matchesSearch
     })
-  }, [allEngagements, search, statusFilter])
+  }, [allEngagements, search, statusFilter, clientTypeFilter, isBillingOfficer])
 
   const handleNewEngagementSubmit = (values) => {
     createEngagement.mutate(
@@ -123,12 +139,18 @@ export default function EngagementsPage() {
           setCurrentPage(1)
         }}
         searchPlaceholder="Search by client, engagement no., or service..."
-        statusFilter={statusFilter}
-        onStatusFilterChange={(value) => {
+        statusFilter={isBillingOfficer ? "" : statusFilter}
+        onStatusFilterChange={isBillingOfficer ? undefined : (value) => {
           setStatusFilter(value)
           setCurrentPage(1)
         }}
-        statusOptions={statusOptions}
+        statusOptions={isBillingOfficer ? [] : statusOptions}
+        clientTypeFilter={isBillingOfficer ? clientTypeFilter : ""}
+        onClientTypeFilterChange={isBillingOfficer ? (value) => {
+          setClientTypeFilter(value)
+          setCurrentPage(1)
+        } : undefined}
+        clientTypeOptions={isBillingOfficer ? clientTypeOptions : []}
         resultCount={`${filteredEngagements.length} of ${allEngagements.length} engagements`}
         actions={canManageEngagements && (
           <Button

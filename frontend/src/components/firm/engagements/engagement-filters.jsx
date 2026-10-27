@@ -19,13 +19,19 @@ export function EngagementFilters({
   statusFilter = "",
   onStatusFilterChange,
   statusOptions = [],
+  clientTypeFilter = "",
+  onClientTypeFilterChange,
+  clientTypeOptions = [],
   resultCount,
   actions,
   className,
   ...props
 }) {
   const activeStatus = statusOptions.find((option) => option.value === statusFilter)
-  const hasActiveFilter = Boolean(statusFilter && statusFilter !== "all")
+  const activeClientType = clientTypeOptions.find((option) => option.value === clientTypeFilter)
+  const hasActiveFilter =
+    Boolean(statusFilter && statusFilter !== "all") ||
+    Boolean(clientTypeFilter && clientTypeFilter !== "all")
 
   return (
     <div
@@ -65,30 +71,58 @@ export function EngagementFilters({
             }
           >
             <Filter className="size-3.5" />
-            {activeStatus ? activeStatus.label : "Status"}
+            {activeStatus?.value !== "all"
+              ? activeStatus?.label
+              : activeClientType?.value !== "all"
+                ? activeClientType?.label
+                : "Filter"}
             <ChevronDown className="size-3.5 opacity-60" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Filter by status</DropdownMenuLabel>
-              {statusOptions.map((option) => (
-                <DropdownMenuItem
-                  key={option.value}
-                  onClick={() => onStatusFilterChange?.(option.value)}
-                  className={cn(option.value === statusFilter && "font-medium")}
-                >
-                  <span className="flex w-4 shrink-0 justify-center">
-                    {option.value === statusFilter && <Check className="size-4" />}
-                  </span>
-                  {option.label}
-                  {typeof option.count === "number" && (
-                    <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
-                      {option.count}
+            {statusOptions.length > 0 && (
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Filter by status</DropdownMenuLabel>
+                {statusOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => onStatusFilterChange?.(option.value)}
+                    className={cn(option.value === statusFilter && "font-medium")}
+                  >
+                    <span className="flex w-4 shrink-0 justify-center">
+                      {option.value === statusFilter && <Check className="size-4" />}
                     </span>
-                  )}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuGroup>
+                    {option.label}
+                    {typeof option.count === "number" && (
+                      <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
+                        {option.count}
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            )}
+            {clientTypeOptions.length > 0 && (
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Filter by client type</DropdownMenuLabel>
+                {clientTypeOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => onClientTypeFilterChange?.(option.value)}
+                    className={cn(option.value === clientTypeFilter && "font-medium")}
+                  >
+                    <span className="flex w-4 shrink-0 justify-center">
+                      {option.value === clientTypeFilter && <Check className="size-4" />}
+                    </span>
+                    {option.label}
+                    {typeof option.count === "number" && (
+                      <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
+                        {option.count}
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 

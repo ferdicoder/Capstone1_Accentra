@@ -38,6 +38,7 @@ function mapEngagementRow(row) {
           id: business.business_id,
           businessName: business.name ?? "",
           businessType: business.business_type ?? "",
+          clientType: business.type === "retainer" ? "retainer" : "non_retainer",
           tinNo: business.tin_no ?? "",
           industry: business.industry ?? "",
           contactNo: business.contact_no ?? "",
@@ -64,7 +65,7 @@ const ENGAGEMENT_BASE_SELECT = `
   business_id, service_id, assigned_staff,
   services(service_id, service_name, category, estimated_time),
   businesses(
-    business_id, name, business_type, tin_no, industry, contact_no,
+    business_id, name, business_type, type, tin_no, industry, contact_no,
     house_no, street, barangay, district, city, zip_code,
     owner:users(user_id, first_name, middle_name, last_name, email, contact_no)
   ),
@@ -85,11 +86,14 @@ async function logEngagementActivity(engagementId, type, message) {
   if (error) console.error("Failed to log engagement activity:", error)
 }
 
-export async function getEngagements(includeTasks = true) {
-  const { data, error } = await supabase
+export async function getEngagements(includeTasks = true, status) {
+  let query = supabase
     .from("engagements")
     .select(includeTasks ? ENGAGEMENT_SELECT : ENGAGEMENT_BASE_SELECT)
     .order("created_at", { ascending: false })
+  if (status) query = query.eq("status", status)
+
+  const { data, error } = await query
   if (error) throw error
   return (data ?? []).map(mapEngagementRow)
 }
