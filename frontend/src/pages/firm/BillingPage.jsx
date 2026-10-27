@@ -20,7 +20,9 @@ export default function BillingPage() {
   const location = useLocation()
   const basePath = location.pathname.startsWith("/billing-officer") ? "/billing-officer" : "/admin"
   const [engagementForBilling, setEngagementForBilling] = useState(
-    () => location.state?.createBillingFor ?? null
+    () => location.state?.createBillingFor?.status === "completed"
+      ? location.state.createBillingFor
+      : null
   )
 
   const [search, setSearch] = useState("")
@@ -28,7 +30,7 @@ export default function BillingPage() {
   const [typeFilter, setTypeFilter] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(
-    () => Boolean(location.state?.createBillingFor)
+    () => location.state?.createBillingFor?.status === "completed"
   )
   const [verifying, setVerifying] = useState(null)
   const [notice, setNotice] = useState("")
@@ -45,12 +47,16 @@ export default function BillingPage() {
   }, [location.pathname, location.state, navigate])
 
   const billingEngagements = useMemo(
-    () => engagementForBilling
-      ? [
-          engagementForBilling,
-          ...engagements.filter((engagement) => engagement.id !== engagementForBilling.id),
-        ]
-      : engagements,
+    () => {
+      const completedEngagements = engagements.filter((engagement) => engagement.status === "completed")
+      if (!engagementForBilling || engagementForBilling.status !== "completed") {
+        return completedEngagements
+      }
+      return [
+        engagementForBilling,
+        ...completedEngagements.filter((engagement) => engagement.id !== engagementForBilling.id),
+      ]
+    },
     [engagementForBilling, engagements]
   )
 

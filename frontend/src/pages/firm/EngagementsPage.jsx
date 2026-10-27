@@ -149,7 +149,7 @@ export default function EngagementsPage() {
         onRowClick={!isBillingOfficer ? (engagement) => {
           navigate(`${basePath}/engagements/${engagement.id}`)
         } : undefined}
-        actions={isBillingOfficer ? (engagement) => (
+        actions={isBillingOfficer ? (engagement) => engagement.status === "completed" && (
           <Button
             type="button"
             size="sm"

@@ -92,6 +92,13 @@ export async function createBilling({ invoice_type, amount, due_date, client_id,
     throw new Error("At least one engagement is required to create billing.")
   }
 
+  const selectedEngagements = engagement_ids.map((engagementId) =>
+    engagements.find((engagement) => engagement.id === engagementId)
+  )
+  if (selectedEngagements.some((engagement) => !engagement || engagement.status !== "completed")) {
+    throw new Error("Billing can only be created for completed engagements.")
+  }
+
   const businessId = engagements.find((engagement) =>
     engagement_ids.includes(engagement.id)
   )?.business?.id || client_id
