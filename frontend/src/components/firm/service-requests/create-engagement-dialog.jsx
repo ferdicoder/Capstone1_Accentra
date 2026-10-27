@@ -75,7 +75,7 @@ export function CreateEngagementDialog({
     data: services = [],
     isLoading: servicesLoading,
     error: servicesError,
-  } = useFetchServices()
+  } = useFetchServices({ enabled: isStandalone })
 
   const {
     data: matchingClients = [],
@@ -96,7 +96,13 @@ export function CreateEngagementDialog({
             candidate.name.trim().toLowerCase() === service.name.trim().toLowerCase()
         ) === index
     )
-  const selectedService = offeredServices.find((service) => service.id === serviceId)
+  const selectedService = request
+    ? {
+        id: request.serviceId,
+        name: request.serviceName,
+        basePrice: request.revenue ?? 0,
+      }
+    : offeredServices.find((service) => service.id === serviceId)
 
   const firmStaffOptions = users
     .filter((u) => u.role === "staff")
@@ -220,46 +226,51 @@ export function CreateEngagementDialog({
           <FieldGroup>
             <Field>
               <FieldLabel>Service<span className="text-red-500">*</span></FieldLabel>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={submitting}
-                      className={cn(
-                        "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
-                        errors.serviceName && "border-red-500 focus-visible:ring-red-500"
-                      )}
-                    />
-                  }
-                >
-                  {selectedService?.name || "Select service"}
-                  <ChevronDown className="size-4 opacity-60" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-64">
-                  {servicesLoading && (
-                    <DropdownMenuItem disabled>Loading services...</DropdownMenuItem>
-                  )}
-                  {!servicesLoading && servicesError && (
-                    <DropdownMenuItem disabled>Unable to load services</DropdownMenuItem>
-                  )}
-                  {!servicesLoading && !servicesError && offeredServices.length === 0 && (
-                    <DropdownMenuItem disabled>
-                      No active tax filing or business registration services available
-                    </DropdownMenuItem>
-                  )}
-                  {!servicesLoading && !servicesError && offeredServices.map((service) => (
-                    <DropdownMenuItem
-                      key={service.id}
-                      onClick={() => handleServiceChange(service.id)}
-                    >
-                      {service.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {request ? (
+                <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-1.5 text-sm text-foreground">
+                  {selectedService?.name || "Requested service unavailable"}
+                </div>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={submitting}
+                        className={cn(
+                          "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
+                          errors.serviceName && "border-red-500 focus-visible:ring-red-500"
+                        )}
+                      />
+                    }
+                  >
+                    {selectedService?.name || "Select service"}
+                    <ChevronDown className="size-4 opacity-60" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="min-w-64">
+                    {servicesLoading && (
+                      <DropdownMenuItem disabled>Loading services...</DropdownMenuItem>
+                    )}
+                    {!servicesLoading && servicesError && (
+                      <DropdownMenuItem disabled>Unable to load services</DropdownMenuItem>
+                    )}
+                    {!servicesLoading && !servicesError && offeredServices.length === 0 && (
+                      <DropdownMenuItem disabled>
+                        No active tax filing or business registration services available
+                      </DropdownMenuItem>
+                    )}
+                    {!servicesLoading && !servicesError && offeredServices.map((service) => (
+                      <DropdownMenuItem
+                        key={service.id}
+                        onClick={() => handleServiceChange(service.id)}
+                      >
+                        {service.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               {errors.serviceName && <p className="text-sm text-red-500">Select a service.</p>}
             </Field>
           </FieldGroup>
