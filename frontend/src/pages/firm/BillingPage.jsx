@@ -19,45 +19,38 @@ export default function BillingPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const basePath = location.pathname.startsWith("/billing-officer") ? "/billing-officer" : "/admin"
-  const [engagementForBilling, setEngagementForBilling] = useState(
-    () => location.state?.createBillingFor?.status === "completed"
-      ? location.state.createBillingFor
-      : null
-  )
-
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [createOpen, setCreateOpen] = useState(
-    () => location.state?.createBillingFor?.status === "completed"
-  )
+  const [createOpen, setCreateOpen] = useState(false)
   const [verifying, setVerifying] = useState(null)
-  const [notice, setNotice] = useState("")
+  // Success notice handed over by a redirect after creating a billing
+  // (e.g. from the billing officer's engagements page).
+  const [notice, setNotice] = useState(() => location.state?.notice ?? "")
   const { data: billings = [], isLoading, error } = useFetchBillings()
   const { data: engagements = [] } = useFetchEngagements({ includeTasks: false })
   const { data: clients = [] } = useFetchBusinesses()
   const createBilling = useCreateBilling()
   const updatePayment = useUpdatePaymentStatus()
 
+  // Drop the handed-over notice from history so navigating back doesn't replay it.
   useEffect(() => {
-    if (location.state?.createBillingFor) {
+    if (location.state?.notice) {
       navigate(location.pathname, { replace: true, state: null })
     }
   }, [location.pathname, location.state, navigate])
 
+  // Auto-clear any notice after 3 seconds.
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(""), 3000)
+    return () => clearTimeout(timer)
+  }, [notice])
+
   const billingEngagements = useMemo(
-    () => {
-      const completedEngagements = engagements.filter((engagement) => engagement.status === "completed")
-      if (!engagementForBilling || engagementForBilling.status !== "completed") {
-        return completedEngagements
-      }
-      return [
-        engagementForBilling,
-        ...completedEngagements.filter((engagement) => engagement.id !== engagementForBilling.id),
-      ]
-    },
-    [engagementForBilling, engagements]
+    () => engagements.filter((engagement) => engagement.status === "completed"),
+    [engagements]
   )
 
   const filteredBillings = useMemo(() => {
@@ -119,19 +112,17 @@ export default function BillingPage() {
 
   const showNotice = (message) => {
     setNotice(message)
-    setTimeout(() => setNotice(""), 3000)
   }
 
   const handleCreate = (values) => {
     createBilling.mutate({ ...values, engagements }, {
-      onSuccess: (record) => { setCreateOpen(false); setEngagementForBilling(null); showNotice(`${record.id} created`) },
+      onSuccess: (record) => { setCreateOpen(false); showNotice(`${record.id} created`) },
       onError: (err) => showNotice(err.message),
     })
   }
 
   const handleCreateDialogOpenChange = (open) => {
     setCreateOpen(open)
-    if (!open) setEngagementForBilling(null)
   }
 
   const handleConfirmVerification = () => {
@@ -238,7 +229,6 @@ export default function BillingPage() {
             clients={clients}
             billings={billings}
             submitting={createBilling.isPending}
-            initialEngagementId={engagementForBilling?.id ?? ""}
           />
 
           <VerifyPaymentDialog

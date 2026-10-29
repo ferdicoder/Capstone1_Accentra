@@ -7,11 +7,14 @@ import { usePageMeta } from "@/hooks/usePageMeta"
 import { EngagementFilters } from "@/components/firm/engagements/engagement-filters"
 import { EngagementList } from "@/components/firm/engagements/engagement-list"
 import { CreateEngagementDialog } from "@/components/firm/service-requests/create-engagement-dialog"
+import { CreateBillingDialog } from "@/components/firm/billing/create-billing-dialog"
 import {
   getEngagementDisplayStatus,
   statusFilterOptions,
 } from "@/components/firm/engagements/engagement-variants"
 import { useCreateStandaloneEngagement, useFetchEngagements } from "@/hooks/useEngagements"
+import { useFetchBillings, useCreateBilling } from "@/hooks/useBillings"
+import { useFetchBusinesses } from "@/hooks/useBusinesses"
 import { authStore } from "@/store/authStore"
 import { can } from "@/config/roles"
 
@@ -31,6 +34,9 @@ export default function EngagementsPage() {
     includeTasks: canManageEngagements,
     status: isBillingOfficer ? "completed" : undefined,
   })
+  const { data: billings = [] } = useFetchBillings({ enabled: isBillingOfficer })
+  const { data: clients = [] } = useFetchBusinesses({ enabled: isBillingOfficer })
+  const createBilling = useCreateBilling()
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -38,7 +44,21 @@ export default function EngagementsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [notice, setNotice] = useState("")
   const [newEngagementOpen, setNewEngagementOpen] = useState(false)
+  const [createBillingFor, setCreateBillingFor] = useState(null)
   const createEngagement = useCreateStandaloneEngagement()
+
+  // Engagements referenced by an active billing should disappear from the
+  // billing officer's list (cancelled billings release them again). Cost is
+  // linear in the number of billing-engagement links — the input itself.
+  const billedEngagementIds = useMemo(
+    () =>
+      new Set(
+        billings
+          .filter((billing) => billing.status !== "cancelled")
+          .flatMap((billing) => billing.engagement_ids ?? [])
+      ),
+    [billings]
+  )
 
   const statusOptions = useMemo(
     () =>
@@ -54,7 +74,13 @@ export default function EngagementsPage() {
     [engagements]
   )
 
-  const allEngagements = engagements
+  const allEngagements = useMemo(
+    () =>
+      isBillingOfficer
+        ? engagements.filter((engagement) => !billedEngagementIds.has(engagement.id))
+        : engagements,
+    [isBillingOfficer, engagements, billedEngagementIds]
+  )
   const clientTypeOptions = useMemo(
     () => [
       { value: "all", label: "All client types" },
@@ -87,6 +113,18 @@ export default function EngagementsPage() {
       return matchesStatus && matchesClientType && matchesSearch
     })
   }, [allEngagements, search, statusFilter, clientTypeFilter, isBillingOfficer])
+
+  const handleCreateBilling = (values) => {
+    createBilling.mutate(
+      { ...values, engagements: allEngagements },
+      {
+        onSuccess: (record) => {
+          setCreateBillingFor(null)
+          navigate(`${basePath}/billing`, { state: { notice: `${record.id} created` } })
+        },
+      }
+    )
+  }
 
   const handleNewEngagementSubmit = (values) => {
     createEngagement.mutate(
@@ -176,9 +214,7 @@ export default function EngagementsPage() {
             type="button"
             size="sm"
             className="h-9 cursor-pointer gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
-            onClick={() => navigate(`${basePath}/billing`, {
-              state: { createBillingFor: engagement },
-            })}
+            onClick={() => setCreateBillingFor(engagement)}
           >
             <Plus className="size-4" />
             <span className="hidden sm:inline">Create Billing</span>
@@ -197,6 +233,22 @@ export default function EngagementsPage() {
           onSubmit={handleNewEngagementSubmit}
           submitting={createEngagement.isPending}
           error={createEngagement.error?.message}
+        />
+      )}
+
+      {isBillingOfficer && (
+        <CreateBillingDialog
+          open={Boolean(createBillingFor)}
+          onOpenChange={(open) => {
+            if (!open) setCreateBillingFor(null)
+          }}
+          onSubmit={handleCreateBilling}
+          engagements={allEngagements}
+          clients={clients}
+          billings={billings}
+          submitting={createBilling.isPending}
+          error={createBilling.error?.message}
+          initialEngagementId={createBillingFor?.id ?? ""}
         />
       )}
     </>

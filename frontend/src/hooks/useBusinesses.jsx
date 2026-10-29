@@ -8,11 +8,12 @@ import {
 } from "@/services/api/businessAPI"
 import { queryKeys } from "@/config/queryKeys"
 
-export function useFetchBusinesses() {
+export function useFetchBusinesses({ enabled = true } = {}) {
   return useQuery({
     queryKey: queryKeys.businesses,
     queryFn: getBusinesses,
     staleTime: 1000 * 30,
+    enabled,
   })
 }
 

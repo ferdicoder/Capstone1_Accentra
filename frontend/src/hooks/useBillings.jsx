@@ -2,9 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createBilling, createPayment, getBilling, getBillings, getBusinessBillings, updateBillingStatus, updatePaymentStatus, uploadPaymentProof } from "@/services/api/billingAPI"
 import { queryKeys } from "@/config/queryKeys"
 
-export const useFetchBillings = () => useQuery({
+export const useFetchBillings = ({ enabled = true } = {}) => useQuery({
    queryKey: queryKeys.billings, 
-   queryFn: getBillings
+   queryFn: getBillings,
+   enabled
 })
 
 export const useFetchBilling = (id) => useQuery({ 
