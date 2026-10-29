@@ -177,16 +177,41 @@ export function CreateBillingDialog({
     setDueDate('');
     setErrors({});
   }, [open, initialEngagementId, currentBillingMonth, currentBillingYear]);
+
+  // Prefill each selected engagement's amount with its service fee so the
+  // billing officer only has to confirm or adjust it.
+  useEffect(() => {
+    if (!isServiceFee || engagementIds.length === 0) return;
+    setEngagementAmounts((previous) => {
+      let next = previous;
+      for (const id of engagementIds) {
+        if (previous[id] !== undefined) continue;
+        const engagement = engagements.find((item) => item.id === id);
+        const fee = engagement?.serviceFee ?? engagement?.fee;
+        if (fee === null || fee === undefined || fee === '') continue;
+        if (next === previous) next = { ...previous };
+        next[id] = String(fee);
+      }
+      return next;
+    });
+  }, [isServiceFee, engagementIds, engagements]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const engagementLabel = (engagement) =>
     `${engagement.engagementNumber ?? engagement.id} — ${engagement.serviceName ?? 'Untitled service'}`;
   const handleInvoiceTypeChange = (value) => {
+    // Keep the pre-selected engagement (Create Billing from an engagement row)
+    // when choosing the first invoice type; clear dependent state only when
+    // switching between types.
+    const switchingTypes = Boolean(invoiceType);
     setInvoiceType(value);
-    setEngagementIds([]);
-    setEngagementSearch('');
-    setClientId('');
-    setClientSearch('');
+    if (switchingTypes) {
+      setEngagementIds([]);
+      setEngagementSearch('');
+      setClientId('');
+      setClientSearch('');
+      setEngagementAmounts({});
+    }
     setBillingMonth(String(currentBillingMonth));
     setBillingYear(String(currentBillingYear));
     setErrors({});
