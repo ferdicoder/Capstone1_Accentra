@@ -61,6 +61,7 @@ export function CreateBillingDialog({
   const currentBillingMonth = now.getMonth() + 1;
   const currentBillingYear = now.getFullYear();
   const engagementSearchRef = useRef(null);
+  const autoTypeRef = useRef(false);
   const [engagementIds, setEngagementIds] = useState(
     initialEngagementId ? [initialEngagementId] : []
   );
@@ -76,6 +77,27 @@ export function CreateBillingDialog({
   const [errors, setErrors] = useState({});
   const isServiceFee = invoiceType === 'service_fee';
   const isRetainerFee = invoiceType === 'retainer_fee';
+  const initialEngagement = engagements.find(
+    (engagement) => engagement.id === initialEngagementId
+  );
+  const initialClient = clients.find(
+    (client) => client.id === getEngagementClientId(initialEngagement)
+  );
+  // Only retainer clients are billable via retainer_fee, so prefill only when
+  // the engagement's client is a retainer (consistent with client search).
+  const initialClientId =
+    initialClient &&
+    (initialClient.clientType === 'retainer' ||
+      initialClient.type === 'retainer')
+      ? initialClient.id
+      : '';
+  // Retainer client + retainer-covered service: the whole form can be
+  // prefilled (invoice type, client, engagement, amount from the client's
+  // retainer fee) so the officer only confirms the period and due date.
+  const initialRetainerFee = initialClient?.retainerFee ?? null;
+  const autoRetainerBilling = Boolean(
+    initialClientId && initialEngagement?.isRetainerCovered
+  );
   const selectedClient = clients.find((client) => client.id === clientId);
   const selectedEngagements = engagements.filter((engagement) =>
     engagementIds.includes(engagement.id)
@@ -176,7 +198,32 @@ export function CreateBillingDialog({
     setEngagementAmounts({});
     setDueDate('');
     setErrors({});
+    autoTypeRef.current = false;
   }, [open, initialEngagementId, currentBillingMonth, currentBillingYear]);
+
+  // Prefill the client from the pre-selected engagement (Create Billing from
+  // an engagement row) so the officer doesn't have to search for it. Runs
+  // after the reset above; also covers clients loading after the dialog
+  // opens. Manual client changes happen via handlers, not prop changes, so
+  // they aren't overwritten.
+  useEffect(() => {
+    if (!open || !initialClientId) return;
+    setClientId(initialClientId);
+  }, [open, initialClientId]);
+
+  // Retainer client + retainer-covered service: prefill invoice type and
+  // amount from the client's retainer fee. Runs after the client prefill
+  // above; autoTypeRef marks the type as auto-set so a later manual change
+  // is treated as a first choice (keeps engagement/client) instead of a
+  // type switch that would clear them.
+  useEffect(() => {
+    if (!open || !autoRetainerBilling) return;
+    autoTypeRef.current = true;
+    setInvoiceType('retainer_fee');
+    if (initialRetainerFee != null) {
+      setAmount(String(initialRetainerFee));
+    }
+  }, [open, autoRetainerBilling, initialRetainerFee]);
 
   // Prefill each selected engagement's amount with its service fee so the
   // billing officer only has to confirm or adjust it.
@@ -202,8 +249,10 @@ export function CreateBillingDialog({
   const handleInvoiceTypeChange = (value) => {
     // Keep the pre-selected engagement (Create Billing from an engagement row)
     // when choosing the first invoice type; clear dependent state only when
-    // switching between types.
-    const switchingTypes = Boolean(invoiceType);
+    // switching between types. An auto-prefilled retainer type counts as the
+    // first choice, not a switch.
+    const switchingTypes = Boolean(invoiceType) && !autoTypeRef.current;
+    autoTypeRef.current = false;
     setInvoiceType(value);
     if (switchingTypes) {
       setEngagementIds([]);
