@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
-  Download,
   FileText,
   Receipt,
 } from "lucide-react"
@@ -142,42 +141,23 @@ const byDueDate = (a, b) => {
 
 // --- Small building blocks -----------------------------------------------------
 
-function StatCard({ to, icon: Icon, label, value, hint, tone, alert = false }) {
+// Display-only KPI card (not clickable, no icon).
+function StatCard({ label, value, hint, alert = false }) {
   return (
-    <Link
-      to={to}
-      className={cn(
-        "group flex flex-col rounded-xl border bg-background p-4 shadow-sm transition-all hover:border-emerald-200 hover:shadow-md",
-        focusRing
-      )}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span
-          className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground",
-            tone
-          )}
-        >
-          <Icon className="size-[18px]" aria-hidden="true" />
-        </span>
-        <ArrowRight
-          className="size-4 shrink-0 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100 group-focus-visible:opacity-100"
-          aria-hidden="true"
-        />
-      </div>
-      <p className="mt-4 truncate text-2xl font-semibold tabular-nums tracking-tight">
+    <div className="flex flex-col gap-2 rounded-xl border bg-background px-5 py-4 shadow-sm">
+      <p className="text-sm font-medium text-muted-foreground">{label}</p>
+      <p className="truncate text-2xl font-semibold leading-none tabular-nums tracking-tight">
         {value}
       </p>
-      <p className="mt-0.5 text-sm font-medium text-foreground/80">{label}</p>
       <p
         className={cn(
-          "mt-0.5 text-xs",
+          "text-xs",
           alert ? "font-medium text-red-700" : "text-muted-foreground"
         )}
       >
         {hint}
       </p>
-    </Link>
+    </div>
   )
 }
 
@@ -370,10 +350,6 @@ export default function ClientDashboard() {
     [engagements]
   )
 
-  // Deliverables the client can download. Counted from completed engagements
-  // (final documents are downloaded from each completed engagement).
-  const availableDeliverables = completedEngagements.length
-
   // --- Documents to submit ---------------------------------------------------
   // One row per document the client still has to provide. When the engagement
   // has no task list yet, one generic row is shown for that engagement.
@@ -472,7 +448,7 @@ export default function ClientDashboard() {
   })
 
   return (
-    <div className="flex flex-1 flex-col gap-5 px-2 py-2 sm:px-4 lg:px-6">
+    <div className="flex flex-1 flex-col gap-6 px-2 py-4 sm:px-4 lg:px-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
@@ -509,14 +485,11 @@ export default function ClientDashboard() {
         </div>
       )}
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* KPI cards (display only, no icons) */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
-          to="/client/engagements"
-          icon={Briefcase}
           label="Active Engagements"
           value={engagementsError ? "—" : openEngagements.length}
-          tone="bg-emerald-50 text-emerald-700"
           hint={
             completedEngagements.length
               ? `${completedEngagements.length} completed`
@@ -524,21 +497,15 @@ export default function ClientDashboard() {
           }
         />
         <StatCard
-          to="/client/engagements"
-          icon={FileText}
           label="Documents to Submit"
           value={engagementsError ? "—" : documentItems.length}
-          tone={documentItems.length ? "bg-amber-50 text-amber-700" : undefined}
           hint={
             documentItems.length ? "Needed by the firm" : "Nothing needed from you"
           }
         />
         <StatCard
-          to="/client/billing"
-          icon={Receipt}
           label="Amount to Pay"
           value={billingError ? "—" : formatCurrency(billing.payableTotal)}
-          tone={billing.overdue.length ? "bg-red-50 text-red-700" : undefined}
           alert={billing.overdue.length > 0}
           hint={
             billing.payable.length
@@ -548,20 +515,10 @@ export default function ClientDashboard() {
               : "No unpaid invoices"
           }
         />
-        <StatCard
-          to="/client/engagements"
-          icon={Download}
-          label="Available Deliverables"
-          value={engagementsError ? "—" : availableDeliverables}
-          tone={availableDeliverables ? "bg-emerald-50 text-emerald-700" : undefined}
-          hint={
-            availableDeliverables ? "Ready to download" : "None available yet"
-          }
-        />
       </div>
 
       {/* Documents to Submit (left) + Outstanding Billing (right) */}
-      <div className="grid items-stretch gap-5 lg:grid-cols-2">
+      <div className="grid items-stretch gap-6 lg:grid-cols-2">
         {/* Documents to Submit */}
         <Panel
           title="Documents to Submit"

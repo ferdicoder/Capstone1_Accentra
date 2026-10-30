@@ -21,7 +21,13 @@ import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 
 import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
 import { ActivityLogItem } from "@/components/firm/engagements/ActivityLogItem"
-import { TaskList } from "@/components/client/ClientEngagementTaskList"
+import {
+  TaskList,
+  LOCKED_STATUSES,
+  normalizeStatus,
+  normalizeDocument,
+  latestSubmission,
+} from "@/components/client/ClientEngagementTaskList"
 import { ClientEngagementDeliverables } from "@/components/client/ClientEngagementDeliverables"
 import { authStore } from "@/store/authStore"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
@@ -314,7 +320,32 @@ export default function ClientEngagementDetailPage() {
     [engagement?.tasks]
   )
 
-  const filteredDocuments = documents.filter((doc) =>
+  // The Documents tab only lists files from the LATEST submission of a
+  // requirement that is For Review or Approved. Files from a submission that
+  // was rejected for revision (and anything on a Missing / For Revision
+  // requirement) are hidden, so a resubmission replaces the old files instead
+  // of stacking on top of them.
+  const visibleDocuments = useMemo(() => {
+    const byTask = new Map()
+    documents.forEach((doc) => {
+      const list = byTask.get(doc.engagementTaskId) ?? []
+      list.push(doc)
+      byTask.set(doc.engagementTaskId, list)
+    })
+
+    const visibleIds = new Set()
+    byTask.forEach((taskDocs, taskId) => {
+      const task = taskById.get(taskId)
+      if (!task || !LOCKED_STATUSES.includes(normalizeStatus(task.status))) return
+      latestSubmission(taskDocs.map((doc) => normalizeDocument(doc))).forEach((file) =>
+        visibleIds.add(file.id)
+      )
+    })
+
+    return documents.filter((doc) => visibleIds.has(doc.id))
+  }, [documents, taskById])
+
+  const filteredDocuments = visibleDocuments.filter((doc) =>
     (doc.name ?? "").toLowerCase().includes(documentSearch.toLowerCase())
   )
 
@@ -410,7 +441,7 @@ export default function ClientEngagementDetailPage() {
         >
           Documents
           <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-            {documents.length}
+            {visibleDocuments.length}
           </span>
         </button>
       </div>
@@ -437,7 +468,8 @@ export default function ClientEngagementDetailPage() {
             {activityLoading && <p className="text-sm text-muted-foreground">Loading activity...</p>}
             {!activityLoading && activity.length === 0 && <p className="text-sm text-muted-foreground">No activity yet.</p>}
             {!activityLoading && activity.length > 0 && (
-              <div className="space-y-4">
+              // Scrolls inside the card once the log gets long.
+              <div className="max-h-[28rem] space-y-4 overflow-y-auto pr-2">
                 {activity.map((entry) => <ActivityLogItem key={entry.id} entry={entry} />)}
               </div>
             )}
@@ -471,15 +503,16 @@ export default function ClientEngagementDetailPage() {
                 <p className="px-4 py-10 text-center text-sm text-muted-foreground">
                   {documentSearch.trim()
                     ? `No documents match "${documentSearch}".`
-                    : "No documents uploaded yet."}
+                    : "No documents submitted for review yet."}
                 </p>
               )}
 
               {!isDocumentsLoading && filteredDocuments.length > 0 && (
-                <ul className="divide-y">
+                // Scrolls inside the card once the list gets long.
+                <ul className="max-h-[32rem] divide-y overflow-y-auto">
                   {filteredDocuments.map((doc) => {
                     const task = taskById.get(doc.engagementTaskId)
-                    const status = task?.status ?? "missing"
+                    const status = normalizeStatus(task?.status) || "missing"
                     return (
                       <li key={doc.id} className="flex flex-col gap-3 p-4">
                         <div className="min-w-0">
@@ -500,14 +533,6 @@ export default function ClientEngagementDetailPage() {
                           </button>
                           <DocumentFileActions doc={doc} large />
                         </div>
-
-                        {/* Revision feedback visible without extra taps. */}
-                        {status === "for_revision" && (
-                          <p className="rounded-md border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs text-orange-800">
-                            <span className="font-semibold">Your firm asked for changes: </span>
-                            {task?.remark || "Please upload a revised copy."}
-                          </p>
-                        )}
                       </li>
                     )
                   })}
@@ -516,7 +541,8 @@ export default function ClientEngagementDetailPage() {
             </div>
 
             {/* ── Tablet and up: table ──────────────────────────────────── */}
-            <div className="hidden overflow-x-auto md:block">
+            {/* Scrolls both ways inside the card; the header row stays pinned. */}
+            <div className="hidden max-h-[32rem] overflow-auto md:block">
               <table className="w-full min-w-[600px] table-fixed text-sm">
                 <colgroup>
                   <col className="w-[34%]" />
@@ -524,7 +550,7 @@ export default function ClientEngagementDetailPage() {
                   <col className="w-[20%]" />
                   <col className="w-[24%]" />
                 </colgroup>
-                <thead>
+                <thead className="sticky top-0 z-10 bg-background">
                   <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                     <th className="px-4 py-3.5 align-middle font-medium">
                       Document Name
@@ -555,7 +581,7 @@ export default function ClientEngagementDetailPage() {
                   {!isDocumentsLoading &&
                     filteredDocuments.map((doc) => {
                       const task = taskById.get(doc.engagementTaskId)
-                      const status = task?.status ?? "missing"
+                      const status = normalizeStatus(task?.status) || "missing"
                       return (
                         <tr
                           key={doc.id}
@@ -597,7 +623,7 @@ export default function ClientEngagementDetailPage() {
                       >
                         {documentSearch.trim()
                           ? `No documents match "${documentSearch}".`
-                          : "No documents uploaded yet."}
+                          : "No documents submitted for review yet."}
                       </td>
                     </tr>
                   )}
@@ -611,7 +637,7 @@ export default function ClientEngagementDetailPage() {
       <DocumentStatusDialog
         open={isStatusOpen}
         onOpenChange={setIsStatusOpen}
-        status={statusDocTask?.status}
+        status={normalizeStatus(statusDocTask?.status) || undefined}
         remark={statusDocTask?.remark}
         doc={statusDoc}
       />

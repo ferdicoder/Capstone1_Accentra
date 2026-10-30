@@ -52,7 +52,8 @@ const statusConfig = {
 }
 
 // "For Review", "for-review" and "for_review" all mean the same status.
-const normalizeStatus = (status) =>
+// Exported so the Documents tab reads statuses the same way.
+export const normalizeStatus = (status) =>
   String(status ?? "")
     .trim()
     .toLowerCase()
@@ -60,7 +61,8 @@ const normalizeStatus = (status) =>
 
 // Only these two are locked. Everything else (Missing, For Revision, and any
 // status the badge shows as Missing) can be uploaded to.
-const LOCKED_STATUSES = ["approved", "for_review"]
+// Exported: these are also the only statuses whose documents the Documents tab shows.
+export const LOCKED_STATUSES = ["approved", "for_review"]
 
 const canUploadFiles = (task) =>
   Boolean(task) && !LOCKED_STATUSES.includes(task.status)
@@ -86,7 +88,7 @@ const SAME_SUBMISSION_WINDOW_MS = 10 * 60 * 1000
 //   - a mapped document from the documents list (name, id, downloadUrl, ...)
 // Pass the original File as the second argument for a file that was just
 // uploaded, so it can still be previewed before it has a download link.
-function normalizeDocument(source, file = null) {
+export function normalizeDocument(source, file = null) {
   const raw = source ?? {}
   const downloadUrl = raw.downloadUrl ?? null
   return {
@@ -110,7 +112,8 @@ const toTime = (value) => {
 // resubmitted has the old files and the new ones. Only the newest submission
 // is shown. When files carry no upload time there's nothing to compare, so
 // all of them are kept.
-function latestSubmission(files) {
+// Exported so the Documents tab applies the same rule.
+export function latestSubmission(files) {
   const times = files.map((file) => toTime(file.uploadedAt))
   const newest = Math.max(...times.filter((time) => time !== null))
   if (!Number.isFinite(newest)) return files
