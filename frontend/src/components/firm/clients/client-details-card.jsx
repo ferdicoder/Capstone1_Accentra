@@ -1,10 +1,12 @@
 import { cn } from "@/lib/utils"
 import { ChevronDown } from "lucide-react"
 import { RequestDetailRow } from "@/components/firm/service-requests/request-details-card"
+import { formatRevenue } from "@/components/firm/service-requests/service-request-variants"
 import { ClientTypeBadge } from "./client-type-badge"
 import { FirmUserAvatar } from "@/components/firm/users/firm-user-avatar"
 import { FirmUserStatusBadge } from "@/components/firm/users/firm-user-status-badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +31,14 @@ function OptionalRow({ label, value, editing = false }) {
   )
 }
 
+/** Keeps only digits: one decimal point at most, and at most two decimals. */
+function sanitizeFeeInput(value) {
+  return value
+    .replace(/[^\d.]/g, "")
+    .replace(/(\..*)\./g, "$1")
+    .replace(/(\.\d{2})\d+/g, "$1")
+}
+
 /**
  * Presentational card with the full client information (single source for
  * these fields; the list only shows a summary). Read-only by design: edit
@@ -39,9 +49,15 @@ export function ClientDetailsCard({
   editing = false,
   clientType,
   onClientTypeChange,
+  retainerFee,
+  onRetainerFeeChange,
+  retainerFeeRequired = false,
+  retainerFeeError = false,
   className,
   ...props
 }) {
+  const showRetainerFeeRow =
+    editing || client?.clientType === "retainer" || client?.retainerFee != null
   return (
     <div
       data-slot="client-details-card"
@@ -96,6 +112,46 @@ export function ClientDetailsCard({
                 <ClientTypeBadge type={client?.clientType} />
               )}
             </RequestDetailRow>
+            {showRetainerFeeRow && (
+              <RequestDetailRow label="Retainer Fee">
+                {editing ? (
+                  <div className="flex flex-col gap-1 sm:max-w-64">
+                    <div className="relative">
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground"
+                      >
+                        ₱
+                      </span>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        aria-label="Retainer fee"
+                        disabled={clientType !== "retainer"}
+                        className={cn("pl-7", retainerFeeError && "border-destructive")}
+                        value={retainerFee}
+                        onChange={(event) => onRetainerFeeChange?.(sanitizeFeeInput(event.target.value))}
+                      />
+                    </div>
+                    <p
+                      className={cn(
+                        "text-xs",
+                        retainerFeeError ? "text-destructive" : "text-muted-foreground"
+                      )}
+                    >
+                      {clientType !== "retainer"
+                        ? "Only retainer clients are charged a retainer fee."
+                        : retainerFeeRequired
+                          ? "Required for retainer clients."
+                          : "Applies only to retainer clients."}
+                    </p>
+                  </div>
+                ) : (
+                  <span className="tabular-nums">{formatRevenue(client?.retainerFee)}</span>
+                )}
+              </RequestDetailRow>
+            )}
             <OptionalRow label="Email" value={client?.email} editing={editing} />
             <OptionalRow label="Contact No." value={client?.contactNo} editing={editing} />
           </dl>

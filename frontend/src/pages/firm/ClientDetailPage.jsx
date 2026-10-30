@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog"
 import { clientTypeLabels } from "@/components/firm/clients/client-variants"
 import { clientStore } from "@/components/firm/clients/client-store"
+import { formatRevenue } from "@/components/firm/service-requests/service-request-variants"
 
 export default function ClientDetailPage() {
   const { id } = useParams()
@@ -58,6 +59,7 @@ export default function ClientDetailPage() {
 
   const [editing, setEditing] = useState(false)
   const [selectedClientType, setSelectedClientType] = useState("")
+  const [retainerFee, setRetainerFee] = useState("")
   const [confirmationOpen, setConfirmationOpen] = useState(false)
   const [notice, setNotice] = useState("")
 
@@ -96,17 +98,32 @@ export default function ClientDetailPage() {
     )
   }
 
+  const resetEditState = () => {
+    setSelectedClientType(client.clientType)
+    setRetainerFee(client.retainerFee != null ? String(client.retainerFee) : "")
+  }
+
+  const typeChanged = Boolean(selectedClientType) && selectedClientType !== client.clientType
+  // Switching a client onto retainer requires a fee before the change can be saved.
+  const requiresRetainerFee = selectedClientType === "retainer" && client.clientType !== "retainer"
+  const retainerFeeNumber = Number(retainerFee)
+  const retainerFeeValid =
+    !requiresRetainerFee ||
+    (retainerFee.trim() !== "" && Number.isFinite(retainerFeeNumber) && retainerFeeNumber > 0)
+
   const handleConfirmClientType = () => {
-    if (!selectedClientType || selectedClientType === client.clientType) return
+    if (!typeChanged || !retainerFeeValid) return
+
+    const fee = selectedClientType === "retainer" ? retainerFeeNumber : null
 
     updateBusinessType.mutate(
-      { businessId: client.id, clientType: selectedClientType },
+      { businessId: client.id, clientType: selectedClientType, retainerFee: fee },
       {
         onSuccess: () => {
-          updateClient(client.id, { clientType: selectedClientType })
+          updateClient(client.id, { clientType: selectedClientType, retainerFee: fee })
           setEditing(false)
           setConfirmationOpen(false)
-          setNotice("Client type updated")
+          setNotice("Client details updated")
           setTimeout(() => setNotice(""), 3000)
         },
         onError: (err) => {
@@ -143,7 +160,7 @@ export default function ClientDetailPage() {
               variant="outline"
               size="sm"
               onClick={() => {
-                setSelectedClientType(client.clientType)
+                resetEditState()
                 setEditing(false)
               }}
             >
@@ -153,7 +170,7 @@ export default function ClientDetailPage() {
               type="button"
               size="sm"
               className="bg-forest-900 text-white hover:opacity-90"
-              disabled={!selectedClientType || selectedClientType === client.clientType}
+              disabled={!typeChanged || !retainerFeeValid}
               onClick={() => setConfirmationOpen(true)}
             >
               Save Changes
@@ -165,12 +182,12 @@ export default function ClientDetailPage() {
             size="sm"
             className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
             onClick={() => {
-              setSelectedClientType(client.clientType)
+              resetEditState()
               setEditing(true)
             }}
           >
             <Pencil className="size-4" />
-            Edit Client Type
+            Edit Client
           </Button>
         ))}
       </div>
@@ -180,6 +197,10 @@ export default function ClientDetailPage() {
         editing={canManageClients && editing}
         clientType={selectedClientType}
         onClientTypeChange={setSelectedClientType}
+        retainerFee={retainerFee}
+        onRetainerFeeChange={setRetainerFee}
+        retainerFeeRequired={requiresRetainerFee}
+        retainerFeeError={requiresRetainerFee && !retainerFeeValid}
       />
 
       <ClientEngagementHistory
@@ -202,13 +223,22 @@ export default function ClientDetailPage() {
               </span>
               ?
             </DialogDescription>
+            {requiresRetainerFee && (
+              <p className="text-sm text-muted-foreground">
+                A retainer fee of{" "}
+                <span className="font-medium tabular-nums text-foreground">
+                  {formatRevenue(retainerFeeNumber)}
+                </span>{" "}
+                will be applied to this client.
+              </p>
+            )}
           </DialogHeader>
           <DialogFooter className="flex-row justify-end gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => {
-                setSelectedClientType(client.clientType)
+                resetEditState()
                 setEditing(false)
                 setConfirmationOpen(false)
               }}

@@ -14,6 +14,7 @@ import { isEngagementActive } from "@/lib/workflow-stages"
 /** Fields the Firm Admin may edit. Identifiers and status are system-controlled. */
 export const editableClientFields = [
   "clientType",
+  "retainerFee",
   "firstName",
   "middleName",
   "lastName",

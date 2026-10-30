@@ -15,6 +15,7 @@ function mapBusinessRow(row) {
     businessName: row.name ?? "",
     businessType: row.business_type ?? "",
     clientType: row.type === "retainer" ? "retainer" : "non_retainer",
+    retainerFee: row.retainer_fee != null ? Number(row.retainer_fee) : null,
     tinNo: row.tin_no ?? "",
     tin: row.tin_no ?? "",
     industry: row.industry ?? "",
@@ -38,7 +39,7 @@ const BUSINESS_SELECT = `
 `
 
 const FIRM_BUSINESS_SELECT = `
-  business_id, owner_id, name, business_type, type, tin_no, industry, contact_no,
+  business_id, owner_id, name, business_type, type, retainer_fee, tin_no, industry, contact_no,
   house_no, street, barangay, district, city, zip_code,
   owner:users(user_id, first_name, middle_name, last_name, email, contact_no, status)
 `
@@ -106,10 +107,14 @@ export async function searchClients(query, limit = 10) {
     .map(mapBusinessRow)
 }
 
-export async function updateBusinessType({ businessId, clientType }) {
+export async function updateBusinessType({ businessId, clientType, retainerFee }) {
+  const isRetainer = clientType === "retainer"
   const { data, error } = await supabase
     .from("businesses")
-    .update({ type: clientType === "retainer" ? "retainer" : "non-retainer" })
+    .update({
+      type: isRetainer ? "retainer" : "non-retainer",
+      retainer_fee: isRetainer ? retainerFee ?? null : null,
+    })
     .eq("business_id", businessId)
     .select(FIRM_BUSINESS_SELECT)
     .single()
