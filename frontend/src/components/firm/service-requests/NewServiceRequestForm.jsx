@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { useFetchServices } from "@/hooks/useServices"
 import { useCreateServiceRequest } from "@/hooks/useServiceRequests"
 
@@ -9,12 +9,19 @@ const initialFormState = {
   description: "",
 }
 
-export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
+export function NewServiceRequestForm({
+  businessId,
+  clientType,
+  hasExistingServiceRequest,
+  onSubmitted,
+  onCancel,
+}) {
   const [formData, setFormData] = useState(initialFormState)
   const [error, setError] = useState(null)
 
   const { data: services = [], isLoading: servicesLoading } = useFetchServices()
   const createRequest = useCreateServiceRequest()
+  const isBlockedNonRetainer = clientType !== "retainer" && hasExistingServiceRequest
 
   const activeServices = services.filter((s) => s.status === "active")
 
@@ -29,6 +36,12 @@ export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
 
     if (!businessId) {
       setError("No business found for your account. Please contact support.")
+      return
+    }
+    if (clientType !== "retainer" && hasExistingServiceRequest) {
+      setError(
+        "You have already submitted your initial service request. Please contact the firm to discuss establishing a retainer arrangement before requesting another service."
+      )
       return
     }
     if (!formData.serviceId) {
@@ -57,6 +70,13 @@ export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {isBlockedNonRetainer && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          You have already submitted your initial service request. To request another service,
+          please contact the firm to discuss establishing a retainer arrangement.
+        </div>
+      )}
+
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
           {error}
@@ -73,7 +93,7 @@ export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
               value={formData.serviceId}
               onChange={updateField}
               required
-              disabled={servicesLoading}
+              disabled={servicesLoading || isBlockedNonRetainer}
               className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
             >
               <option value="">
@@ -85,7 +105,6 @@ export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
                 </option>
               ))}
             </select>
-            
           </Field>
 
           <Field>
@@ -97,9 +116,9 @@ export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
               placeholder="Anything the firm should know before starting this request..."
               value={formData.description}
               onChange={updateField}
+              disabled={isBlockedNonRetainer}
               className="w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
             />
-            
           </Field>
         </FieldGroup>
       </div>
@@ -110,10 +129,14 @@ export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
         </Button>
         <Button
           type="submit"
-          disabled={createRequest.isPending}
+          disabled={createRequest.isPending || isBlockedNonRetainer}
           className="bg-emerald-600 text-white hover:bg-emerald-700"
         >
-          {createRequest.isPending ? "Submitting..." : "Submit Request"}
+          {isBlockedNonRetainer
+            ? "Request limit reached"
+            : createRequest.isPending
+              ? "Submitting..."
+              : "Submit Request"}
         </Button>
       </div>
     </form>

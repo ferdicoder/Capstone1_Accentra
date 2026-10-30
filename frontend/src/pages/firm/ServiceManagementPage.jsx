@@ -1,9 +1,7 @@
 import { useMemo, useState } from "react"
-import { Ban, CheckCircle2, Pencil, Trash2 } from "lucide-react"
 
 import { usePageMeta } from "@/hooks/usePageMeta"
 import {
-  ServiceManagementActionsMenu,
   ServiceManagementTable,
   ServiceDetailsDialog,
   ServiceManagementToolbar,
@@ -285,6 +283,7 @@ export default function ServiceManagementPage() {
     setCreateOpen(true)
   }
   const openEdit = (service) => {
+    setDetailsOpen(false)
     updateService.reset()
     setEditingService(service)
     setEditOpen(true)
@@ -357,6 +356,7 @@ export default function ServiceManagementPage() {
   }
 
   const openDeleteDialog = (service) => {
+    setDetailsOpen(false)
     setDeletingService(service)
     setDeleteOpen(true)
   }
@@ -433,33 +433,20 @@ export default function ServiceManagementPage() {
         loading={isLoading}
         emptyMessage="No services match your filters."
         emptyDescription="Try clearing the search or filters."
-        onRowClick={canManageServices ? undefined : openDetails}
+        onRowClick={openDetails}
         page={currentPage}
         onPageChange={setCurrentPage}
-        actions={canManageServices ? (service) => (
-          <ServiceManagementActionsMenu
-            service={service}
-            items={[
-              { key: "edit", label: "Edit service", icon: Pencil, onSelect: openEdit },
-              { type: "separator" },
-              service.status === "active"
-                ? { key: "deactivate", label: "Deactivate", icon: Ban, destructive: true, onSelect: handleToggleStatus }
-                : { key: "activate", label: "Activate", icon: CheckCircle2, onSelect: handleToggleStatus },
-              { type: "separator" },
-              { key: "delete", label: "Delete", icon: Trash2, destructive: true, onSelect: openDeleteDialog },
-            ]}
-          />
-        ) : undefined}
       />
 
-      {!canManageServices && (
-        <ServiceDetailsDialog
-          open={detailsOpen}
-          onOpenChange={setDetailsOpen}
-          service={viewingService}
-          categoryOptions={categoryOptions}
-        />
-      )}
+      <ServiceDetailsDialog
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        service={viewingService}
+        categoryOptions={categoryOptions}
+        onEdit={canManageServices ? openEdit : undefined}
+        onToggleStatus={canManageServices ? handleToggleStatus : undefined}
+        onDelete={canManageServices ? openDeleteDialog : undefined}
+      />
 
       {canManageServices && (
         <>

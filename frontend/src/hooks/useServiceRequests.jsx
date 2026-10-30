@@ -20,7 +20,7 @@ export function useFetchServiceRequests() {
 
 export function useFetchMyServiceRequests(businessId) {
   return useQuery({
-    queryKey: ["serviceRequests", businessId],
+    queryKey: queryKeys.myServiceRequests(businessId),
     queryFn: () => getMyServiceRequests(businessId),
     enabled: !!businessId,
   })
