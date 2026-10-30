@@ -33,7 +33,7 @@ function mapBusinessRow(row) {
 }
 
 const BUSINESS_SELECT = `
-  business_id, owner_id, name, business_type, tin_no, industry, contact_no,
+  business_id, owner_id, name, business_type, type, tin_no, industry, contact_no,
   house_no, street, barangay, district, city, zip_code
 `
 
