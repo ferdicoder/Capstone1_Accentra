@@ -31,6 +31,7 @@ function mapEngagementRow(row) {
     serviceId: row.service_id,
     serviceName: row.services?.service_name ?? "",
     category: row.services?.category ?? "",
+    isRetainerCovered: row.services?.is_retainer_covered ?? false,
     assignedStaffId: row.assigned_staff,
     assignedStaff: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "",
     business: business
@@ -63,7 +64,7 @@ function mapEngagementRow(row) {
 const ENGAGEMENT_BASE_SELECT = `
   engagement_id, engagement_code, status, fee, start_date, due_date, created_at,
   business_id, service_id, assigned_staff,
-  services(service_id, service_name, category, estimated_time),
+  services(service_id, service_name, category, estimated_time, is_retainer_covered),
   businesses(
     business_id, name, business_type, type, tin_no, industry, contact_no,
     house_no, street, barangay, district, city, zip_code,
