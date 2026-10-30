@@ -12,7 +12,6 @@ import {
   Lock,
   Upload,
   UploadCloud,
-  X,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -209,9 +208,9 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
   )
 }
 
-// ── Attach Files Dialog ────────────────────────────────────────────────────────
-// Step 1: pick the file(s) and "Attach" them to the requirement row.
-// Nothing is sent to the firm yet.
+// ── Upload Files Dialog ────────────────────────────────────────────────────────
+// Step 1: pick the file(s) and click "Attach". Clicking Attach opens the
+// confirmation dialog below. Nothing is sent to the firm until it's confirmed.
 
 function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
   const [files, setFiles] = useState([])
@@ -260,8 +259,8 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
         <DialogHeader>
           <DialogTitle>Upload Files</DialogTitle>
           <DialogDescription>
-            Choose the file(s) needed for &ldquo;{task.name}&rdquo;. Attaching a file doesn&rsquo;t send
-            it yet &mdash; you&rsquo;ll review and submit it next.
+            Choose the file(s) needed for &ldquo;{task.name}&rdquo;. You&rsquo;ll be asked to confirm
+            before anything is sent to your firm.
           </DialogDescription>
         </DialogHeader>
 
@@ -329,10 +328,40 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
   )
 }
 
-// ── Submit Confirmation Dialog ─────────────────────────────────────────────────
-// Step 2: last chance before the file actually goes to the firm.
+// ── Attach Confirmation Dialog ─────────────────────────────────────────────────
+// Step 2: shown right after "Attach". Same layout as the "Request declined"
+// dialog, in the brand colors. "Yes, attach" is where the file is
+// actually uploaded.
 
-function SubmitConfirmDialog({
+function WarningIllustration() {
+  return (
+    <svg viewBox="0 0 320 170" className="mx-auto h-32 w-auto" fill="none" aria-hidden="true">
+      {/* soft blob */}
+      <ellipse cx="160" cy="84" rx="82" ry="58" className="fill-[#02353C]/5" />
+      {/* sparkles */}
+      <circle cx="62" cy="40" r="7" className="stroke-emerald-300" strokeWidth="2" />
+      <circle cx="262" cy="44" r="6" className="stroke-emerald-300" strokeWidth="2" />
+      <circle cx="268" cy="108" r="4" className="fill-emerald-300" />
+      <path d="M96 22v10M91 27h10" className="stroke-emerald-300" strokeWidth="2" strokeLinecap="round" />
+      <path d="M72 100v8M68 104h8" className="stroke-emerald-300" strokeWidth="2" strokeLinecap="round" />
+      <path d="M232 128v8M228 132h8" className="stroke-emerald-300" strokeWidth="2" strokeLinecap="round" />
+      <path d="M18 70h42" className="stroke-[#02353C]/10" strokeWidth="3" strokeLinecap="round" />
+      <path d="M258 78h44" className="stroke-[#02353C]/10" strokeWidth="3" strokeLinecap="round" />
+      {/* ground shadow */}
+      <ellipse cx="160" cy="150" rx="40" ry="5" className="fill-[#02353C]/10" />
+      {/* document */}
+      <rect x="122" y="30" width="76" height="104" rx="8" className="fill-white stroke-[#02353C]" strokeWidth="3" />
+      <path d="M122 38a8 8 0 0 1 8-8h60a8 8 0 0 1 8 8v14h-76z" className="fill-[#02353C]/10" />
+      <path d="M136 70h48M136 84h48M136 98h30" className="stroke-[#02353C]/20" strokeWidth="3" strokeLinecap="round" />
+      {/* warning badge */}
+      <circle cx="198" cy="116" r="22" className="fill-[#02353C]" />
+      <path d="M198 104v13" stroke="white" strokeWidth="4" strokeLinecap="round" />
+      <circle cx="198" cy="126" r="2.5" fill="white" />
+    </svg>
+  )
+}
+
+function AttachConfirmDialog({
   open,
   onOpenChange,
   taskName,
@@ -347,46 +376,92 @@ function SubmitConfirmDialog({
     onOpenChange(next)
   }
 
+  const plural = files.length > 1
+  const done = progress?.done ?? 0
+
   // Files go up one at a time, so show which one is in flight.
   const submittingLabel =
     progress && progress.total > 1
-      ? `Uploading ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…`
-      : "Submitting…"
+      ? `Uploading ${Math.min(done + 1, progress.total)} of ${progress.total}…`
+      : "Attaching…"
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-amber-50">
-            <AlertTriangle className="size-5 text-amber-600" />
-          </div>
-          <DialogTitle className="text-center">Submit this file?</DialogTitle>
-          <DialogDescription className="text-center">
-            Are you sure you want to submit{" "}
-            <span className="font-medium text-foreground">{summarizeFiles(files) || "this file"}</span>
-            {taskName ? ` for "${taskName}"` : ""}? Your firm will be notified to review it, and you
-            won&rsquo;t be able to change or delete it unless the firm asks for a revision.
-          </DialogDescription>
+      <DialogContent className="max-w-md overflow-hidden">
+        {/* brand bar across the top */}
+        <div className="absolute inset-x-0 top-0 h-1.5 bg-[#02353C]" aria-hidden="true" />
+
+        <DialogHeader className="items-center gap-1 pt-3 text-center">
+          <WarningIllustration />
+          <DialogTitle className="text-center text-lg">
+            Attach {plural ? "these files" : "this file"}?
+          </DialogTitle>
+          {taskName && (
+            <DialogDescription className="text-center">
+              For <span className="font-medium text-foreground">{taskName}</span>
+            </DialogDescription>
+          )}
         </DialogHeader>
 
+        {/* Files being attached */}
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {plural ? `Files to attach (${files.length})` : "File to attach"}
+          </p>
+          <ul className="flex max-h-40 flex-col gap-1.5 overflow-y-auto">
+            {files.map((f, i) => (
+              <li
+                key={`${f.name}-${i}`}
+                className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/40 px-3 py-2"
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[#02353C]/10 text-[#02353C]">
+                  <FileText className="size-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-foreground" title={f.name}>
+                    {f.name}
+                  </span>
+                  {formatFileSize(f.size) && (
+                    <span className="block text-xs text-muted-foreground">{formatFileSize(f.size)}</span>
+                  )}
+                </span>
+                {isSubmitting && i < done && (
+                  <CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-label="Uploaded" />
+                )}
+                {isSubmitting && i === done && (
+                  <Loader2 className="size-4 shrink-0 animate-spin text-[#02353C]" aria-label="Uploading" />
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* What happens next */}
+        <div className="flex items-start gap-2 rounded-lg border border-[#02353C]/15 bg-[#02353C]/5 px-3 py-2.5 text-xs text-[#02353C]">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          <p>
+            Your firm will be notified to review {plural ? "them" : "it"}. You won&rsquo;t be able to
+            change or delete {plural ? "them" : "it"} unless your firm asks for a revision.
+          </p>
+        </div>
+
         {error && (
-          <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-center text-xs text-red-700">
+          <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
             {error}
           </p>
         )}
 
-        <div className="mt-2 flex justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={isSubmitting} onClick={() => onOpenChange(false)}>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <Button variant="outline" disabled={isSubmitting} onClick={() => onOpenChange(false)}>
             Go back
           </Button>
           <Button
-            size="sm"
             className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
             disabled={isSubmitting}
             onClick={onConfirm}
           >
-            {isSubmitting && <Loader2 className="size-3.5 animate-spin" />}
-            {isSubmitting ? submittingLabel : error ? "Try again" : "Yes, submit"}
+            {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+            {isSubmitting ? submittingLabel : error ? "Try again" : "Yes, attach"}
           </Button>
         </div>
       </DialogContent>
@@ -503,8 +578,6 @@ function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
 // ── Task Row ────────────────────────────────────────────────────────────────────
 //
 // Actions cell:
-//   • Attached, not submitted yet → file name + "Submit" + X (remove).
-//     Only possible while the task is Missing / For Revision.
 //   • Missing / For Revision      → "Upload Files" is the only action. Files
 //                                   from an earlier, rejected submission are
 //                                   not shown.
@@ -514,16 +587,12 @@ function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
 
 function TaskRow({
   task,
-  pendingFiles,
   uploadedFiles,
   onOpenDetail,
   onOpenUpload,
-  onSubmit,
-  onDiscardUpload,
   onPreviewUploaded,
 }) {
   const canUpload = canUploadFiles(task)
-  const hasPending = canUpload && pendingFiles && pendingFiles.length > 0
   const hasUploaded = uploadedFiles && uploadedFiles.length > 0
 
   const uploadedChip = hasUploaded && (
@@ -569,34 +638,7 @@ function TaskRow({
 
       {/* Actions */}
       <td className="w-[280px] py-2.5 pr-6">
-        {hasPending ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span
-              title={pendingFiles.map((f) => f.name).join(", ")}
-              className="inline-flex min-w-0 max-w-[130px] items-center gap-1 truncate rounded-lg border border-[#02353C]/20 bg-[#02353C]/5 px-2 py-1 text-xs font-medium text-[#02353C]"
-            >
-              <FileCheck className="size-3.5 shrink-0" />
-              <span className="truncate">{summarizeFiles(pendingFiles)}</span>
-            </span>
-            <button
-              type="button"
-              title="Submit to your firm"
-              onClick={onSubmit}
-              className="inline-flex h-6 shrink-0 items-center rounded-md bg-emerald-600 px-2.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700"
-            >
-              Submit
-            </button>
-            <button
-              type="button"
-              title="Remove attached file"
-              aria-label="Remove attached file"
-              onClick={onDiscardUpload}
-              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        ) : canUpload ? (
+        {canUpload ? (
           <div className="flex flex-wrap items-center gap-1.5">
             {uploadedChip}
             <button
@@ -638,18 +680,19 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
   const [detailTaskId, setDetailTaskId] = useState(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerTaskId, setPickerTaskId] = useState(null)
-  const [pendingByTask, setPendingByTask] = useState({}) // taskId -> File[] (attached, not yet submitted)
-  const [uploadedByTask, setUploadedByTask] = useState({}) // taskId -> normalized docs (submitted)
-  // taskId -> files that were saved before a later file in the same submission
+  // taskId -> File[] (chosen with "Attach", waiting on the confirmation dialog)
+  const [pendingByTask, setPendingByTask] = useState({})
+  const [uploadedByTask, setUploadedByTask] = useState({}) // taskId -> normalized docs (uploaded)
+  // taskId -> files that were saved before a later file in the same upload
   // failed. They are already on the server, so a retry only sends the rest.
   const [partialByTask, setPartialByTask] = useState({})
-  // taskId -> the status the task had when the client submitted it. Until the
+  // taskId -> the status the task had when the client uploaded. Until the
   // server reports a new status, the row is treated as "For Review" so the
-  // client can't submit the same requirement twice.
+  // client can't upload for the same requirement twice.
   const [submittedFrom, setSubmittedFrom] = useState({})
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewTaskId, setPreviewTaskId] = useState(null)
-  const [submitTaskId, setSubmitTaskId] = useState(null) // task waiting on the "are you sure?" dialog
+  const [confirmTaskId, setConfirmTaskId] = useState(null) // task waiting on the "are you sure?" dialog
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(null) // { done, total } while uploading
   const [submitError, setSubmitError] = useState("")
@@ -657,7 +700,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
   const rawTasks = engagement?.tasks
 
   // Statuses are cleaned up here once, so every check below sees the same value.
-  // Tasks the client just submitted show as "For Review" until the server catches up.
+  // Tasks the client just uploaded for show as "For Review" until the server catches up.
   const tasks = useMemo(
     () =>
       (rawTasks ?? []).map((task) => {
@@ -673,9 +716,9 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
   const detailTask = findTask(detailTaskId)
   const pickerTask = findTask(pickerTaskId)
   const previewTask = findTask(previewTaskId)
-  const submitTask = findTask(submitTaskId)
+  const confirmTask = findTask(confirmTaskId)
 
-  // When the server reports a different status than the one we submitted from,
+  // When the server reports a different status than the one we uploaded from,
   // drop the local lock and the local copy of the files (the persisted
   // documents take over).
   useEffect(() => {
@@ -692,7 +735,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
     }
   }, [rawTasks, submittedFrom])
 
-  // Drop attached-but-unsent files for any task that can no longer be uploaded to.
+  // Drop chosen-but-unsent files for any task that can no longer be uploaded to.
   useEffect(() => {
     const stalePending = Object.keys(pendingByTask).filter((id) => {
       const task = tasks.find((t) => String(t.id) === id)
@@ -716,10 +759,10 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
   }, [documents])
 
   // The files to show for a task:
-  //   - just submitted this session -> exactly those files
-  //   - Missing / For Revision      -> none (what is on file was rejected,
-  //                                    or nothing was ever sent)
-  //   - For Review / Approved       -> the latest submission only
+  //   - just uploaded this session -> exactly those files
+  //   - Missing / For Revision     -> none (what is on file was rejected,
+  //                                   or nothing was ever sent)
+  //   - For Review / Approved      -> the latest submission only
   const filesFor = (task) => {
     const local = uploadedByTask[task.id]
     if (local) return local
@@ -739,31 +782,27 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
     setPickerOpen(true)
   }
 
-  // "Attach": stage the files on the row. Nothing is uploaded yet.
+  const clearPending = (taskId) => {
+    setPendingByTask((prev) => omitKeys(prev, [taskId]))
+  }
+
+  // "Attach": hold the files and open the "are you sure?" warning.
+  // Nothing is uploaded yet.
   const handleFilesChosen = (task, files) => {
     if (!canUploadFiles(findTask(task.id))) return
     setPendingByTask((prev) => ({ ...prev, [task.id]: files }))
-  }
-
-  const handleDiscardUpload = (task) => {
-    setPendingByTask((prev) => omitKeys(prev, [task.id]))
-  }
-
-  // "Submit" on the row: ask "are you sure?" first.
-  const handleAskSubmit = (task) => {
-    if (!canUploadFiles(task)) return
     setSubmitError("")
-    setSubmitTaskId(task.id)
+    setConfirmTaskId(task.id)
   }
 
-  // "Yes, submit": this is where the upload actually happens.
+  // "Yes, attach": this is where the upload actually happens.
   // The backend saves one file per request, so the files go up one after
   // another. If one fails, the files before it are already saved, so only the
-  // rest stay attached. Retrying then can't create duplicates.
+  // rest stay pending. Retrying then can't create duplicates.
   const handleConfirmSubmit = async () => {
     if (isSubmitting) return
 
-    const task = submitTask
+    const task = confirmTask
     const files = task ? pendingByTask[task.id] : null
     if (!task || !files || files.length === 0) return
 
@@ -797,8 +836,8 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
       }))
       setPartialByTask((prev) => omitKeys(prev, [task.id]))
       setSubmittedFrom((prev) => ({ ...prev, [task.id]: task.status }))
-      handleDiscardUpload(task)
-      setSubmitTaskId(null)
+      clearPending(task.id)
+      setConfirmTaskId(null)
     } catch (error) {
       console.error("Task upload failed:", error)
       const message = error?.message || "File upload failed."
@@ -824,9 +863,11 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
     }
   }
 
-  const handleSubmitDialogChange = (next) => {
+  // "Go back" / close: nothing was sent, so drop the chosen files.
+  const handleConfirmDialogChange = (next) => {
     if (next) return
-    setSubmitTaskId(null)
+    if (confirmTaskId !== null) clearPending(confirmTaskId)
+    setConfirmTaskId(null)
     setSubmitError("")
   }
 
@@ -893,12 +934,9 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
                 <TaskRow
                   key={task.id}
                   task={task}
-                  pendingFiles={pendingByTask[task.id]}
                   uploadedFiles={filesFor(task)}
                   onOpenDetail={() => handleOpenDetail(task)}
                   onOpenUpload={() => handleOpenUpload(task)}
-                  onSubmit={() => handleAskSubmit(task)}
-                  onDiscardUpload={() => handleDiscardUpload(task)}
                   onPreviewUploaded={() => handlePreviewUploaded(task)}
                 />
               ))}
@@ -920,11 +958,11 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
         onFilesChosen={handleFilesChosen}
       />
 
-      <SubmitConfirmDialog
-        open={Boolean(submitTask)}
-        onOpenChange={handleSubmitDialogChange}
-        taskName={submitTask?.name}
-        files={submitTask ? pendingByTask[submitTask.id] ?? [] : []}
+      <AttachConfirmDialog
+        open={Boolean(confirmTask)}
+        onOpenChange={handleConfirmDialogChange}
+        taskName={confirmTask?.name}
+        files={confirmTask ? pendingByTask[confirmTask.id] ?? [] : []}
         isSubmitting={isSubmitting}
         progress={uploadProgress}
         error={submitError}
