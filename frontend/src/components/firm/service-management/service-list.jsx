@@ -118,15 +118,6 @@ const defaultServiceColumns = [
     render: (service) => <ServiceCategoryBadge category={service?.category} />,
   },
   {
-    key: "description",
-    label: "Description",
-    render: (service) => (
-      <p className="line-clamp-1 max-w-56 text-xs text-muted-foreground">
-        {service?.description}
-      </p>
-    ),
-  },
-  {
     key: "basePrice",
     label: "Base Price",
     render: (service) => (
