@@ -37,7 +37,8 @@ export function useUpdateBillingStatus() {
     mutationFn: updateBillingStatus, 
     onSuccess: () => { 
       qc.invalidateQueries({ queryKey: queryKeys.billings }); 
-      qc.invalidateQueries({ queryKey: queryKeys.billing }); 
+      qc.invalidateQueries({ queryKey: queryKeys.billing });
+      qc.invalidateQueries({ queryKey: queryKeys.businessBillings });
     } 
   })
 }
@@ -52,7 +53,8 @@ export function useUpdatePaymentStatus() {
   return useMutation({ mutationFn: updatePaymentStatus, 
     onSuccess: (_, vars) => { 
         qc.invalidateQueries({ queryKey: queryKeys.billing(vars.billingId) }); 
-        qc.invalidateQueries({ queryKey: queryKeys.billings }) 
+        qc.invalidateQueries({ queryKey: queryKeys.billings });
+        qc.invalidateQueries({ queryKey: queryKeys.businessBillings });
       } 
     })
 }

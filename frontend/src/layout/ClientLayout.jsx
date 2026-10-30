@@ -8,6 +8,23 @@ import { ClientNotifications } from "@/components/client/ClientNotifications"
 import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchMyServiceRequests } from "@/hooks/useServiceRequests"
+import { useFetchBusinessBillings } from "@/hooks/useBillings"
+
+const OUTSTANDING_BILLING_STATUSES = [
+  "unpaid",
+  "pending",
+  "overdue",
+  "for_verification",
+  "issued",
+  "under verification",
+]
+
+const hasOutstandingBilling = (billings) =>
+  billings.some((billing) =>
+    OUTSTANDING_BILLING_STATUSES.includes(
+      String(billing.status ?? "").trim().toLowerCase()
+    )
+  )
 
 export function ClientLayout() {
   const user = authStore((state) => state.user)
@@ -24,7 +41,15 @@ export function ClientLayout() {
     error: requestsError,
     refetch: refetchRequests,
   } = useFetchMyServiceRequests(businessId)
+  const {
+    data: billings = [],
+    isLoading: areBillingsLoading,
+    isFetching: areBillingsFetching,
+    error: billingsError,
+    refetch: refetchBillings,
+  } = useFetchBusinessBillings(businessId)
   const isNonRetainer = business?.clientType !== "retainer"
+  const hasUnpaidBills = hasOutstandingBilling(billings)
 
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false)
   const openNewRequest = useCallback(() => setIsNewRequestOpen(true), [])
@@ -78,6 +103,17 @@ export function ClientLayout() {
               <p className="py-2 text-sm text-red-700">
                 No business found for your account. Please contact support.
               </p>
+            ) : areBillingsLoading || areBillingsFetching ? (
+              <p className="py-6 text-sm text-muted-foreground">Checking outstanding balances...</p>
+            ) : billingsError ? (
+              <div className="space-y-3 py-2">
+                <p className="text-sm text-red-700">
+                  We couldn't verify your billing balance. Please try again before submitting a request.
+                </p>
+                <Button type="button" variant="outline" size="sm" onClick={() => refetchBillings()}>
+                  Try again
+                </Button>
+              </div>
             ) : isNonRetainer && areRequestsLoading ? (
               <p className="py-6 text-sm text-muted-foreground">Checking request eligibility...</p>
             ) : isNonRetainer && requestsError ? (
@@ -94,6 +130,7 @@ export function ClientLayout() {
                 businessId={businessId}
                 clientType={business.clientType}
                 hasExistingServiceRequest={requests.length > 0}
+                hasUnpaidBills={hasUnpaidBills}
                 onSubmitted={closeNewRequest}
                 onCancel={closeNewRequest}
               />

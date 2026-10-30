@@ -13,6 +13,7 @@ export function NewServiceRequestForm({
   businessId,
   clientType,
   hasExistingServiceRequest,
+  hasUnpaidBills,
   onSubmitted,
   onCancel,
 }) {
@@ -22,6 +23,8 @@ export function NewServiceRequestForm({
   const { data: services = [], isLoading: servicesLoading } = useFetchServices()
   const createRequest = useCreateServiceRequest()
   const isBlockedNonRetainer = clientType !== "retainer" && hasExistingServiceRequest
+  const isBlockedByUnpaidBills = hasUnpaidBills
+  const isSubmissionBlocked = isBlockedNonRetainer || isBlockedByUnpaidBills
 
   const activeServices = services.filter((s) => s.status === "active")
 
@@ -36,6 +39,10 @@ export function NewServiceRequestForm({
 
     if (!businessId) {
       setError("No business found for your account. Please contact support.")
+      return
+    }
+    if (isBlockedByUnpaidBills) {
+      setError("Please settle your outstanding balance before submitting another service request.")
       return
     }
     if (clientType !== "retainer" && hasExistingServiceRequest) {
@@ -70,6 +77,13 @@ export function NewServiceRequestForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {isBlockedByUnpaidBills && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          You have an outstanding unpaid bill. Please settle the balance before submitting another
+          service request.
+        </div>
+      )}
+
       {isBlockedNonRetainer && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           You have already submitted your initial service request. To request another service,
@@ -93,7 +107,7 @@ export function NewServiceRequestForm({
               value={formData.serviceId}
               onChange={updateField}
               required
-              disabled={servicesLoading || isBlockedNonRetainer}
+              disabled={servicesLoading || isSubmissionBlocked}
               className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
             >
               <option value="">
@@ -116,7 +130,7 @@ export function NewServiceRequestForm({
               placeholder="Anything the firm should know before starting this request..."
               value={formData.description}
               onChange={updateField}
-              disabled={isBlockedNonRetainer}
+              disabled={isSubmissionBlocked}
               className="w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
             />
           </Field>
@@ -129,10 +143,12 @@ export function NewServiceRequestForm({
         </Button>
         <Button
           type="submit"
-          disabled={createRequest.isPending || isBlockedNonRetainer}
+          disabled={createRequest.isPending || isSubmissionBlocked}
           className="bg-emerald-600 text-white hover:bg-emerald-700"
         >
-          {isBlockedNonRetainer
+          {isBlockedByUnpaidBills
+            ? "Balance must be settled"
+            : isBlockedNonRetainer
             ? "Request limit reached"
             : createRequest.isPending
               ? "Submitting..."
