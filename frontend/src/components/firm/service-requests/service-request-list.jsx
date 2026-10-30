@@ -133,11 +133,6 @@ export function ServiceRequestList({
                   {column.label}
                 </th>
               ))}
-              {showActions && (
-                <th scope="col" className="px-4 py-3 text-right font-semibold">
-                  Actions
-                </th>
-              )}
             </tr>
           </thead>
           <tbody>
@@ -181,14 +176,6 @@ export function ServiceRequestList({
                       columns={visibleColumns}
                       onRowClick={onRowClick}
                     >
-                      {showActions && (
-                        <td
-                          className="px-4 py-3 text-right align-middle"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          {actions(request)}
-                        </td>
-                      )}
                     </ServiceRequestRow>
                   ))}
           </tbody>
