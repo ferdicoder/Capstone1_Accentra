@@ -1,11 +1,14 @@
 import {
+  Ban,
   Check,
+  CheckCircle2,
   ChevronDown,
   ClipboardList,
   Clock,
   Filter,
   Loader2,
   MoreHorizontal,
+  Pencil,
   Plus,
   Search,
   Trash2,
@@ -239,11 +242,6 @@ export function ServiceManagementTable({
                   {column.label}
                 </th>
               ))}
-              {showActions && (
-                <th scope="col" className="px-4 py-3 text-right font-semibold">
-                  Actions
-                </th>
-              )}
             </tr>
           </thead>
           <tbody>
@@ -308,8 +306,16 @@ export function ServiceManagementTable({
   )
 }
 
-/** Read-only service details shown when a staff member selects a service. */
-export function ServiceDetailsDialog({ open = false, onOpenChange, service, categoryOptions = categoryFilterOptions }) {
+/** Service details shown when a staff member or administrator selects a service. */
+export function ServiceDetailsDialog({
+  open = false,
+  onOpenChange,
+  service,
+  categoryOptions = categoryFilterOptions,
+  onEdit,
+  onToggleStatus,
+  onDelete,
+}) {
   if (!service) return null
 
   const categoryLabel =
@@ -324,7 +330,9 @@ export function ServiceDetailsDialog({ open = false, onOpenChange, service, cate
         <DialogHeader className="border-b border-border pb-4">
           <DialogTitle>{service.name}</DialogTitle>
           <DialogDescription>
-            Read-only details for this service template.
+            {onEdit
+              ? "Review and manage this service template."
+              : "Read-only details for this service template."}
           </DialogDescription>
         </DialogHeader>
 
@@ -422,6 +430,37 @@ export function ServiceDetailsDialog({ open = false, onOpenChange, service, cate
             )}
           </div>
         </div>
+
+        {(onEdit || onToggleStatus || onDelete) && (
+          <DialogFooter className="flex-row flex-wrap justify-end gap-2 border-t border-border pt-4">
+            {onToggleStatus && (
+              <Button
+                type="button"
+                variant={service.status === "active" ? "outline" : "default"}
+                onClick={() => onToggleStatus(service)}
+              >
+                {service.status === "active" ? (
+                  <Ban className="size-4" />
+                ) : (
+                  <CheckCircle2 className="size-4" />
+                )}
+                {service.status === "active" ? "Deactivate" : "Activate"}
+              </Button>
+            )}
+            {onEdit && (
+              <Button type="button" variant="outline" onClick={() => onEdit(service)}>
+                <Pencil className="size-4" />
+                Edit service
+              </Button>
+            )}
+            {onDelete && (
+              <Button type="button" variant="destructive" onClick={() => onDelete(service)}>
+                <Trash2 className="size-4" />
+                Delete
+              </Button>
+            )}
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   )
