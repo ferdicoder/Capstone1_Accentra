@@ -30,6 +30,7 @@ import {
   useUploadEngagementDeliverable,
   useUploadEngagementTaskReference,
   useDeleteEngagementTaskReference,
+  useUpdateEngagementDetails,
 } from "@/hooks/useEngagements"
 import { authStore } from "@/store/authStore"
 import { can } from "@/config/roles"
@@ -77,6 +78,9 @@ export default function EngagementDetailsPage() {
   const updateDeadline = useUpdateEngagementTaskDeadline(id)
   const uploadTaskReference = useUploadEngagementTaskReference(id)
   const deleteTaskReference = useDeleteEngagementTaskReference(id)
+  const updateEngagementDetails = useUpdateEngagementDetails()
+  // Editing staff/schedule from the details dialog is an admin-only capability.
+  const canEditEngagementDetails = role === "admin"
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -190,6 +194,29 @@ export default function EngagementDetailsPage() {
 
   const handleDeadlineChange = (taskId, dueDate) => {
     updateDeadline.mutate({ taskId, dueDate })
+  }
+
+  // Resolves true on success so the dialog leaves edit mode; false lets it
+  // stay open with the mutation's error shown.
+  const handleSaveEngagementDetails = async ({
+    assignedStaffId,
+    assignedStaffName,
+    startDate,
+    dueDate,
+  }) => {
+    try {
+      await updateEngagementDetails.mutateAsync({
+        engagementId: engagement.id,
+        assignedStaffId,
+        assignedStaffName,
+        startDate,
+        dueDate,
+      })
+      showNotice("Engagement details updated")
+      return true
+    } catch {
+      return false
+    }
   }
 
   const reviewDocuments = documents.map((document) => {
@@ -416,7 +443,15 @@ export default function EngagementDetailsPage() {
         )}
       </div>
 
-      <ClientServiceDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} engagement={engagement} />
+      <ClientServiceDetailsDialog
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        engagement={engagement}
+        canEdit={canEditEngagementDetails}
+        onSave={handleSaveEngagementDetails}
+        saving={updateEngagementDetails.isPending}
+        saveError={updateEngagementDetails.error?.message}
+      />
       {canCancelEngagement && (
         <CancelEngagementDialog
           open={cancelDialogOpen}

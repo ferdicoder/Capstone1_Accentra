@@ -6,6 +6,7 @@ import {
   createEngagementFromRequest,
   createStandaloneEngagement,
   updateEngagementStatus,
+  updateEngagementDetails,
   setTaskCompleted,
   reviewEngagementTask,
   createEngagementTask,
@@ -80,6 +81,20 @@ export function useUpdateEngagementStatus() {
     onSuccess: (updated) => {
       queryClient.setQueryData(queryKeys.engagements, (old = []) => old.map((e) => (e.id === updated.id ? updated : e)))
       queryClient.setQueryData(queryKeys.engagement(updated.id), updated)
+    },
+  })
+}
+
+// Details edits (staff and/or schedule) touch the engagement row itself, so
+// the "engagements" prefix (list, summaries, and the detail cache) is
+// invalidated, plus the activity log for any new entries.
+export function useUpdateEngagementDetails() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: updateEngagementDetails,
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagements })
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(updated.id) })
     },
   })
 }

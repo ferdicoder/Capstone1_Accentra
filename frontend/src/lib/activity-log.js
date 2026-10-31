@@ -2,6 +2,8 @@ const activityLabels = {
   document_uploaded: "uploaded a document",
   stage_change: "updated the engagement status",
   task_completed: "completed a task",
+  staff_reassigned: "changed the assigned staff",
+  schedule_updated: "updated the engagement schedule",
 }
 
 export function describeActivity(entry) {

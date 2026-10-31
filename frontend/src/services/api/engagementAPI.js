@@ -176,6 +176,59 @@ export async function updateEngagementStatus({ id, status }) {
   return mapEngagementRow(data)
 }
 
+// Admin edits the engagement's assigned staff and/or schedule from the
+// details dialog. Activities are logged only for fields that actually changed.
+export async function updateEngagementDetails({
+  engagementId,
+  assignedStaffId,
+  assignedStaffName,
+  startDate,
+  dueDate,
+}) {
+  const { data: current, error: currentError } = await supabase
+    .from("engagements")
+    .select("assigned_staff, start_date, due_date")
+    .eq("engagement_id", engagementId)
+    .single()
+  if (currentError) throw currentError
+
+  const staffChanged = (assignedStaffId ?? null) !== (current.assigned_staff ?? null)
+  const scheduleChanged =
+    (startDate ?? null) !== (current.start_date ?? null) ||
+    (dueDate ?? null) !== (current.due_date ?? null)
+
+  const { data, error } = await supabase
+    .from("engagements")
+    .update({ assigned_staff: assignedStaffId, start_date: startDate, due_date: dueDate })
+    .eq("engagement_id", engagementId)
+    .select(ENGAGEMENT_SELECT)
+    .single()
+  if (error) throw error
+
+  if (staffChanged) {
+    await logEngagementActivity(
+      engagementId,
+      "staff_reassigned",
+      assignedStaffName ? `Assigned staff changed to ${assignedStaffName}` : "Assigned staff changed"
+    )
+  }
+  if (scheduleChanged) {
+    await logEngagementActivity(
+      engagementId,
+      "schedule_updated",
+      `Schedule updated — start ${formatScheduleDate(startDate)}, due ${formatScheduleDate(dueDate)}`
+    )
+  }
+  return mapEngagementRow(data)
+}
+
+function formatScheduleDate(value) {
+  if (!value) return "—"
+  const date = new Date(`${String(value).split("T")[0]}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+}
+
 // Docless checklist tasks — firm marks done directly.
 export async function setTaskCompleted({ taskId, completed }) {
   const { data, error } = await supabase
