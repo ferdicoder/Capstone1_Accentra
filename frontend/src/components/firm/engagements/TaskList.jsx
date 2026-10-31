@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Clock, MoreHorizontal, Inbox, Check, MessageSquareWarning, Eye, Download } from "lucide-react"
+import { Clock, MoreHorizontal, Inbox, Check, FileText, MessageSquareWarning, Eye, Download } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { formatDate } from "./engagement-variants"
+import { ReferenceDocumentUpload } from "@/components/firm/service-management/workflow-tasks"
+import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
+import { normalizePreviewFile } from "@/lib/file-utils"
 
 /**
  * A task deadline may not fall after its parent engagement's deadline.
@@ -60,15 +63,30 @@ function TaskStatusBadge({ status }) {
   )
 }
 
+// `referenceFile` holds the stored file's metadata ({ id, name, size, type,
+// downloadUrl } from the task) or a freshly picked file ({ name, size, type,
+// file }). Only a pick carries `.file`, so uploads can tell them apart.
+// `removeReference` + `storedReferenceId` delete the stored row on save.
 function createEmptyTaskForm() {
-  return { name: "", required: false, referenceDocument: false, deadline: "" }
+  return {
+    name: "",
+    required: false,
+    hasReferenceDocument: false,
+    referenceFile: null,
+    storedReferenceId: null,
+    removeReference: false,
+    deadline: "",
+  }
 }
 
 function taskToFormData(task) {
   return {
     name: task.name,
     required: task.required,
-    referenceDocument: task.hasReferenceDocument,
+    hasReferenceDocument: task.hasReferenceDocument,
+    referenceFile: task.referenceDocument ?? null,
+    storedReferenceId: task.referenceDocument?.id ?? null,
+    removeReference: false,
     deadline: task.deadline ?? "",
   }
 }
@@ -107,6 +125,24 @@ function DeadlineCell({ deadline, onChange, max }) {
 function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, submitting, engagement }) {
   const updateField = (field, value) => setFormData((current) => ({ ...current, [field]: value }))
 
+  // Turning the switch off only discards a *pending* pick (has `.file`) — an
+  // already-stored guide stays attached (visible again when toggled back on).
+  const handleReferenceToggle = (value) =>
+    setFormData((current) => ({
+      ...current,
+      hasReferenceDocument: value,
+      ...(value || !current.referenceFile?.file ? {} : { referenceFile: null }),
+    }))
+
+  const handleReferenceSelect = (file) => setFormData((current) => ({ ...current, referenceFile: file }))
+
+  const handleReferenceRemove = () =>
+    setFormData((current) => ({
+      ...current,
+      referenceFile: null,
+      removeReference: current.removeReference || Boolean(current.storedReferenceId),
+    }))
+
   return (
     <form onSubmit={onSubmit} className="flex min-h-0 flex-col gap-5 overflow-y-auto">
       <div className="flex flex-col gap-2">
@@ -126,14 +162,25 @@ function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, sub
         <Switch label="Required?" checked={formData.required} onChange={(value) => updateField("required", value)} />
         <Switch
           label="Reference Document"
-          checked={formData.referenceDocument}
-          onChange={(value) => updateField("referenceDocument", value)}
+          checked={formData.hasReferenceDocument}
+          onChange={handleReferenceToggle}
         />
       </div>
-      {formData.referenceDocument && (
-        <p className="text-xs text-muted-foreground -mt-3">
-          The client will be asked to upload a file for this task before it can be reviewed.
-        </p>
+      {formData.hasReferenceDocument && (
+        <div className="-mt-3 flex flex-col gap-2">
+          <p className="text-xs text-muted-foreground">
+            The client will be asked to upload a file for this task before it can be reviewed.
+          </p>
+          <ReferenceDocumentUpload
+            file={formData.referenceFile}
+            onSelect={handleReferenceSelect}
+            onRemove={handleReferenceRemove}
+            disabled={submitting}
+          />
+          <p className="text-xs text-muted-foreground">
+            Optionally attach a guide file for the client to reference.
+          </p>
+        </div>
       )}
 
       <div className="flex flex-col gap-2">
@@ -263,7 +310,7 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
 
 // ── Task Row ──────────────────────────────────────────────────────────────────
 
-function TaskRow({ task, documents = [], engagement, onEdit, onSendReminder, onDeadlineChange, onOpenDetail, onComplete, onApprove, onRequestRevision }) {
+function TaskRow({ task, documents = [], engagement, onEdit, onSendReminder, onDeadlineChange, onOpenDetail, onComplete, onApprove, onRequestRevision, onPreviewReference }) {
   const isDocBacked = task.hasReferenceDocument
   const canReview = isDocBacked && (task.status === "for_review" || task.status === "for_revision")
 
@@ -276,6 +323,27 @@ function TaskRow({ task, documents = [], engagement, onEdit, onSendReminder, onD
             {task.required && <span className="ml-1 text-xs text-red-500 font-semibold">*</span>}
           </button>
         </div>
+        {task.referenceDocument && (
+          <div className="mt-2 flex items-center gap-1.5 pl-6">
+            <button
+              type="button"
+              title="Preview reference file"
+              onClick={onPreviewReference}
+              className="inline-flex min-w-0 max-w-[260px] items-center gap-1 truncate rounded-md border bg-muted/40 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <FileText className="size-3.5 shrink-0" />
+              <span className="truncate">Guide: {task.referenceDocument.name}</span>
+            </button>
+            <a
+              href={task.referenceDocument.downloadUrl}
+              download={task.referenceDocument.name}
+              title="Download reference file"
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Download className="size-3.5" />
+            </a>
+          </div>
+        )}
         {isDocBacked && documents.length > 0 && (
           <div className="mt-2 flex flex-col gap-1 pl-6">
             {documents.map((document) => (
@@ -381,6 +449,9 @@ export function TaskList({
   const [reminderFeedback, setReminderFeedback] = useState("")
   const [revisionDialogOpen, setRevisionDialogOpen] = useState(false)
   const [revisionTask, setRevisionTask] = useState(null)
+  // Kept after close so the dialog doesn't blank during its close animation.
+  const [referencePreviewTask, setReferencePreviewTask] = useState(null)
+  const [referencePreviewOpen, setReferencePreviewOpen] = useState(false)
 
   const openAddTask = () => {
     setTaskDialogMode("add")
@@ -432,16 +503,19 @@ export function TaskList({
       if (taskDialogMode === "edit" && selectedTask) {
         await onTaskUpdate?.(selectedTask.id, {
           title: name,
-          hasReferenceDocument: taskFormData.referenceDocument,
+          hasReferenceDocument: taskFormData.hasReferenceDocument,
           required: taskFormData.required,
           dueDate: taskFormData.deadline || null,
+          referenceFile: taskFormData.referenceFile?.file ?? null,
+          removeReferenceDocId: taskFormData.removeReference ? taskFormData.storedReferenceId : null,
         })
       } else {
         await onTaskCreate?.({
           title: name,
-          hasReferenceDocument: taskFormData.referenceDocument,
+          hasReferenceDocument: taskFormData.hasReferenceDocument,
           required: taskFormData.required,
           dueDate: taskFormData.deadline || null,
+          referenceFile: taskFormData.referenceFile?.file ?? null,
         })
       }
       handleTaskDialogChange(false)
@@ -468,6 +542,11 @@ export function TaskList({
   const handleSendReminder = (task) => {
     setReminderFeedback(`Reminder sent to client for "${task.name}".`)
     window.setTimeout(() => setReminderFeedback(""), 3000)
+  }
+
+  const openReferencePreview = (task) => {
+    setReferencePreviewTask(task)
+    setReferencePreviewOpen(true)
   }
 
   const handleOpenDetail = (task) => {
@@ -528,6 +607,7 @@ export function TaskList({
                   onComplete={() => onTaskComplete?.(task.id)}
                   onApprove={handleApprove}
                   onRequestRevision={openRequestRevision}
+                  onPreviewReference={() => openReferencePreview(task)}
                 />
               ))}
             </tbody>
@@ -551,6 +631,16 @@ export function TaskList({
 
       <TaskDetailDialog open={detailOpen} onOpenChange={setDetailOpen} task={selectedTask} />
       <RequestRevisionDialog open={revisionDialogOpen} onOpenChange={setRevisionDialogOpen} task={revisionTask} onSubmit={handleSubmitRevision} />
+      <FilePreviewDialog
+        open={referencePreviewOpen}
+        onOpenChange={setReferencePreviewOpen}
+        files={
+          referencePreviewTask?.referenceDocument
+            ? [normalizePreviewFile(referencePreviewTask.referenceDocument)]
+            : []
+        }
+        subtitle={referencePreviewTask ? `Guide for "${referencePreviewTask.name}"` : undefined}
+      />
     </div>
   )
 }

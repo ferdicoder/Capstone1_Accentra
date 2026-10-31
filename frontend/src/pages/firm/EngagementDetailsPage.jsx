@@ -28,6 +28,8 @@ import {
   useFetchEngagementDocuments,
   useFetchEngagementDeliverables,
   useUploadEngagementDeliverable,
+  useUploadEngagementTaskReference,
+  useDeleteEngagementTaskReference,
 } from "@/hooks/useEngagements"
 import { authStore } from "@/store/authStore"
 import { can } from "@/config/roles"
@@ -73,6 +75,8 @@ export default function EngagementDetailsPage() {
   const createTask = useCreateEngagementTask(id)
   const updateTask = useUpdateEngagementTask(id)
   const updateDeadline = useUpdateEngagementTaskDeadline(id)
+  const uploadTaskReference = useUploadEngagementTaskReference(id)
+  const deleteTaskReference = useDeleteEngagementTaskReference(id)
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -136,13 +140,53 @@ export default function EngagementDetailsPage() {
     )
   }
 
-  const handleTaskCreate = (fields) =>
-  createTask.mutateAsync({ engagementId: engagement.id, ...fields })
-    .then(() => showNotice(`Task "${fields.title}" added`))
+  // Reference-file operations run after the task row is saved. If a file op
+  // fails at that point the task itself is fine, so surface a notice instead
+  // of rethrowing (rethrowing would show a dialog error for a saved task and
+  // risk double-submitting on retry).
+  const handleTaskCreate = async (fields) => {
+    const { referenceFile, ...taskFields } = fields
+    const created = await createTask.mutateAsync({
+      engagementId: engagement.id,
+      ...taskFields,
+    })
+    showNotice(`Task "${fields.title}" added`)
 
-  const handleTaskUpdate = (taskId, fields) =>
-    updateTask.mutateAsync({ taskId, ...fields })
-      .then(() => showNotice("Task updated"))
+    if (referenceFile?.file) {
+      try {
+        await uploadTaskReference.mutateAsync({
+          engagementTaskId: created.id,
+          file: referenceFile.file,
+        })
+      } catch {
+        showNotice(
+          `Task "${fields.title}" added, but the reference file could not be attached. Use Edit Task to retry.`
+        )
+      }
+    }
+  }
+
+  const handleTaskUpdate = async (taskId, fields) => {
+    const { referenceFile, removeReferenceDocId, ...taskFields } = fields
+    const updated = await updateTask.mutateAsync({ taskId, ...taskFields })
+    showNotice("Task updated")
+
+    // Replace = remove the stored guide first, then upload the new pick.
+    try {
+      if (removeReferenceDocId) {
+        await deleteTaskReference.mutateAsync(removeReferenceDocId)
+      }
+      if (referenceFile?.file) {
+        await uploadTaskReference.mutateAsync({
+          engagementTaskId: taskId,
+          file: referenceFile.file,
+        })
+      }
+    } catch {
+      showNotice("Task updated, but the reference file could not be updated. Use Edit Task to retry.")
+    }
+    return updated
+  }
 
   const handleDeadlineChange = (taskId, dueDate) => {
     updateDeadline.mutate({ taskId, dueDate })
