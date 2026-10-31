@@ -1,52 +1,37 @@
-// Single source of truth for engagement stages and billing labels.
-// Used by the client dashboard and every firm dashboard.
-//
-// ASSUMPTION: the DB values are document_collection, for_validation,
-// in_progress, completed, cancelled. (The screenshot badges "For Validation" and
-// "In Progress" come from humanize(), which means the DB values are
-// for_validation and in_progress.) Confirm the first stage's exact value.
+// Engagement status display (colors + labels) and billing labels.
+// Stage keys, order and "is active" come from @/lib/workflow-stages, so there is
+// one source of truth. This file only adds what workflow-stages does not have:
+// badge colors and display labels for statuses.
+import { engagementStatusOptions, isEngagementActive } from "@/lib/workflow-stages"
 
-export const ENGAGEMENT_STAGES = {
-  document_collection: {
-    label: "Document Collection",
-    tone: "bg-amber-50 text-amber-700",
-  },
-  for_validation: {
-    label: "For Validation",
-    tone: "bg-blue-50 text-blue-700",
-  },
-  in_progress: {
-    label: "In Progress",
-    tone: "bg-indigo-50 text-indigo-700",
-  },
-  completed: {
-    label: "Completed",
-    tone: "bg-emerald-50 text-emerald-700",
-  },
-  cancelled: {
-    label: "Cancelled",
-    tone: "bg-slate-100 text-slate-600",
-  },
+// Re-exported so dashboards import everything status-related from one place.
+export { isEngagementActive }
+
+const STAGE_TONES = {
+  document_collection: "bg-amber-50 text-amber-700",
+  for_validation: "bg-blue-50 text-blue-700",
+  in_progress: "bg-indigo-50 text-indigo-700",
+  completed: "bg-emerald-50 text-emerald-700",
+  cancelled: "bg-slate-100 text-slate-600",
 }
-
-// "Active" = still being worked on. This is what the Active Engagements card
-// must count.
-export const ACTIVE_ENGAGEMENT_STATUSES = [
-  "document_collection",
-  "for_validation",
-  "in_progress",
-]
-
+  
 export const humanize = (value) =>
   String(value)
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase())
 
-export const stageLabel = (status) =>
-  ENGAGEMENT_STAGES[status]?.label ?? (status ? humanize(status) : "Unknown")
+// Badge text for a status. workflow-stages labels "cancelled" as "Cancel
+// Engagement" because it is used as an action button, so it is overridden here.
+export const stageLabel = (status) => {
+  if (status === "cancelled") return "Cancelled"
+  return (
+    engagementStatusOptions.find((option) => option.key === status)?.label ??
+    (status ? humanize(status) : "Unknown")
+  )
+}
 
 export const stageTone = (status) =>
-  ENGAGEMENT_STAGES[status]?.tone ?? "bg-slate-100 text-slate-600"
+  STAGE_TONES[status] ?? "bg-slate-100 text-slate-600"
 
 export const BILLING_TYPE_LABELS = {
   service_fee: "Service Fee",
