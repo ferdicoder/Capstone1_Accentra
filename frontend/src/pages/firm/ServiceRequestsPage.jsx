@@ -81,10 +81,10 @@ export default function ServiceRequestsPage() {
     setEngagementRequest(request)
   }
 
-  const handleReject = (request, _reason, onSuccess) => {
+  const handleReject = (request, reason, onSuccess) => {
     if (!request) return
     updateStatus.mutate(
-      { id: request.id, status: "rejected" },
+      { id: request.id, status: "rejected", rejectionReason: reason },
       {
         onSuccess: () => {
           onSuccess?.()

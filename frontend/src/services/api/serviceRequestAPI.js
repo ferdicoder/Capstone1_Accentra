@@ -9,6 +9,8 @@ const SERVICE_REQUEST_SELECT = `
   created_at,
   business_id,
   service_id,
+  rejection_reason,
+  rejected_at,
   services(service_id, service_name, category, estimated_time, price),
   businesses(
     business_id, name, business_type, tin_no, industry, contact_no,
@@ -33,6 +35,8 @@ function mapServiceRequestRow(row) {
     notes: row.description ?? "",
     status: row.status,
     serviceId: row.service_id,
+    rejectionReason: row.rejection_reason ?? null,
+    rejectedAt: row.rejected_at ?? null,
     client: owner
       ? {
           firstName: owner.first_name ?? "",
@@ -96,10 +100,15 @@ export async function createServiceRequest(request) {
   return mapServiceRequestRow(data)
 }
 
-export async function updateServiceRequestStatus({ id, status }) {
+export async function updateServiceRequestStatus({ id, status, rejectionReason }) {
+  const update = { status };
+  if (status === "rejected") {
+    update.rejection_reason = (rejectionReason ?? "").trim() || null;
+    update.rejected_at = new Date().toISOString();
+  }
   const { data, error } = await supabase
     .from("service_requests")
-    .update({ status })
+    .update(update)
     .eq("service_request_id", id)
     .select(SERVICE_REQUEST_SELECT)
     .single()
