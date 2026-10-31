@@ -46,6 +46,10 @@ function getEngagementClientId(engagement) {
   );
 }
 
+function isRetainerClient(client) {
+  return client?.clientType === 'retainer' || client?.type === 'retainer';
+}
+
 export function CreateBillingDialog({
   open = false,
   onOpenChange,
@@ -83,20 +87,20 @@ export function CreateBillingDialog({
   const initialClient = clients.find(
     (client) => client.id === getEngagementClientId(initialEngagement)
   );
-  // Only retainer clients are billable via retainer_fee, so prefill only when
-  // the engagement's client is a retainer (consistent with client search).
-  const initialClientId =
-    initialClient &&
-    (initialClient.clientType === 'retainer' ||
-      initialClient.type === 'retainer')
-      ? initialClient.id
-      : '';
-  // Retainer client + retainer-covered service: the whole form can be
-  // prefilled (invoice type, client, engagement, amount from the client's
-  // retainer fee) so the officer only confirms the period and due date.
+  // Client is the first field of the form, so prefill it from the
+  // pre-selected engagement (Create Billing from an engagement row) whenever
+  // one is passed in.
+  const initialClientId = initialClient?.id ?? '';
+  // Retainer client: the billing type can be prefilled. The amount depends on
+  // the engagement's service — retainer-covered services bill the client's
+  // retainer fee, everything else keeps the engagement's service fee.
   const initialRetainerFee = initialClient?.retainerFee ?? null;
+  const initialEngagementFee = initialEngagement?.serviceFee ?? initialEngagement?.fee;
+  const initialEngagementRetainerCovered = Boolean(
+    initialEngagement?.isRetainerCovered
+  );
   const autoRetainerBilling = Boolean(
-    initialClientId && initialEngagement?.isRetainerCovered
+    initialClientId && isRetainerClient(initialClient)
   );
   const selectedClient = clients.find((client) => client.id === clientId);
   const selectedEngagements = engagements.filter((engagement) =>
@@ -116,10 +120,10 @@ export function CreateBillingDialog({
     const query = engagementSearch.trim().toLowerCase();
     if (!query) return [];
     return engagements.filter((engagement) => {
+      // Engagements are always scoped to the searched client.
       if (
-        isRetainerFee &&
-        (!selectedClient ||
-          getEngagementClientId(engagement) !== selectedClient.id)
+        selectedClient &&
+        getEngagementClientId(engagement) !== selectedClient.id
       )
         return false;
       return [
@@ -134,13 +138,13 @@ export function CreateBillingDialog({
         .toLowerCase()
         .includes(query);
     });
-  }, [engagementSearch, engagements, isRetainerFee, selectedClient]);
+  }, [engagementSearch, engagements, selectedClient]);
   const filteredClients = useMemo(() => {
     const query = clientSearch.trim().toLowerCase();
     if (!query) return [];
     return clients.filter((client) => {
-      const isRetainerClient =
-        client.clientType === 'retainer' || client.type === 'retainer';
+      // Retainer fee billings can only be raised against retainer clients.
+      if (isRetainerFee && !isRetainerClient(client)) return false;
       const searchableText = [
         client.firstName,
         client.lastName,
@@ -150,9 +154,9 @@ export function CreateBillingDialog({
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
-      return isRetainerClient && searchableText.includes(query);
+      return searchableText.includes(query);
     });
-  }, [clientSearch, clients]);
+  }, [clientSearch, clients, isRetainerFee]);
   const duplicateServiceFee =
     isServiceFee &&
     engagementIds.some((id) =>
@@ -211,8 +215,9 @@ export function CreateBillingDialog({
     setClientId(initialClientId);
   }, [open, initialClientId]);
 
-  // Retainer client + retainer-covered service: prefill invoice type and
-  // amount from the client's retainer fee. Runs after the client prefill
+  // Retainer client: prefill the billing type as retainer fee. Amount is the
+  // client's retainer fee when the engagement's service is retainer-covered,
+  // otherwise the engagement's service fee. Runs after the client prefill
   // above; autoTypeRef marks the type as auto-set so a later manual change
   // is treated as a first choice (keeps engagement/client) instead of a
   // type switch that would clear them.
@@ -220,10 +225,19 @@ export function CreateBillingDialog({
     if (!open || !autoRetainerBilling) return;
     autoTypeRef.current = true;
     setInvoiceType('retainer_fee');
-    if (initialRetainerFee != null) {
-      setAmount(String(initialRetainerFee));
+    const prefilledAmount = initialEngagementRetainerCovered
+      ? initialRetainerFee
+      : initialEngagementFee;
+    if (prefilledAmount != null && prefilledAmount !== '') {
+      setAmount(String(prefilledAmount));
     }
-  }, [open, autoRetainerBilling, initialRetainerFee]);
+  }, [
+    open,
+    autoRetainerBilling,
+    initialEngagementRetainerCovered,
+    initialRetainerFee,
+    initialEngagementFee,
+  ]);
 
   // Prefill each selected engagement's amount with its service fee so the
   // billing officer only has to confirm or adjust it.
@@ -247,34 +261,61 @@ export function CreateBillingDialog({
   const engagementLabel = (engagement) =>
     `${engagement.engagementNumber ?? engagement.id} — ${engagement.serviceName ?? 'Untitled service'}`;
   const handleInvoiceTypeChange = (value) => {
-    // Keep the pre-selected engagement (Create Billing from an engagement row)
-    // when choosing the first invoice type; clear dependent state only when
-    // switching between types. An auto-prefilled retainer type counts as the
-    // first choice, not a switch.
+    if (value === invoiceType) {
+      setErrors({});
+      return;
+    }
+    // The client is the anchor of the form, so keep it when switching types
+    // unless the new type can't bill it (retainer fee needs a retainer
+    // client). An auto-prefilled retainer type counts as the first choice,
+    // not a switch, so a pre-selected engagement is kept.
     const switchingTypes = Boolean(invoiceType) && !autoTypeRef.current;
+    const retainerIncompatible =
+      value === 'retainer_fee' &&
+      selectedClient &&
+      !isRetainerClient(selectedClient);
     autoTypeRef.current = false;
     setInvoiceType(value);
-    if (switchingTypes) {
+    if (switchingTypes || retainerIncompatible) {
       setEngagementIds([]);
       setEngagementSearch('');
+      setEngagementAmounts({});
+    }
+    if (retainerIncompatible) {
       setClientId('');
       setClientSearch('');
-      setEngagementAmounts({});
+    }
+    if (
+      value === 'retainer_fee' &&
+      selectedClient &&
+      isRetainerClient(selectedClient) &&
+      selectedClient.retainerFee != null
+    ) {
+      setAmount(String(selectedClient.retainerFee));
+    } else if (switchingTypes) {
+      setAmount('');
     }
     setBillingMonth(String(currentBillingMonth));
     setBillingYear(String(currentBillingYear));
     setErrors({});
   };
   const handleSelectClient = (client) => {
+    // Prefill the rest of the form from the client: the billing type follows
+    // the client type, and a retainer client's fee seeds the amount.
+    const nextType = isRetainerClient(client) ? 'retainer_fee' : 'service_fee';
     setClientId(client.id);
     setClientSearch('');
+    setInvoiceType(nextType);
+    setAmount(
+      nextType === 'retainer_fee' && client.retainerFee != null
+        ? String(client.retainerFee)
+        : ''
+    );
     setEngagementIds([]);
     setEngagementSearch('');
-    setErrors((previous) => ({
-      ...previous,
-      client: false,
-      engagement: false,
-    }));
+    setEngagementAmounts({});
+    autoTypeRef.current = false;
+    setErrors({});
   };
   const handleSelectEngagement = (engagement) => {
     if (engagementIds.includes(engagement.id)) return;
@@ -320,7 +361,8 @@ export function CreateBillingDialog({
         lineAmounts.every((value) => Number.isFinite(value) && value > 0));
     const newErrors = {
       invoiceType: !invoiceType,
-      client: isRetainerFee && !clientId,
+      client:
+        !clientId || (isRetainerFee && !isRetainerClient(selectedClient)),
       engagement:
         (isServiceFee || isRetainerFee) &&
         (engagementIds.length === 0 ||
@@ -373,6 +415,89 @@ export function CreateBillingDialog({
           <FieldGroup className="space-y-4">
             <Field>
               <FieldLabel>
+                Client <span className="text-red-500">*</span>
+              </FieldLabel>
+              {selectedClient ? (
+                <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>
+                    {selectedClient.businessName ||
+                      `${selectedClient.firstName ?? ''} ${selectedClient.lastName ?? ''}`.trim() ||
+                      selectedClient.email ||
+                      'Unnamed client'}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setClientId('');
+                      setClientSearch('');
+                      setEngagementIds([]);
+                      setEngagementSearch('');
+                      setEngagementAmounts({});
+                    }}
+                  >
+                    Change
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={clientSearch}
+                      onChange={(event) => {
+                        setClientSearch(event.target.value);
+                        setErrors((previous) => ({
+                          ...previous,
+                          client: false,
+                        }));
+                      }}
+                      placeholder="Search client..."
+                      className="pl-9"
+                      disabled={clients.length === 0}
+                    />
+                  </div>
+                  {clientSearch && filteredClients.length > 0 && (
+                    <div className="mt-1 max-h-48 overflow-y-auto rounded-md border bg-background">
+                      {filteredClients.map((client) => (
+                        <button
+                          key={client.id}
+                          type="button"
+                          className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-muted"
+                          onClick={() => handleSelectClient(client)}
+                        >
+                          <span className="font-medium">
+                            {client.businessName ||
+                              `${client.firstName ?? ''} ${client.lastName ?? ''}`.trim() ||
+                              'Unnamed client'}
+                          </span>
+                          {client.email && (
+                            <span className="text-xs text-muted-foreground">
+                              {client.email}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {clientSearch && filteredClients.length === 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      No matching clients found.
+                    </p>
+                  )}
+                </>
+              )}
+              {errors.client && (
+                <p className="text-xs text-red-500">
+                  {clientId
+                    ? 'Retainer fee billing requires a retainer client.'
+                    : 'Please select a client.'}
+                </p>
+              )}
+            </Field>
+            <Field>
+              <FieldLabel>
                 Billing Type <span className="text-red-500">*</span>
               </FieldLabel>
               <DropdownMenu>
@@ -408,88 +533,6 @@ export function CreateBillingDialog({
                 </p>
               )}
             </Field>
-            {isRetainerFee && (
-              <Field>
-                <FieldLabel>
-                  Client <span className="text-red-500">*</span>
-                </FieldLabel>
-                {selectedClient ? (
-                  <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                    <span>
-                      {selectedClient.businessName ||
-                        `${selectedClient.firstName ?? ''} ${selectedClient.lastName ?? ''}`.trim() ||
-                        selectedClient.email ||
-                        'Unnamed client'}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setClientId('');
-                        setClientSearch('');
-                        setEngagementIds([]);
-                        setEngagementSearch('');
-                      }}
-                    >
-                      Change
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        value={clientSearch}
-                        onChange={(event) => {
-                          setClientSearch(event.target.value);
-                          setErrors((previous) => ({
-                            ...previous,
-                            client: false,
-                          }));
-                        }}
-                        placeholder="Search client..."
-                        className="pl-9"
-                        disabled={clients.length === 0}
-                      />
-                    </div>
-                    {clientSearch && filteredClients.length > 0 && (
-                      <div className="mt-1 max-h-48 overflow-y-auto rounded-md border bg-background">
-                        {filteredClients.map((client) => (
-                          <button
-                            key={client.id}
-                            type="button"
-                            className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-muted"
-                            onClick={() => handleSelectClient(client)}
-                          >
-                            <span className="font-medium">
-                              {client.businessName ||
-                                `${client.firstName ?? ''} ${client.lastName ?? ''}`.trim() ||
-                                'Unnamed client'}
-                            </span>
-                            {client.email && (
-                              <span className="text-xs text-muted-foreground">
-                                {client.email}
-                              </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {clientSearch && filteredClients.length === 0 && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        No matching clients found.
-                      </p>
-                    )}
-                  </>
-                )}
-                {errors.client && (
-                  <p className="text-xs text-red-500">
-                    Please select a client.
-                  </p>
-                )}
-              </Field>
-            )}
             {(isServiceFee || isRetainerFee) && (
               <Field>
                 <FieldLabel>
@@ -552,15 +595,12 @@ export function CreateBillingDialog({
                       }));
                     }}
                     placeholder={
-                      isRetainerFee && !selectedClient
+                      !selectedClient
                         ? 'Select a client first'
                         : 'Search engagement...'
                     }
                     className="pl-9"
-                    disabled={
-                      engagementsUnavailable ||
-                      (isRetainerFee && !selectedClient)
-                    }
+                    disabled={engagementsUnavailable || !selectedClient}
                   />
                 </div>
                 {engagementSearch && filteredEngagements.length > 0 && (

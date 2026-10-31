@@ -51,7 +51,7 @@ export function RequestActionButtons({
   )
 }
 
-export function RequestActionNotice({ status }) {
+export function RequestActionNotice({ status, rejectionReason = "" }) {
   if (status === "approved") {
     return (
       <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
@@ -60,9 +60,15 @@ export function RequestActionNotice({ status }) {
     )
   }
   if (status === "rejected") {
+    const reason = typeof rejectionReason === "string" ? rejectionReason.trim() : ""
     return (
       <div className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 ring-1 ring-red-500/20 ring-inset">
-        This request has been rejected.
+        <p>This request has been rejected.</p>
+        {reason && (
+          <p className="mt-1 text-red-700/80">
+            <span className="font-medium">Remarks:</span> {reason}
+          </p>
+        )}
       </div>
     )
   }

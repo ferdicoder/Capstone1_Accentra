@@ -3,7 +3,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  ExternalLink,
+  Download,
   FileCheck,
   FileText,
   Inbox,
@@ -24,6 +24,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
+import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
+import { formatFileSize, normalizePreviewFile } from "@/lib/file-utils"
 
 // ── Status Helpers ────────────────────────────────────────────────────────────
 
@@ -147,12 +149,6 @@ function LockedNote({ status }) {
   )
 }
 
-function formatFileSize(bytes) {
-  if (!bytes && bytes !== 0) return null
-  const kb = bytes / 1024
-  return kb < 1024 ? `${kb.toFixed(0)} KB` : `${(kb / 1024).toFixed(1)} MB`
-}
-
 function summarizeFiles(files) {
   if (!files || files.length === 0) return ""
   return files.length === 1
@@ -162,7 +158,7 @@ function summarizeFiles(files) {
 
 // ── Task Detail Dialog (view-only) ─────────────────────────────────────────────
 
-function TaskDetailDialog({ open, onOpenChange, task }) {
+function TaskDetailDialog({ open, onOpenChange, task, onPreviewReference }) {
   if (!task) return null
 
   return (
@@ -187,6 +183,34 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
               {task.deadline ? formatDate(task.deadline) : "No deadline"}
             </span>
           </div>
+          {task.referenceDocument && (
+            <div className="rounded-lg border border-[#02353C]/20 bg-[#02353C]/5 px-3 py-2.5">
+              <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[#02353C]">
+                Guide from your firm
+              </p>
+              <div className="flex items-center gap-2">
+                <FileText className="size-4 shrink-0 text-[#02353C]" aria-hidden="true" />
+                <span
+                  className="min-w-0 flex-1 truncate text-sm text-foreground"
+                  title={task.referenceDocument.name}
+                >
+                  {task.referenceDocument.name}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 shrink-0 rounded-lg bg-[#02353C] px-2.5 text-xs text-white hover:bg-[#02353C]/90"
+                  onClick={() => onPreviewReference?.(task)}
+                >
+                  View guide
+                </Button>
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Opens right here so you can read it while completing this requirement — no download
+                needed.
+              </p>
+            </div>
+          )}
           {task.status === "for_revision" && task.remark && (
             <div className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2.5 text-sm text-orange-800">
               <p className="mb-1 text-xs font-medium uppercase tracking-wide text-orange-600">What needs to change</p>
@@ -469,112 +493,6 @@ function AttachConfirmDialog({
   )
 }
 
-// ── File Preview Dialog ────────────────────────────────────────────────────────
-// Lets the client click an uploaded file chip and see what they actually
-// submitted. Files come from normalizeDocument().
-
-function FilePreviewDialog({ open, onOpenChange, files = [], taskName }) {
-  const [selectedIndex, setSelectedIndex] = useState(0)
-
-  // Start on the first file each time the dialog opens.
-  useEffect(() => {
-    if (open) setSelectedIndex(0)
-  }, [open, taskName])
-
-  const selectedFile = files[selectedIndex] ?? files[0] ?? null
-
-  // A file that was just uploaded has no download link yet, so preview the
-  // copy that is still in the browser.
-  const objectUrl = useMemo(() => {
-    if (!selectedFile || selectedFile.downloadUrl || !selectedFile.file) return null
-    return URL.createObjectURL(selectedFile.file)
-  }, [selectedFile])
-
-  useEffect(() => {
-    return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [objectUrl])
-
-  if (!selectedFile) return null
-
-  const fileType = selectedFile.mimeType
-  const fileUrl = selectedFile.downloadUrl ?? objectUrl
-  const isImage = fileType?.startsWith("image/")
-  const isPdf = fileType === "application/pdf"
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
-          <DialogTitle className="truncate">{selectedFile.name}</DialogTitle>
-          <DialogDescription>
-            {taskName ? `Uploaded for "${taskName}"` : "Uploaded file"}
-            {formatFileSize(selectedFile.size) && ` · ${formatFileSize(selectedFile.size)}`}
-          </DialogDescription>
-        </DialogHeader>
-
-        {files.length > 1 && (
-          <div className="flex flex-wrap gap-1.5 border-b border-border pb-3">
-            {files.map((f, i) => (
-              <button
-                key={`${f.name}-${i}`}
-                type="button"
-                onClick={() => setSelectedIndex(i)}
-                className={cn(
-                  "max-w-[160px] truncate rounded-md border px-2 py-1 text-xs font-medium transition-colors",
-                  i === selectedIndex
-                    ? "border-[#02353C]/30 bg-[#02353C]/10 text-[#02353C]"
-                    : "border-border text-muted-foreground hover:bg-muted"
-                )}
-                title={f.name}
-              >
-                {f.name}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="flex max-h-[80vh] min-h-[320px] items-center justify-center overflow-auto rounded-lg border border-border bg-muted/30">
-          {isImage && fileUrl ? (
-            <img
-              src={fileUrl}
-              alt={selectedFile.name}
-              className="max-h-[80vh] w-auto max-w-full object-contain"
-            />
-          ) : isPdf && fileUrl ? (
-            <iframe
-              src={fileUrl}
-              title={selectedFile.name}
-              className="h-[80vh] w-full rounded-lg"
-            />
-          ) : (
-            <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
-              <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                <FileText className="size-5 text-muted-foreground" />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                No inline preview available for this file type.
-              </p>
-              {fileUrl && (
-                <a
-                  href={fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#02353C]/20 bg-[#02353C]/5 px-3 py-1.5 text-xs font-medium text-[#02353C] transition-colors hover:bg-[#02353C]/10"
-                >
-                  <ExternalLink className="size-3.5" />
-                  Open in new tab
-                </a>
-              )}
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 // ── Task Row ────────────────────────────────────────────────────────────────────
 //
 // Actions cell:
@@ -591,6 +509,7 @@ function TaskRow({
   onOpenDetail,
   onOpenUpload,
   onPreviewUploaded,
+  onPreviewReference,
 }) {
   const canUpload = canUploadFiles(task)
   const hasUploaded = uploadedFiles && uploadedFiles.length > 0
@@ -621,6 +540,27 @@ function TaskRow({
             <span className="ml-1 text-xs text-red-500 font-semibold">*</span>
           )}
         </button>
+        {task.referenceDocument && (
+          <div className="mt-2 flex items-center gap-1.5">
+            <button
+              type="button"
+              title="Preview guide file"
+              onClick={onPreviewReference}
+              className="inline-flex min-w-0 max-w-[220px] items-center gap-1 truncate rounded-md border bg-muted/40 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <FileText className="size-3.5 shrink-0" />
+              <span className="truncate">Guide: {task.referenceDocument.name}</span>
+            </button>
+            <a
+              href={task.referenceDocument.downloadUrl}
+              download={task.referenceDocument.name}
+              title="Download guide file"
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Download className="size-3.5" />
+            </a>
+          </div>
+        )}
       </td>
 
       {/* Status */}
@@ -692,6 +632,10 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
   const [submittedFrom, setSubmittedFrom] = useState({})
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewTaskId, setPreviewTaskId] = useState(null)
+  // The firm-provided guide file for a requirement has its own preview state,
+  // so both dialogs can coexist (only one is open at a time).
+  const [guidePreviewOpen, setGuidePreviewOpen] = useState(false)
+  const [guidePreviewTaskId, setGuidePreviewTaskId] = useState(null)
   const [confirmTaskId, setConfirmTaskId] = useState(null) // task waiting on the "are you sure?" dialog
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(null) // { done, total } while uploading
@@ -716,6 +660,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
   const detailTask = findTask(detailTaskId)
   const pickerTask = findTask(pickerTaskId)
   const previewTask = findTask(previewTaskId)
+  const guidePreviewTask = findTask(guidePreviewTaskId)
   const confirmTask = findTask(confirmTaskId)
 
   // When the server reports a different status than the one we uploaded from,
@@ -876,6 +821,11 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
     setPreviewOpen(true)
   }
 
+  const handlePreviewReference = (task) => {
+    setGuidePreviewTaskId(task.id)
+    setGuidePreviewOpen(true)
+  }
+
   const requiredCount = tasks.filter((t) => t.required).length
   const completedCount = tasks.filter((t) => t.status === "approved").length
 
@@ -938,6 +888,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
                   onOpenDetail={() => handleOpenDetail(task)}
                   onOpenUpload={() => handleOpenUpload(task)}
                   onPreviewUploaded={() => handlePreviewUploaded(task)}
+                  onPreviewReference={() => handlePreviewReference(task)}
                 />
               ))}
             </tbody>
@@ -949,6 +900,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
         open={detailOpen}
         onOpenChange={setDetailOpen}
         task={detailTask}
+        onPreviewReference={handlePreviewReference}
       />
 
       <TaskFilePickerDialog
@@ -974,6 +926,17 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
         onOpenChange={setPreviewOpen}
         files={previewTask ? filesFor(previewTask) : []}
         taskName={previewTask?.name}
+      />
+
+      <FilePreviewDialog
+        open={guidePreviewOpen}
+        onOpenChange={setGuidePreviewOpen}
+        files={
+          guidePreviewTask?.referenceDocument
+            ? [normalizePreviewFile(guidePreviewTask.referenceDocument)]
+            : []
+        }
+        subtitle={guidePreviewTask ? `Guide for "${guidePreviewTask.name}"` : undefined}
       />
     </div>
   )

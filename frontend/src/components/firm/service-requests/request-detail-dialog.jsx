@@ -109,7 +109,10 @@ export function RequestDetailDialog({
             />
           </DialogHeader>
 
-          <RequestActionNotice status={request?.status} />
+          <RequestActionNotice
+            status={request?.status}
+            rejectionReason={request?.rejectionReason}
+          />
 
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col gap-5">

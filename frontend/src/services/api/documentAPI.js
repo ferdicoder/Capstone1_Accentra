@@ -108,6 +108,38 @@ async function deleteEngagementDocument(docId) {
   }
 }
 
+// Firm-provided guide file attached to an engagement task (staff upload).
+async function uploadEngagementTaskReferenceDocument({ engagementTaskId, file }) {
+  const formData = new FormData()
+  formData.append("document", file)
+  const token = await getAccessToken()
+  const response = await fetch(
+    `${apiBaseUrl}/documents/engagement-task/${engagementTaskId}/reference`,
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: formData,
+    }
+  )
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.error || "Reference document upload failed")
+  }
+  return response.json()
+}
+
+async function deleteEngagementTaskReferenceDocument(docId) {
+  const token = await getAccessToken()
+  const response = await fetch(`${apiBaseUrl}/documents/reference/${docId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.error || "Reference document deletion failed")
+  }
+}
+
 export {
   uploadTemplateDocument,
   getEngagementDocuments,
@@ -115,4 +147,6 @@ export {
   deleteEngagementDocument,
   getEngagementDeliverables,
   uploadEngagementDeliverable,
+  uploadEngagementTaskReferenceDocument,
+  deleteEngagementTaskReferenceDocument,
 }

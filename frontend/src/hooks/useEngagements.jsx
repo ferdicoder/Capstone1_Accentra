@@ -19,6 +19,8 @@ import {
   deleteEngagementDocument,
   getEngagementDeliverables,
   uploadEngagementDeliverable,
+  uploadEngagementTaskReferenceDocument,
+  deleteEngagementTaskReferenceDocument,
 } from "@/services/api/documentAPI"
 import { queryKeys } from "@/config/queryKeys"
 
@@ -163,6 +165,28 @@ export function useUploadEngagementDeliverable(engagementId) {
     mutationFn: uploadEngagementDeliverable,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.engagementDeliverables(engagementId) })
+    },
+  })
+}
+
+// Reference files live on the task itself, so the engagement detail (which
+// embeds engagement_task_documents) is what needs refetching.
+export function useUploadEngagementTaskReference(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: uploadEngagementTaskReferenceDocument,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagement(engagementId) })
+    },
+  })
+}
+
+export function useDeleteEngagementTaskReference(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteEngagementTaskReferenceDocument,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagement(engagementId) })
     },
   })
 }
