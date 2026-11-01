@@ -10,10 +10,16 @@ export function Panel({
   count,
   to,
   linkLabel = "View all",
+  className,
   children,
 }) {
   return (
-    <section className="flex flex-col overflow-hidden rounded-xl border bg-background shadow-sm">
+    <section
+      className={cn(
+        "flex flex-col overflow-hidden rounded-xl border bg-background shadow-sm",
+        className
+      )}
+    >
       <div className="flex items-start justify-between gap-3 border-b bg-muted/30 px-4 py-3.5">
         <div className="min-w-0">
           <div className="flex items-center gap-2">

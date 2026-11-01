@@ -2,9 +2,20 @@ import { AlertTriangle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-export function EmptyState({ icon: Icon, title, children, positive = false }) {
+export function EmptyState({
+  icon: Icon,
+  title,
+  children,
+  positive = false,
+  compact = false,
+}) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-1.5 px-4 py-10 text-center">
+    <div
+      className={cn(
+        "flex flex-1 flex-col items-center justify-center gap-1.5 px-4 text-center",
+        compact ? "py-6" : "py-10"
+      )}
+    >
       <div
         className={cn(
           "flex size-10 items-center justify-center rounded-full",
