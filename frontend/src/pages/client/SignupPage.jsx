@@ -88,6 +88,21 @@ function sanitizeValue(name, rawValue) {
   return rawValue
 }
 
+function formatTin(value, mask = false) {
+  const digits = value.replace(/\D/g, "").slice(0, 12)
+  const formatted = digits.replace(/(\d{3})(?=\d)/g, "$1-")
+
+  if (!mask || digits.length <= 4) return formatted
+
+  const visibleDigitsStart = digits.length - 4
+  let digitIndex = 0
+  return formatted.replace(/\d/g, () => {
+    const formattedDigit = digitIndex >= visibleDigitsStart ? digits[digitIndex] : "*"
+    digitIndex += 1
+    return formattedDigit
+  })
+}
+
 // Per-field format validation, used both for live feedback and for the
 // full-step check run on Continue/Submit.
 function validateField(name, value, formData) {
@@ -170,7 +185,10 @@ export default function SignupPage() {
 
   const [formData, setFormData] = useState(initialFormState);
   const [errors, setErrors] = useState({})
+  const [isTinFocused, setIsTinFocused] = useState(false)
   const navigate = useNavigate()
+
+  const displayedTin = formatTin(formData.tin, !isTinFocused)
 
 
   const updateField = (event) => {
@@ -589,10 +607,12 @@ export default function SignupPage() {
                     name="tin"
                     type="text"
                     inputMode="numeric"
-                    maxLength={12}
-                    placeholder="123456789000"
+                    maxLength={15}
+                    placeholder="123-456-789-000"
                     required
-                    value={formData.tin}
+                    value={displayedTin}
+                    onFocus={() => setIsTinFocused(true)}
+                    onBlur={() => setIsTinFocused(false)}
                     onChange={updateField}
                     className="bg-background"
                     aria-invalid={Boolean(errorFor("tin"))}
