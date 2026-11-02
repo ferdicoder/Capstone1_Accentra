@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ChevronDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -22,6 +22,7 @@ import {
 import { useFetchUsers } from "@/hooks/useUsers"
 import { useFetchServices } from "@/hooks/useServices"
 import { useSearchClients } from "@/hooks/useBusinesses"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 
 
 const sectionHeadingClass = "font-heading text-sm font-medium text-foreground"
@@ -73,6 +74,7 @@ export function CreateEngagementDialog({
   const [clientEmail, setClientEmail] = useState(() => request?.client?.email ?? "")
 
   const [errors, setErrors] = useState({})
+  const formRef = useRef(null)
 
 
   const { data: users = [] } = useFetchUsers()
@@ -152,7 +154,10 @@ export function CreateEngagementDialog({
     }
 
     setErrors(newErrors)
-    if (Object.values(newErrors).some(Boolean)) return
+    if (Object.values(newErrors).some(Boolean)) {
+      scrollToFirstInvalidField(formRef.current)
+      return
+    }
 
     const client = isStandalone
       ? {
@@ -213,6 +218,7 @@ export function CreateEngagementDialog({
         </DialogHeader>
 
         <form
+          ref={formRef}
           onSubmit={handleSubmit}
           className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh] p-1"
         >
@@ -240,6 +246,7 @@ export function CreateEngagementDialog({
                         type="button"
                         variant="outline"
                         disabled={submitting}
+                        aria-invalid={Boolean(errors.serviceName) || undefined}
                         className={cn(
                           "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
                           errors.serviceName && "border-red-500 focus-visible:ring-red-500"
@@ -293,6 +300,7 @@ export function CreateEngagementDialog({
                 <div className="relative">
                   <Input
                     value={clientQuery}
+                    aria-invalid={Boolean(errors.client) || undefined}
                     onChange={(e) => {
                       setClientQuery(e.target.value)
                       setSelectedClientId("")
@@ -457,6 +465,7 @@ export function CreateEngagementDialog({
                         "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
                         errors.assignedStaff && "border-red-500 focus-visible:ring-red-500"
                       )}
+                        aria-invalid={Boolean(errors.assignedStaff) || undefined}
                     />
                   }
                 >
@@ -498,6 +507,7 @@ export function CreateEngagementDialog({
                   }}
                   disabled={submitting}
                   className={cn(errors.startDate && "border-red-500 focus-visible:ring-red-500")}
+                  aria-invalid={Boolean(errors.startDate) || undefined}
                 />
                 {errors.startDate && (
                   <p className="text-sm text-red-500">
@@ -518,6 +528,7 @@ export function CreateEngagementDialog({
                   disabled={submitting}
                   min={startDate || todayDate}
                   className={cn(errors.targetEndDate && "border-red-500 focus-visible:ring-red-500")}
+                  aria-invalid={Boolean(errors.targetEndDate) || undefined}
                 />
                 {errors.targetEndDate && (
                   <p className="text-sm text-red-500">Target completion date is required.</p>

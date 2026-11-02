@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -26,6 +26,7 @@ import {
   clientTypeOptions,
   industryOptions,
 } from "./client-variants"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -39,7 +40,7 @@ const errorClass = "border-red-500 focus-visible:ring-red-500"
  * stored value isn't one of `options` (legacy/free-text data) it is kept as an
  * extra choice instead of being silently dropped.
  */
-function DropdownField({ id, label, value, options, placeholder, onChange }) {
+function DropdownField({ id, label, value, options, placeholder, onChange, invalid }) {
   const hasUnknownValue = Boolean(value) && !options.some((option) => option.value === value)
   const allOptions = hasUnknownValue ? [...options, { value, label: value }] : options
   const active = allOptions.find((option) => option.value === value)
@@ -54,6 +55,7 @@ function DropdownField({ id, label, value, options, placeholder, onChange }) {
               id={id}
               type="button"
               variant="outline"
+              aria-invalid={invalid || undefined}
               className="h-8 w-full justify-between rounded-lg px-2.5 font-normal"
             />
           }
@@ -94,6 +96,7 @@ function EditClientForm({ client, onSubmit, onDeactivate, onCancel, submitLabel,
     address: client?.address ?? "",
   }))
   const [errors, setErrors] = useState({})
+  const formRef = useRef(null)
 
   const setField = (field) => (event) =>
     setValues((current) => ({ ...current, [field]: event.target.value }))
@@ -115,7 +118,10 @@ function EditClientForm({ client, onSubmit, onDeactivate, onCancel, submitLabel,
       businessName: !values.businessName.trim(),
     }
     setErrors(newErrors)
-    if (Object.values(newErrors).some(Boolean)) return
+    if (Object.values(newErrors).some(Boolean)) {
+      scrollToFirstInvalidField(formRef.current)
+      return
+    }
 
     onSubmit?.(
       Object.fromEntries(Object.entries(values).map(([key, value]) => [key, value.trim()]))
@@ -123,7 +129,7 @@ function EditClientForm({ client, onSubmit, onDeactivate, onCancel, submitLabel,
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto">
       <FieldGroup>
         <DropdownField
           id="client-type"
@@ -143,6 +149,7 @@ function EditClientForm({ client, onSubmit, onDeactivate, onCancel, submitLabel,
               id="client-first-name"
               value={values.firstName}
               onChange={setField("firstName")}
+              aria-invalid={Boolean(errors.firstName) || undefined}
               className={cn(errors.firstName && errorClass)}
             />
             {errors.firstName && <p className="text-sm text-red-500">First name is required.</p>}
@@ -156,6 +163,7 @@ function EditClientForm({ client, onSubmit, onDeactivate, onCancel, submitLabel,
               id="client-last-name"
               value={values.lastName}
               onChange={setField("lastName")}
+              aria-invalid={Boolean(errors.lastName) || undefined}
               className={cn(errors.lastName && errorClass)}
             />
             {errors.lastName && <p className="text-sm text-red-500">Last name is required.</p>}
@@ -181,6 +189,7 @@ function EditClientForm({ client, onSubmit, onDeactivate, onCancel, submitLabel,
               type="email"
               value={values.email}
               onChange={setField("email")}
+              aria-invalid={Boolean(errors.email) || undefined}
               className={cn(errors.email && errorClass)}
             />
             {errors.email && <p className="text-sm text-red-500">Enter a valid email address.</p>}
@@ -193,6 +202,7 @@ function EditClientForm({ client, onSubmit, onDeactivate, onCancel, submitLabel,
               type="tel"
               value={values.contactNo}
               onChange={setField("contactNo")}
+              aria-invalid={Boolean(errors.contactNo) || undefined}
               placeholder="0917 123 4567"
               className={cn(errors.contactNo && errorClass)}
             />
@@ -210,6 +220,7 @@ function EditClientForm({ client, onSubmit, onDeactivate, onCancel, submitLabel,
             id="client-business-name"
             value={values.businessName}
             onChange={setField("businessName")}
+            aria-invalid={Boolean(errors.businessName) || undefined}
             className={cn(errors.businessName && errorClass)}
           />
           {errors.businessName && (

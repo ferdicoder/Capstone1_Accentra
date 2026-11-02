@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { FileText, Loader2, Send, StickyNote } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { firmStaffMap } from "./engagement-variants"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 
 const MAX_TITLE_CHARS = 100
 const MAX_DESC_CHARS = 500
@@ -21,6 +22,7 @@ export function ActivityUpdateDialog({ open, onOpenChange, engagement, onSubmit 
   const [description, setDescription] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState({})
+  const formRef = useRef(null)
 
   const staffLabel = firmStaffMap[engagement?.assignedStaff] ?? "You"
   const now = new Date()
@@ -31,7 +33,10 @@ export function ActivityUpdateDialog({ open, onOpenChange, engagement, onSubmit 
     if (!title.trim()) newErrors.title = true
     if (!description.trim()) newErrors.description = true
     setErrors(newErrors)
-    if (Object.keys(newErrors).length > 0) return
+    if (Object.keys(newErrors).length > 0) {
+      scrollToFirstInvalidField(formRef.current)
+      return
+    }
 
     setSubmitting(true)
     setTimeout(() => {
@@ -74,7 +79,7 @@ export function ActivityUpdateDialog({ open, onOpenChange, engagement, onSubmit 
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-6">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5 p-6">
           <FieldGroup className="gap-4">
             <Field>
               <FieldLabel className="text-foreground">
@@ -84,6 +89,7 @@ export function ActivityUpdateDialog({ open, onOpenChange, engagement, onSubmit 
               <div className="flex flex-col gap-1.5">
                 <input
                   type="text"
+                  aria-invalid={Boolean(errors.title) || undefined}
                   value={title}
                   onChange={(e) => {
                     if (e.target.value.length <= MAX_TITLE_CHARS) {
@@ -114,6 +120,7 @@ export function ActivityUpdateDialog({ open, onOpenChange, engagement, onSubmit 
               <div className="flex flex-col gap-1.5">
                 <textarea
                   value={description}
+                  aria-invalid={Boolean(errors.description) || undefined}
                   onChange={(e) => {
                     if (e.target.value.length <= MAX_DESC_CHARS) {
                       setDescription(e.target.value)

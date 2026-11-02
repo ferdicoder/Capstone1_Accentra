@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { ChevronDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -23,6 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 import { authStore } from "@/store/authStore"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -76,6 +77,7 @@ function EditUserForm({
   // *label* depends on roleOptions having loaded.
   const [role, setRole] = useState(() => user?.role ?? "")
   const [errors, setErrors] = useState({})
+  const formRef = useRef(null)
 
   const currentUserId = authStore((state) => state.user?.id)
   // Personal information of another firm admin account is not editable from
@@ -99,7 +101,10 @@ function EditUserForm({
           role: !role,
         }
     setErrors(newErrors)
-    if (Object.values(newErrors).some(Boolean)) return
+    if (Object.values(newErrors).some(Boolean)) {
+      scrollToFirstInvalidField(formRef.current)
+      return
+    }
 
     onSubmit?.(
       isProtectedFirmAdmin
@@ -119,6 +124,7 @@ function EditUserForm({
 
   return (
     <form
+      ref={formRef}
       onSubmit={handleSubmit}
       className="flex flex-1 flex-col gap-5 overflow-y-auto"
     >
@@ -134,6 +140,7 @@ function EditUserForm({
               onChange={(event) => setFirstName(event.target.value)}
               placeholder="Juan"
               disabled={submitting || isProtectedFirmAdmin}
+              aria-invalid={Boolean(errors.firstName) || undefined}
               className={cn(errors.firstName && "border-red-500 focus-visible:ring-red-500")}
             />
             {errors.firstName && (
@@ -151,6 +158,7 @@ function EditUserForm({
               onChange={(event) => setLastName(event.target.value)}
               placeholder="Dela Cruz"
               disabled={submitting || isProtectedFirmAdmin}
+              aria-invalid={Boolean(errors.lastName) || undefined}
               className={cn(errors.lastName && "border-red-500 focus-visible:ring-red-500")}
             />
             {errors.lastName && (
@@ -194,6 +202,7 @@ function EditUserForm({
             onChange={(event) => setEmail(event.target.value)}
             placeholder="juan@example.com"
             disabled={submitting || isProtectedFirmAdmin}
+            aria-invalid={Boolean(errors.email) || undefined}
             className={cn(errors.email && "border-red-500 focus-visible:ring-red-500")}
           />
           {errors.email && (
@@ -212,6 +221,7 @@ function EditUserForm({
             onChange={(event) => setContactNumber(event.target.value)}
             placeholder="0917 123 4567"
             disabled={submitting || isProtectedFirmAdmin}
+            aria-invalid={Boolean(errors.contactNumber) || undefined}
             className={cn(errors.contactNumber && "border-red-500 focus-visible:ring-red-500")}
           />
           {errors.contactNumber && (
@@ -235,6 +245,7 @@ function EditUserForm({
                   type="button"
                   variant="outline"
                   disabled={submitting || rolesLoading || rolesUnavailable}
+                  aria-invalid={Boolean(errors.role) || undefined}
                   className={cn(
                     "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
                     errors.role && "border-red-500 focus-visible:ring-red-500"

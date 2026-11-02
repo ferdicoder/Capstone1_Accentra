@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { INVOICE_TYPES, invoiceTypeLabels } from './billing-variants';
+import { scrollToFirstInvalidField } from '@/lib/form-validation';
 
 const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
 const MONTHS = [
@@ -104,6 +105,7 @@ export function CreateBillingDialog({
   const currentBillingMonth = now.getMonth() + 1;
   const currentBillingYear = now.getFullYear();
   const engagementSearchRef = useRef(null);
+  const formRef = useRef(null);
   const autoTypeRef = useRef(false);
   const [engagementIds, setEngagementIds] = useState(
     initialEngagementId ? [initialEngagementId] : []
@@ -391,6 +393,7 @@ export function CreateBillingDialog({
     event.preventDefault();
     if (duplicateRetainer) {
       setErrors((previous) => ({ ...previous, billingPeriod: true }));
+      scrollToFirstInvalidField(formRef.current);
       return;
     }
 
@@ -422,7 +425,10 @@ export function CreateBillingDialog({
       dueDate: dueDateInvalid,
     };
     setErrors(newErrors);
-    if (Object.values(newErrors).some(Boolean)) return;
+    if (Object.values(newErrors).some(Boolean)) {
+      scrollToFirstInvalidField(formRef.current);
+      return;
+    }
     onSubmit?.({
       engagement_id: engagementIds[0] ?? null,
       engagement_ids: engagementIds,
@@ -455,6 +461,7 @@ export function CreateBillingDialog({
           <DialogTitle>Create Billing</DialogTitle>
         </DialogHeader>
         <form
+          ref={formRef}
           onSubmit={handleSubmit}
           className="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
@@ -492,6 +499,7 @@ export function CreateBillingDialog({
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
+                      aria-invalid={Boolean(errors.client) || undefined}
                       value={clientSearch}
                       onChange={(event) => {
                         setClientSearch(event.target.value);
@@ -552,6 +560,7 @@ export function CreateBillingDialog({
                   <Button
                     type="button"
                     variant="outline"
+                    aria-invalid={Boolean(errors.invoiceType) || undefined}
                     className={cn(
                       'w-full justify-between font-normal',
                       !invoiceType && 'text-muted-foreground'
@@ -603,6 +612,7 @@ export function CreateBillingDialog({
                     {isServiceFee && (
                       <Input
                         className="w-28"
+                        aria-invalid={Boolean(errors.amount) || undefined}
                         type="number"
                         min="0"
                         step="0.01"
@@ -633,6 +643,7 @@ export function CreateBillingDialog({
                   <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     ref={engagementSearchRef}
+                    aria-invalid={Boolean(errors.engagement) || undefined}
                     value={engagementSearch}
                     onChange={(event) => {
                       setEngagementSearch(event.target.value);
@@ -756,6 +767,7 @@ export function CreateBillingDialog({
                       <Button
                         type="button"
                         variant="outline"
+                        aria-invalid={Boolean(errors.billingPeriod) || undefined}
                         className="w-full justify-between font-normal"
                       >
                         {selectedMonthLabel}
@@ -778,6 +790,7 @@ export function CreateBillingDialog({
                       <Button
                         type="button"
                         variant="outline"
+                        aria-invalid={Boolean(errors.billingPeriod) || undefined}
                         className="w-full justify-between font-normal"
                       >
                         {billingYear}
@@ -823,6 +836,7 @@ export function CreateBillingDialog({
               </FieldLabel>
               <Input
                 type="text"
+                aria-invalid={Boolean(errors.amount) || undefined}
                 inputMode="decimal"
                 value={isServiceFee ? serviceTotal.toFixed(2) : amount}
                 onChange={(event) => {
@@ -848,6 +862,7 @@ export function CreateBillingDialog({
               </FieldLabel>
               <Input
                 type="date"
+                aria-invalid={Boolean(errors.dueDate) || undefined}
                 value={dueDate}
                 min={new Date().toISOString().split('T')[0]}
                 onChange={(event) => {

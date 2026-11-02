@@ -3,11 +3,12 @@ import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Check, X } from "lucide-react"
 
 import { registerClient } from "../../services/authService";
 import { Link, useNavigate } from "react-router-dom"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 
 
 const MONTHS = [
@@ -192,6 +193,7 @@ export default function SignupPage() {
 
   const [formData, setFormData] = useState(initialFormState);
   const [errors, setErrors] = useState({})
+  const formRef = useRef(null)
   const [isTinFocused, setIsTinFocused] = useState(false)
   const [isContactNumberFocused, setIsContactNumberFocused] = useState(false)
   const navigate = useNavigate()
@@ -235,7 +237,10 @@ export default function SignupPage() {
     if (currentStep < 2) {
       const stepErrors = getStepErrors(STEP_ONE_FIELDS, formData)
       setErrors((prev) => ({ ...prev, ...stepErrors }))
-      if (Object.keys(stepErrors).length > 0) return
+      if (Object.keys(stepErrors).length > 0) {
+        scrollToFirstInvalidField(formRef.current)
+        return
+      }
 
       setCurrentStep((step) => step + 1)
       return
@@ -243,7 +248,10 @@ export default function SignupPage() {
 
     const stepErrors = getStepErrors(STEP_TWO_FIELDS, formData)
     setErrors((prev) => ({ ...prev, ...stepErrors }))
-    if (Object.keys(stepErrors).length > 0) return
+    if (Object.keys(stepErrors).length > 0) {
+      scrollToFirstInvalidField(formRef.current)
+      return
+    }
 
     try{
       // Combine the three birthdate dropdowns into a single ISO date
@@ -274,7 +282,7 @@ export default function SignupPage() {
 
   return (
     <AuthLayout>
-      <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
+      <form ref={formRef} className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
         <div className="flex items-center justify-between gap-2">
           {signupSteps.map((step, index) => {
             const stepNumber = index + 1

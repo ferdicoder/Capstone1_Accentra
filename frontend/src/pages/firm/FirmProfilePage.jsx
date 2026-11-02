@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { AdminForgotPasswordModal } from "@/components/firm/admin-forgot-password-modal"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 
 // import { updateFirmProfile, updateFirmPassword } from "@/services/firmService"
 
@@ -68,6 +69,7 @@ export default function FirmProfilePage() {
   const [securityErrors, setSecurityErrors] = useState({})
   const [isSaving, setIsSaving] = useState(false)
   const passwordSaveInProgress = useRef(false)
+  const securityFormRef = useRef(null)
   const profileSaveInProgress = useRef(false)
   const [saveMessage, setSaveMessage] = useState(null)
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
@@ -137,6 +139,7 @@ export default function FirmProfilePage() {
     setSecurityErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) {
       setSaveMessage(null)
+      scrollToFirstInvalidField(securityFormRef.current)
       return
     }
 
@@ -430,6 +433,7 @@ export default function FirmProfilePage() {
 
           {activeTab === "security" && (
             <form
+              ref={securityFormRef}
               onSubmit={handleSavePassword}
               noValidate
               className="flex flex-col gap-6"
