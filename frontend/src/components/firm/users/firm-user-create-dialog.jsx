@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ChevronDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -24,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -96,6 +97,7 @@ export function FirmUserCreateDialog({
     roleOptions.some((option) => option.value === defaultRole) ? defaultRole : ""
   )
   const [errors, setErrors] = useState({})
+  const formRef = useRef(null)
 
   // roleOptions often arrives async (fetched from the roles table), so the
   // dialog can open before it's populated. Apply the default once it lands,
@@ -129,7 +131,10 @@ export function FirmUserCreateDialog({
     if (emailExists) newErrors.email = DUPLICATE_EMAIL_ERROR
 
     setErrors(newErrors)
-    if (Object.values(newErrors).some(Boolean)) return
+    if (Object.values(newErrors).some(Boolean)) {
+      scrollToFirstInvalidField(formRef.current)
+      return
+    }
 
     onSubmit?.({
       firstName: firstName.trim(),
@@ -152,7 +157,7 @@ export function FirmUserCreateDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto">
           <FieldGroup>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
@@ -165,6 +170,7 @@ export function FirmUserCreateDialog({
                   onChange={(event) => setFirstName(event.target.value)}
                   placeholder="Juan"
                   disabled={submitting}
+                  aria-invalid={Boolean(errors.firstName) || undefined}
                   className={cn(errors.firstName && "border-red-500 focus-visible:ring-red-500")}
                 />
                 {errors.firstName && (
@@ -182,6 +188,7 @@ export function FirmUserCreateDialog({
                   onChange={(event) => setLastName(event.target.value)}
                   placeholder="Dela Cruz"
                   disabled={submitting}
+                  aria-invalid={Boolean(errors.lastName) || undefined}
                   className={cn(errors.lastName && "border-red-500 focus-visible:ring-red-500")}
                 />
                 {errors.lastName && (
@@ -199,6 +206,7 @@ export function FirmUserCreateDialog({
                   onChange={(event) => setMiddleName(event.target.value)}
                   placeholder="Santos"
                   disabled={submitting}
+                  aria-invalid={Boolean(errors.email) || undefined}
                 />
               </Field>
 
@@ -210,6 +218,7 @@ export function FirmUserCreateDialog({
                   onChange={(event) => setExtension(event.target.value)}
                   placeholder="Jr., Sr., III"
                   disabled={submitting}
+                  aria-invalid={Boolean(errors.contactNumber) || undefined}
                 />
               </Field>
             </div>
@@ -228,6 +237,7 @@ export function FirmUserCreateDialog({
                 }}
                 placeholder="juan@example.com"
                 disabled={submitting}
+                aria-invalid={Boolean(errors.temporaryPassword) || undefined}
                 className={cn(errors.email && "border-red-500 focus-visible:ring-red-500")}
               />
               {errors.email && (
@@ -302,6 +312,7 @@ export function FirmUserCreateDialog({
                       type="button"
                       variant="outline"
                       disabled={submitting || rolesLoading || rolesUnavailable}
+                      aria-invalid={Boolean(errors.role) || undefined}
                       className={cn(
                         "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
                         errors.role && "border-red-500 focus-visible:ring-red-500"

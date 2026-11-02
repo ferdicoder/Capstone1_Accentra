@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Clock, MoreHorizontal, Inbox, Check, FileText, MessageSquareWarning, Eye, Download } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -23,6 +23,7 @@ import { formatDate } from "./engagement-variants"
 import { ReferenceDocumentUpload } from "@/components/firm/service-management/workflow-tasks"
 import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
 import { normalizePreviewFile } from "@/lib/file-utils"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 
 /**
  * A task deadline may not fall after its parent engagement's deadline.
@@ -136,7 +137,14 @@ function DeadlineCell({ deadline, onChange, max }) {
 }
 
 function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, submitting, engagement }) {
+  const formRef = useRef(null)
   const updateField = (field, value) => setFormData((current) => ({ ...current, [field]: value }))
+
+  useEffect(() => {
+    if (errors.name || errors.deadline) {
+      scrollToFirstInvalidField(formRef.current)
+    }
+  }, [errors])
 
   // Turning the switch off only discards a *pending* pick (has `.file`) — an
   // already-stored guide stays attached (visible again when toggled back on).
@@ -157,7 +165,7 @@ function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, sub
     }))
 
   return (
-    <form onSubmit={onSubmit} className="flex min-h-0 flex-col gap-5 overflow-y-auto">
+    <form ref={formRef} onSubmit={onSubmit} className="flex min-h-0 flex-col gap-5 overflow-y-auto">
       <div className="flex flex-col gap-2">
         <label htmlFor="task-name" className="text-sm font-medium text-foreground">Task name</label>
         <Input
@@ -166,6 +174,7 @@ function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, sub
           onChange={(event) => updateField("name", event.target.value)}
           placeholder="Task name"
           aria-invalid={errors.name || undefined}
+          data-invalid-field={errors.name ? "true" : undefined}
           autoFocus
         />
         {errors.name && <p className="text-xs text-red-500">Task name is required.</p>}
@@ -205,6 +214,8 @@ function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, sub
           onChange={(event) => updateField("deadline", event.target.value)}
           min={getLocalDateInputValue()}
           max={engagement?.targetEndDate ?? engagement?.startDate ?? undefined}
+          aria-invalid={errors.deadline || undefined}
+          data-invalid-field={errors.deadline ? "true" : undefined}
         />
         {errors.deadline && (
           <p className="text-xs text-red-500">

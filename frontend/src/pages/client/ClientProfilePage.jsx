@@ -3,6 +3,7 @@ import { Save, Lock, Check, X, ShieldQuestion, Loader2, FileEdit, TriangleAlert 
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 import { cn } from "@/lib/utils"
 import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness, useUpdateMyBusiness } from "@/hooks/useBusinesses"
@@ -281,6 +282,7 @@ export default function ClientProfilePage() {
   // Snapshot of the last-saved (or last-loaded) profile, used to detect
   // whether the user actually changed anything before hitting Save.
   const savedProfileRef = useRef(emptyProfile)
+  const profileFormRef = useRef(null)
 
   // Timer that auto-hides the "too many digits" warning once the user
   // stops typing.
@@ -408,6 +410,7 @@ export default function ClientProfilePage() {
         tin: "Invalid TIN ID. Must be 9 or 12 digits.",
       }))
       setSaveMessage({ type: "error", text: "Fix the TIN Number before saving." })
+      scrollToFirstInvalidField(profileFormRef.current)
       return
     }
 
@@ -420,6 +423,7 @@ export default function ClientProfilePage() {
         contactNumber: getPhoneWarning(phoneNational),
       }))
       setSaveMessage({ type: "error", text: "Fix the Contact Number before saving." })
+      scrollToFirstInvalidField(profileFormRef.current)
       return
     }
 
@@ -570,7 +574,7 @@ export default function ClientProfilePage() {
           )}
 
           {activeTab === "info" && (
-            <form onSubmit={handleSaveInfo} className="flex flex-col gap-6">
+            <form ref={profileFormRef} onSubmit={handleSaveInfo} className="flex flex-col gap-6">
               {/* Personal + Business cards sit side by side at equal width on large screens,
                   so the form fills the same rail as the header instead of trailing off into empty space. */}
               <div className="grid gap-6 lg:grid-cols-2 lg:items-start">

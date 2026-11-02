@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Loader2, StickyNote } from "lucide-react"
+import { useRef, useState } from "react"
+import { Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { firmStaffMap } from "./engagement-variants"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 
 const MAX_CHARS = 1000
 
@@ -19,6 +20,7 @@ export function AddNoteDialog({ open, onOpenChange, engagement, onSubmit }) {
   const [content, setContent] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState({})
+  const formRef = useRef(null)
 
   const staffLabel = firmStaffMap[engagement?.assignedStaff] ?? "You"
 
@@ -27,7 +29,10 @@ export function AddNoteDialog({ open, onOpenChange, engagement, onSubmit }) {
     const newErrors = {}
     if (!content.trim()) newErrors.content = true
     setErrors(newErrors)
-    if (Object.keys(newErrors).length > 0) return
+    if (Object.keys(newErrors).length > 0) {
+      scrollToFirstInvalidField(formRef.current)
+      return
+    }
 
     setSubmitting(true)
     setTimeout(() => {
@@ -60,11 +65,12 @@ export function AddNoteDialog({ open, onOpenChange, engagement, onSubmit }) {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh] p-1">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh] p-1">
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-foreground">Note</label>
             <textarea
               value={content}
+              aria-invalid={Boolean(errors.content) || undefined}
               onChange={(e) => {
                 if (e.target.value.length <= MAX_CHARS) {
                   setContent(e.target.value)

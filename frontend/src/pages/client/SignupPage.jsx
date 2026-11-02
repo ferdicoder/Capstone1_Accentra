@@ -207,7 +207,7 @@ export default function SignupPage() {
 
   return (
     <AuthLayout>
-      <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
+      <form ref={formRef} className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
         <div className="flex items-center justify-between gap-2">
           {steps.map((step, index) => {
             const number = index + 1;

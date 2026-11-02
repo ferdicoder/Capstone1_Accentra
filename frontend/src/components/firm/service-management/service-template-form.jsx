@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { WorkflowTaskList } from "./workflow-tasks"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 import {
   categoryFilterOptions,
   createDefaultWorkflowTasks,
@@ -113,11 +114,7 @@ export function ServiceTemplateForm({
       newErrors.estimatedTime ||
       taskErrors.some((taskError) => taskError.name || taskError.reference)
     if (invalid) {
-      requestAnimationFrame(() => {
-        const firstInvalidField = formRef.current?.querySelector('[data-invalid-field="true"]')
-        firstInvalidField?.scrollIntoView({ behavior: "smooth", block: "center" })
-        firstInvalidField?.focus()
-      })
+      scrollToFirstInvalidField(formRef.current)
       return
     }
 
