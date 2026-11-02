@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Check, Save, ShieldQuestion, X } from "lucide-react"
+import { Check, Pencil, Save, ShieldQuestion, X } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
@@ -13,6 +13,14 @@ import {
 import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { AdminForgotPasswordModal } from "@/components/firm/admin-forgot-password-modal"
 import { scrollToFirstInvalidField } from "@/lib/form-validation"
 
@@ -67,10 +75,13 @@ export default function FirmProfilePage() {
   const [paymentInformation, setPaymentInformation] = useState(initialPaymentInformation)
   const [security, setSecurity] = useState(initialSecurity)
   const [securityErrors, setSecurityErrors] = useState({})
+  const [editingTab, setEditingTab] = useState(null)
+  const [confirmationOpen, setConfirmationOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const passwordSaveInProgress = useRef(false)
   const securityFormRef = useRef(null)
-  const profileSaveInProgress = useRef(false)
+  const savedProfileRef = useRef(initialProfile)
+  const savedPaymentInformationRef = useRef(initialPaymentInformation)
   const [saveMessage, setSaveMessage] = useState(null)
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -92,24 +103,10 @@ export default function FirmProfilePage() {
     setSaveMessage(null)
   }
 
-  const handleSaveInfo = async (event) => {
+  const handleSaveInfo = (event) => {
     event.preventDefault()
-
-    if (profileSaveInProgress.current) return
-
-    profileSaveInProgress.current = true
-    setIsSaving(true)
-    setSaveMessage(null)
-    try {
-      // await updateFirmProfile(profile)
-      setSaveMessage({ type: "success", text: "Information updated successfully." })
-    } catch (err) {
-      console.error(err)
-      setSaveMessage({ type: "error", text: "Something went wrong. Please try again." })
-    } finally {
-      profileSaveInProgress.current = false
-      setIsSaving(false)
-    }
+    if (editingTab !== "info" && editingTab !== "personal") return
+    setConfirmationOpen(true)
   }
 
   const handleSavePassword = async (event) => {
@@ -180,16 +177,43 @@ export default function FirmProfilePage() {
 
   const handleSavePaymentInformation = (event) => {
     event.preventDefault()
-    setSaveMessage({
-      type: "success",
-      text: "Payment information updated for this session.",
-    })
+    if (editingTab !== "payment") return
+    setConfirmationOpen(true)
   }
 
   const updatePaymentField = (event) => {
     const { name, value } = event.target
     setPaymentInformation((current) => ({ ...current, [name]: value }))
     setSaveMessage(null)
+  }
+
+  const cancelEditing = () => {
+    if (editingTab === "info" || editingTab === "personal") {
+      setProfile(savedProfileRef.current)
+    } else if (editingTab === "payment") {
+      setPaymentInformation(savedPaymentInformationRef.current)
+    }
+    setEditingTab(null)
+    setConfirmationOpen(false)
+    setSaveMessage(null)
+  }
+
+  const confirmChanges = () => {
+    if (editingTab === "info" || editingTab === "personal") {
+      savedProfileRef.current = { ...profile }
+      setSaveMessage({
+        type: "success",
+        text: "Information updated successfully for this session.",
+      })
+    } else if (editingTab === "payment") {
+      savedPaymentInformationRef.current = { ...paymentInformation }
+      setSaveMessage({
+        type: "success",
+        text: "Payment information updated for this session.",
+      })
+    }
+    setEditingTab(null)
+    setConfirmationOpen(false)
   }
 
   usePageMeta({
@@ -223,8 +247,8 @@ export default function FirmProfilePage() {
               <button
                 key={tab.key}
                 onClick={() => {
+                  cancelEditing()
                   setActiveTab(tab.key)
-                  setSaveMessage(null)
                 }}
                 className={cn(
                   "-mb-px border-b-2 pb-3 text-sm font-medium transition-colors",
@@ -269,6 +293,7 @@ export default function FirmProfilePage() {
                         name="firmName"
                         value={profile.firmName}
                         onChange={updateProfileField}
+                        disabled={editingTab !== "info" || isSaving}
                         className={controlClass}
                       />
                     </Field>
@@ -281,6 +306,7 @@ export default function FirmProfilePage() {
                           name="firmType"
                           value={profile.firmType}
                           onChange={updateProfileField}
+                          disabled={editingTab !== "info" || isSaving}
                           className={selectClass}
                         >
                           <option value="">Select Firm Type</option>
@@ -296,15 +322,34 @@ export default function FirmProfilePage() {
 
               </div>
 
-              <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  disabled={isSaving}
-                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
-                >
-                  <Save className="size-4" />
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </Button>
+              <div className="flex justify-end gap-2">
+                {editingTab === "info" ? (
+                  <>
+                    <Button type="button" variant="outline" onClick={cancelEditing}>
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSaving}
+                      className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                    >
+                      <Save className="size-4" />
+                      Save Changes
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setSaveMessage(null)
+                      setEditingTab("info")
+                    }}
+                    className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                  >
+                    <Pencil className="size-4" />
+                    Edit
+                  </Button>
+                )}
               </div>
             </form>
           )}
@@ -325,6 +370,7 @@ export default function FirmProfilePage() {
                         name="firstName"
                         value={profile.firstName}
                         onChange={updateProfileField}
+                        disabled={editingTab !== "personal" || isSaving}
                         className={controlClass}
                       />
                     </Field>
@@ -335,6 +381,7 @@ export default function FirmProfilePage() {
                         name="lastName"
                         value={profile.lastName}
                         onChange={updateProfileField}
+                        disabled={editingTab !== "personal" || isSaving}
                         className={controlClass}
                       />
                     </Field>
@@ -347,6 +394,7 @@ export default function FirmProfilePage() {
                       type="email"
                       value={profile.workEmail}
                       onChange={updateProfileField}
+                      disabled={editingTab !== "personal" || isSaving}
                       className={controlClass}
                     />
                   </Field>
@@ -357,20 +405,40 @@ export default function FirmProfilePage() {
                       name="contactNumber"
                       value={profile.contactNumber}
                       onChange={updateProfileField}
+                      disabled={editingTab !== "personal" || isSaving}
                       className={controlClass}
                     />
                   </Field>
                 </FieldGroup>
               </div>
-              <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  disabled={isSaving}
-                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
-                >
-                  <Save className="size-4" />
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </Button>
+              <div className="flex justify-end gap-2">
+                {editingTab === "personal" ? (
+                  <>
+                    <Button type="button" variant="outline" onClick={cancelEditing}>
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSaving}
+                      className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                    >
+                      <Save className="size-4" />
+                      Save Changes
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setSaveMessage(null)
+                      setEditingTab("personal")
+                    }}
+                    className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                  >
+                    <Pencil className="size-4" />
+                    Edit
+                  </Button>
+                )}
               </div>
             </form>
           )}
@@ -390,6 +458,7 @@ export default function FirmProfilePage() {
                       name="paymentOption"
                       value={paymentInformation.paymentOption}
                       onChange={updatePaymentField}
+                      disabled={editingTab !== "payment" || isSaving}
                       className={selectClass}
                     >
                       <option value="">Select payment option</option>
@@ -404,6 +473,7 @@ export default function FirmProfilePage() {
                       name="accountName"
                       value={paymentInformation.accountName}
                       onChange={updatePaymentField}
+                      disabled={editingTab !== "payment" || isSaving}
                       className={controlClass}
                     />
                   </Field>
@@ -414,19 +484,40 @@ export default function FirmProfilePage() {
                       name="accountNumber"
                       value={paymentInformation.accountNumber}
                       onChange={updatePaymentField}
+                      disabled={editingTab !== "payment" || isSaving}
                       className={controlClass}
                     />
                   </Field>
                 </FieldGroup>
               </div>
-              <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
-                >
-                  <Save className="size-4" />
-                  Save Changes
-                </Button>
+              <div className="flex justify-end gap-2">
+                {editingTab === "payment" ? (
+                  <>
+                    <Button type="button" variant="outline" onClick={cancelEditing}>
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSaving}
+                      className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                    >
+                      <Save className="size-4" />
+                      Save Changes
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setSaveMessage(null)
+                      setEditingTab("payment")
+                    }}
+                    className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                  >
+                    <Pencil className="size-4" />
+                    Edit
+                  </Button>
+                )}
               </div>
             </form>
           )}
@@ -570,6 +661,38 @@ export default function FirmProfilePage() {
           onClose={() => setIsForgotPasswordOpen(false)}
         />
       )}
+      <Dialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
+        <DialogContent data-slot="firm-profile-save-confirmation">
+          <DialogHeader>
+            <DialogTitle>Confirm changes</DialogTitle>
+            <DialogDescription>
+              Save your changes to{" "}
+              {editingTab === "info"
+                ? "Firm Information"
+                : editingTab === "personal"
+                  ? "Personal Information"
+                  : "Payment Information"}
+              ? These changes apply to this session only.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmationOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmChanges}
+              className="bg-forest-900 text-white hover:opacity-90"
+            >
+              Confirm and Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
