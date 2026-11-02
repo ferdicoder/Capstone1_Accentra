@@ -19,7 +19,6 @@ import { formatDate } from "@/components/firm/engagements/engagement-variants"
 import {
   useFetchEngagement,
   useUpdateEngagementStatus,
-  useSetTaskCompleted,
   useReviewEngagementTask,
   useCreateEngagementTask,
   useUpdateEngagementTask,
@@ -70,7 +69,6 @@ export default function EngagementDetailsPage() {
   )
   const uploadDeliverable = useUploadEngagementDeliverable(id)
   const updateStatus = useUpdateEngagementStatus()
-  const setTaskCompleted = useSetTaskCompleted(id)
   const reviewTask = useReviewEngagementTask(id)
 
   const createTask = useCreateEngagementTask(id)
@@ -109,7 +107,21 @@ export default function EngagementDetailsPage() {
     setTimeout(() => setNotice(""), 3000)
   }
 
+  const documentTasks = (engagement.tasks ?? []).filter(
+    (task) => task.hasReferenceDocument
+  )
+  const canSetForValidation =
+    documentTasks.length > 0 &&
+    documentTasks.every((task) =>
+      ["for_review", "in_review", "submitted", "resubmitted"].includes(task.status)
+    )
+
   const handleStageChange = (stageKey) => {
+    if (stageKey === "for_validation" && !canSetForValidation) {
+      showNotice("All engagement documents must be For Review before moving to For Validation.")
+      return
+    }
+
     updateStatus.mutate(
       { id: engagement.id, status: stageKey },
       {
@@ -131,10 +143,6 @@ export default function EngagementDetailsPage() {
         },
       }
     )
-  }
-
-  const handleTaskComplete = (taskId) => {
-    setTaskCompleted.mutate({ taskId, completed: true })
   }
 
   const handleTaskReview = (taskId, status, remark) => {
@@ -310,6 +318,7 @@ export default function EngagementDetailsPage() {
                 engagement={engagement}
                 onStatusChange={(_, status) => handleStageChange(status)}
                 onCancel={canCancelEngagement ? () => setCancelDialogOpen(true) : undefined}
+                canSetForValidation={canSetForValidation}
               />
             )}
           </div>
@@ -377,7 +386,6 @@ export default function EngagementDetailsPage() {
             <TaskList
               engagement={engagement}
               documents={documents}
-              onTaskComplete={handleTaskComplete}
               onTaskReview={handleTaskReview}
               onTaskCreate={handleTaskCreate}
               onTaskUpdate={handleTaskUpdate}
@@ -437,7 +445,7 @@ export default function EngagementDetailsPage() {
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-semibold text-foreground">Engagement Information</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              View client, service, recurrence, fee, and scheduling details using View Details.
+              View client, service, fee, and scheduling details using View Details.
             </p>
           </div>
         )}

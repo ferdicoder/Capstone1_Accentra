@@ -21,29 +21,6 @@ function InfoRow({ label, children }) {
   )
 }
 
-const monthLabels = {
-  1: "January",
-  2: "February",
-  3: "March",
-  4: "April",
-  5: "May",
-  6: "June",
-  7: "July",
-  8: "August",
-  9: "September",
-  10: "October",
-  11: "November",
-  12: "December",
-}
-
-function getBillingPeriod(billing) {
-  if (!billing.billing_month || !billing.billing_year) {
-    return "—"
-  }
-
-  return `${monthLabels[billing.billing_month] ?? billing.billing_month} ${billing.billing_year}`
-}
-
 /**
  * Billing detail content shown on the Firm Admin / Billing Officer
  * billing detail page.
@@ -82,9 +59,32 @@ export function BillingDetailContent({
 
   const retainerBusinessName =
     retainerClient?.business?.businessName ?? "—"
+  const engagementNumbers = engagements
+    .map((engagement) => engagement.engagementNumber)
+    .filter(Boolean)
+    .join(", ")
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Retainer Fee → Billing For */}
+      {isRetainerFee && (
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h3 className="mb-4 text-sm font-semibold text-foreground">
+            Billing For
+          </h3>
+
+          <div className="flex flex-col gap-2.5">
+            <InfoRow label="Business">
+              {retainerBusinessName}
+            </InfoRow>
+
+            <InfoRow label="Client">
+              {retainerClientName}
+            </InfoRow>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Billing Information */}
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -93,16 +93,14 @@ export function BillingDetailContent({
           </h3>
 
           <div className="flex flex-col gap-2.5">
-            <InfoRow label="Invoice Type">
+            <InfoRow label="Billing Type">
               {invoiceTypeLabels[billing.invoice_type] ??
                 billing.invoice_type}
             </InfoRow>
 
-            {isRetainerFee && (
-              <InfoRow label="Billing Period">
-                {getBillingPeriod(billing)}
-              </InfoRow>
-            )}
+            <InfoRow label="Engagement">
+              {engagementNumbers || "—"}
+            </InfoRow>
 
             <InfoRow label="Amount">
               <span style={{ color: "#02353C" }}>
@@ -160,11 +158,6 @@ export function BillingDetailContent({
 
           {verifiable && (
             <div className="mt-4 border-t border-border pt-4">
-              <p className="text-xs text-muted-foreground">
-                Review the uploaded payment proof and enter the reference ID
-                shown in the proof before verifying the payment.
-              </p>
-
               {onVerifyPayment && (
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Button
@@ -234,24 +227,6 @@ export function BillingDetailContent({
         </div>
       )}
 
-      {/* Retainer Fee → Billing For */}
-      {isRetainerFee && (
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold text-foreground">
-            Billing For
-          </h3>
-
-          <div className="flex flex-col gap-2.5">
-            <InfoRow label="Business">
-              {retainerBusinessName}
-            </InfoRow>
-
-            <InfoRow label="Client">
-              {retainerClientName}
-            </InfoRow>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

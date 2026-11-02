@@ -310,7 +310,7 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
 
 // ── Task Row ──────────────────────────────────────────────────────────────────
 
-function TaskRow({ task, documents = [], engagement, onEdit, onSendReminder, onDeadlineChange, onOpenDetail, onComplete, onApprove, onRequestRevision, onPreviewReference }) {
+function TaskRow({ task, documents = [], engagement, onEdit, onDeadlineChange, onOpenDetail, onApprove, onRequestRevision, onPreviewReference }) {
   const isDocBacked = task.hasReferenceDocument
   const canReview = isDocBacked && (task.status === "for_review" || task.status === "for_revision")
 
@@ -405,11 +405,7 @@ function TaskRow({ task, documents = [], engagement, onEdit, onSendReminder, onD
               <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-40">
-              {!isDocBacked && task.status !== "approved" && (
-                <DropdownMenuItem onClick={onComplete}>Mark Complete</DropdownMenuItem>
-              )}
               <DropdownMenuItem onClick={onEdit}>Edit Task</DropdownMenuItem>
-              <DropdownMenuItem onClick={onSendReminder}>Send Reminder</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -426,12 +422,13 @@ export function TaskList({
   className,
   onTaskClick,
   onDeadlineChange,
-  onTaskComplete,
   onTaskReview,
   onTaskCreate,
   onTaskUpdate,
 }) {
   const tasks = engagement?.tasks ?? []
+  const isTerminalEngagement =
+    engagement?.status === "completed" || engagement?.status === "cancelled"
   const documentsByTask = useMemo(() => documents.reduce((grouped, document) => {
     const taskDocuments = grouped[document.engagementTaskId] ?? []
     grouped[document.engagementTaskId] = [...taskDocuments, document]
@@ -446,7 +443,6 @@ export function TaskList({
   const [taskFormErrors, setTaskFormErrors] = useState({})
   const [taskSubmitting, setTaskSubmitting] = useState(false)
   const [taskSubmitError, setTaskSubmitError] = useState("")
-  const [reminderFeedback, setReminderFeedback] = useState("")
   const [revisionDialogOpen, setRevisionDialogOpen] = useState(false)
   const [revisionTask, setRevisionTask] = useState(null)
   // Kept after close so the dialog doesn't blank during its close animation.
@@ -454,6 +450,7 @@ export function TaskList({
   const [referencePreviewOpen, setReferencePreviewOpen] = useState(false)
 
   const openAddTask = () => {
+    if (isTerminalEngagement) return
     setTaskDialogMode("add")
     setTaskFormData(createEmptyTaskForm())
     setTaskFormErrors({})
@@ -482,6 +479,11 @@ export function TaskList({
 
   const handleTaskSubmit = async (event) => {
     event.preventDefault()
+    if (taskDialogMode === "add" && isTerminalEngagement) {
+      setTaskSubmitError("Tasks cannot be added to a completed or cancelled engagement.")
+      return
+    }
+
     const name = taskFormData.name.trim()
     const taskDeadlineInvalid = isTaskDeadlineAfterEngagement(taskFormData.deadline, engagement?.targetEndDate ?? engagement?.startDate)
 
@@ -539,11 +541,6 @@ export function TaskList({
     setRevisionTask(null)
   }
 
-  const handleSendReminder = (task) => {
-    setReminderFeedback(`Reminder sent to client for "${task.name}".`)
-    window.setTimeout(() => setReminderFeedback(""), 3000)
-  }
-
   const openReferencePreview = (task) => {
     setReferencePreviewTask(task)
     setReferencePreviewOpen(true)
@@ -567,14 +564,10 @@ export function TaskList({
             {requiredCount > 0 && ` · ${requiredCount} required`}
           </p>
         </div>
-        <Button type="button" size="sm" className="h-8 rounded-lg bg-[#02353C] px-3 text-xs text-white hover:bg-[#02353C]/90" onClick={openAddTask}>
+        <Button type="button" size="sm" className="h-8 rounded-lg bg-[#02353C] px-3 text-xs text-white hover:bg-[#02353C]/90" onClick={openAddTask} disabled={isTerminalEngagement}>
           Add Task
         </Button>
       </div>
-
-      {reminderFeedback && (
-        <p role="status" className="border-b border-border bg-emerald-500/10 px-6 py-2 text-xs text-emerald-700">{reminderFeedback}</p>
-      )}
 
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
@@ -601,10 +594,8 @@ export function TaskList({
                   documents={documentsByTask[task.id]}
                   engagement={engagement}
                   onEdit={() => openEditTask(task)}
-                  onSendReminder={() => handleSendReminder(task)}
                   onDeadlineChange={onDeadlineChange}
                   onOpenDetail={() => handleOpenDetail(task)}
-                  onComplete={() => onTaskComplete?.(task.id)}
                   onApprove={handleApprove}
                   onRequestRevision={openRequestRevision}
                   onPreviewReference={() => openReferencePreview(task)}

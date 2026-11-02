@@ -20,7 +20,6 @@ import { BillingStatusDropdown } from "@/components/firm/billing/billing-status-
 import { VerifyPaymentDialog } from "@/components/firm/billing/verify-payment-dialog"
 import {
   billingStatusLabels,
-  invoiceTypeLabels,
   isFinalBillingStatus,
 } from "@/components/firm/billing/billing-variants"
 import { useFetchBilling, useUpdateBillingStatus, useUpdatePaymentStatus } from "@/hooks/useBillings"
@@ -100,19 +99,15 @@ export default function BillingDetailPage() {
   const [pendingStatus, setPendingStatus] = useState("")
   const [notice, setNotice] = useState("")
 
-  const engagements =
-  billing?.invoice_type === "service_fee"
-    ? allEngagements.filter((engagement) => {
-        const engagementIds =
-          billing.engagement_ids?.length > 0
-            ? billing.engagement_ids
-            : billing.engagement_id
-              ? [billing.engagement_id]
-              : []
-
-        return engagementIds.includes(engagement.id)
-      })
-    : []
+  const engagementIds =
+    billing?.engagement_ids?.length > 0
+      ? billing.engagement_ids
+      : billing?.engagement_id
+        ? [billing.engagement_id]
+        : []
+  const engagements = allEngagements.filter((engagement) =>
+    engagementIds.includes(engagement.id)
+  )
 
   const client =
     billing?.invoice_type === "retainer_fee"
@@ -225,10 +220,6 @@ export default function BillingDetailPage() {
     )
   }
 
-  const invoiceLabel =
-    invoiceTypeLabels[billing.invoice_type] ??
-    billing.invoice_type
-
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-1">
@@ -263,7 +254,7 @@ export default function BillingDetailPage() {
           </div>
 
           <p className="text-sm text-muted-foreground">
-            {billing.id} · {invoiceLabel} Invoice
+            {billing.id}
           </p>
         </div>
 

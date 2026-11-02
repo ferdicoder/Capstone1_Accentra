@@ -25,6 +25,7 @@ export function EngagementStatusDropdown({
   onStatusChange,
   onCancel,
   onViewDetails,
+  canSetForValidation = true,
   compact = false,
 }) {
   const [pendingStatus, setPendingStatus] = useState(null)
@@ -44,18 +45,26 @@ export function EngagementStatusDropdown({
     (option) => option.key === pendingStatus
   )
 
-  const isStatusDisabled = (status) => status !== nextStatus
+  const isStatusDisabled = (status) =>
+    status !== nextStatus ||
+    (status === "for_validation" && !canSetForValidation)
 
   const selectStatus = (status) => {
     if (status === "cancelled") {
       onCancel?.(engagement)
-    } else if (status === nextStatus) {
+    } else if (
+      status === nextStatus &&
+      (status !== "for_validation" || canSetForValidation)
+    ) {
       setPendingStatus(status)
     }
   }
 
   const confirmStatusChange = () => {
-    if (pendingStatus === nextStatus) {
+    if (
+      pendingStatus === nextStatus &&
+      (pendingStatus !== "for_validation" || canSetForValidation)
+    ) {
       onStatusChange?.(engagement, pendingStatus)
     }
     setPendingStatus(null)
@@ -109,6 +118,11 @@ export function EngagementStatusDropdown({
               {option.label}
             </DropdownMenuItem>
           ))}
+          {!canSetForValidation && currentStatus === "document_collection" && (
+            <DropdownMenuItem disabled className="whitespace-normal text-xs">
+              All engagement documents must be For Review before moving to For Validation.
+            </DropdownMenuItem>
+          )}
           {onCancel && (
             <>
               <DropdownMenuSeparator />

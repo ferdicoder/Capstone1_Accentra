@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
-import { ArrowLeft, ChevronDown, Pencil } from "lucide-react"
+import { ArrowLeft, Ban, CheckCircle2, ChevronDown, Pencil } from "lucide-react"
 
 import { FirmUserAvatar } from "@/components/firm/users/firm-user-avatar"
 import { FirmUserRoleBadge } from "@/components/firm/users/firm-user-role-badge"
 import { FirmUserStatusBadge } from "@/components/firm/users/firm-user-status-badge"
+import { FirmUserStatusDialog } from "@/components/firm/users/firm-user-status-dialog"
 import { PageNotFound, PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -23,7 +24,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { usePageMeta } from "@/hooks/usePageMeta"
-import { useFetchUsers } from "@/hooks/useUsers"
+import { authStore } from "@/store/authStore"
+import { useFetchUsers, useToggleUserStatus } from "@/hooks/useUsers"
 import { queryKeys } from "@/config/queryKeys"
 
 const roleOptions = [
@@ -54,11 +56,15 @@ function DetailRow({ label, value, editing = false }) {
 export default function FirmUserDetailPage() {
   const { id } = useParams()
   const queryClient = useQueryClient()
+  const authUser = authStore((state) => state.user)
   const { data: users = [], isLoading, error } = useFetchUsers()
+  const toggleStatus = useToggleUserStatus()
   const user = useMemo(() => users.find((item) => String(item.id) === id) ?? null, [users, id])
   const [editing, setEditing] = useState(false)
   const [selectedRole, setSelectedRole] = useState("")
   const [confirmationOpen, setConfirmationOpen] = useState(false)
+  const [statusTarget, setStatusTarget] = useState(null)
+  const [statusNotice, setStatusNotice] = useState("")
 
   usePageMeta({
     title: user?.name || "Firm User Details",
@@ -100,6 +106,24 @@ export default function FirmUserDetailPage() {
   }
 
   const roleLabel = roleOptions.find((option) => option.value === user.role)?.label ?? user.role
+  const statusValidationError = (() => {
+    if (!statusTarget) return ""
+    if (statusTarget.action === "reactivate") {
+      return user.status !== "deactivated"
+        ? "This account is not deactivated, so there is nothing to reactivate."
+        : ""
+    }
+    if (user.id === authUser?.id) {
+      return "You cannot deactivate the account you are signed in with."
+    }
+    const activeAdmins = users.filter(
+      (item) => item.role === "admin" && item.status !== "deactivated"
+    )
+    if (user.role === "admin" && activeAdmins.length <= 1) {
+      return "This is the only active firm administrator, so it cannot be deactivated."
+    }
+    return ""
+  })()
 
   const confirmRoleChange = () => {
     queryClient.setQueryData(queryKeys.users, (currentUsers = []) =>
@@ -111,6 +135,27 @@ export default function FirmUserDetailPage() {
     setConfirmationOpen(false)
   }
 
+  const confirmStatusChange = () => {
+    if (!statusTarget || statusValidationError) return
+    const nextStatus =
+      statusTarget.action === "deactivate" ? "deactivated" : "active"
+    toggleStatus.mutate(
+      { id: user.id, status: nextStatus },
+      {
+        onSuccess: () => {
+          setStatusNotice(
+            `${user.name} ${nextStatus === "deactivated" ? "deactivated" : "reactivated"}`
+          )
+          setStatusTarget(null)
+        },
+        onError: (statusError) => {
+          console.error("Firm user status update failed:", statusError?.message)
+          setStatusNotice("We couldn't update this account. Please try again.")
+        },
+      }
+    )
+  }
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-1">{backButton}</div>
@@ -118,10 +163,33 @@ export default function FirmUserDetailPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="text-lg font-semibold text-foreground">Firm User Details</h2>
-          <p className="text-sm text-muted-foreground">
-            View account information. Only the user's role can be changed here.
-          </p>
+          {statusNotice && (
+            <p role="status" className="text-sm text-muted-foreground">
+              {statusNotice}
+            </p>
+          )}
         </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={user.status === "deactivated" ? "default" : "destructive"}
+            className={`h-9 gap-1.5 rounded-lg ${user.status === "deactivated" ? "bg-forest-900 text-white hover:opacity-90" : ""}`}
+            onClick={() =>
+              setStatusTarget({
+                user,
+                action: user.status === "deactivated" ? "reactivate" : "deactivate",
+              })
+            }
+          >
+            {user.status === "deactivated" ? (
+              <CheckCircle2 className="size-4" />
+            ) : (
+              <Ban className="size-4" />
+            )}
+            {user.status === "deactivated" ? "Reactivate" : "Deactivate"}
+          </Button>
 
         {editing ? (
           <div className="flex items-center gap-2">
@@ -160,6 +228,7 @@ export default function FirmUserDetailPage() {
             Edit Role
           </Button>
         )}
+        </div>
       </div>
 
       <section
@@ -230,7 +299,6 @@ export default function FirmUserDetailPage() {
                 </dd>
               </div>
               <DetailRow label="Account status" value={user.status} editing={editing} />
-              <DetailRow label="User ID" value={user.id} editing={editing} />
             </dl>
           </div>
         </div>
@@ -271,6 +339,16 @@ export default function FirmUserDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FirmUserStatusDialog
+        open={Boolean(statusTarget)}
+        onOpenChange={(open) => !open && setStatusTarget(null)}
+        user={statusTarget?.user}
+        action={statusTarget?.action}
+        validationError={statusValidationError}
+        submitting={toggleStatus.isPending}
+        onConfirm={confirmStatusChange}
+      />
     </>
   )
 }

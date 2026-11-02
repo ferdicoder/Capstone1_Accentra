@@ -54,59 +54,66 @@ export default function BillingPage() {
   )
 
   const filteredBillings = useMemo(() => {
-  const query = search.trim().toLowerCase()
+    const query = search.trim().toLowerCase().replace(/\s+/g, " ")
+    const queryWords = query.split(" ").filter(Boolean)
 
-  return billings.filter((billing) => {
-    const matchesStatus =
-      !statusFilter || billing.status === statusFilter
+    return billings.filter((billing) => {
+      const matchesStatus =
+        !statusFilter || billing.status === statusFilter
 
-    const matchesType =
-      !typeFilter || billing.invoice_type === typeFilter
+      const matchesType =
+        !typeFilter || billing.invoice_type === typeFilter
 
-    if (!matchesStatus || !matchesType) return false
+      if (!matchesStatus || !matchesType) return false
 
-    if (!query) return true
+      if (!query) return true
 
-    const engagement = engagements.find(
-      (e) => e.id === billing.engagement_id
-    )
+      const engagementIds =
+        billing.engagement_ids?.length > 0
+          ? billing.engagement_ids
+          : billing.engagement_id
+            ? [billing.engagement_id]
+            : []
+      const linkedEngagements = engagements.filter((item) =>
+        engagementIds.includes(item.id)
+      )
+      const client =
+        clients.find(
+          (item) =>
+            item.id === billing.business_id ||
+            item.id === billing.client_id
+        ) ?? linkedEngagements[0]?.client
+      const clientNames = [
+        [
+          client?.firstName,
+          client?.middleName,
+          client?.lastName,
+        ].filter(Boolean).join(" "),
+        ...linkedEngagements.map((item) =>
+          [
+            item.client?.firstName,
+            item.client?.middleName,
+            item.client?.lastName,
+          ].filter(Boolean).join(" ")
+        ),
+      ]
+        .filter(Boolean)
+        .map((name) => name.toLowerCase().replace(/\s+/g, " "))
 
-    const client = clients.find(
-      (c) => c.id === billing.client_id
-    )
+      const matchesClientName = clientNames.some((name) =>
+        queryWords.every((word) => name.includes(word))
+      )
 
-    const clientName = client
-      ? `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim()
-      : ""
-
-    return [
-      billing.id,
-      billing.payment_reference,
-      billing.invoice_type,
-      billing.billing_month?.toString(),
-      billing.billing_year?.toString(),
-
-      // Engagement information
-      engagement?.engagementNumber,
-      engagement?.serviceName,
-      engagement?.business?.businessName,
-
-      // Client information
-      clientName,
-      client?.email,
-      client?.business?.businessName,
-    ].some((field) =>
-      field?.toLowerCase().includes(query)
-    )
-  })
-}, [
-  billings,
-  search,
-  statusFilter,
-  typeFilter,
-  engagements,
-  clients,
-])
+      return billing.id?.toLowerCase().includes(query) || matchesClientName
+    })
+  }, [
+    billings,
+    search,
+    statusFilter,
+    typeFilter,
+    engagements,
+    clients,
+  ])
 
   const summaryItems = useMemo(() => buildBillingSummaryItems(billings), [billings])
 

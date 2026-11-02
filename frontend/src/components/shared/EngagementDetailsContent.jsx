@@ -31,7 +31,7 @@ export function EngagementDetailsContent({
           </div>
 
           <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-            {clientInfo?.fields?.map((field, index) => (
+            {clientInfo?.fields?.map((field) => (
               <InfoField
                 key={field.label}
                 label={field.label}
@@ -48,15 +48,10 @@ export function EngagementDetailsContent({
         <section className="px-6 py-7 sm:px-8 sm:py-8">
           <div className="mb-7">
             <h3 className="text-base font-semibold">Service Information</h3>
-            {serviceInfo?.description && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {serviceInfo.description}
-              </p>
-            )}
           </div>
 
           <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-            {serviceInfo?.fields?.map((field, index) => (
+            {serviceInfo?.fields?.map((field) => (
               <InfoField
                 key={field.label}
                 label={field.label}

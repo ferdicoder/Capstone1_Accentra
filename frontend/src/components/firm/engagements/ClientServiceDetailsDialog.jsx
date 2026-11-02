@@ -93,19 +93,11 @@ export function ClientServiceDetailsDialog({
     : false
   const hasChanges = staffChanged || scheduleChanged
 
-  const clientDescription =
-    engagement.clientDescription ??
-    engagement.client?.description ??
-    engagement.request?.notes ??
-    engagement.notes?.[0]?.content ??
-    "—"
-
   const clientInfo = {
     fields: [
       { label: "Full Name", value: getClientFullName(engagement.client), fullWidth: true },
       { label: "Email", value: engagement.client?.email ?? "—" },
       { label: "Contact Number", value: engagement.client?.contactNo ?? "—" },
-      { label: "Client Description", value: clientDescription, fullWidth: true, valueClassName: "leading-6 text-foreground/90" },
       { label: "Business Name", value: engagement.business?.businessName ?? "—" },
       { label: "Business Type", value: engagement.business?.businessType ?? "—" },
       { label: "TIN", value: engagement.business?.tinNo ?? "—" },
@@ -184,7 +176,6 @@ export function ClientServiceDetailsDialog({
   )
 
   const serviceInfo = {
-    description: "Details about the selected service",
     fields: [
       { label: "Engagement Number", value: engagement.engagementNumber },
       { label: "Service", value: engagement.serviceName },
@@ -225,7 +216,7 @@ export function ClientServiceDetailsDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent data-slot="client-service-details-dialog" className="max-w-6xl">
         <DialogHeader className="border-b border-border pb-4">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <DialogTitle>Client & Service Details</DialogTitle>
               <DialogDescription>
@@ -235,12 +226,11 @@ export function ClientServiceDetailsDialog({
             {canEdit && !editing && (
               <Button
                 type="button"
-                variant="outline"
                 size="sm"
-                className="shrink-0 gap-1.5"
+                className="mr-8 h-9 shrink-0 self-center gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
                 onClick={startEdit}
               >
-                <Pencil className="size-3.5" />
+                <Pencil className="size-4" />
                 Edit
               </Button>
             )}

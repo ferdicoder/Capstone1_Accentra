@@ -1,20 +1,15 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Ban, CheckCircle2 } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { FirmUsersToolbar } from "@/components/firm/users/firm-users-toolbar"
 import { FirmUserTable } from "@/components/firm/users/firm-user-table"
-import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-menu"
 import { FirmUserCreateDialog } from "@/components/firm/users/firm-user-create-dialog"
-import { FirmUserStatusDialog } from "@/components/firm/users/firm-user-status-dialog"
 import { PAGE_SIZE } from "@/components/shared/pagination-footer"
-import { authStore } from "@/store/authStore"
 
 import {
   useFetchUsers,
-  useToggleUserStatus,
   useCreateStaff,
   useFetchFirmRoles,
 } from "@/hooks/useUsers"
@@ -29,11 +24,9 @@ const buildDisplayName = ({ firstName, middleName, lastName, extension, name }) 
 
 export default function UserManagementPage() {
   const navigate = useNavigate()
-  const authUser = authStore((state) => state.user)
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [statusTarget, setStatusTarget] = useState(null)
   const [page, setPage] = useState(1)
   const [notice, setNotice] = useState("")
   const [loading, setLoading] = useState(true)
@@ -46,7 +39,6 @@ export default function UserManagementPage() {
 
   const { data: users = [], isLoading, error } = useFetchUsers()
   const { data: roles = [], isLoading: rolesLoading } = useFetchFirmRoles()
-  const toggleStatus = useToggleUserStatus()
   const createStaff = useCreateStaff()
 
   // Emails already taken, so the Add User form can refuse a duplicate.
@@ -82,64 +74,6 @@ export default function UserManagementPage() {
   // The list is paginated, 8 firm users per page.
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
-
-  // Validation for the deactivate / reactivate action. An empty string means
-  // the action may proceed.
-  const validateStatusChange = (user, action) => {
-    if (!user) return "This user could not be found."
-
-    if (action === "reactivate") {
-      if (user.status !== "deactivated") {
-        return "This account is not deactivated, so there is nothing to reactivate."
-      }
-      return ""
-    }
-
-    if (user.id === authUser?.id) {
-      return "You cannot deactivate the account you are signed in with."
-    }
-
-    const activeAdmins = users.filter(
-      (item) => item.role === "admin" && item.status !== "deactivated"
-    )
-    if (user.role === "admin" && activeAdmins.length <= 1) {
-      return "This is the only active firm administrator, so it cannot be deactivated."
-    }
-
-    return ""
-  }
-
-  const openStatusDialog = (user, action) => {
-    setStatusTarget({ user, action })
-  }
-
-  const statusValidationError = statusTarget
-    ? validateStatusChange(statusTarget.user, statusTarget.action)
-    : ""
-
-  const confirmStatusChange = () => {
-    if (!statusTarget || statusValidationError) return
-
-    // The users table only accepts "active" and "deactivated" — a
-    // reactivated account goes back to "active" so it regains access.
-    const nextStatus = statusTarget.action === "deactivate" ? "deactivated" : "active"
-
-    toggleStatus.mutate(
-      { id: statusTarget.user.id, status: nextStatus },
-      {
-        onSuccess: () => {
-          setNotice(
-            `${statusTarget.user.name} ${nextStatus === "deactivated" ? "deactivated" : "reactivated"}`
-          )
-          setStatusTarget(null)
-        },
-        onError: (error) => {
-          console.error("Firm user status update failed:", error?.message)
-          setNotice("We couldn't update this account. Please try again.")
-        },
-      }
-    )
-  }
 
   const handleCreate = (values) => {
     createStaff.mutate(values, {
@@ -213,16 +147,6 @@ export default function UserManagementPage() {
         onRowClick={(user) => navigate(`/admin/users/${user.id}`)}
         page={currentPage}
         onPageChange={setPage}
-        actions={(user) => (
-          <FirmUserActionsMenu
-            user={user}
-            items={[
-              user.status === "deactivated"
-                ? { key: "activate", label: "Reactivate", icon: CheckCircle2, onSelect: (user) => openStatusDialog(user, "reactivate") }
-                : { key: "deactivate", label: "Deactivate", icon: Ban, destructive: true, onSelect: (user) => openStatusDialog(user, "deactivate") },
-            ]}
-          />
-        )}
       />
 
       <FirmUserCreateDialog
@@ -234,16 +158,6 @@ export default function UserManagementPage() {
         submitting={createStaff.isPending}
         existingEmails={existingEmails}
         error={createError}
-      />
-
-      <FirmUserStatusDialog
-        open={Boolean(statusTarget)}
-        onOpenChange={(open) => !open && setStatusTarget(null)}
-        user={statusTarget?.user}
-        action={statusTarget?.action}
-        validationError={statusValidationError}
-        submitting={toggleStatus.isPending}
-        onConfirm={confirmStatusChange}
       />
 
         </>
