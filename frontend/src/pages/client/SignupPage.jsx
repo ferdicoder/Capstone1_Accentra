@@ -103,6 +103,13 @@ function formatTin(value, mask = false) {
   })
 }
 
+function formatContactNumber(value, mask = false) {
+  const digits = value.replace(/\D/g, "")
+  return mask && digits.length > 4
+    ? `${"*".repeat(digits.length - 4)}${digits.slice(-4)}`
+    : digits
+}
+
 // Per-field format validation, used both for live feedback and for the
 // full-step check run on Continue/Submit.
 function validateField(name, value, formData) {
@@ -186,9 +193,14 @@ export default function SignupPage() {
   const [formData, setFormData] = useState(initialFormState);
   const [errors, setErrors] = useState({})
   const [isTinFocused, setIsTinFocused] = useState(false)
+  const [isContactNumberFocused, setIsContactNumberFocused] = useState(false)
   const navigate = useNavigate()
 
   const displayedTin = formatTin(formData.tin, !isTinFocused)
+  const displayedContactNumber = formatContactNumber(
+    formData.contactNumber,
+    !isContactNumberFocused
+  )
 
 
   const updateField = (event) => {
@@ -656,7 +668,9 @@ export default function SignupPage() {
                   inputMode="numeric"
                   placeholder="09123456789"
                   required
-                  value={formData.contactNumber}
+                  value={displayedContactNumber}
+                  onFocus={() => setIsContactNumberFocused(true)}
+                  onBlur={() => setIsContactNumberFocused(false)}
                   onChange={updateField}
                   className="bg-background"
                   aria-invalid={Boolean(errorFor("contactNumber"))}
