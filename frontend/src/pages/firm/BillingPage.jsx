@@ -135,6 +135,26 @@ export default function BillingPage() {
     })
   }
 
+  const handleConfirmRejection = (remarks) => {
+    if (!verifying) return
+    const payment = verifying.payments?.find((item) => item.status === "pending")
+    if (!payment) return showNotice("No pending payment was found.")
+    updatePayment.mutate(
+      {
+        paymentId: payment.payment_id,
+        billingId: verifying.id,
+        status: "rejected",
+      },
+      {
+        onSuccess: () => {
+          setVerifying(null)
+          showNotice(`${verifying.id} payment rejected. Reason: ${remarks}`)
+        },
+        onError: (err) => showNotice(err.message),
+      }
+    )
+  }
+
   usePageMeta({
     title: "Billing",
     breadcrumbs: [
@@ -236,6 +256,8 @@ export default function BillingPage() {
             open={Boolean(verifying)}
             onOpenChange={(open) => !open && setVerifying(null)}
             onConfirm={handleConfirmVerification}
+            onReject={handleConfirmRejection}
+            submitting={updatePayment.isPending}
           />
     </>
   )

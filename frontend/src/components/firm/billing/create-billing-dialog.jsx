@@ -46,6 +46,45 @@ function getEngagementClientId(engagement) {
   );
 }
 
+function getBillingClientId(billing, engagements) {
+  const clientId = billing.business_id ?? billing.client_id ?? billing.business?.id;
+  if (clientId) return clientId;
+
+  const engagementIds =
+    billing.engagement_ids ?? (billing.engagement_id ? [billing.engagement_id] : []);
+  return engagementIds
+    .map((id) =>
+      getEngagementClientId(engagements.find((engagement) => engagement.id === id))
+    )
+    .find(Boolean);
+}
+
+function getBillingPeriod(billing) {
+  const month = Number(billing.billing_month);
+  const year = Number(billing.billing_year);
+  if (
+    billing.billing_month != null &&
+    billing.billing_year != null &&
+    month >= 1 &&
+    month <= 12 &&
+    Number.isInteger(year)
+  ) {
+    return { month, year };
+  }
+
+  const dueDate = billing.due_date;
+  if (typeof dueDate !== 'string') return null;
+
+  const dateParts = dueDate.match(/^(\d{4})-(\d{2})-\d{2}/);
+  if (!dateParts) return null;
+
+  const dueYear = Number(dateParts[1]);
+  const dueMonth = Number(dateParts[2]);
+  return dueMonth >= 1 && dueMonth <= 12
+    ? { month: dueMonth, year: dueYear }
+    : null;
+}
+
 function isRetainerClient(client) {
   return client?.clientType === 'retainer' || client?.type === 'retainer';
 }
@@ -169,17 +208,17 @@ export function CreateBillingDialog({
     );
   const duplicateRetainer =
     isRetainerFee &&
-    billings.some(
-      (billing) =>
+    Boolean(clientId) &&
+    billings.some((billing) => {
+      const period = getBillingPeriod(billing);
+      return (
         billing.invoice_type === 'retainer_fee' &&
         billing.status !== 'cancelled' &&
-        engagementIds.some(
-          (id) =>
-            billing.engagement_ids?.includes(id) || billing.engagement_id === id
-        ) &&
-        billing.billing_month === Number(billingMonth) &&
-        billing.billing_year === Number(billingYear)
-    );
+        getBillingClientId(billing, engagements) === clientId &&
+        period?.month === Number(billingMonth) &&
+        period?.year === Number(billingYear)
+      );
+    });
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const selectedDueDate = dueDate ? new Date(`${dueDate}T00:00:00`) : null;
@@ -350,6 +389,11 @@ export function CreateBillingDialog({
   };
   const handleSubmit = (event) => {
     event.preventDefault();
+    if (duplicateRetainer) {
+      setErrors((previous) => ({ ...previous, billingPeriod: true }));
+      return;
+    }
+
     const trimmedAmount = amount.trim();
     const numericAmount = Number(trimmedAmount);
     const lineAmounts = engagementIds.map((id) =>
@@ -366,8 +410,7 @@ export function CreateBillingDialog({
       engagement:
         (isServiceFee || isRetainerFee) &&
         (engagementIds.length === 0 ||
-          duplicateServiceFee ||
-          duplicateRetainer),
+          duplicateServiceFee),
       billingPeriod:
         isRetainerFee && (!billingMonth || !billingYear || duplicateRetainer),
       amount: isServiceFee
@@ -411,8 +454,12 @@ export function CreateBillingDialog({
         <DialogHeader>
           <DialogTitle>Create Billing</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <FieldGroup className="space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <FieldGroup className="space-y-4">
             <Field>
               <FieldLabel>
                 Client <span className="text-red-500">*</span>
@@ -686,8 +733,8 @@ export function CreateBillingDialog({
                   <p className="text-xs text-red-500">
                     {typeof errors.engagement === 'string'
                       ? errors.engagement
-                      : duplicateServiceFee || duplicateRetainer
-                        ? 'One or more selected engagements already have this billing type for the selected period.'
+                      : duplicateServiceFee
+                        ? 'One or more selected engagements already have a service fee billing.'
                         : 'Please select at least one engagement.'}
                   </p>
                 )}
@@ -753,11 +800,19 @@ export function CreateBillingDialog({
                   Defaults to the current billing period. Change it if billing
                   for a different period.
                 </p>
-                {errors.billingPeriod && (
+                {duplicateRetainer && (
+                  <p
+                    id="duplicate-retainer-warning"
+                    role="alert"
+                    className="text-xs text-red-500"
+                  >
+                    A retainer fee billing already exists for this client for{' '}
+                    {selectedBillingPeriod}. Choose a different month or year.
+                  </p>
+                )}
+                {errors.billingPeriod && !duplicateRetainer && (
                   <p className="text-xs text-red-500">
-                    {duplicateRetainer
-                      ? `A retainer fee already exists for the selected engagements for ${selectedBillingPeriod}.`
-                      : 'Please select a billing period.'}
+                    Please select a billing period.
                   </p>
                 )}
               </Field>
@@ -807,8 +862,9 @@ export function CreateBillingDialog({
               )}
             </Field>
             {error && <p className="text-sm text-red-500">{error}</p>}
-          </FieldGroup>
-          <DialogFooter className="mt-6">
+            </FieldGroup>
+          </div>
+          <DialogFooter className="mt-4 shrink-0 border-t bg-popover pt-4">
             <Button
               type="button"
               variant="outline"
@@ -819,7 +875,9 @@ export function CreateBillingDialog({
             </Button>
             <Button
               type="submit"
-              disabled={submitting || engagementsUnavailable}
+              disabled={submitting || engagementsUnavailable || duplicateRetainer}
+              aria-describedby={duplicateRetainer ? "duplicate-retainer-warning" : undefined}
+              className="bg-forest-900 text-white hover:opacity-90 disabled:hover:opacity-50"
             >
               {submitting ? 'Creating...' : 'Create Billing'}
             </Button>

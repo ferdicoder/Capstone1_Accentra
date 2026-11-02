@@ -521,7 +521,7 @@ export default function BillingOfficerCalendarPage() {
     setVerifyingEvent(null)
   }
 
-  const handleConfirmRejection = () => {
+  const handleConfirmRejection = (remarks) => {
     const billing = rejectingEvent?.billing
     if (!billing) return
 
@@ -537,7 +537,7 @@ export default function BillingOfficerCalendarPage() {
         onSuccess: () => {
           setRejectingEvent(null)
           setSelectedEvent(null)
-          showNotice(`${billing.id} payment rejected`)
+          showNotice(`${billing.id} payment rejected. Reason: ${remarks}`)
           refetch?.()
         },
         onError: (err) => showNotice(err.message),

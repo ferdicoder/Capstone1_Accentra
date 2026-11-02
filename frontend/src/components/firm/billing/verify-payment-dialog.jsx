@@ -236,17 +236,15 @@ export function VerifyPaymentDialog({
             </Button>
 
             <div className="flex gap-2">
-              {billing?.status === "for_verification" && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={submitting}
-                  onClick={handleReject}
-                  className="cursor-pointer text-destructive hover:text-destructive"
-                >
-                  Reject Payment
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                disabled={submitting}
+                onClick={handleReject}
+                className="cursor-pointer text-destructive hover:text-destructive"
+              >
+                Reject Payment
+              </Button>
 
               <Button
                 type="button"

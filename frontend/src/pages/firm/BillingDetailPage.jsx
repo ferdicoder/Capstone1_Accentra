@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react"
 
 import { PageNotFound } from "@/components/shared/loading/page-skeleton"
 import { Button, buttonVariants } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,59 @@ import {
 import { useFetchBilling, useUpdateBillingStatus, useUpdatePaymentStatus } from "@/hooks/useBillings"
 import { useFetchEngagements } from "@/hooks/useEngagements"
 import { useFetchBusinesses } from "@/hooks/useBusinesses"
+
+function BillingDetailSkeleton({ backHref }) {
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-3 py-1">
+        <Link
+          to={backHref}
+          className={buttonVariants({
+            variant: "ghost",
+            size: "sm",
+            className: "cursor-pointer gap-1.5 text-muted-foreground",
+          })}
+        >
+          <ArrowLeft className="size-4" />
+          Back
+        </Link>
+      </div>
+
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Skeleton className="h-6 w-36" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+          <Skeleton className="h-4 w-56 max-w-full" />
+        </div>
+        <Skeleton className="h-9 w-36" />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        {[0, 1].map((card) => (
+          <div
+            key={card}
+            className="rounded-xl border border-border bg-card p-5 shadow-sm"
+          >
+            <Skeleton className="mb-5 h-4 w-40" />
+            <div className="flex flex-col gap-4">
+              {[0, 1, 2, 3].map((row) => (
+                <div
+                  key={row}
+                  className="flex items-center justify-between gap-4"
+                >
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
 
 export default function BillingDetailPage() {
   const { id } = useParams()
@@ -121,15 +175,19 @@ export default function BillingDetailPage() {
   })
 }
 
-  const handleConfirmRejection = () => {
+  const handleConfirmRejection = (remarks) => {
     if (!billing) return
 
     const payment = billing.payments?.find((item) => item.status === "pending")
     if (!payment) return
     updatePayment.mutate({ paymentId: payment.payment_id, billingId: billing.id, status: "rejected" }, {
-      onSuccess: () => { setVerifyOpen(false); showNotice(`${billing.id} payment rejected`) },
+      onSuccess: () => { setVerifyOpen(false); showNotice(`${billing.id} payment rejected. Reason: ${remarks}`) },
       onError: (err) => showNotice(err.message),
     })
+  }
+
+  if (isLoading) {
+    return <BillingDetailSkeleton backHref={backHref} />
   }
 
   if (!billing) {
@@ -156,7 +214,6 @@ export default function BillingDetailPage() {
           )}
         </div>
 
-        {isLoading && <p className="px-2 text-sm text-muted-foreground">Loading billing record…</p>}
         {error && <p className="px-2 text-sm text-destructive">{error.message}</p>}
         <PageNotFound
           title="Billing Record Not Found"
@@ -236,6 +293,7 @@ export default function BillingDetailPage() {
         onOpenChange={setVerifyOpen}
         onConfirm={handleConfirmVerification}
         onReject={handleConfirmRejection}
+        submitting={updatePayment.isPending}
       />
 
       <Dialog
