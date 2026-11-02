@@ -24,23 +24,67 @@ function formatNotificationDate(value) {
   }).format(new Date(value))
 }
 
-function getNotificationPath(notification, role) {
-  if (!notification.entity_id) return null
-
+function getClientNotificationPath(notification) {
   switch (notification.entity_type) {
     case "engagement":
-      return `/${role === "client" ? "client" : role === "staff" ? "firm" : "admin"}/engagements/${notification.entity_id}`
+      return `/client/engagements/${notification.entity_id}`
     case "payment":
-      return role === "client"
-        ? `/client/billing/${notification.entity_id}`
-        : role === "admin"
-          ? `/admin/billing/${notification.entity_id}`
-          : null
+      return `/client/billing/${notification.entity_id}`
     case "service_request":
-      return role === "admin" ? "/admin/service-requests" : role === "client" ? "/client/service-requests" : null
+      return "/client/service-requests"
     default:
       return null
   }
+}
+
+function getStaffNotificationPath(notification) {
+  switch (notification.entity_type) {
+    case "engagement":
+      return `/firm/engagements/${notification.entity_id}`
+    case "service":
+      return "/firm/services"
+    default:
+      return null
+  }
+}
+
+function getAdminNotificationPath(notification) {
+  switch (notification.entity_type) {
+    case "engagement":
+      return `/admin/engagements/${notification.entity_id}`
+    case "payment":
+      return `/admin/billing/${notification.entity_id}`
+    case "service_request":
+      return "/admin/service-requests"
+    case "service":
+      return "/admin/services"
+    default:
+      return null
+  }
+}
+
+function getBillingOfficerNotificationPath(notification) {
+  switch (notification.entity_type) {
+    case "engagement":
+      return `/billing-officer/engagements/${notification.entity_id}`
+    case "payment":
+      return `/billing-officer/billing/${notification.entity_id}`
+    default:
+      return null
+  }
+}
+
+function getNotificationPath(notification, role) {
+  if (!notification.entity_id) return null
+
+  const pathByRole = {
+    client: getClientNotificationPath,
+    staff: getStaffNotificationPath,
+    admin: getAdminNotificationPath,
+    billing_officer: getBillingOfficerNotificationPath,
+  }
+
+  return pathByRole[role]?.(notification) ?? null
 }
 
 const notificationLabels = new Map([
@@ -51,12 +95,14 @@ const notificationLabels = new Map([
   ["service_request_approved", "Service request approved"],
   ["service_request_rejected", "Service request rejected"],
   ["engagement_assigned", "Engagement assigned"],
+  ["engagement_ready_for_billing", "Engagement ready for billing"],
+  ["service_created", "New service available"],
   ["client_registered", "New client registered"],
 ])
 
 function getNotificationLabel(notification) {
   const entity = notification?.entity_type
-  if (!["service_request", "payment", "engagement", "client"].includes(entity)) return null
+  if (!["service_request", "payment", "engagement", "service", "client"].includes(entity)) return null
 
   return notificationLabels.get(notification?.type) ?? null
 }
