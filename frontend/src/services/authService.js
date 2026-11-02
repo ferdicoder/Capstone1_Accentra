@@ -142,8 +142,8 @@ async function registerClient(formData) {
     password: formData.password,
     options: {
       data: {
-        first_name: formData.firstName, 
-        last_name: formData.lastName, 
+        first_name: formData.firstName,
+        last_name: formData.lastName,
         middle_name: formData.middleName,
         birth_date: toISODateString(formData.birthDate),
         contact_no: formData.contactNumber,
@@ -153,16 +153,28 @@ async function registerClient(formData) {
         industry: formData.industry,
         house_no: formData.houseNo,
         street: formData.streetName,
-        barangay: formData.barangay, 
-        district: formData.district, 
+        barangay: formData.barangay,
+        district: formData.district,
         city: formData.city,
-        zip_code: formData.zipCode
-      }
-    }
+        zip_code: formData.zipCode,
+      },
+    },
   });
 
-  if (authError) return { data: null, error: authError.message };
-  if (!authData.user) return { data: null, error: 'No user returned from signUp' };
+  if (authError) return { data: null, error: authError };
+  if (!authData?.user) {
+    return { data: null, error: new Error("No user returned from signUp.") };
+  }
+
+  // Supabase may return an empty identities array for an existing email
+  // when email-enumeration protection is enabled. This is not guaranteed
+  // to be exposed in every Auth configuration.
+  if (authData.user.identities?.length === 0) {
+    return {
+      data: null,
+      error: new Error("An account with this email may already exist."),
+    };
+  }
 
   return { data: authData, error: null };
 }
