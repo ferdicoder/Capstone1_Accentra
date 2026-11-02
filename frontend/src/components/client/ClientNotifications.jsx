@@ -29,13 +29,15 @@ function getNotificationPath(notification, role) {
 
   switch (notification.entity_type) {
     case "engagement":
-      return `/${role === "staff" ? "firm" : "client"}/engagements/${notification.entity_id}`
+      return `/${role === "client" ? "client" : role === "staff" ? "firm" : "admin"}/engagements/${notification.entity_id}`
     case "payment":
-      return role === "staff"
-        ? `/billing-officer/billing/${notification.entity_id}`
-        : `/client/billing/${notification.entity_id}`
+      return role === "client"
+        ? `/client/billing/${notification.entity_id}`
+        : role === "admin"
+          ? `/admin/billing/${notification.entity_id}`
+          : null
     case "service_request":
-      return role === "staff" ? null : "/client/service-requests"
+      return role === "admin" ? "/admin/service-requests" : role === "client" ? "/client/service-requests" : null
     default:
       return null
   }
@@ -48,11 +50,13 @@ const notificationLabels = new Map([
   ["service_request_submitted", "New service request"],
   ["service_request_approved", "Service request approved"],
   ["service_request_rejected", "Service request rejected"],
+  ["engagement_assigned", "Engagement assigned"],
+  ["client_registered", "New client registered"],
 ])
 
 function getNotificationLabel(notification) {
   const entity = notification?.entity_type
-  if (entity !== "service_request" && entity !== "payment") return null
+  if (!["service_request", "payment", "engagement", "client"].includes(entity)) return null
 
   return notificationLabels.get(notification?.type) ?? null
 }
@@ -64,10 +68,14 @@ export function ClientNotifications({ role = "client" }) {
   const { data: notifications = [], isLoading, error } = useNotifications(userId)
   const markRead = useMarkNotificationRead(userId)
   const markAllRead = useMarkAllNotificationsRead(userId)
+  const visibleNotifications =
+    role === "staff"
+      ? notifications.filter((notification) => notification.type !== "service_request_submitted")
+      : notifications
 
   const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.read_at).length,
-    [notifications]
+    () => visibleNotifications.filter((notification) => !notification.read_at).length,
+    [visibleNotifications]
   )
 
   const handleNotificationClick = async (notification) => {
@@ -140,14 +148,14 @@ export function ClientNotifications({ role = "client" }) {
             Notifications could not be loaded. Please try again.
           </p>
         )}
-        {!isLoading && !error && notifications.length === 0 && (
+        {!isLoading && !error && visibleNotifications.length === 0 && (
           <p className="p-6 text-center text-sm text-muted-foreground">
             You&apos;re all caught up.
           </p>
         )}
-        {!isLoading && !error && notifications.length > 0 && (
+        {!isLoading && !error && visibleNotifications.length > 0 && (
           <div className="max-h-96 overflow-y-auto">
-            {notifications.map((notification) => (
+            {visibleNotifications.map((notification) => (
               <button
                 key={notification.notif_id}
                 type="button"
