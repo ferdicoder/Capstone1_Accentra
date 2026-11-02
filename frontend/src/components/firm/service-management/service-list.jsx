@@ -232,7 +232,7 @@ export function ServiceManagementTable({
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
               {columns.map((column) => (
                 <th
                   key={column.key ?? column.label}
@@ -395,7 +395,7 @@ export function ServiceDetailsDialog({
           </div>
 
           <div className="mt-6 border-t border-border pt-5">
-            <h3 className="text-sm font-medium text-foreground">Workflow Tasks</h3>
+            <h3 className="text-sm font-medium text-foreground">Engagement Tasks</h3>
             {workflowTasks.length > 0 ? (
               <ul className="mt-3 space-y-2">
                 {workflowTasks.map((task, index) => (
@@ -426,7 +426,7 @@ export function ServiceDetailsDialog({
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 text-sm text-muted-foreground">No workflow tasks configured.</p>
+              <p className="mt-2 text-sm text-muted-foreground">No engagement tasks configured.</p>
             )}
           </div>
         </div>
@@ -437,6 +437,7 @@ export function ServiceDetailsDialog({
               <Button
                 type="button"
                 variant={service.status === "active" ? "outline" : "default"}
+                className={service.status === "active" ? undefined : "bg-forest-900 text-white hover:opacity-90"}
                 onClick={() => onToggleStatus(service)}
               >
                 {service.status === "active" ? (
@@ -461,6 +462,52 @@ export function ServiceDetailsDialog({
             )}
           </DialogFooter>
         )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function ServiceStatusDialog({
+  open = false,
+  onOpenChange,
+  service,
+  onConfirm,
+  updating = false,
+}) {
+  const isActive = service?.status === "active"
+  const action = isActive ? "deactivate" : "activate"
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent data-slot="service-status-dialog">
+        <DialogHeader>
+          <DialogTitle>
+            {isActive ? "Deactivate service?" : "Activate service?"}
+          </DialogTitle>
+          <DialogDescription>
+            Are you sure you want to {action}{" "}
+            <span className="font-medium text-foreground">{service?.name}</span>?
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="flex-row justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={updating}
+            onClick={() => onOpenChange?.(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant={isActive ? "destructive" : "default"}
+            className={!isActive ? "bg-forest-900 text-white hover:opacity-90" : undefined}
+            disabled={updating}
+            onClick={onConfirm}
+          >
+            {updating ? "Saving..." : isActive ? "Deactivate" : "Activate"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

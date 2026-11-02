@@ -104,7 +104,7 @@ export function BillingTable({
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
               <th scope="col" className="px-4 py-3 font-semibold">
                 Bill ID
               </th>

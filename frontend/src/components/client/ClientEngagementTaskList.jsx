@@ -873,10 +873,10 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
           <table className="w-full min-w-[680px] table-fixed">
             <thead>
               <tr className="border-b border-border text-left">
-                <th className="px-6 py-2.5 text-xs font-medium text-muted-foreground">Requirement</th>
-                <th className="w-[120px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
-                <th className="w-[140px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Deadline</th>
-                <th className="w-[280px] px-4 py-2.5 text-xs font-medium text-muted-foreground">Actions</th>
+                <th className="px-6 py-2.5 text-xs font-medium text-foreground">Requirement</th>
+                <th className="w-[120px] px-4 py-2.5 text-xs font-medium text-foreground">Status</th>
+                <th className="w-[140px] px-4 py-2.5 text-xs font-medium text-foreground">Deadline</th>
+                <th className="w-[280px] px-4 py-2.5 text-xs font-medium text-foreground">Actions</th>
               </tr>
             </thead>
             <tbody>

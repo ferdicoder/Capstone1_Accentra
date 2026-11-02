@@ -587,10 +587,10 @@ export function TaskList({
           <table className="w-full min-w-[560px]">
             <thead>
               <tr className="border-b border-border text-left">
-                <th className="min-w-0 px-6 py-2.5 text-xs font-medium text-muted-foreground">Task</th>
-                <th className="w-[160px] px-5 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
-                <th className="w-[180px] px-5 py-2.5 text-xs font-medium text-muted-foreground">Deadline</th>
-                <th className="w-[100px] px-4 py-2.5 text-xs font-medium text-muted-foreground text-right">Actions</th>
+                <th className="min-w-0 px-6 py-2.5 text-xs font-medium text-foreground">Task</th>
+                <th className="w-[160px] px-5 py-2.5 text-xs font-medium text-foreground">Status</th>
+                <th className="w-[180px] px-5 py-2.5 text-xs font-medium text-foreground">Deadline</th>
+                <th className="w-[100px] px-4 py-2.5 text-xs font-medium text-foreground text-right">Actions</th>
               </tr>
             </thead>
             <tbody>

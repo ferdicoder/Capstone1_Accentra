@@ -5,7 +5,7 @@ import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-foot
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { EngagementStatusBadge } from "./engagement-status-badge"
-import { formatDate, getClientFullName, getRecurrenceInfo } from "./engagement-variants"
+import { formatDate, getClientFullName } from "./engagement-variants"
 
 const getInitials = (name) => {
   if (!name) return "AC"
@@ -64,18 +64,6 @@ const defaultEngagementColumns = [
     label: "Status",
     render: (engagement) => <EngagementStatusBadge status={engagement?.status} />,
   },
-  {
-    key: "recurrence",
-    label: "Recurrence",
-    render: (engagement) => {
-      const recurrence = getRecurrenceInfo(engagement)
-      return (
-        <span className="text-sm text-muted-foreground">
-          {recurrence.isRecurring ? recurrence.frequency : recurrence.recurrence}
-        </span>
-      )
-    },
-  },
 ]
 
 export function EngagementList({
@@ -113,7 +101,7 @@ export function EngagementList({
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
               {columns.map((column) => (
                 <th
                   key={column.key ?? column.label}

@@ -123,7 +123,7 @@ export function ServiceRequestList({
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
               {visibleColumns.map((column) => (
                 <th
                   key={column.key ?? column.label}

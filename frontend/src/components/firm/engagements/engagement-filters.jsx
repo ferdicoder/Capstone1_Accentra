@@ -36,10 +36,10 @@ export function EngagementFilters({
   return (
     <div
       data-slot="engagement-filters"
-      className={cn("flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center", className)}
+      className={cn("flex min-w-0 flex-nowrap items-center gap-3 overflow-x-auto whitespace-nowrap", className)}
       {...props}
     >
-      <div className="relative w-full sm:w-64">
+      <div className="relative w-64 shrink-0">
         <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
@@ -52,10 +52,10 @@ export function EngagementFilters({
       </div>
 
       {resultCount && (
-        <p className="hidden text-sm text-muted-foreground md:block">{resultCount}</p>
+        <p className="hidden shrink-0 whitespace-nowrap text-sm text-muted-foreground md:block">{resultCount}</p>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+      <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger
             render={

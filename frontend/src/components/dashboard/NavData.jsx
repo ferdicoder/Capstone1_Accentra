@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 
 export const firmAdminNav = [
-  { title: "Home", url: "/admin/dashboard", icon: LayoutDashboard, items: [] },
+  { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard, items: [] },
   { title: "Service Requests", url: "/admin/service-requests", icon: UserCog, items: [] },
   { title: "Services", url: "/admin/services", icon: ClipboardList, items: [] },
   { title: "Engagements", url: "/admin/engagements", icon: Briefcase, items: [] },
@@ -28,7 +28,7 @@ export const firmAdminNav = [
 ]
 
 export const firmUserNav = [
-  { title: "Home", url: "/firm/dashboard", icon: LayoutDashboard, items: [] },
+  { title: "Dashboard", url: "/firm/dashboard", icon: LayoutDashboard, items: [] },
   { title: "Services", url: "/firm/services", icon: ClipboardList, items: [] },
   { title: "Engagements", url: "/firm/engagements", icon: Briefcase, items: [] },
   {
@@ -50,7 +50,7 @@ export const clientNav = [
 ]
 
 export const billingOfficerNav = [
-  { title: "Home",        url: "/billing-officer/dashboard",   icon: LayoutDashboard, items: [] },
+  { title: "Dashboard",   url: "/billing-officer/dashboard",   icon: LayoutDashboard, items: [] },
   { title: "Engagements", url: "/billing-officer/engagements", icon: Briefcase,       items: [] },
   { title: "Billing",     url: "/billing-officer/billing",     icon: Receipt,         items: [] },
 ]

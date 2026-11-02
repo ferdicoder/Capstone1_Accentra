@@ -6,6 +6,7 @@ import {
   ServiceDetailsDialog,
   ServiceManagementToolbar,
   ServiceDeleteDialog,
+  ServiceStatusDialog,
   ServiceStatsCards,
 } from "@/components/firm/service-management/service-list"
 import {
@@ -85,6 +86,8 @@ export default function ServiceManagementPage() {
   const [editingService, setEditingService] = useState(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [viewingService, setViewingService] = useState(null)
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false)
+  const [statusService, setStatusService] = useState(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deletingService, setDeletingService] = useState(null)
   const [notice, setNotice] = useState(null)
@@ -340,16 +343,29 @@ export default function ServiceManagementPage() {
     })
   }
 
-  const handleToggleStatus = (service) => {
+  const openStatusDialog = (service) => {
+    setDetailsOpen(false)
+    setStatusService(service)
+    setStatusDialogOpen(true)
+  }
+
+  const handleToggleStatus = () => {
+    if (!statusService) return
+    const service = statusService
     const nextStatus = service.status === "active" ? "deactivated" : "active"
     toggleStatus.mutate(
       { id: service.id, status: nextStatus },
       {
         onSuccess: () => {
+          setStatusDialogOpen(false)
+          setStatusService(null)
           setNotice({
             tone: "success",
             message: `${service.name} ${nextStatus === "active" ? "activated" : "deactivated"}`,
           })
+        },
+        onError: (err) => {
+          setNotice({ tone: "danger", message: err.message })
         },
       }
     )
@@ -383,11 +399,6 @@ export default function ServiceManagementPage() {
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-1">
-        <p className="text-sm text-muted-foreground">
-          {canManageServices
-            ? "Manage your firm's service catalog. You can add new service templates, edit existing ones, and activate or deactivate services as needed."
-            : "View your firm's service catalog. Service changes can only be made by an administrator."}
-        </p>
         {notice && (
           <span
             className={
@@ -432,7 +443,6 @@ export default function ServiceManagementPage() {
         services={filteredServices}
         loading={isLoading}
         emptyMessage="No services match your filters."
-        emptyDescription="Try clearing the search or filters."
         onRowClick={openDetails}
         page={currentPage}
         onPageChange={setCurrentPage}
@@ -444,12 +454,23 @@ export default function ServiceManagementPage() {
         service={viewingService}
         categoryOptions={categoryOptions}
         onEdit={canManageServices ? openEdit : undefined}
-        onToggleStatus={canManageServices ? handleToggleStatus : undefined}
+        onToggleStatus={canManageServices ? openStatusDialog : undefined}
         onDelete={canManageServices ? openDeleteDialog : undefined}
       />
 
       {canManageServices && (
         <>
+          <ServiceStatusDialog
+            open={statusDialogOpen}
+            onOpenChange={(open) => {
+              setStatusDialogOpen(open)
+              if (!open) setStatusService(null)
+            }}
+            service={statusService}
+            onConfirm={handleToggleStatus}
+            updating={toggleStatus.isPending}
+          />
+
           <ServiceCreateDialog
             open={createOpen}
             onOpenChange={setCreateOpen}

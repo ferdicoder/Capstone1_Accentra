@@ -23,7 +23,6 @@ import {
   getClientFullName,
   formatDate,
   formatRevenue,
-  getRecurrenceInfo,
   firmStaffMap,
 } from "./engagement-variants"
 
@@ -93,8 +92,6 @@ export function ClientServiceDetailsDialog({
       draft.dueDate !== toDateInputValue(engagement.targetEndDate)
     : false
   const hasChanges = staffChanged || scheduleChanged
-
-  const recurrence = getRecurrenceInfo(engagement)
 
   const clientDescription =
     engagement.clientDescription ??
@@ -195,13 +192,6 @@ export function ClientServiceDetailsDialog({
       { label: "Service Fee", value: formatRevenue(engagement.serviceFee ?? engagement.fee) },
       { label: "Start Date", value: startDateValue, fullWidth: editing },
       { label: "Due Date", value: dueDateValue, fullWidth: editing },
-      { label: "Recurrence", value: recurrence.recurrence },
-      ...(recurrence.isRecurring
-        ? [
-            { label: "Frequency", value: recurrence.frequency },
-            { label: "Expected Next Period", value: recurrence.expectedNextPeriod },
-          ]
-        : []),
     ],
   }
 

@@ -567,7 +567,7 @@ export default function ClientServiceRequestsPage() {
               <col className="w-[16%]" />
             </colgroup>
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+              <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
                 <th className="px-4 py-3.5 align-middle font-semibold">Request</th>
                 <th className="px-4 py-3.5 align-middle font-semibold">Service</th>
                 <th className="px-4 py-3.5 text-center align-middle font-semibold">Status</th>

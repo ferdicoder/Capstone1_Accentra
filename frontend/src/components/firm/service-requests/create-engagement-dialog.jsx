@@ -25,6 +25,13 @@ import { useSearchClients } from "@/hooks/useBusinesses"
 
 
 const sectionHeadingClass = "font-heading text-sm font-medium text-foreground"
+const getTodayDateInputValue = () => {
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
 
 function ReadOnlyRow({ label, children }) {
   return (
@@ -64,7 +71,6 @@ export function CreateEngagementDialog({
   const [businessType, setBusinessType] = useState(() => request?.business?.businessType ?? "")
   const [contactNo, setContactNo] = useState(() => request?.client?.contactNo ?? "")
   const [clientEmail, setClientEmail] = useState(() => request?.client?.email ?? "")
-  const [clientDescription, setClientDescription] = useState(() => request?.clientDescription ?? request?.notes ?? "")
 
   const [errors, setErrors] = useState({})
 
@@ -109,6 +115,7 @@ export function CreateEngagementDialog({
     .map((u) => ({ value: u.id, label: u.name }))
 
   const activeStaff = firmStaffOptions.find((s) => s.value === assignedStaff)
+  const todayDate = getTodayDateInputValue()
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setDebouncedClientQuery(clientQuery.trim())
@@ -136,14 +143,12 @@ export function CreateEngagementDialog({
     const newErrors = {
       serviceName: !selectedService,
       assignedStaff: !assignedStaff,
-      startDate: !startDate,
+      startDate: !startDate || startDate < todayDate,
       targetEndDate: !targetEndDate,
     }
 
     if (isStandalone) {
-      newErrors.clientFirstName = !clientFirstName.trim()
-      newErrors.clientLastName = !clientLastName.trim()
-      newErrors.businessName = !businessName.trim()
+      newErrors.client = !selectedBusinessId
     }
 
     setErrors(newErrors)
@@ -156,7 +161,6 @@ export function CreateEngagementDialog({
           lastName: clientLastName.trim(),
           contactNo: contactNo.trim(),
           email: clientEmail.trim(),
-          description: clientDescription.trim(),
         }
       : request?.client
 
@@ -178,7 +182,6 @@ export function CreateEngagementDialog({
       startDate,
       targetEndDate,
       serviceFee: Number(selectedService?.basePrice ?? (serviceFee || 0)),
-      clientDescription: clientDescription.trim(),
     })
   }
 
@@ -192,7 +195,6 @@ export function CreateEngagementDialog({
     setBusinessType(client.businessType ?? "")
     setContactNo(client.contactNo ?? "")
     setClientEmail(client.email ?? "")
-    setClientDescription(client.description ?? "")
   }
 
   return (
@@ -295,12 +297,19 @@ export function CreateEngagementDialog({
                       setClientQuery(e.target.value)
                       setSelectedClientId("")
                       setSelectedBusinessId("")
+                      setClientFirstName("")
+                      setClientLastName("")
+                      setBusinessName("")
+                      setBusinessType("")
+                      setContactNo("")
+                      setClientEmail("")
+                      setErrors((previous) => ({ ...previous, client: false }))
                     }}
                     placeholder="Search existing client"
                     disabled={submitting}
                     className={cn(
                       "pr-10",
-                      errors.clientFirstName && "border-red-500 focus-visible:ring-red-500"
+                      errors.client && "border-red-500 focus-visible:ring-red-500"
                     )}
                   />
                   {clientQuery.trim().length >= 2 && (clientsLoading || clientsError || matchingClients.length > 0) && (
@@ -332,8 +341,10 @@ export function CreateEngagementDialog({
                     </div>
                   )}
                 </div>
-                {(errors.clientFirstName || errors.clientLastName) && (
-                  <p className="text-sm text-red-500">Client is required.</p>
+                {errors.client && (
+                  <p className="text-sm text-red-500">
+                    Select a client from the search results.
+                  </p>
                 )}
               </Field>
 
@@ -342,9 +353,9 @@ export function CreateEngagementDialog({
                   <FieldLabel>First Name<span className="text-red-500">*</span></FieldLabel>
                   <Input
                     value={clientFirstName}
-                    onChange={(e) => setClientFirstName(e.target.value)}
                     placeholder="Juan"
-                    disabled={submitting}
+                    readOnly
+                    aria-readonly="true"
                     className={cn(errors.clientFirstName && "border-red-500 focus-visible:ring-red-500")}
                   />
                   {errors.clientFirstName && <p className="text-sm text-red-500">First name is required.</p>}
@@ -353,9 +364,9 @@ export function CreateEngagementDialog({
                   <FieldLabel>Last Name<span className="text-red-500">*</span></FieldLabel>
                   <Input
                     value={clientLastName}
-                    onChange={(e) => setClientLastName(e.target.value)}
                     placeholder="Dela Cruz"
-                    disabled={submitting}
+                    readOnly
+                    aria-readonly="true"
                     className={cn(errors.clientLastName && "border-red-500 focus-visible:ring-red-500")}
                   />
                   {errors.clientLastName && <p className="text-sm text-red-500">Last name is required.</p>}
@@ -365,9 +376,9 @@ export function CreateEngagementDialog({
                 <FieldLabel>Business Name<span className="text-red-500">*</span></FieldLabel>
                 <Input
                   value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
                   placeholder="Business name"
-                  disabled={submitting}
+                  readOnly
+                  aria-readonly="true"
                   className={cn(errors.businessName && "border-red-500 focus-visible:ring-red-500")}
                 />
                 {errors.businessName && <p className="text-sm text-red-500">Business name is required.</p>}
@@ -377,18 +388,18 @@ export function CreateEngagementDialog({
                   <FieldLabel>Business Type</FieldLabel>
                   <Input
                     value={businessType}
-                    onChange={(e) => setBusinessType(e.target.value)}
                     placeholder="Sole Proprietorship"
-                    disabled={submitting}
+                    readOnly
+                    aria-readonly="true"
                   />
                 </Field>
                 <Field>
                   <FieldLabel>Contact Number</FieldLabel>
                   <Input
                     value={contactNo}
-                    onChange={(e) => setContactNo(e.target.value)}
                     placeholder="0917 123 4567"
-                    disabled={submitting}
+                    readOnly
+                    aria-readonly="true"
                   />
                 </Field>
               </div>
@@ -397,20 +408,9 @@ export function CreateEngagementDialog({
                 <Input
                   type="email"
                   value={clientEmail}
-                  onChange={(e) => setClientEmail(e.target.value)}
                   placeholder="client@example.com"
-                  disabled={submitting}
-                />
-              </Field>
-              <Field>
-                <FieldLabel>Client Description</FieldLabel>
-                <textarea
-                  value={clientDescription}
-                  onChange={(e) => setClientDescription(e.target.value)}
-                  placeholder="Brief description of the client request or engagement context"
-                  disabled={submitting}
-                  rows={3}
-                  className="min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-xs outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                  readOnly
+                  aria-readonly="true"
                 />
               </Field>
             </FieldGroup>
@@ -488,12 +488,21 @@ export function CreateEngagementDialog({
                   id="start-date"
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  min={todayDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value)
+                    setErrors((previous) => ({
+                      ...previous,
+                      startDate: !e.target.value || e.target.value < todayDate,
+                    }))
+                  }}
                   disabled={submitting}
                   className={cn(errors.startDate && "border-red-500 focus-visible:ring-red-500")}
                 />
                 {errors.startDate && (
-                  <p className="text-sm text-red-500">Start date is required.</p>
+                  <p className="text-sm text-red-500">
+                    Choose today or a future date.
+                  </p>
                 )}
               </Field>
 
@@ -507,7 +516,7 @@ export function CreateEngagementDialog({
                   value={targetEndDate}
                   onChange={(e) => setTargetEndDate(e.target.value)}
                   disabled={submitting}
-                  min={startDate || undefined}
+                  min={startDate || todayDate}
                   className={cn(errors.targetEndDate && "border-red-500 focus-visible:ring-red-500")}
                 />
                 {errors.targetEndDate && (

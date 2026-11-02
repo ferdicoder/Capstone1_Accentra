@@ -163,7 +163,7 @@ export function ReferenceDocumentUpload({
   )
 }
 
-/** Presentational row for a single workflow task. Fully controlled. */
+/** Presentational row for a single engagement task. Fully controlled. */
 export function WorkflowTaskItem({
   task,
   onTaskChange,
@@ -238,9 +238,9 @@ export function WorkflowTaskItem({
       <Dialog open={removeOpen} onOpenChange={setRemoveOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Remove Workflow Task</DialogTitle>
+            <DialogTitle>Remove Engagement Task</DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove this workflow task?
+              Are you sure you want to remove this engagement task?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row justify-end gap-2">
@@ -287,7 +287,7 @@ export function WorkflowTaskList({
       {tasks.length === 0 && (
         <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
           <p className="text-sm text-muted-foreground">
-            No workflow tasks yet. Add tasks to collect documents or steps from clients.
+            No engagement tasks yet. Add tasks to collect documents or steps from clients.
           </p>
         </div>
       )}

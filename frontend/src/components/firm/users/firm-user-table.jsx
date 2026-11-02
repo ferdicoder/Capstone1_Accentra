@@ -60,7 +60,7 @@ export function FirmUserTable({
         <div className="overflow-x-auto">
           <table className={cn("w-full border-collapse text-sm", equalColumns && "table-fixed")}>
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
               {columns.map((column) => (
                 <th
                   key={column.key ?? column.label}

@@ -159,9 +159,6 @@ export default function EngagementsPage() {
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-1">
-        <p className="text-sm text-muted-foreground">
-          View and manage all active client engagements created from approved service requests.
-        </p>
         {notice && (
           <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
             {notice}
@@ -221,7 +218,6 @@ export default function EngagementsPage() {
           </Button>
         ) : undefined}
         emptyMessage="No engagements match your filters."
-        emptyDescription="Try clearing the search or changing the status filter."
         page={currentPage}
         onPageChange={setCurrentPage}
       />

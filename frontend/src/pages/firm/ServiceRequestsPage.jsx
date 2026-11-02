@@ -134,10 +134,6 @@ export default function ServiceRequestsPage() {
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-1">
-        <p className="text-sm text-muted-foreground">
-          Review incoming service requests submitted by clients and decide whether to start an
-          engagement.
-        </p>
         {error && <span className="text-xs text-destructive">Failed to load service requests</span>}
       </div>
 
@@ -162,7 +158,6 @@ export default function ServiceRequestsPage() {
         showPrice={canViewPrice}
         loading={isLoading}
         emptyMessage="No service requests match your filters."
-        emptyDescription="Try clearing the search or changing the status filter."
         onRowClick={(request) => openRequest(request)}
         page={currentPage}
         onPageChange={setCurrentPage}

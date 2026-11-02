@@ -138,9 +138,6 @@ export function ServiceTemplateForm({
       <FieldGroup>
         <div className="flex flex-col gap-1">
           <h3 className={sectionHeadingClass}>Basic Information</h3>
-          <p className="text-sm text-muted-foreground">
-            Details clients see when browsing your service catalog.
-          </p>
         </div>
 
         <Field>
@@ -303,11 +300,7 @@ export function ServiceTemplateForm({
       </FieldGroup>
 
       <div className="flex flex-col gap-1">
-        <h3 className={sectionHeadingClass}>Workflow Tasks</h3>
-        <p className="text-sm text-muted-foreground">
-          Define the documents and steps a client must complete for this service.
-          Toggle a reference document to attach a template or guide.
-        </p>
+        <h3 className={sectionHeadingClass}>Engagement Tasks</h3>
       </div>
 
       <WorkflowTaskList
@@ -364,7 +357,6 @@ export function ServiceCreateDialog({
   progress,
   error,
   title = "Add Service",
-  description = "Create a new service template for your firm.",
   submitLabel = "Add Service",
   cancelLabel = "Cancel",
   className,
@@ -375,7 +367,6 @@ export function ServiceCreateDialog({
       <DialogContent data-slot="service-create-dialog" className={className}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         <ServiceTemplateForm

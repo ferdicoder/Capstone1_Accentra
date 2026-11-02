@@ -170,7 +170,7 @@ export default function FirmProfilePage() {
 
   usePageMeta({
     title: "Firm Profile",
-    breadcrumbs: [{ label: "Home", href: "/admin/dashboard" }],
+    breadcrumbs: [{ label: "Dashboard", href: "/admin/dashboard" }],
     hasUnreadNotifications: true,
   })
 

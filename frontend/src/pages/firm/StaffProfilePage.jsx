@@ -75,7 +75,7 @@ export default function StaffProfilePage() {
   usePageMeta({
     title: isOwnProfile ? "My Profile" : "Staff Profile",
     breadcrumbs: isOwnProfile
-      ? [{ label: "Home", href: "/firm/dashboard" }]
+      ? [{ label: "Dashboard", href: "/firm/dashboard" }]
       : [{ label: "User Management", href: "/admin/users" }],
     hasUnreadNotifications: true,
   })

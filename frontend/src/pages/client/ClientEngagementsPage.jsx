@@ -364,7 +364,7 @@ export default function ClientEngagementsPage() {
               <col className="w-[6%]" />
             </colgroup>
             <thead>
-              <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+              <tr className="border-b bg-muted/40 text-left text-xs uppercase text-foreground">
                 <th className="px-4 py-3.5 align-middle font-medium">Engagement</th>
                 <th className="px-4 py-3.5 align-middle font-medium">Service</th>
                 <th className="px-4 py-3.5 align-middle font-medium">Created</th>

@@ -551,7 +551,7 @@ export default function ClientEngagementDetailPage() {
                   <col className="w-[24%]" />
                 </colgroup>
                 <thead className="sticky top-0 z-10 bg-background">
-                  <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                  <tr className="border-b bg-muted/40 text-left text-xs uppercase text-foreground">
                     <th className="px-4 py-3.5 align-middle font-medium">
                       Document Name
                     </th>
