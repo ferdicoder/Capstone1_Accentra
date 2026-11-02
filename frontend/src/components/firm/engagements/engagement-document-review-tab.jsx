@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { AlertCircle, CheckCircle2, Download, FileText, Inbox, Paperclip, Upload, X } from "lucide-react"
+import { AlertCircle, CheckCircle2, Download, ExternalLink, FileText, Inbox, Paperclip, Upload, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -93,13 +93,17 @@ export function EngagementDocumentReviewTab({
   ...props
 }) {
   const documents = providedDocuments
-  const [selectedDoc, setSelectedDoc] = useState(() => {
+  const [selectedDocument, setSelectedDocument] = useState(() => {
     if (preselectedDocName) {
       const match = documents.find((d) => d.name === preselectedDocName)
       if (match) return match
     }
     return documents[0] ?? null
   })
+  const selectedDoc =
+    documents.find((document) => document.id === selectedDocument?.id)
+      ? selectedDocument
+      : documents[0] ?? null
   const [remarks, setRemarks] = useState("")
   const [remarksError, setRemarksError] = useState("")
   const [actionNotice, setActionNotice] = useState("")
@@ -109,7 +113,7 @@ export function EngagementDocumentReviewTab({
   const handleApprove = () => {
     if (!selectedDoc) return
     onReview?.(selectedDoc, "approved", remarks.trim() || "Document approved.")
-    setSelectedDoc({ ...selectedDoc, status: "approved" })
+    setSelectedDocument({ ...selectedDoc, status: "approved" })
     setRemarks("")
     setRemarksError("")
     setActionNotice(`${selectedDoc.name} approved`)
@@ -120,7 +124,7 @@ export function EngagementDocumentReviewTab({
     if (!remarks.trim()) { setRemarksError("Remarks are required when requesting revision."); return }
     if (!selectedDoc) return
     onReview?.(selectedDoc, "for_revision", remarks.trim())
-    setSelectedDoc({ ...selectedDoc, status: "for_revision" })
+    setSelectedDocument({ ...selectedDoc, status: "for_revision" })
     setRemarks("")
     setRemarksError("")
     setReferenceFiles([])
@@ -146,8 +150,8 @@ export function EngagementDocumentReviewTab({
   const selectedStatus = selectedDoc ? reviewStatusMap[selectedDoc.status] ?? selectedDoc.status : null
 
   return (
-    <div data-slot="engagement-document-review-tab" className={cn("grid gap-6 lg:grid-cols-[280px_1fr_300px]", className)} {...props}>
-      <div className="flex flex-col rounded-xl border border-border bg-card shadow-sm">
+    <div data-slot="engagement-document-review-tab" className={cn("grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]", className)} {...props}>
+      <div className="flex min-h-[320px] max-h-[70vh] min-w-0 flex-col rounded-xl border border-border bg-card shadow-sm">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <h3 className="text-sm font-semibold text-foreground">Review Queue</h3>
@@ -164,13 +168,13 @@ export function EngagementDocumentReviewTab({
             </div>
           ) : (
             documents.map((doc) => (
-              <ReviewQueueItem key={doc.id} document={doc} isSelected={selectedDoc?.id === doc.id} onSelect={setSelectedDoc} />
+              <ReviewQueueItem key={doc.id} document={doc} isSelected={selectedDoc?.id === doc.id} onSelect={setSelectedDocument} />
             ))
           )}
         </div>
       </div>
 
-      <div className="flex flex-col gap-6">
+      <div className="flex min-w-0 flex-col gap-4">
         {actionNotice && (
           <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
             {actionNotice}
@@ -178,49 +182,66 @@ export function EngagementDocumentReviewTab({
         )}
         {selectedDoc ? (
           <>
-            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
+            <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                     <FileText className="size-4" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{selectedDoc.name}</p>
+                  <div className="min-w-0">
+                    <p className="break-all text-sm font-medium text-foreground">{selectedDoc.name}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       Submitted by {selectedDoc.uploadedBy} · {selectedDoc.uploadedDate ? `${selectedDoc.uploadedDate} · 10:30 AM` : "—"}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <div className="text-right">
                     <p className="text-xs font-medium text-foreground">{getFileType(selectedDoc)}</p>
                     <p className="text-xs text-muted-foreground">{formatFileSize(selectedDoc.fileSize)}</p>
                   </div>
-                  <Button asChild variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground">
-                    <a href={selectedDoc.downloadUrl} target="_blank" rel="noopener noreferrer" title="Download document">
+                  <Button asChild variant="outline" size="sm" className="gap-1.5">
+                    <a href={selectedDoc.downloadUrl} target="_blank" rel="noopener noreferrer" title="View document">
+                      <ExternalLink className="size-3.5" />
+                      View
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline" size="sm" className="gap-1.5">
+                    <a href={selectedDoc.downloadUrl} download={selectedDoc.name} title="Download document">
                       <Download className="size-3.5" />
+                      Download
                     </a>
                   </Button>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-6 py-16 shadow-sm">
-              <div className="flex size-14 items-center justify-center rounded-full bg-muted">
-                <FileText className="size-7 text-muted-foreground" />
-              </div>
-              <p className="text-sm font-medium text-foreground">Document Preview</p>
-              <div className="flex items-center gap-2">
-                <Button asChild variant="outline" size="sm" className="rounded-lg gap-1.5">
-                  <a href={selectedDoc.downloadUrl} download={selectedDoc.name}>
-                    <Download className="size-3.5" />
-                    Download
-                  </a>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="rounded-lg">
-                  <a href={selectedDoc.downloadUrl} target="_blank" rel="noopener noreferrer">Open Full Document</a>
-                </Button>
-              </div>
+            <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              {selectedDoc.downloadUrl && getFileType(selectedDoc) === "PDF" ? (
+                <iframe
+                  src={`${selectedDoc.downloadUrl}?inline=true`}
+                  title={`Preview of ${selectedDoc.name}`}
+                  className="h-[55vh] min-h-[320px] w-full"
+                />
+              ) : selectedDoc.downloadUrl && ["PNG", "JPG", "JPEG", "GIF", "WEBP"].includes(getFileType(selectedDoc)) ? (
+                <div className="flex max-h-[65vh] min-h-[320px] items-center justify-center overflow-auto bg-muted/20 p-4">
+                  <img
+                    src={selectedDoc.downloadUrl}
+                    alt={selectedDoc.name}
+                    className="max-h-[60vh] max-w-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                    <FileText className="size-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">Preview unavailable</p>
+                  <p className="max-w-sm text-xs text-muted-foreground">
+                    Use View to open this file or Download to save a copy.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -310,7 +331,7 @@ export function EngagementDocumentReviewTab({
         )}
       </div>
 
-      <div className="flex flex-col rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex min-h-[320px] max-h-[70vh] min-w-0 flex-col rounded-xl border border-border bg-card shadow-sm">
         <div className="border-b border-border px-4 py-3">
           <h3 className="text-sm font-semibold text-foreground">History</h3>
         </div>

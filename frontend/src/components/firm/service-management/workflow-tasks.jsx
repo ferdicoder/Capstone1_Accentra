@@ -185,6 +185,7 @@ export function WorkflowTaskItem({
             placeholder="Task name, e.g. Submit Valid Government-issued ID"
             disabled={disabled}
             aria-invalid={error?.name || undefined}
+            data-invalid-field={error?.name ? "true" : undefined}
             className={cn(error?.name && "border-red-500 focus-visible:ring-red-500")}
           />
           {error?.name && <p className="mt-1 text-sm text-red-500">Task name is required.</p>}

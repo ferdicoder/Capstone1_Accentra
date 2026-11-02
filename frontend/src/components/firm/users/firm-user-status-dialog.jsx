@@ -24,6 +24,7 @@ export function FirmUserStatusDialog({
   open = false,
   onOpenChange,
   user,
+  entityType = "user",
   action = "deactivate",
   validationError = "",
   onConfirm,
@@ -39,10 +40,22 @@ export function FirmUserStatusDialog({
       <DialogContent data-slot="firm-user-status-dialog" className={className}>
         <DialogHeader>
           <DialogTitle>
-            {isDeactivate ? "Deactivate user" : "Reactivate user"}
+            {isDeactivate ? `Deactivate ${entityType}` : `Reactivate ${entityType}`}
           </DialogTitle>
           <DialogDescription>
-            {isDeactivate ? (
+            {entityType === "client" ? (
+              isDeactivate ? (
+                <>
+                  <span className="font-medium text-foreground">{fullName}</span> will
+                  be marked as deactivated and can be reactivated later.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-foreground">{fullName}</span> will
+                  be marked as active again.
+                </>
+              )
+            ) : isDeactivate ? (
               <>
                 <span className="font-medium text-foreground">{fullName}</span> will
                 no longer be able to sign in until the account is reactivated.

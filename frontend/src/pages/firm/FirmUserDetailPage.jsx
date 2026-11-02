@@ -113,7 +113,7 @@ export default function FirmUserDetailPage() {
         ? "This account is not deactivated, so there is nothing to reactivate."
         : ""
     }
-    if (user.id === authUser?.id) {
+    if (String(user.id) === String(authUser?.id)) {
       return "You cannot deactivate the account you are signed in with."
     }
     const activeAdmins = users.filter(

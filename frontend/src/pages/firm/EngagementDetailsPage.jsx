@@ -4,6 +4,14 @@ import { ArrowLeft, Lock } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
@@ -81,6 +89,7 @@ export default function EngagementDetailsPage() {
   const canEditEngagementDetails = role === "admin"
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [terminalActionDialogOpen, setTerminalActionDialogOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [notice, setNotice] = useState("")
   const [activeTab, setActiveTab] = useState("overview")
@@ -115,6 +124,29 @@ export default function EngagementDetailsPage() {
     documentTasks.every((task) =>
       ["for_review", "in_review", "submitted", "resubmitted"].includes(task.status)
     )
+
+  const reviewableTaskIds = new Set(
+    (engagement.tasks ?? [])
+      .filter((task) =>
+        ["for_review", "in_review", "submitted", "resubmitted", "approved"].includes(task.status)
+      )
+      .map((task) => task.id)
+  )
+  const latestDocumentsByTask = new Map()
+  for (const document of documents) {
+    if (!reviewableTaskIds.has(document.engagementTaskId)) continue
+    const current = latestDocumentsByTask.get(document.engagementTaskId)
+    if (
+      !current ||
+      new Date(document.uploadedDate ?? 0) > new Date(current.uploadedDate ?? 0)
+    ) {
+      latestDocumentsByTask.set(document.engagementTaskId, document)
+    }
+  }
+  const reviewableDocuments = [...latestDocumentsByTask.values()].sort(
+    (first, second) =>
+      new Date(second.uploadedDate ?? 0) - new Date(first.uploadedDate ?? 0)
+  )
 
   const handleStageChange = (stageKey) => {
     if (stageKey === "for_validation" && !canSetForValidation) {
@@ -157,6 +189,11 @@ export default function EngagementDetailsPage() {
   // of rethrowing (rethrowing would show a dialog error for a saved task and
   // risk double-submitting on retry).
   const handleTaskCreate = async (fields) => {
+    if (isTerminalEngagement) {
+      setTerminalActionDialogOpen(true)
+      return
+    }
+
     const { referenceFile, ...taskFields } = fields
     const created = await createTask.mutateAsync({
       engagementId: engagement.id,
@@ -227,7 +264,7 @@ export default function EngagementDetailsPage() {
     }
   }
 
-  const reviewDocuments = documents.map((document) => {
+  const reviewDocuments = reviewableDocuments.map((document) => {
     const task = engagement.tasks?.find((item) => item.id === document.engagementTaskId)
     return {
       ...document,
@@ -247,9 +284,10 @@ export default function EngagementDetailsPage() {
   }))
 
   const handleDocumentReview = (document, status, remark) => {
-    if (!document.taskId) return
+    const taskId = document.taskId ?? document.engagementTaskId
+    if (!taskId) return
     reviewTask.mutate(
-      { taskId: document.taskId, status, remark },
+      { taskId, status, remark },
       { onSuccess: () => showNotice(status === "approved" ? "Document approved" : "Revision requested") }
     )
   }
@@ -355,7 +393,7 @@ export default function EngagementDetailsPage() {
             Documents
             {canViewDocuments && (
               <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                {documents.length}
+                {reviewableDocuments.length}
               </span>
             )}
           </button>
@@ -374,7 +412,13 @@ export default function EngagementDetailsPage() {
             <UploadDeliverables
               deliverables={deliverables}
               isUploading={uploadDeliverable.isPending}
+              disabled={isTerminalEngagement}
+              onBlockedAction={() => setTerminalActionDialogOpen(true)}
               onUpload={async (files) => {
+                if (isTerminalEngagement) {
+                  setTerminalActionDialogOpen(true)
+                  return
+                }
                 await Promise.all(
                   files.map((file) =>
                     uploadDeliverable.mutateAsync({ engagementId: id, file })
@@ -385,7 +429,8 @@ export default function EngagementDetailsPage() {
             />
             <TaskList
               engagement={engagement}
-              documents={documents}
+              documents={reviewDocuments}
+              onBlockedAction={() => setTerminalActionDialogOpen(true)}
               onTaskReview={handleTaskReview}
               onTaskCreate={handleTaskCreate}
               onTaskUpdate={handleTaskUpdate}
@@ -420,7 +465,7 @@ export default function EngagementDetailsPage() {
           canViewDocuments ? (
             <EngagementDocumentReviewTab
               engagement={engagement}
-              documents={reviewDocuments}
+              documents={reviewableDocuments}
               history={reviewHistory}
               onReview={handleDocumentReview}
             />
@@ -467,6 +512,28 @@ export default function EngagementDetailsPage() {
           onConfirm={handleCancelEngagement}
         />
       )}
+      <Dialog
+        open={terminalActionDialogOpen}
+        onOpenChange={setTerminalActionDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Engagement is closed</DialogTitle>
+            <DialogDescription>
+              Tasks and deliverables cannot be added to a completed or cancelled engagement.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              className="bg-forest-900 text-white hover:opacity-90"
+              onClick={() => setTerminalActionDialogOpen(false)}
+            >
+              Okay
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

@@ -7,10 +7,18 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchBusinesses, useUpdateBusinessType } from "@/hooks/useBusinesses"
 import { useFetchEngagements } from "@/hooks/useEngagements"
+import { useFetchBillings } from "@/hooks/useBillings"
 import { authStore } from "@/store/authStore"
 import { can } from "@/config/roles"
 import { ClientDetailsCard } from "@/components/firm/clients/client-details-card"
 import { ClientEngagementHistory } from "@/components/firm/clients/client-engagement-history"
+import { FirmUserStatusDialog } from "@/components/firm/users/firm-user-status-dialog"
+import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
+import {
+  formatPeso,
+  invoiceTypeLabels,
+  paymentMethodLabels,
+} from "@/components/firm/billing/billing-variants"
 import {
   Dialog,
   DialogContent,
@@ -27,17 +35,27 @@ export default function ClientDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
+  const basePath = location.pathname.startsWith("/billing-officer")
+    ? "/billing-officer"
+    : location.pathname.startsWith("/firm")
+      ? "/firm"
+      : "/admin"
   const backHref = `${basePath}/clients`
 
   // Firm Admin can edit; Firm Staff sees the same page read-only (no edit UI rendered).
   const role = authStore((state) => state.role)
   const canManageClients = can(role, "manage_clients")
+  const canViewPaymentHistory = can(role, "manage_billing")
 
   // Resolved from the route param + existing data, never from navigation state,
   // so refresh, direct URLs, new tabs and Back/Forward all work.
   const { data: businesses = [], isLoading: businessesLoading, error } = useFetchBusinesses()
   const { data: engagements = [], isLoading: engagementsLoading } = useFetchEngagements()
+  const {
+    data: billings = [],
+    isLoading: billingsLoading,
+    error: billingsError,
+  } = useFetchBillings({ enabled: canViewPaymentHistory })
   const overrides = clientStore((state) => state.overrides)
   const client = useMemo(() => {
     const business = businesses.find((item) => item.id === id)
@@ -61,6 +79,8 @@ export default function ClientDetailPage() {
   const [selectedClientType, setSelectedClientType] = useState("")
   const [retainerFee, setRetainerFee] = useState("")
   const [confirmationOpen, setConfirmationOpen] = useState(false)
+  const [deactivationOpen, setDeactivationOpen] = useState(false)
+  const [billingTypeFilter, setBillingTypeFilter] = useState("")
   const [notice, setNotice] = useState("")
 
   usePageMeta({
@@ -134,6 +154,34 @@ export default function ClientDetailPage() {
     )
   }
 
+  const clientBillings = billings.filter(
+    (billing) =>
+      String(billing.business_id) === String(client.id) &&
+      (!billingTypeFilter || billing.invoice_type === billingTypeFilter)
+  )
+  const clientPaymentHistory = clientBillings.flatMap((billing) =>
+    billing.payments?.length
+      ? billing.payments.map((payment) => ({ billing, payment }))
+      : [{ billing, payment: null }]
+  ).sort((first, second) => {
+    const getMostRecentDate = ({ billing, payment }) =>
+      payment?.payment_documents
+        ?.map((document) => document.created_at)
+        .filter(Boolean)
+        .sort()
+        .at(-1) ?? billing.due_date ?? ""
+    return getMostRecentDate(second).localeCompare(getMostRecentDate(first))
+  })
+
+  const handleConfirmDeactivation = () => {
+    updateClient(client.id, { deactivated: client.status !== "deactivated" })
+    setDeactivationOpen(false)
+    setNotice(
+      client.status === "deactivated" ? "Client reactivated" : "Client deactivated"
+    )
+    setTimeout(() => setNotice(""), 3000)
+  }
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-1">
@@ -177,18 +225,29 @@ export default function ClientDetailPage() {
             </Button>
           </div>
         ) : (
-          <Button
-            type="button"
-            size="sm"
-            className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
-            onClick={() => {
-              resetEditState()
-              setEditing(true)
-            }}
-          >
-            <Pencil className="size-4" />
-            Edit Client
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={client.status === "deactivated" ? "default" : "destructive"}
+              className={`h-9 gap-1.5 rounded-lg ${client.status === "deactivated" ? "bg-forest-900 text-white hover:opacity-90" : ""}`}
+              onClick={() => setDeactivationOpen(true)}
+            >
+              {client.status === "deactivated" ? "Reactivate" : "Deactivate"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
+              onClick={() => {
+                resetEditState()
+                setEditing(true)
+              }}
+            >
+              <Pencil className="size-4" />
+              Edit Client
+            </Button>
+          </div>
         ))}
       </div>
 
@@ -206,6 +265,103 @@ export default function ClientDetailPage() {
       <ClientEngagementHistory
         engagements={history}
         onViewEngagement={(engagement) => navigate(`${basePath}/engagements/${engagement.id}`)}
+      />
+
+      {canViewPaymentHistory && (
+        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold text-foreground">Payment History</h2>
+            <label className="mt-3 flex max-w-xs flex-col gap-1 text-xs font-medium text-muted-foreground">
+              Filter by billing type
+              <select
+                value={billingTypeFilter}
+                onChange={(event) => setBillingTypeFilter(event.target.value)}
+                className="h-9 rounded-lg border border-input bg-background px-3 text-sm font-normal text-foreground"
+              >
+                <option value="">All billing types</option>
+                <option value="service_fee">Service Fee</option>
+                <option value="retainer_fee">Retainer Fee</option>
+              </select>
+            </label>
+          </div>
+          {billingsLoading ? (
+            <p className="text-sm text-muted-foreground">Loading payment history…</p>
+          ) : billingsError ? (
+            <p role="alert" className="text-sm text-destructive">
+              Payment history could not be loaded: {billingsError.message}
+            </p>
+          ) : clientBillings.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs text-foreground">
+                    <th className="px-3 py-2 font-semibold">Billing ID</th>
+                    <th className="px-3 py-2 font-semibold">Billing Type</th>
+                    <th className="px-3 py-2 font-semibold">Payment Date</th>
+                    <th className="px-3 py-2 font-semibold">Amount</th>
+                    <th className="px-3 py-2 font-semibold">Payment Method</th>
+                    <th className="px-3 py-2 font-semibold">Reference ID</th>
+                    <th className="px-3 py-2 font-semibold">Payment Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clientPaymentHistory.map(({ billing, payment }, index) => {
+                    const paymentDate = payment?.payment_documents
+                      ?.map((document) => document.created_at)
+                      .filter(Boolean)
+                      .sort()
+                      .at(-1)
+
+                    return (
+                    <tr
+                      key={`${billing.id}-${payment?.payment_id ?? index}`}
+                      className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-muted/40"
+                      onClick={() => navigate(`${basePath}/billing/${billing.id}`)}
+                    >
+                      <td className="px-3 py-3 font-medium text-foreground">{billing.id}</td>
+                      <td className="px-3 py-3">
+                        {invoiceTypeLabels[billing.invoice_type] ?? billing.invoice_type}
+                      </td>
+                      <td className="px-3 py-3">
+                        {paymentDate ? new Date(paymentDate).toLocaleDateString() : "—"}
+                      </td>
+                      <td className="px-3 py-3">
+                        {formatPeso(payment?.amount ?? billing.amount)}
+                      </td>
+                      <td className="px-3 py-3">
+                        {paymentMethodLabels[payment?.payment_method] ??
+                          payment?.payment_method ??
+                          "—"}
+                      </td>
+                      <td className="px-3 py-3">{payment?.reference_id ?? "—"}</td>
+                      <td className="px-3 py-3">
+                        {payment?.status ? (
+                          <BillingStatusBadge status={payment.status} />
+                        ) : (
+                          "No payment submitted"
+                        )}
+                      </td>
+                    </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No billing or payment records are available for this client.
+            </p>
+          )}
+        </section>
+      )}
+
+      <FirmUserStatusDialog
+        open={deactivationOpen}
+        onOpenChange={setDeactivationOpen}
+        user={client}
+        entityType="client"
+        action={client.status === "deactivated" ? "reactivate" : "deactivate"}
+        onConfirm={handleConfirmDeactivation}
       />
 
       <Dialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>

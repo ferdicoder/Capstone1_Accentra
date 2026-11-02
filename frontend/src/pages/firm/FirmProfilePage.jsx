@@ -29,10 +29,14 @@ const initialProfile = {
   firstName: "Carlo",
   lastName: "Reyes",
   workEmail: "carlo@reyesassociates.ph",
-  licenseNo: "CPA-2024-00123",
   firmType: "sole-practitioner",
   contactNumber: "+63 917 001 0001",
-  address: "",
+}
+
+const initialPaymentInformation = {
+  paymentOption: "",
+  accountName: "",
+  accountNumber: "",
 }
 
 const initialSecurity = {
@@ -43,6 +47,8 @@ const initialSecurity = {
 
 const tabs = [
   { key: "info", label: "Firm Information" },
+  { key: "personal", label: "Personal Information" },
+  { key: "payment", label: "Payment Information" },
   { key: "security", label: "Security" },
 ]
 
@@ -57,6 +63,7 @@ const selectClass = cn(
 export default function FirmProfilePage() {
   const [activeTab, setActiveTab] = useState("info")
   const [profile, setProfile] = useState(initialProfile)
+  const [paymentInformation, setPaymentInformation] = useState(initialPaymentInformation)
   const [security, setSecurity] = useState(initialSecurity)
   const [securityErrors, setSecurityErrors] = useState({})
   const [isSaving, setIsSaving] = useState(false)
@@ -93,7 +100,7 @@ export default function FirmProfilePage() {
     setSaveMessage(null)
     try {
       // await updateFirmProfile(profile)
-      setSaveMessage({ type: "success", text: "Firm profile updated successfully." })
+      setSaveMessage({ type: "success", text: "Information updated successfully." })
     } catch (err) {
       console.error(err)
       setSaveMessage({ type: "error", text: "Something went wrong. Please try again." })
@@ -168,6 +175,20 @@ export default function FirmProfilePage() {
     }
   }
 
+  const handleSavePaymentInformation = (event) => {
+    event.preventDefault()
+    setSaveMessage({
+      type: "success",
+      text: "Payment information updated for this session.",
+    })
+  }
+
+  const updatePaymentField = (event) => {
+    const { name, value } = event.target
+    setPaymentInformation((current) => ({ ...current, [name]: value }))
+    setSaveMessage(null)
+  }
+
   usePageMeta({
     title: "Firm Profile",
     breadcrumbs: [{ label: "Dashboard", href: "/admin/dashboard" }],
@@ -189,7 +210,7 @@ export default function FirmProfilePage() {
                 {profile.firmName}
               </h1>
               <p className="text-sm text-muted-foreground">
-                License {profile.licenseNo} · Managed by {currentUser.name}
+                Managed by {currentUser.name}
               </p>
             </div>
           </div>
@@ -231,7 +252,7 @@ export default function FirmProfilePage() {
 
           {activeTab === "info" && (
             <form onSubmit={handleSaveInfo} className="flex flex-col gap-6">
-              <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
+              <div className="grid gap-6">
                 <div className="flex flex-col rounded-xl border border-border bg-card p-6 shadow-sm">
                   <h2 className="text-sm font-semibold">Firm Information</h2>
                   <p className="mb-5 mt-1 text-sm text-muted-foreground">
@@ -250,16 +271,6 @@ export default function FirmProfilePage() {
                     </Field>
 
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="licenseNo">License No.</FieldLabel>
-                        <Input
-                          id="licenseNo"
-                          name="licenseNo"
-                          value={profile.licenseNo}
-                          onChange={updateProfileField}
-                          className={controlClass}
-                        />
-                      </Field>
                       <Field>
                         <FieldLabel htmlFor="firmType">Firm Type</FieldLabel>
                         <select
@@ -280,190 +291,6 @@ export default function FirmProfilePage() {
                   </FieldGroup>
                 </div>
 
-                <div className="flex flex-col rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <h2 className="text-sm font-semibold">Personal Information</h2>
-                  <p className="mb-5 mt-1 text-sm text-muted-foreground">
-                    Contact details for the firm administrator.
-                  </p>
-                  <FieldGroup className="gap-5">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="firstName">First Name</FieldLabel>
-                        <Input
-                          id="firstName"
-                          name="firstName"
-                          value={profile.firstName}
-                          onChange={updateProfileField}
-                          className={controlClass}
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="lastName">Last Name</FieldLabel>
-                        <Input
-                          id="lastName"
-                          name="lastName"
-                          value={profile.lastName}
-                          onChange={updateProfileField}
-                          className={controlClass}
-                        />
-                      </Field>
-                    </div>
-
-                    <Field>
-                      <FieldLabel htmlFor="workEmail">Work Email</FieldLabel>
-                      <Input
-                        id="workEmail"
-                        name="workEmail"
-                        type="email"
-                        value={profile.workEmail}
-                        onChange={updateProfileField}
-                        className={controlClass}
-                      />
-                    </Field>
-
-                    <Field>
-                      <FieldLabel htmlFor="contactNumber">Contact Number</FieldLabel>
-                      <Input
-                        id="contactNumber"
-                        name="contactNumber"
-                        value={profile.contactNumber}
-                        onChange={updateProfileField}
-                        className={controlClass}
-                      />
-                    </Field>
-                  </FieldGroup>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <div className="mb-5">
-                    <h2 className="text-sm font-semibold">Office Address</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Enter the firm’s business address.
-                    </p>
-                  </div>
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <Field>
-                      <FieldLabel htmlFor="address">
-                        Address Line 1<span className="text-red-500">*</span>
-                      </FieldLabel>
-                      <Input
-                        id="address"
-                        name="address"
-                        value={profile.address}
-                        onChange={updateProfileField}
-                        placeholder="Unit, building, street number and street name"
-                        autoComplete="address-line1"
-                        className={controlClass}
-                      />
-                    </Field>
-
-                    <Field>
-                      <FieldLabel htmlFor="addressLine2">
-                        Address Line 2
-                        <span className="text-xs font-normal text-muted-foreground"> (optional)</span>
-                      </FieldLabel>
-                      <Input
-                        id="addressLine2"
-                        name="addressLine2"
-                        placeholder="Floor, suite, or additional details"
-                        autoComplete="address-line2"
-                        className={controlClass}
-                      />
-                    </Field>
-
-                    <Field>
-                      <FieldLabel htmlFor="barangay">
-                        Barangay<span className="text-red-500">*</span>
-                      </FieldLabel>
-                      <Input
-                        id="barangay"
-                        name="barangay"
-                        placeholder="Barangay"
-                        autoComplete="address-level3"
-                        className={controlClass}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Required for Philippine addresses.
-                      </p>
-                    </Field>
-
-                    <Field>
-                      <FieldLabel htmlFor="city">
-                        City / Municipality<span className="text-red-500">*</span>
-                      </FieldLabel>
-                      <Input
-                        id="city"
-                        name="city"
-                        placeholder="City or municipality"
-                        autoComplete="address-level2"
-                        className={controlClass}
-                      />
-                    </Field>
-
-                    <Field>
-                      <FieldLabel htmlFor="province">
-                        Province
-                        <span className="text-xs font-normal text-muted-foreground"> (conditional)</span>
-                      </FieldLabel>
-                      <Input
-                        id="province"
-                        name="province"
-                        placeholder="Province"
-                        autoComplete="address-level1"
-                        className={controlClass}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Enter when applicable; not needed for Metro Manila addresses.
-                      </p>
-                    </Field>
-
-                    <Field>
-                      <FieldLabel htmlFor="region">
-                        Region<span className="text-red-500">*</span>
-                      </FieldLabel>
-                      <Input
-                        id="region"
-                        name="region"
-                        placeholder="Region"
-                        autoComplete="address-level1"
-                        className={controlClass}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Required for Philippine addresses.
-                      </p>
-                    </Field>
-
-                    <Field>
-                      <FieldLabel htmlFor="postalCode">
-                        Postal Code
-                        <span className="text-xs font-normal text-muted-foreground"> (conditional)</span>
-                      </FieldLabel>
-                      <Input
-                        id="postalCode"
-                        name="postalCode"
-                        placeholder="Postal code"
-                        autoComplete="postal-code"
-                        className={controlClass}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Enter when applicable for the address.
-                      </p>
-                    </Field>
-
-                    <Field>
-                      <FieldLabel htmlFor="country">
-                        Country<span className="text-red-500">*</span>
-                      </FieldLabel>
-                      <Input
-                        id="country"
-                        name="country"
-                        placeholder="Country"
-                        autoComplete="country-name"
-                        className={controlClass}
-                      />
-                    </Field>
-                  </div>
               </div>
 
               <div className="flex justify-end">
@@ -474,6 +301,128 @@ export default function FirmProfilePage() {
                 >
                   <Save className="size-4" />
                   {isSaving ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {activeTab === "personal" && (
+            <form onSubmit={handleSaveInfo} className="flex flex-col gap-6">
+              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                <h2 className="text-sm font-semibold">Personal Information</h2>
+                <p className="mb-5 mt-1 text-sm text-muted-foreground">
+                  Contact details for the firm administrator.
+                </p>
+                <FieldGroup className="gap-5">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="firstName">First Name</FieldLabel>
+                      <Input
+                        id="firstName"
+                        name="firstName"
+                        value={profile.firstName}
+                        onChange={updateProfileField}
+                        className={controlClass}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="lastName">Last Name</FieldLabel>
+                      <Input
+                        id="lastName"
+                        name="lastName"
+                        value={profile.lastName}
+                        onChange={updateProfileField}
+                        className={controlClass}
+                      />
+                    </Field>
+                  </div>
+                  <Field>
+                    <FieldLabel htmlFor="workEmail">Work Email</FieldLabel>
+                    <Input
+                      id="workEmail"
+                      name="workEmail"
+                      type="email"
+                      value={profile.workEmail}
+                      onChange={updateProfileField}
+                      className={controlClass}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="contactNumber">Contact Number</FieldLabel>
+                    <Input
+                      id="contactNumber"
+                      name="contactNumber"
+                      value={profile.contactNumber}
+                      onChange={updateProfileField}
+                      className={controlClass}
+                    />
+                  </Field>
+                </FieldGroup>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  disabled={isSaving}
+                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                >
+                  <Save className="size-4" />
+                  {isSaving ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {activeTab === "payment" && (
+            <form onSubmit={handleSavePaymentInformation} className="flex flex-col gap-6">
+              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                <h2 className="text-sm font-semibold">Payment Information</h2>
+                <p className="mb-5 mt-1 text-sm text-muted-foreground">
+                  Payment account details used for receiving payments.
+                </p>
+                <FieldGroup className="gap-5">
+                  <Field>
+                    <FieldLabel htmlFor="paymentOption">Payment Option</FieldLabel>
+                    <select
+                      id="paymentOption"
+                      name="paymentOption"
+                      value={paymentInformation.paymentOption}
+                      onChange={updatePaymentField}
+                      className={selectClass}
+                    >
+                      <option value="">Select payment option</option>
+                      <option value="gcash">GCash</option>
+                      <option value="bank_transfer">Bank Transfer</option>
+                    </select>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="accountName">Account Name</FieldLabel>
+                    <Input
+                      id="accountName"
+                      name="accountName"
+                      value={paymentInformation.accountName}
+                      onChange={updatePaymentField}
+                      className={controlClass}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="accountNumber">Account Number</FieldLabel>
+                    <Input
+                      id="accountNumber"
+                      name="accountNumber"
+                      value={paymentInformation.accountNumber}
+                      onChange={updatePaymentField}
+                      className={controlClass}
+                    />
+                  </Field>
+                </FieldGroup>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                >
+                  <Save className="size-4" />
+                  Save Changes
                 </Button>
               </div>
             </form>

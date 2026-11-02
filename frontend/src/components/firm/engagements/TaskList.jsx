@@ -44,6 +44,15 @@ const isTaskDeadlineAfterEngagement = (taskDeadline, engagementDeadline) => {
   return taskDate > engagementDate
 }
 
+const getLocalDateInputValue = () => {
+  const today = new Date()
+  const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60_000)
+  return localDate.toISOString().slice(0, 10)
+}
+
+const isTaskDeadlineInPast = (taskDeadline) =>
+  Boolean(taskDeadline) && taskDeadline < getLocalDateInputValue()
+
 // ── Status Helpers ────────────────────────────────────────────────────────────
 
 const statusConfig = {
@@ -101,8 +110,12 @@ function DeadlineCell({ deadline, onChange, max }) {
       <input
         type="date"
         defaultValue={deadline || ""}
+        min={getLocalDateInputValue()}
         max={max}
-        onChange={(e) => { onChange(e.target.value); setEditing(false) }}
+        onChange={(e) => {
+          if (!isTaskDeadlineInPast(e.target.value)) onChange(e.target.value)
+          setEditing(false)
+        }}
         onBlur={() => setEditing(false)}
         autoFocus
         className="h-8 w-full cursor-pointer rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -190,10 +203,15 @@ function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, sub
           type="date"
           value={formData.deadline}
           onChange={(event) => updateField("deadline", event.target.value)}
+          min={getLocalDateInputValue()}
           max={engagement?.targetEndDate ?? engagement?.startDate ?? undefined}
         />
         {errors.deadline && (
-          <p className="text-xs text-red-500">Task deadline cannot be later than the engagement deadline.</p>
+          <p className="text-xs text-red-500">
+            {isTaskDeadlineInPast(formData.deadline)
+              ? "Task deadline cannot be in the past."
+              : "Task deadline cannot be later than the engagement deadline."}
+          </p>
         )}
       </div>
 
@@ -425,6 +443,7 @@ export function TaskList({
   onTaskReview,
   onTaskCreate,
   onTaskUpdate,
+  onBlockedAction,
 }) {
   const tasks = engagement?.tasks ?? []
   const isTerminalEngagement =
@@ -450,7 +469,10 @@ export function TaskList({
   const [referencePreviewOpen, setReferencePreviewOpen] = useState(false)
 
   const openAddTask = () => {
-    if (isTerminalEngagement) return
+    if (isTerminalEngagement) {
+      onBlockedAction?.()
+      return
+    }
     setTaskDialogMode("add")
     setTaskFormData(createEmptyTaskForm())
     setTaskFormErrors({})
@@ -479,20 +501,22 @@ export function TaskList({
 
   const handleTaskSubmit = async (event) => {
     event.preventDefault()
-    if (taskDialogMode === "add" && isTerminalEngagement) {
+    if (isTerminalEngagement) {
       setTaskSubmitError("Tasks cannot be added to a completed or cancelled engagement.")
+      onBlockedAction?.()
       return
     }
 
     const name = taskFormData.name.trim()
     const taskDeadlineInvalid = isTaskDeadlineAfterEngagement(taskFormData.deadline, engagement?.targetEndDate ?? engagement?.startDate)
+    const taskDeadlineInPast = isTaskDeadlineInPast(taskFormData.deadline)
 
     if (!name) {
       setTaskFormErrors({ name: true })
       return
     }
 
-    if (taskDeadlineInvalid) {
+    if (taskDeadlineInvalid || taskDeadlineInPast) {
       setTaskFormErrors({ deadline: true })
       return
     }
@@ -564,7 +588,7 @@ export function TaskList({
             {requiredCount > 0 && ` · ${requiredCount} required`}
           </p>
         </div>
-        <Button type="button" size="sm" className="h-8 rounded-lg bg-[#02353C] px-3 text-xs text-white hover:bg-[#02353C]/90" onClick={openAddTask} disabled={isTerminalEngagement}>
+        <Button type="button" size="sm" className={cn("h-8 rounded-lg bg-[#02353C] px-3 text-xs text-white hover:bg-[#02353C]/90", isTerminalEngagement && "opacity-50")} onClick={openAddTask}>
           Add Task
         </Button>
       </div>

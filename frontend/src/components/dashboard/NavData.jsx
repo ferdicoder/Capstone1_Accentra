@@ -53,6 +53,7 @@ export const billingOfficerNav = [
   { title: "Dashboard",   url: "/billing-officer/dashboard",   icon: LayoutDashboard, items: [] },
   { title: "Engagements", url: "/billing-officer/engagements", icon: Briefcase,       items: [] },
   { title: "Billing",     url: "/billing-officer/billing",     icon: Receipt,         items: [] },
+  { title: "Clients",     url: "/billing-officer/clients",     icon: Contact,         items: [] },
 ]
 
 export const roleConfig = {

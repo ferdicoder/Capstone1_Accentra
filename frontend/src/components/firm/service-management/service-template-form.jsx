@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { ChevronDown, Loader2, Pencil, Plus, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -53,6 +53,7 @@ export function ServiceTemplateForm({
   error,
   className,
 }) {
+  const formRef = useRef(null)
   const [name, setName] = useState(() => initialValues?.name ?? "")
   const [category, setCategory] = useState(
     () => initialValues?.category ?? categoryFilterOptions[0]?.value ?? ""
@@ -89,7 +90,7 @@ export function ServiceTemplateForm({
     const parsedEstimatedTime = Number(estimatedTime)
     const taskErrors = tasks.map((task) => ({
       name: !task.name.trim(),
-      reference: Boolean(task.hasReferenceDocument) && !task.referenceDocument,
+      reference: false,
     }))
 
     const newErrors = {
@@ -111,7 +112,14 @@ export function ServiceTemplateForm({
       newErrors.basePrice ||
       newErrors.estimatedTime ||
       taskErrors.some((taskError) => taskError.name || taskError.reference)
-    if (invalid) return
+    if (invalid) {
+      requestAnimationFrame(() => {
+        const firstInvalidField = formRef.current?.querySelector('[data-invalid-field="true"]')
+        firstInvalidField?.scrollIntoView({ behavior: "smooth", block: "center" })
+        firstInvalidField?.focus()
+      })
+      return
+    }
 
     onSubmit?.({
       id: initialValues?.id,
@@ -128,7 +136,7 @@ export function ServiceTemplateForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className={cn("flex flex-1 flex-col gap-5 overflow-y-auto", className)}>
+    <form ref={formRef} onSubmit={handleSubmit} className={cn("flex flex-1 flex-col gap-5 overflow-y-auto", className)}>
       {error && (
         <p role="alert" className="text-sm text-red-500">
           {error}
@@ -152,6 +160,8 @@ export function ServiceTemplateForm({
             }}
             placeholder="Tax Filing - Non VAT"
             disabled={submitting}
+            aria-invalid={errors.name || undefined}
+            data-invalid-field={errors.name ? "true" : undefined}
             className={cn(errors.name && "border-red-500 focus-visible:ring-red-500")}
           />
           {errors.name && <p className="text-sm text-red-500">Service name is required.</p>}
@@ -167,6 +177,8 @@ export function ServiceTemplateForm({
                     type="button"
                     variant="outline"
                     disabled={submitting}
+                    aria-invalid={errors.category || undefined}
+                    data-invalid-field={errors.category ? "true" : undefined}
                     className={cn(
                       "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
                       errors.category && "border-red-500 focus-visible:ring-red-500"
@@ -254,6 +266,8 @@ export function ServiceTemplateForm({
               onChange={(event) => setBasePrice(event.target.value.replace(/[^0-9.]/g, ""))}
               placeholder="2500"
               disabled={submitting}
+              aria-invalid={errors.basePrice || undefined}
+              data-invalid-field={errors.basePrice ? "true" : undefined}
               className={cn(
                 errors.basePrice && "border-red-500 focus-visible:ring-red-500"
               )}
@@ -276,6 +290,8 @@ export function ServiceTemplateForm({
               onChange={(event) => setEstimatedTime(event.target.value.replace(/[^0-9]/g, ""))}
               placeholder="3"
               disabled={submitting}
+              aria-invalid={errors.estimatedTime || undefined}
+              data-invalid-field={errors.estimatedTime ? "true" : undefined}
               className={cn(
                 errors.estimatedTime && "border-red-500 focus-visible:ring-red-500"
               )}

@@ -10,6 +10,7 @@ import { FirmUserAvatar } from "@/components/firm/users/firm-user-avatar"
 import { FirmUserStatusBadge } from "@/components/firm/users/firm-user-status-badge"
 import { ClientTypeBadge } from "@/components/firm/clients/client-type-badge"
 import { clientStatusFilterOptions } from "@/components/firm/clients/client-variants"
+import { clientStore } from "@/components/firm/clients/client-store"
 
 const clientColumns = [
   {
@@ -55,9 +56,14 @@ const clientColumns = [
 export default function ClientManagementPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
+  const basePath = location.pathname.startsWith("/billing-officer")
+    ? "/billing-officer"
+    : location.pathname.startsWith("/firm")
+      ? "/firm"
+      : "/admin"
 
   const { data: businesses = [], isLoading, error } = useFetchBusinesses()
+  const overrides = clientStore((state) => state.overrides)
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
@@ -67,12 +73,15 @@ export default function ClientManagementPage() {
     () =>
       businesses.map((business) => ({
         ...business,
+        ...(overrides[business.id] ?? {}),
         name: [business.firstName, business.middleName, business.lastName]
           .filter(Boolean)
           .join(" "),
-        status: business.ownerStatus,
+        status: overrides[business.id]?.deactivated
+          ? "deactivated"
+          : business.ownerStatus,
       })),
-    [businesses]
+    [businesses, overrides]
   )
 
   const filteredClients = useMemo(() => {

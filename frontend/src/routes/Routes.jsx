@@ -148,6 +148,8 @@ export const router = createBrowserRouter([
           { path: "engagements/:id", element: <EngagementDetailsPage /> },
           { path: "billing", element: <BillingPage /> },
           { path: "billing/:id", element: <BillingDetailPage /> },
+          { path: "clients", element: <ClientManagementPage /> },
+          { path: "clients/:id", element: <ClientDetailPage /> },
         ],
       },
     ],

@@ -17,21 +17,16 @@ import { formatDate } from "./engagement-variants"
 
 // ── File icon helpers ─────────────────────────────────────────────────────────
 
-const fileIconMap = {
-  PDF: FileText,
-  DOC: FileText,
-  DOCX: FileText,
-  XLS: FileSpreadsheet,
-  XLSX: FileSpreadsheet,
-  CSV: FileSpreadsheet,
-  PNG: FileImage,
-  JPG: FileImage,
-  JPEG: FileImage,
-  ZIP: File,
-}
-
-function getFileIcon(fileType) {
-  return fileIconMap[resolveFileType(fileType)] ?? FileText
+function FileTypeIcon({ fileType, className }) {
+  const resolvedType = resolveFileType(fileType)
+  if (["XLS", "XLSX", "CSV"].includes(resolvedType)) {
+    return <FileSpreadsheet className={className} />
+  }
+  if (["PNG", "JPG", "JPEG", "GIF", "WEBP"].includes(resolvedType)) {
+    return <FileImage className={className} />
+  }
+  if (resolvedType === "ZIP") return <File className={className} />
+  return <FileText className={className} />
 }
 
 function resolveFileType(file) {
@@ -49,8 +44,6 @@ function resolveFileType(file) {
 // ── Compact Document Row (for the card) ──────────────────────────────────────
 
 function CompactDocumentRow({ document, onPreview }) {
-  const Icon = getFileIcon(document)
-
   return (
     <button
       type="button"
@@ -59,7 +52,7 @@ function CompactDocumentRow({ document, onPreview }) {
       aria-label={`Preview ${document?.name ?? "document"}`}
     >
       <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-        <Icon className="size-4" />
+        <FileTypeIcon fileType={document} className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground underline-offset-2 hover:underline">{document?.name ?? "—"}</p>
@@ -75,7 +68,6 @@ function CompactDocumentRow({ document, onPreview }) {
 function DocumentPreviewDialog({ open, onOpenChange, document }) {
   if (!document) return null
 
-  const Icon = getFileIcon(document)
   const fileType = resolveFileType(document)
   const previewUrl = document.downloadUrl ? `${document.downloadUrl}?inline=true` : null
   const isPdf = fileType === "PDF"
@@ -95,7 +87,7 @@ function DocumentPreviewDialog({ open, onOpenChange, document }) {
         <div className="rounded-xl border border-border bg-muted/30 p-4">
           <div className="flex items-center gap-3 rounded-lg bg-background/80 px-3 py-2">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <Icon className="size-4" />
+              <FileTypeIcon fileType={document} className="size-4" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-foreground">{document.name}</p>
@@ -151,8 +143,6 @@ function DocumentPreviewDialog({ open, onOpenChange, document }) {
 // ── All Deliverables Dialog Row ──────────────────────────────────────────────
 
 function DeliverableDialogRow({ document, onPreview }) {
-  const Icon = getFileIcon(document)
-
   const handleDownload = () => {
     const link = window.document.createElement("a")
     link.href = document.downloadUrl
@@ -165,7 +155,7 @@ function DeliverableDialogRow({ document, onPreview }) {
   return (
     <div className="flex items-center gap-3 border-b border-border/60 px-5 py-3.5 transition-colors last:border-b-0 hover:bg-muted/30">
       <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-        <Icon className="size-4" />
+        <FileTypeIcon fileType={document} className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
         <button
@@ -219,6 +209,8 @@ export function UploadDeliverables({
   deliverables = [],
   isUploading = false,
   onUpload,
+  disabled = false,
+  onBlockedAction,
   className,
 }) {
   const inputRef = useRef(null)
@@ -232,6 +224,10 @@ export function UploadDeliverables({
   const previewDocs = allDeliverables.slice(-1)
 
   const openUploadDialog = () => {
+    if (disabled) {
+      onBlockedAction?.()
+      return
+    }
     setSelectedFiles([])
     setDialogOpen(true)
   }
@@ -270,10 +266,14 @@ export function UploadDeliverables({
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
+              className={cn(
+                "size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground",
+                disabled && "opacity-50"
+              )}
               onClick={openUploadDialog}
+              aria-disabled={disabled}
+              title={disabled ? "Completed or cancelled engagements cannot accept deliverables" : "Upload deliverables"}
               aria-label="Upload deliverables"
-              title="Upload deliverables"
             >
               <Upload className="size-4" />
             </Button>
