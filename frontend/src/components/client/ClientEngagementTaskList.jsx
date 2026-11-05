@@ -78,9 +78,10 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
 const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png"]
 
 // The backend takes one file per request, so files picked together are
-// uploaded one after another and can be saved minutes apart. Files saved this
-// close to the newest one count as the same submission.
-const SAME_SUBMISSION_WINDOW_MS = 10 * 60 * 1000
+// uploaded one after another. Files saved this close together count as the
+// same submission. Kept short: one-file-per-request uploads land seconds
+// apart, while a resubmission always comes after the firm rejected the old one.
+const SAME_SUBMISSION_WINDOW_MS = 2 * 60 * 1000
 
 // ── Document Helpers ──────────────────────────────────────────────────────────
 
@@ -98,7 +99,10 @@ export function normalizeDocument(source, file = null) {
     name: raw.name ?? raw.file_name ?? raw.fileName ?? file?.name ?? "Untitled file",
     mimeType: raw.mimeType ?? raw.mime_type ?? raw.fileType ?? file?.type ?? null,
     size: raw.size ?? raw.fileSize ?? raw.file_size ?? file?.size ?? null,
-    uploadedAt: raw.uploadedAt ?? raw.created_at ?? raw.uploadedDate ?? null,
+    // Prefer a full timestamp (created_at / createdAt) over uploadedDate,
+    // which may be a date-only display string.
+    uploadedAt:
+      raw.uploadedAt ?? raw.created_at ?? raw.createdAt ?? raw.uploadedDate ?? null,
     downloadUrl,
     file: downloadUrl ? null : file,
   }
@@ -111,16 +115,26 @@ const toTime = (value) => {
 
 // Every upload is kept on the server, so a task that was rejected and
 // resubmitted has the old files and the new ones. Only the newest submission
-// is shown. When files carry no upload time there's nothing to compare, so
-// all of them are kept.
+// is shown: starting from the newest file, keep walking back while each file
+// was saved within the window of the one after it. A bigger gap means an
+// older, rejected submission, so we stop there. Files with no upload time
+// are kept.
 // Exported so the Documents tab applies the same rule.
 export function latestSubmission(files) {
-  const times = files.map((file) => toTime(file.uploadedAt))
-  const newest = Math.max(...times.filter((time) => time !== null))
-  if (!Number.isFinite(newest)) return files
-  return files.filter(
-    (_, index) => times[index] === null || newest - times[index] <= SAME_SUBMISSION_WINDOW_MS
-  )
+  const dated = files
+    .map((file) => ({ file, time: toTime(file.uploadedAt) }))
+    .filter((entry) => entry.time !== null)
+    .sort((a, b) => b.time - a.time)
+
+  if (dated.length === 0) return files
+
+  const kept = new Set([dated[0].file])
+  for (let i = 1; i < dated.length; i++) {
+    if (dated[i - 1].time - dated[i].time > SAME_SUBMISSION_WINDOW_MS) break
+    kept.add(dated[i].file)
+  }
+
+  return files.filter((file) => toTime(file.uploadedAt) === null || kept.has(file))
 }
 
 function TaskStatusBadge({ status }) {

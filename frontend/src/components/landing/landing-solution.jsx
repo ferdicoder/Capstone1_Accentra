@@ -33,7 +33,7 @@ export function LandingSolution() {
       >
         <div data-landing-reveal data-reveal-order="0" className="landing-reveal">
           <p className="text-sm font-semibold uppercase tracking-[0.15em] text-[#0b916a]">
-            A connected practice
+            
           </p>
           <h2
             id="solution-heading"
