@@ -207,7 +207,7 @@ export default function SignupPage() {
 
   return (
     <AuthLayout>
-      <form ref={formRef} className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
+      <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
         <div className="flex items-center justify-between gap-2">
           {steps.map((step, index) => {
             const number = index + 1;
@@ -339,7 +339,7 @@ export default function SignupPage() {
                 field={{ name: "confirmPassword", label: "Confirm Password", required: true }}
                 value={formData.confirmPassword}
                 onChange={updateField}
-                error={errorFor("confirmPassword") || (!formData.confirmPassword ? "Please confirm your password." : "")}
+                error={errorFor("confirmPassword")}
                 type="password"
               />
 
@@ -354,11 +354,11 @@ export default function SignupPage() {
               </div>
 
               <Field>
-                <FieldLabel>Business registration status<span className="ml-0.5 text-red-500">*</span></FieldLabel>
+                <FieldLabel>Is your business already registered?<span className="ml-0.5 text-red-500">*</span></FieldLabel>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
-                    ["registered", "Yes, my business is BIR-registered"],
-                    ["unregistered", "No, my business is not yet registered"],
+                    ["registered", "Yes, my business is already registered"],
+                    ["unregistered", "No, my business is not registered yet"],
                   ].map(([value, label]) => (
                     <label
                       key={value}
@@ -485,7 +485,7 @@ export default function SignupPage() {
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
                   <p className="text-sm font-medium text-foreground">You can skip your business information for now.</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Since your business is not yet BIR-registered, you can complete your business profile later in Settings or when the information becomes available.
+                    Since your business is not yet registered, you can complete your business profile later in Settings or when the information becomes available.
                   </p>
                 </div>
               ) : (
