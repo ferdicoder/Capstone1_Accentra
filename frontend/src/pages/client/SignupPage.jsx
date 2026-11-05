@@ -1,11 +1,11 @@
-import { AuthLayout } from "@/layout/auth-layout";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { Check, X } from "lucide-react";
+import { ArrowLeft, Check, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import logoText from "@/assets/3dLogo1.svg";
 
 import { registerClient } from "../../services/authService";
 import { accountSchema, businessSchema, passwordRequirements } from "/src/schemas/signupSchema";
@@ -206,8 +206,30 @@ export default function SignupPage() {
   const steps = ["Personal Information", "Business Registration"];
 
   return (
-    <AuthLayout>
-      <form ref={formRef} className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
+    <main className="flex min-h-svh flex-col items-center justify-center gap-5 bg-[#fbfcfa] px-4 py-8 sm:gap-6">
+      <header className="w-full max-w-2xl">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="inline-flex items-center gap-1.5 rounded-md py-2 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#02353C]"
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Back
+        </button>
+      </header>
+      <div className="w-full max-w-2xl rounded-xl border border-border bg-white p-5 shadow-[0_20px_50px_rgba(15,71,62,0.14)] sm:p-8">
+        <Link
+          to="/"
+          aria-label="Accentra home"
+          className="mx-auto mb-4 block h-16 w-64"
+        >
+          <img
+            src={logoText}
+            alt="Accentra"
+            className="h-16 w-64 object-contain"
+          />
+        </Link>
+        <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
         <div className="flex items-center justify-between gap-2">
           {steps.map((step, index) => {
             const number = index + 1;
@@ -237,9 +259,6 @@ export default function SignupPage() {
             <>
               <div className="flex flex-col items-center gap-1 text-center">
                 <h1 className="text-2xl font-bold">Create your account</h1>
-                <p className="text-sm text-balance text-muted-foreground">
-                  Fill in the form below to create your account
-                </p>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -342,11 +361,14 @@ export default function SignupPage() {
                 field={{ name: "confirmPassword", label: "Confirm Password", required: true }}
                 value={formData.confirmPassword}
                 onChange={updateField}
-                error={errorFor("confirmPassword") || (!formData.confirmPassword ? "Please confirm your password." : "")}
+                error={errorFor("confirmPassword")}
                 type="password"
               />
 
-              <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600">
+              <Button
+                type="submit"
+                className="h-14 w-3/4 max-w-sm self-center bg-forest-900 text-lg text-white hover:bg-[#18a16f]"
+              >
                 Continue
               </Button>
             </>
@@ -354,17 +376,14 @@ export default function SignupPage() {
             <>
               <div className="flex flex-col items-center gap-1 text-center">
                 <h1 className="text-2xl font-bold">Business Registration</h1>
-                <p className="text-sm text-muted-foreground">
-                  Is your business currently registered with the Bureau of Internal Revenue (BIR)?
-                </p>
               </div>
 
               <Field>
-                <FieldLabel>Business registration status<span className="ml-0.5 text-red-500">*</span></FieldLabel>
+                <FieldLabel>Is your business already registered?<span className="ml-0.5 text-red-500">*</span></FieldLabel>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
-                    ["registered", "Yes, my business is BIR-registered"],
-                    ["unregistered", "No, my business is not yet registered"],
+                    ["registered", "Yes, my business is already registered"],
+                    ["unregistered", "No, my business is not registered yet"],
                   ].map(([value, label]) => (
                     <label
                       key={value}
@@ -491,7 +510,7 @@ export default function SignupPage() {
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
                   <p className="text-sm font-medium text-foreground">You can skip your business information for now.</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Since your business is not yet BIR-registered, you can complete your business profile later in Settings or when the information becomes available.
+                    Since your business is not yet registered, you can complete your business profile later in Settings or when the information becomes available.
                   </p>
                 </div>
               ) : (
@@ -519,14 +538,15 @@ export default function SignupPage() {
             </>
           )}
         </FieldGroup>
-      </form>
+        </form>
 
-      <p className="mt-4 text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
-        <Link to="/client/signin" className="font-medium text-foreground underline underline-offset-4 hover:text-emerald-700">
-          Sign in
-        </Link>
-      </p>
-    </AuthLayout>
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          Already have an account?{" "}
+          <Link to="/client/signin" className="font-medium text-foreground underline underline-offset-4 hover:text-emerald-700">
+            Sign in
+          </Link>
+        </p>
+      </div>
+    </main>
   );
 }

@@ -307,6 +307,11 @@ export default function ClientEngagementDetailPage() {
   const { data: engagement, isLoading, error } = useFetchEngagement(id)
   const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(id)
   const { data: documents = [], isLoading: isDocumentsLoading } = useFetchEngagementDocuments(id)
+
+  // TEMPORARY: check if the documents have a full timestamp (with time).
+  // Look for created_at / createdAt like "2026-11-05T14:32:10Z". Remove after checking.
+  console.log("DOC SAMPLE:", documents[0])
+
   const uploadDocument = useUploadEngagementDocument(id)
   const deleteDocument = useDeleteEngagementDocument(id)
 
@@ -659,9 +664,6 @@ export default function ClientEngagementDetailPage() {
                 <h2 className="text-lg font-semibold sm:text-xl">
                   Engagement Details
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  View client and service information
-                </p>
               </div>
               <button
                 type="button"
@@ -755,9 +757,6 @@ export default function ClientEngagementDetailPage() {
                     <h3 className="text-base font-semibold">
                       Service Information
                     </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Details about the selected service
-                    </p>
                   </div>
 
                   <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">

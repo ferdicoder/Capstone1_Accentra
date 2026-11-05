@@ -427,9 +427,6 @@ export function ClientEngagementDeliverables({
         <DialogContent className="flex max-h-[80vh] max-w-xl flex-col">
           <DialogHeader>
             <DialogTitle>All Deliverables</DialogTitle>
-            <DialogDescription>
-              Files your firm has released for this engagement, newest first.
-            </DialogDescription>
           </DialogHeader>
 
           <div className="-mx-1 flex-1 divide-y divide-border/60 overflow-y-auto">

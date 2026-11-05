@@ -116,7 +116,6 @@ export default function ClientDashboard() {
 
   const firstName =
     user?.firstName ?? user?.user_metadata?.first_name ?? user?.name ?? ""
-  const businessName = business?.businessName ?? business?.name ?? ""
 
   // --- Engagements -----------------------------------------------------------
 
@@ -262,11 +261,6 @@ export default function ClientDashboard() {
         <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">
           {firstName ? `${greeting()}, ${firstName}` : greeting()}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {businessName
-            ? `${businessName} · Here is the latest on your services and billing.`
-            : "Here is the latest on your services and billing."}
-        </p>
       </div>
 
       {loadError && (
@@ -281,7 +275,7 @@ export default function ClientDashboard() {
       {/* KPI cards (display only, no icons) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
-          label="Active Engagements"
+          label={<span className="font-bold !text-black">Active Engagements</span>}
           value={engagementsError ? "—" : openEngagements.length}
           hint={
             completedEngagements.length
@@ -290,14 +284,14 @@ export default function ClientDashboard() {
           }
         />
         <StatCard
-          label="Documents to Submit"
+          label={<span className="font-bold !text-black">Documents to Submit</span>}
           value={engagementsError ? "—" : documentItems.length}
           hint={
             documentItems.length ? "Needed by the firm" : "Nothing needed from you"
           }
         />
         <StatCard
-          label="Amount to Pay"
+          label={<span className="font-bold !text-black">Amount to Pay</span>}
           value={billingError ? "—" : formatCurrency(billing.payableTotal)}
           alert={billing.overdue.length > 0}
           hint={
@@ -314,7 +308,6 @@ export default function ClientDashboard() {
       <div className="grid items-stretch gap-6 lg:grid-cols-2">
         <Panel
           title="Documents to Submit"
-          description="Documents the client still needs to provide."
           count={engagementsError ? undefined : documentItems.length}
           to="/client/engagements"
         >
@@ -353,7 +346,6 @@ export default function ClientDashboard() {
 
         <Panel
           title="Outstanding Billing"
-          description="Billing records awaiting payment or verification."
           count={billingError ? undefined : outstandingBilling.length}
           to="/client/billing"
         >
@@ -403,11 +395,7 @@ export default function ClientDashboard() {
       </div>
 
       {/* Recent Engagements */}
-      <Panel
-        title="Recent Engagements"
-        description="A quick view of current service progress."
-        to="/client/engagements"
-      >
+      <Panel title="Recent Engagements" to="/client/engagements">
         {engagementsError ? (
           <InlineError />
         ) : recentEngagements.length === 0 ? (

@@ -160,9 +160,6 @@ export default function ClientBillingDetailPage() {
           <h1 className="mt-3 font-semibold">
             Billing Record Not Found
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            This invoice may no longer be available.
-          </p>
         </div>
       </div>
     )

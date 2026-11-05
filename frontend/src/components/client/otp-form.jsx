@@ -20,14 +20,6 @@ export function OtpForm({
           <h1 className="text-3xl font-bold">
             Verify Your Identity
           </h1>
-
-          <p className="text-sm text-muted-foreground">
-            We sent a 6-digit code to
-            <span className="font-medium">
-              {" "}
-              a****a.f*****@gmail.com
-            </span>
-          </p>
         </div>
 
         <Field>

@@ -484,7 +484,6 @@ export default function ClientBillingCalendarPage() {
         events={events}
         eventTypes={EVENT_TYPES}
         title="Billing Calendar"
-        description="Track your upcoming billing dates and payment deadlines."
         summaryItems={getSummaryItems}
         summaryCaption="All billing records"
         onOpenEvent={setSelectedEvent}

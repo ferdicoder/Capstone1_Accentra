@@ -457,11 +457,6 @@ export default function ClientServiceRequestsPage() {
     <div className="flex flex-1 flex-col gap-5 px-2 py-2">
       <div>
         <h1 className="text-xl font-semibold">My Service Requests</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {requests.length} total request{requests.length === 1 ? "" : "s"}
-          {" · "}Approved requests open their engagement. Declined requests show
-          the reason.
-        </p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

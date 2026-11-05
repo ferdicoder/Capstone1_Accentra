@@ -1,4 +1,7 @@
 # Accentra
+<img width="1900" height="850" alt="image" src="https://github.com/user-attachments/assets/22bea220-2e90-46bf-bf8d-d4f1883e9f2c" />
+
+Demo: <i><a href="accentra.up.railway.app ">Accentra Demo</a></i>
 
 Accentra is a web-based practice management system for accounting firms in the Philippines. It centralizes client service requests, engagement tracking, workflow tasks, document exchange, firm users, and service templates in one application.
 
@@ -226,7 +229,6 @@ B2_KEY_ID=
 B2_APPLICATION_KEY=
 B2_BUCKET_ID=
 B2_BUCKET_NAME=
-FRONTEND_URL=https://your-deployed-frontend.example
 ```
 
 `SUPABASE_SECRET_KEY`, `B2_APPLICATION_KEY`, and the other B2 credentials are server secrets and must only be used by the backend.
@@ -238,13 +240,6 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_PUBLISHABLE_KEY=
 VITE_API_BASE_URL=http://localhost:3000/api/v1
 ```
-
-For a deployed frontend, set `VITE_API_BASE_URL` to the deployed backend API
-base URL, including `https://` (for example,
-`https://accentra-backend-test.up.railway.app/api/v1`). Set the backend
-`FRONTEND_URL` to the exact deployed frontend
-origin, including its scheme and without a trailing slash. Multiple allowed
-origins may be supplied as a comma-separated list.
 
 ## Running Locally
 

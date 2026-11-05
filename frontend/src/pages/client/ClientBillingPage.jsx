@@ -97,9 +97,6 @@ export default function ClientBillingPage() {
         <h1 className="text-xl font-semibold tracking-tight">
           My Billing
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          View your invoices and manage your payments.
-        </p>
       </div>
 
       {/* Summary */}
@@ -137,9 +134,6 @@ export default function ClientBillingPage() {
         <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-semibold">Billing History</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Select an invoice to view its details.
-            </p>
           </div>
 
           <div className="relative w-full sm:max-w-xs">
