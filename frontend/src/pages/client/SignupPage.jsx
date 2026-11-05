@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { ArrowLeft, Check, X } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import logoText from "@/assets/3dLogo1.svg";
 
 import { registerClient } from "../../services/authService";
 import { accountSchema, businessSchema, passwordRequirements } from "/src/schemas/signupSchema";
@@ -121,8 +120,8 @@ export default function SignupPage() {
   const [submitError, setSubmitError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
-  const slideClass = location.state?.clientAuthSlide === "from-left"
-    ? "client-auth-slide-from-left"
+  const slideClass = location.state?.clientAuthSlide
+    ? "client-auth-slide-up"
     : "";
 
   const errorFor = (name) => errors[name] || "";
@@ -172,7 +171,7 @@ export default function SignupPage() {
       );
       if (!result?.data?.user) throw new Error("Registration could not be completed. Please try again.");
 
-      navigate("/client/signin", { state: { clientAuthSlide: "from-right" } });
+      navigate("/client/signin", { state: { clientAuthSlide: true } });
     } catch (error) {
       console.error("Client registration failed:", error);
       setSubmitError(error.message || "Something went wrong during registration.");
@@ -221,18 +220,7 @@ export default function SignupPage() {
           Back
         </button>
       </header>
-      <div className={`w-full max-w-2xl rounded-xl border border-border bg-white p-5 shadow-[0_20px_50px_rgba(15,71,62,0.14)] sm:p-8 ${slideClass}`}>
-        <Link
-          to="/"
-          aria-label="Accentra home"
-          className="mx-auto mb-4 block h-16 w-64"
-        >
-          <img
-            src={logoText}
-            alt="Accentra"
-            className="h-16 w-64 object-contain"
-          />
-        </Link>
+      <div className={`client-auth-card w-full max-w-2xl rounded-xl border border-border bg-white p-5 shadow-[0_20px_50px_rgba(15,71,62,0.14)] sm:p-8 ${slideClass}`}>
         <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
         <div className="flex items-center justify-between gap-2">
           {steps.map((step, index) => {
@@ -371,7 +359,7 @@ export default function SignupPage() {
 
               <Button
                 type="submit"
-                className="h-14 w-3/4 max-w-sm self-center bg-forest-900 text-lg text-white hover:bg-[#18a16f]"
+                className="h-12 w-4/5 max-w-sm self-center bg-forest-900 text-lg text-white hover:bg-[#18a16f]"
               >
                 Continue
               </Button>
@@ -548,7 +536,7 @@ export default function SignupPage() {
           Already have an account?{" "}
           <Link
             to="/client/signin"
-            state={{ clientAuthSlide: "from-right" }}
+            state={{ clientAuthSlide: true }}
             className="font-medium text-forest-900 underline underline-offset-4 hover:text-emerald-700"
           >
             Sign in

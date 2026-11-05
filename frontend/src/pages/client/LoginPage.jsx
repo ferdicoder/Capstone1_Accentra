@@ -1,13 +1,12 @@
 import { ClientLoginForm } from "@/components/client/ClientLoginForm"
 import { ArrowLeft } from "lucide-react"
-import { Link, useLocation, useNavigate } from "react-router-dom"
-import logoText from "@/assets/3dLogo1.svg"
+import { useLocation, useNavigate } from "react-router-dom"
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const slideClass = location.state?.clientAuthSlide === "from-right"
-    ? "client-auth-slide-from-right"
+  const slideClass = location.state?.clientAuthSlide
+    ? "client-auth-slide-up"
     : ""
 
   return (
@@ -22,18 +21,7 @@ export default function LoginPage() {
           Back
         </button>
       </header>
-      <div className={`w-full max-w-md rounded-xl border border-border bg-white p-5 shadow-[0_20px_50px_rgba(15,71,62,0.14)] sm:p-8 ${slideClass}`}>
-        <Link
-          to="/"
-          aria-label="Accentra home"
-          className="mx-auto mb-4 block h-14 w-56"
-        >
-          <img
-            src={logoText}
-            alt="Accentra"
-            className="h-14 w-56 object-contain"
-          />
-        </Link>
+      <div className={`client-auth-card w-full max-w-2xl rounded-xl border border-border bg-white p-5 shadow-[0_20px_50px_rgba(15,71,62,0.14)] sm:p-8 ${slideClass}`}>
         <ClientLoginForm />
       </div>
     </main>

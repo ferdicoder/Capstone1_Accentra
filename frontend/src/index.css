@@ -5,42 +5,42 @@
 
 @custom-variant dark (&:is(.dark *));
 
-.client-auth-slide-from-left {
-    animation: client-auth-slide-from-left 280ms ease-out both;
+.client-auth-slide-up {
+    animation: client-auth-slide-up 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.client-auth-slide-from-right {
-    animation: client-auth-slide-from-right 280ms ease-out both;
+.client-auth-card {
+    transition: transform 240ms ease, box-shadow 240ms ease;
 }
 
-@keyframes client-auth-slide-from-left {
+.client-auth-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 28px 65px rgba(15, 35, 30, 0.28);
+}
+
+@keyframes client-auth-slide-up {
     from {
-        opacity: 0.6;
-        transform: translateX(-24px);
+        opacity: 0;
+        transform: translateY(28px);
     }
 
     to {
         opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-@keyframes client-auth-slide-from-right {
-    from {
-        opacity: 0.6;
-        transform: translateX(24px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(0);
+        transform: translateY(0);
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .client-auth-slide-from-left,
-    .client-auth-slide-from-right {
+    .client-auth-slide-up {
         animation: none;
+    }
+
+    .client-auth-card {
+        transition: none;
+    }
+
+    .client-auth-card:hover {
+        transform: none;
     }
 }
 

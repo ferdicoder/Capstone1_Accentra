@@ -126,7 +126,7 @@ export function ClientLoginForm({
             type="submit"
             disabled={isSubmitting}
             className="
-            h-14
+            h-12
             w-3/4
             max-w-sm
             self-center
@@ -157,7 +157,7 @@ export function ClientLoginForm({
             Don&apos;t have an account?{" "}
             <Link
               to="/client/signup"
-              state={{ clientAuthSlide: "from-left" }}
+              state={{ clientAuthSlide: true }}
               className="underline underline-offset-4 text-navy-900 transition-colors hover:text-emerald-700!"
             >
               Sign up
