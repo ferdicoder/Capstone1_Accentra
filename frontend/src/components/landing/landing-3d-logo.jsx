@@ -4,6 +4,11 @@ import modelUrl from "@/assets/3dLogo.gltf?url"
 
 const clamp = (value) => Math.min(1, Math.max(0, value))
 
+// Brand colors for the model: secondary teal for the body, accent emerald for
+// the swoosh (when the GLTF exposes it as a separate mesh or material).
+const PALETTE = { body: "#0A4B52", accent: "#10B981" }
+const ACCENT_NAME = /swoosh|wave|curve|accent/i
+
 /**
  * Renders the supplied Accentra GLTF as a restrained section accent.
  *
@@ -61,13 +66,17 @@ export function Landing3DLogo({ className = "" }) {
       const parentWidth = track.clientWidth || 0
       const modelWidth = container.offsetWidth || 1
       const finalX = Math.max((parentWidth - modelWidth) / 2, 0)
-      const startX = -modelWidth - 48
+      // A short slide from beside its resting place, not from off-screen.
+      const startX = finalX - modelWidth * 0.35
       const easedProgress = progress * progress * (3 - 2 * progress)
       const offset = motionPreference.matches
         ? finalX
         : startX + (finalX - startX) * easedProgress
 
       container.style.setProperty("--landing-3d-x", `${offset}px`)
+      container.style.opacity = motionPreference.matches
+        ? "1"
+        : String(0.4 + 0.6 * easedProgress)
     }
 
     const applyScrollProgress = () => {
@@ -80,7 +89,7 @@ export function Landing3DLogo({ className = "" }) {
       // Turn the logo toward the viewer as it reaches its resting position.
       const entranceTurn = motionPreference.matches
         ? 0
-        : -Math.PI * 0.42 * (1 - sectionProgress)
+        : -Math.PI * 0.25 * (1 - sectionProgress)
       model.rotation.set(0, entranceTurn, 0)
       model.position.set(0, 0, 0)
       model.scale.setScalar(baseScale)
@@ -136,30 +145,21 @@ export function Landing3DLogo({ className = "" }) {
         roomEnvironment.dispose()
         pmremGenerator.dispose()
 
+        // Soft, even lighting: one key, one brand-colored fill, one rim. No hot
+        // specular glints, so the mark reads as a finished object.
         const hemisphereLight = new THREE.HemisphereLight(
           0xbfeee2,
           0x011a16,
           0.45,
         )
-        const keyLight = new THREE.DirectionalLight(0xffffff, 2)
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.6)
         keyLight.position.set(2.5, 3.5, 4)
-        const emeraldLight = new THREE.PointLight(0x0b6b4a, 1.2, 8)
+        const emeraldLight = new THREE.PointLight(0x10b981, 0.8, 8)
         emeraldLight.position.set(-2.4, -1.5, 2.5)
-        const rimLight = new THREE.PointLight(0xd8fff1, 2.4, 7)
+        const rimLight = new THREE.PointLight(0xd8fff1, 1.6, 7)
         rimLight.position.set(2, 1.5, -2)
-        const glintLight = new THREE.PointLight(0xffffff, 18, 4.5)
-        glintLight.position.set(1.1, 1.6, 2)
-        const glintFill = new THREE.PointLight(0xbfffe6, 9, 4)
-        glintFill.position.set(-1.6, 0.9, 1.6)
 
-        scene.add(
-          hemisphereLight,
-          keyLight,
-          emeraldLight,
-          rimLight,
-          glintLight,
-          glintFill,
-        )
+        scene.add(hemisphereLight, keyLight, emeraldLight, rimLight)
 
         const resize = () => {
           if (!renderer || !camera) return
@@ -196,68 +196,42 @@ export function Landing3DLogo({ className = "" }) {
             const modelGroup = new THREE.Group()
             modelGroup.add(modelRoot)
             modelRoot.traverse((child) => {
-              if (!child.isMesh) return
+              if (!child.isMesh || !child.material) return
               child.castShadow = false
               child.receiveShadow = false
-              if (child.material) {
-                const material = child.material
-                // Stronger environment reflections give the polished crystal
-                // facets their highlights.
-                material.envMapIntensity = 2.2
-                material.needsUpdate = true
-                // Tint the clear asset toward a dark green crystal without
-                // changing the source GLTF.
+
+              // Polished, lacquered finish in brand colors. Materials are
+              // cloned so the body and the accent can differ even when the
+              // source file shares one material.
+              const tune = (source) => {
+                const material = source.clone()
+                const isAccent = ACCENT_NAME.test(
+                  `${child.name} ${source.name}`,
+                )
+
                 if ("color" in material) {
-                  material.color.set("#0d4a34")
+                  material.color.set(isAccent ? PALETTE.accent : PALETTE.body)
                 }
-                if ("transmission" in material) {
-                  // Partial transmission: thin edges stay translucent while the
-                  // body keeps the deep, saturated gemstone green.
-                  material.transmission = 0.42
-                }
-                if ("thickness" in material) {
-                  material.thickness = 2.2
-                }
-                if ("attenuationDistance" in material) {
-                  // Short distance so light is absorbed quickly and thick
-                  // sections fall away to near-black green.
-                  material.attenuationDistance = 0.5
-                }
-                if ("attenuationColor" in material) {
-                  material.attenuationColor.set("#04281a")
-                }
-                if ("ior" in material) {
-                  // Above glass, closer to a cut gemstone.
-                  material.ior = 1.9
-                }
-                if ("dispersion" in material) {
-                  // Subtle prismatic fringing on the refracted edges.
-                  material.dispersion = 0.6
-                }
-                if ("iridescence" in material) {
-                  material.iridescence = 0.15
-                  material.iridescenceIOR = 1.6
-                }
-                if ("clearcoat" in material) {
-                  material.clearcoat = 1
-                }
+                material.envMapIntensity = 1.2
+                // Set transmission to about 0.15 to bring back a hint of
+                // translucency.
+                if ("transmission" in material) material.transmission = 0
+                if ("dispersion" in material) material.dispersion = 0
+                if ("iridescence" in material) material.iridescence = 0
+                if ("ior" in material) material.ior = 1.5
+                if ("roughness" in material) material.roughness = 0.28
+                if ("metalness" in material) material.metalness = 0.15
+                if ("clearcoat" in material) material.clearcoat = 0.6
                 if ("clearcoatRoughness" in material) {
-                  material.clearcoatRoughness = 0.015
+                  material.clearcoatRoughness = 0.12
                 }
-                if ("specularIntensity" in material) {
-                  material.specularIntensity = 1
-                }
-                if ("specularColor" in material) {
-                  material.specularColor.set("#f2fffb")
-                }
-                if ("roughness" in material) {
-                  // Near-mirror surface for the wet, glassy shine.
-                  material.roughness = 0.02
-                }
-                if ("metalness" in material) {
-                  material.metalness = 0
-                }
+                material.needsUpdate = true
+                return material
               }
+
+              child.material = Array.isArray(child.material)
+                ? child.material.map(tune)
+                : tune(child.material)
             })
 
             modelRoot.updateMatrixWorld(true)

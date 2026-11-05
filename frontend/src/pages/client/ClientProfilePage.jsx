@@ -271,6 +271,9 @@ export default function ClientProfilePage() {
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
+  // Per-field errors for the Security tab, so each missing / invalid password
+  // field is highlighted and the page can scroll straight to it.
+  const [securityErrors, setSecurityErrors] = useState({})
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
   // Gates "Are you sure you want to change your information?" — opened by
   // handleSaveInfo once the business form is valid; the real save only runs
@@ -283,6 +286,7 @@ export default function ClientProfilePage() {
   // whether the user actually changed anything before hitting Save.
   const savedProfileRef = useRef(emptyProfile)
   const profileFormRef = useRef(null)
+  const securityFormRef = useRef(null)
 
   // Timer that auto-hides the "too many digits" warning once the user
   // stops typing.
@@ -382,6 +386,14 @@ export default function ClientProfilePage() {
   const updateSecurityField = (event) => {
     const { name, value } = event.target
     setSecurity((current) => ({ ...current, [name]: value }))
+    // Typing in a flagged field clears its error right away. Changing the new
+    // password also clears the confirmation mismatch, since it may now match.
+    setSecurityErrors((current) => {
+      if (!current[name] && !(name === "newPassword" && current.confirmPassword)) return current
+      const next = { ...current, [name]: "" }
+      if (name === "newPassword") next.confirmPassword = ""
+      return next
+    })
   }
 
   const hasProfileChanges = EDITABLE_BUSINESS_FIELDS.some(
@@ -469,21 +481,32 @@ export default function ClientProfilePage() {
   }
 
   // Step 1: validate the password form, then open the confirmation modal
-  // instead of saving immediately.
+  // instead of saving immediately. Every problem is collected at once and
+  // attached to its own field, then the page scrolls to the first one.
   const handleSavePassword = (event) => {
     event.preventDefault()
     setSaveMessage(null)
 
+    const errors = {}
     if (!security.currentPassword) {
-      setSaveMessage({ type: "error", text: "Enter your current password." })
-      return
+      errors.currentPassword = "Enter your current password."
     }
-    if (!isPasswordValid(security.newPassword)) {
-      setSaveMessage({ type: "error", text: "Password doesn't meet the requirements below." })
-      return
+    if (!security.newPassword) {
+      errors.newPassword = "Enter a new password."
+    } else if (!isPasswordValid(security.newPassword)) {
+      errors.newPassword = "Password doesn't meet the requirements below."
     }
-    if (security.newPassword !== security.confirmPassword) {
-      setSaveMessage({ type: "error", text: "New password and confirmation don't match." })
+    if (!security.confirmPassword) {
+      errors.confirmPassword = "Confirm your new password."
+    } else if (security.newPassword !== security.confirmPassword) {
+      errors.confirmPassword = "New password and confirmation don't match."
+    }
+
+    setSecurityErrors(errors)
+
+    if (Object.keys(errors).length > 0) {
+      setSaveMessage({ type: "error", text: "Please fix the highlighted fields." })
+      scrollToFirstInvalidField(securityFormRef.current)
       return
     }
 
@@ -503,6 +526,7 @@ export default function ClientProfilePage() {
       await new Promise((resolve) => setTimeout(resolve, 700))
 
       setSecurity(initialSecurity)
+      setSecurityErrors({})
       setIsPasswordConfirmOpen(false)
       setSaveMessage({ type: "success", text: "Password updated successfully." })
     } catch (err) {
@@ -547,6 +571,7 @@ export default function ClientProfilePage() {
                 onClick={() => {
                   setActiveTab(tab.key)
                   setSaveMessage(null)
+                  setSecurityErrors({})
                 }}
                 className={cn(
                   "-mb-px border-b-2 pb-3 text-sm font-medium transition-colors",
@@ -562,6 +587,7 @@ export default function ClientProfilePage() {
 
           {saveMessage && (
             <div
+              role={saveMessage.type === "error" ? "alert" : "status"}
               className={cn(
                 "rounded-lg px-4 py-2.5 text-sm",
                 saveMessage.type === "success"
@@ -881,7 +907,12 @@ export default function ClientProfilePage() {
           )}
 
           {activeTab === "security" && (
-            <form onSubmit={handleSavePassword} className="flex flex-col gap-6">
+            <form
+              ref={securityFormRef}
+              onSubmit={handleSavePassword}
+              noValidate
+              className="flex flex-col gap-6"
+            >
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="rounded-xl border border-border bg-card p-6 shadow-sm lg:col-span-2">
                   <div className="mb-5 flex items-center justify-between">
@@ -910,7 +941,13 @@ export default function ClientProfilePage() {
                           value={security.currentPassword}
                           onChange={updateSecurityField}
                           className={controlClass}
+                          aria-invalid={Boolean(securityErrors.currentPassword)}
                         />
+                        {securityErrors.currentPassword && (
+                          <FieldDescription className="text-red-600">
+                            {securityErrors.currentPassword}
+                          </FieldDescription>
+                        )}
                       </Field>
                       <div />
                     </div>
@@ -927,7 +964,13 @@ export default function ClientProfilePage() {
                           value={security.newPassword}
                           onChange={updateSecurityField}
                           className={controlClass}
+                          aria-invalid={Boolean(securityErrors.newPassword)}
                         />
+                        {securityErrors.newPassword && (
+                          <FieldDescription className="text-red-600">
+                            {securityErrors.newPassword}
+                          </FieldDescription>
+                        )}
                       </Field>
                       <Field>
                         <FieldLabel htmlFor="confirmPassword">
@@ -940,7 +983,13 @@ export default function ClientProfilePage() {
                           value={security.confirmPassword}
                           onChange={updateSecurityField}
                           className={controlClass}
+                          aria-invalid={Boolean(securityErrors.confirmPassword)}
                         />
+                        {securityErrors.confirmPassword && (
+                          <FieldDescription className="text-red-600">
+                            {securityErrors.confirmPassword}
+                          </FieldDescription>
+                        )}
                       </Field>
                     </div>
 
@@ -1028,15 +1077,15 @@ export default function ClientProfilePage() {
       />
 
       <ConfirmationModal
-  open={isPasswordConfirmOpen}
-  icon={TriangleAlert}
-  title="Change Password?"
-  description="Are you sure you want to change your password?"
-  confirmLabel="Yes"
-  isConfirming={isSaving}
-  onCancel={() => setIsPasswordConfirmOpen(false)}
-  onConfirm={confirmPasswordChange}
-    />
+        open={isPasswordConfirmOpen}
+        icon={TriangleAlert}
+        title="Change Password?"
+        description="Are you sure you want to change your password?"
+        confirmLabel="Yes"
+        isConfirming={isSaving}
+        onCancel={() => setIsPasswordConfirmOpen(false)}
+        onConfirm={confirmPasswordChange}
+      />
     </div>
   )
 }

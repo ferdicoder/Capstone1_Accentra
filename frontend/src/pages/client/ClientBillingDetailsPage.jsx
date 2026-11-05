@@ -1,4 +1,3 @@
-
 import { useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import {
@@ -17,6 +16,7 @@ import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchBilling, useUploadPaymentProof } from "@/hooks/useBillings"
 import { authStore } from "@/store/authStore"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 
 function formatCurrency(amount) {
   return `₱${Number(amount).toLocaleString("en-PH", {
@@ -63,6 +63,9 @@ export default function ClientBillingDetailPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  // True when the proof of payment is the field that is missing / invalid.
+  // Drives the red outline and the auto-locate scroll.
+  const [proofInvalid, setProofInvalid] = useState(false)
 
   const user = authStore((state) => state.user)
   const { data: business } = useFetchMyBusiness(user?.id)
@@ -90,6 +93,7 @@ export default function ClientBillingDetailPage() {
   const handleFileChange = (event) => {
     const file = event.target.files?.[0] ?? null
     setError("")
+    setProofInvalid(false)
 
     if (!file) return
 
@@ -102,11 +106,13 @@ export default function ClientBillingDetailPage() {
 
     if (!allowedTypes.includes(file.type)) {
       setError("Upload a JPG, PNG, WEBP, or PDF file.")
+      setProofInvalid(true)
       return
     }
 
     if (file.size > 5 * 1024 * 1024) {
       setError("The file must be 5 MB or smaller.")
+      setProofInvalid(true)
       return
     }
 
@@ -115,13 +121,19 @@ export default function ClientBillingDetailPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    // Keep a reference now: event.currentTarget is cleared after the first await.
+    const form = event.currentTarget
     setError("")
     setSuccess("")
+    setProofInvalid(false)
 
     if (!canSubmitPayment) return
 
     if (!proofFile) {
       setError("Upload your proof of payment before submitting.")
+      setProofInvalid(true)
+      // Scroll to the proof-of-payment box and flash it.
+      scrollToFirstInvalidField(form)
       return
     }
 
@@ -160,6 +172,9 @@ export default function ClientBillingDetailPage() {
           <h1 className="mt-3 font-semibold">
             Billing Record Not Found
           </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            This invoice may no longer be available.
+          </p>
         </div>
       </div>
     )
@@ -355,7 +370,7 @@ export default function ClientBillingDetailPage() {
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+              <form onSubmit={handleSubmit} noValidate className="mt-5 space-y-4">
                 <div className="space-y-1.5">
                   <label htmlFor="client-payment-method" className="text-sm font-medium">
                     Payment Method
@@ -372,9 +387,14 @@ export default function ClientBillingDetailPage() {
                   </select>
                 </div>
 
-                <div className="space-y-1.5">
+                {/* data-invalid is what scrollToFirstInvalidField looks for. */}
+                <div
+                  className="space-y-1.5 rounded-lg"
+                  data-invalid={proofInvalid ? "true" : undefined}
+                >
                   <label className="text-sm font-medium">
                     Proof of Payment
+                    <span className="ml-0.5 text-red-500">*</span>
                   </label>
 
                   <input
@@ -416,7 +436,10 @@ export default function ClientBillingDetailPage() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex w-full flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-center transition-colors hover:bg-muted/40"
+                      aria-invalid={proofInvalid}
+                      className={`flex w-full flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-center transition-colors hover:bg-muted/40 ${
+                        proofInvalid ? "border-red-500 bg-red-50/50" : ""
+                      }`}
                       disabled={isSubmitting}
                     >
                       <ImagePlus className="size-6 text-muted-foreground" />
