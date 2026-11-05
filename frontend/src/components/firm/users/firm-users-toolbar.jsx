@@ -25,6 +25,9 @@ import { roleFilterOptions as defaultRoleFilterOptions } from "./firm-user-varia
  * @param {Function} onRoleFilterChange - (value: string) => void.
  * @param {Array} roleOptions - [{ value, label }]. Pass [] to hide the role filter.
  *   Status is derived from system activity, so there is no status filter.
+ * @param {string} filterLabel - Trigger label when no filter is active. Default "Role".
+ * @param {string} filterHeading - Dropdown heading. Default "Filter by role".
+ * @param {string} allOptionLabel - Label of the clear-filter option. Default "All roles".
  * @param {Function} onAddUser - Optional (event) => void fired by the "Add User" button.
  * @param {string} addUserLabel - Label for the add button. Default "Add User".
  * @param {string} resultCount - Optional helper text, e.g. "12 users".
@@ -38,6 +41,9 @@ export function FirmUsersToolbar({
   roleFilter = "",
   onRoleFilterChange,
   roleOptions = defaultRoleFilterOptions,
+  filterLabel = "Role",
+  filterHeading = "Filter by role",
+  allOptionLabel = "All roles",
   onAddUser,
   addUserLabel = "Add User",
   resultCount,
@@ -85,12 +91,12 @@ export function FirmUsersToolbar({
               }
             >
               <Filter className="size-3.5" />
-              {activeRole ? activeRole.label : "Role"}
+              {activeRole ? activeRole.label : filterLabel}
               <ChevronDown className="size-3.5 opacity-60" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-40">
               <DropdownMenuGroup>
-                <DropdownMenuLabel>Filter by role</DropdownMenuLabel>
+                <DropdownMenuLabel>{filterHeading}</DropdownMenuLabel>
                 <DropdownMenuItem
                   onClick={() => onRoleFilterChange?.("")}
                   className={cn(!roleFilter && "font-medium")}
@@ -98,7 +104,7 @@ export function FirmUsersToolbar({
                   <span className="flex w-4 shrink-0 justify-center">
                     {!roleFilter && <Check className="size-4" />}
                   </span>
-                  All roles
+                  {allOptionLabel}
                 </DropdownMenuItem>
                 {roleOptions.map((option) => (
                   <DropdownMenuItem

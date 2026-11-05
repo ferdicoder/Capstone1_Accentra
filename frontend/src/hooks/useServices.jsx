@@ -8,10 +8,13 @@ import {
   deleteService,
 } from "@/services/api/serviceAPI"
 
-export function useFetchServices() {
+export function useFetchServices({ enabled = true } = {}) {
   return useQuery({
     queryKey: queryKeys.services,
     queryFn: getServices,
+    enabled,
+    staleTime: 1000 * 30, 
+    gcTime: 1000 * 60 
   })
 }
 

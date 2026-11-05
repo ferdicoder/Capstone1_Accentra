@@ -1,6 +1,8 @@
 import { Inbox } from "lucide-react"
+import { useMemo } from "react"
 
 import { cn } from "@/lib/utils"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ServiceRequestAvatar } from "./service-request-avatar"
 import { ServiceRequestRow } from "./service-request-row"
@@ -9,6 +11,7 @@ import {
   formatRevenue,
   formatSubmittedDate,
   getClientFullName,
+  hideServiceRequestPriceColumn,
 } from "./service-request-variants"
 
 const defaultServiceRequestColumns = [
@@ -72,10 +75,16 @@ const defaultServiceRequestColumns = [
   },
 ]
 
-/** Presentational, data-driven service request table. Receives everything through props. */
+/**
+ * Presentational, data-driven service request table. Receives everything through props.
+ *
+ * The Price column is only rendered when `showPrice` is true — the Service
+ * Request page opts in for Billing Officers only.
+ */
 export function ServiceRequestList({
   requests = [],
   columns = defaultServiceRequestColumns,
+  showPrice = false,
   getRowKey = (request, index) => request?.id ?? index,
   loading = false,
   skeletonRows = 5,
@@ -83,24 +92,39 @@ export function ServiceRequestList({
   emptyDescription,
   actions,
   onRowClick,
+  page = 1,
+  onPageChange,
   className,
   ...props
 }) {
   const showActions = typeof actions === "function"
   const isEmpty = !loading && requests.length === 0
-  const columnCount = columns.length + (showActions ? 1 : 0)
+  // Roles that may not see the Price get the same table without that column.
+  const visibleColumns = useMemo(
+    () => (showPrice ? columns : hideServiceRequestPriceColumn(columns)),
+    [columns, showPrice]
+  )
+
+  const columnCount = visibleColumns.length + (showActions ? 1 : 0)
+  const totalPages = Math.max(1, Math.ceil(requests.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedRequests = requests.slice(
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE
+  )
 
   return (
-    <div
-      data-slot="service-request-list"
-      className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
-      {...props}
-    >
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
+    <>
+      <div
+        data-slot="service-request-list"
+        className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
+        {...props}
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
-              {columns.map((column) => (
+            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
+              {visibleColumns.map((column) => (
                 <th
                   key={column.key ?? column.label}
                   scope="col"
@@ -109,11 +133,6 @@ export function ServiceRequestList({
                   {column.label}
                 </th>
               ))}
-              {showActions && (
-                <th scope="col" className="px-4 py-3 text-right font-semibold">
-                  Actions
-                </th>
-              )}
             </tr>
           </thead>
           <tbody>
@@ -150,26 +169,24 @@ export function ServiceRequestList({
                       </td>
                     </tr>
                   )
-                : requests.map((request, index) => (
+                : paginatedRequests.map((request, index) => (
                     <ServiceRequestRow
-                      key={getRowKey(request, index)}
+                      key={getRowKey(request, (visiblePage - 1) * PAGE_SIZE + index)}
                       request={request}
-                      columns={columns}
+                      columns={visibleColumns}
                       onRowClick={onRowClick}
                     >
-                      {showActions && (
-                        <td
-                          className="px-4 py-3 text-right align-middle"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          {actions(request)}
-                        </td>
-                      )}
                     </ServiceRequestRow>
                   ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
-    </div>
+      <PaginationFooter
+        page={visiblePage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
+    </>
   )
 }

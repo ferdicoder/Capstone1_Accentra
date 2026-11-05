@@ -1,49 +1,61 @@
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import { CircleAlert } from "lucide-react"
 import {
   Field,
   FieldDescription,
   FieldGroup,
   FieldLabel,
-  FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input";
 
 import { useNavigate } from "react-router-dom";
 
-import { signinUser } from "@/services/authService"
+import { signinToPortal } from "@/services/authService";
+import { getHome } from "@/config/roles";
+import { AdminForgotPasswordModal } from "@/components/firm/admin-forgot-password-modal";
 
 export function FirmLoginForm({
   className,
   ...props
 }) {
     const [errors, setErrors] = useState({})
+  const [loginError, setLoginError] = useState("")
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
 
     const navigate = useNavigate(); 
 
     const handleSubmit = async (event) => {
       event.preventDefault()
 
-      const email= event.target.email.value
-      const password = event.target.password.value
+      const formData = new FormData(event.currentTarget)
+      const email = formData.get("email")?.toString().trim() ?? ""
+      const password = formData.get("password")?.toString() ?? ""
 
       const newErrors = {
         email: !email,
         password: !password,
       } 
       setErrors(newErrors)
-      if (!newErrors.email && !newErrors.password) {
-        console.log("Login Successful:")
+      setLoginError("")
+      if (newErrors.email || newErrors.password) return
+
+      try {
+        const result = await signinToPortal("firm", email, password)
+        navigate(getHome(result.role))
+      } catch (error) {
+        setLoginError(error.message)
       }
-
-       // login 
-      const user = await signinUser(email, password); 
-      if(user.error) console.log('ERRRO:', user.error)
-     
-
-      navigate(`/${user.role}/dashboard`);
     }
+
+  if (isForgotPasswordOpen) {
+    return (
+      <AdminForgotPasswordModal
+        onClose={() => setIsForgotPasswordOpen(false)}
+      />
+    )
+  }
 
   return (
     <form onSubmit={handleSubmit} className={cn("flex flex-col gap-6", className)} {...props}> {/* this is the form element that wraps the entire login form, applying flexbox layout and spacing between child elements */}
@@ -62,6 +74,7 @@ export function FirmLoginForm({
             Email<span className=" text-red-500">*</span></FieldLabel>
           <Input 
           id="email" 
+          name="email"
           type="email" 
           placeholder="m@example.com" 
           className={cn(errors.email &&  "border-red-500 focus-visible:ring-red-500")}
@@ -79,12 +92,17 @@ export function FirmLoginForm({
             <FieldLabel htmlFor="password" className="gap-0 mb-0.5">
               Password<span className=" text-red-500">*</span>
             </FieldLabel>
-            <a href="#" className="ml-auto mb-0.5 text-sm underline-offset-4 text-emerald-700 hover:underline">
+            <button
+              type="button"
+              onClick={() => setIsForgotPasswordOpen(true)}
+              className="ml-auto mb-0.5 cursor-pointer text-sm text-emerald-700 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+            >
               Forgot your password?
-            </a>
+            </button>
           </div>
           <Input 
           id="password" 
+          name="password"
           type="password" 
           className={cn(errors.password && "border-red-500 focus-visible:ring-red-500")}
           />
@@ -92,6 +110,16 @@ export function FirmLoginForm({
             <p className="text-sm text-red-500">Password is required.</p>
           )}
         </Field>
+
+        {loginError && (
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+          >
+            <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <p>{loginError}</p>
+          </div>
+        )}
 
         <Field> {/* this component represents the submit button and the sign-up link */}
           <Button type="submit"

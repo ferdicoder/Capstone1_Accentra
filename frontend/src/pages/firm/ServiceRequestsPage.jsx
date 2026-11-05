@@ -9,9 +9,13 @@ import { CreateEngagementDialog } from "@/components/firm/service-requests/creat
 import { RequiredDocumentsDialog } from "@/components/firm/service-requests/required-documents-dialog"
 import { ServiceRequestFilters } from "@/components/firm/service-requests/service-request-filters"
 import { ServiceRequestList } from "@/components/firm/service-requests/service-request-list"
-import { statusFilterOptions } from "@/components/firm/service-requests/service-request-variants"
+import {
+  statusFilterOptions,
+  canViewServiceRequestPrice,
+} from "@/components/firm/service-requests/service-request-variants"
 import { engagementStore } from "@/components/firm/engagements/engagement-store" // still mocked — no engagements API yet
 import { generateEngagementNumber } from "@/components/firm/engagements/engagement-variants"
+import { authStore } from "@/store/authStore"
 import { useFetchServiceRequests, useUpdateServiceRequestStatus } from "@/hooks/useServiceRequests"
 import { useCreateEngagementFromRequest } from "@/hooks/useEngagements"
 
@@ -19,6 +23,11 @@ export default function ServiceRequestsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
+  const role = authStore((state) => state.role)
+  const canRejectRequest = role === "admin"
+
+  // The Price of a service request is only visible to Billing Officers.
+  const canViewPrice = canViewServiceRequestPrice(role)
 
   const { data: requests = [], isLoading, error } = useFetchServiceRequests()
   const updateStatus = useUpdateServiceRequestStatus()
@@ -28,6 +37,7 @@ export default function ServiceRequestsPage() {
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
   const [selectedId, setSelectedId] = useState(null)
   const [engagementRequest, setEngagementRequest] = useState(null)
   const [activeEngagement, setActiveEngagement] = useState(null)
@@ -59,7 +69,10 @@ export default function ServiceRequestsPage() {
     })
   }, [requests, search, statusFilter])
 
-  const openRequest = (request) => setSelectedId(request.id)
+  const openRequest = (request) => {
+    updateStatus.reset()
+    setSelectedId(request.id)
+  }
   const closeRequest = () => setSelectedId(null)
 
   const handleApproveAndEngage = (request) => {
@@ -68,9 +81,17 @@ export default function ServiceRequestsPage() {
     setEngagementRequest(request)
   }
 
-  const handleReject = (request) => {
+  const handleReject = (request, reason, onSuccess) => {
     if (!request) return
-    updateStatus.mutate({ id: request.id, status: "rejected" })
+    updateStatus.mutate(
+      { id: request.id, status: "rejected", rejectionReason: reason },
+      {
+        onSuccess: () => {
+          onSuccess?.()
+          closeRequest()
+        },
+      }
+    )
   }
 
   const handleEngagementSubmit = (values) => {
@@ -105,37 +126,41 @@ export default function ServiceRequestsPage() {
   usePageMeta({
     title: "Service Requests",
     breadcrumbs: [
-      { label: basePath === "/firm" ? "Firm Staff" : "Firm Admin", href: `${basePath}/dashboard` },
-      { label: "Service Requests", href: `${basePath}/service-requests` },
+      // { label: basePath === "/firm" ? "Firm Staff" : "Firm Admin", href: `${basePath}/dashboard` },
+      // { label: "Service Requests", href: `${basePath}/service-requests` },
     ],
   })
 
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-1">
-        <p className="text-sm text-muted-foreground">
-          Review incoming service requests submitted by clients and decide whether to start an
-          engagement.
-        </p>
         {error && <span className="text-xs text-destructive">Failed to load service requests</span>}
       </div>
 
       <ServiceRequestFilters
         searchValue={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => {
+          setSearch(value)
+          setCurrentPage(1)
+        }}
         searchPlaceholder="Search by client, request no., or service..."
         statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
+        onStatusFilterChange={(value) => {
+          setStatusFilter(value)
+          setCurrentPage(1)
+        }}
         statusOptions={statusOptions}
         resultCount={`${filteredRequests.length} of ${requests.length} requests`}
       />
 
       <ServiceRequestList
         requests={filteredRequests}
+        showPrice={canViewPrice}
         loading={isLoading}
         emptyMessage="No service requests match your filters."
-        emptyDescription="Try clearing the search or changing the status filter."
         onRowClick={(request) => openRequest(request)}
+        page={currentPage}
+        onPageChange={setCurrentPage}
         actions={(request) => (
           <Button
             size="sm"
@@ -154,9 +179,17 @@ export default function ServiceRequestsPage() {
           if (!open) closeRequest()
         }}
         request={selectedRequest}
+        showPrice={canViewPrice}
         onApprove={handleApproveAndEngage}
         onApproveAndEngage={handleApproveAndEngage}
         onReject={handleReject}
+        canReject={canRejectRequest}
+        rejecting={updateStatus.isPending}
+        rejectionError={
+          updateStatus.isError
+            ? updateStatus.error?.message || "Unable to reject the request. Please try again."
+            : ""
+        }
       />
 
       <CreateEngagementDialog

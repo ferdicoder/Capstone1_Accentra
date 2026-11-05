@@ -34,6 +34,17 @@ export const statusFilterOptions = [
   { value: "rejected", label: "Rejected" },
 ]
 
+/** Column key of the Price field on the service request list. */
+export const SERVICE_REQUEST_PRICE_COLUMN_KEY = "revenue"
+
+// Only Billing Officers may see the price of a service request. No permission
+// in config/roles.js covers this, so the role is checked directly.
+export const canViewServiceRequestPrice = (role) => role === "billing_officer"
+
+// Drops the Price column for roles that may not see it.
+export const hideServiceRequestPriceColumn = (columns = []) =>
+  columns.filter((column) => column.key !== SERVICE_REQUEST_PRICE_COLUMN_KEY)
+
 /** Builds up to two initials from a company or person name. */
 export const getInitials = (name) => {
   if (!name) return "AC"

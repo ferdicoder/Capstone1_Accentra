@@ -1,19 +1,28 @@
 import { supabase } from "@/config/supabase";
 import { authStore } from "@/store/authStore";
+import { apiBaseUrl } from "@/config/api";
 
-async function setUserRole(user) {
-  const { data: roleData, error } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', user.id)
-    .single();
+async function setUserRole(user, persist = true) {
+  const [{ data: roleData, error: roleError }, { data: userData, error: userError }] =
+    await Promise.all([
+      supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single(),
+      supabase
+        .from("users")
+        .select("status")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+    ])
 
-  if (error) {
-    authStore.getState().clearAuth();
+  if (roleError || userError || userData?.status === "deactivated") {
+    if (persist) authStore.getState().clearAuth();
     return null;
   }
 
-  authStore.getState().setAuth(user, roleData.role);
+  if (persist) authStore.getState().setAuth(user, roleData.role);
   return roleData.role;
 }
 
@@ -36,6 +45,8 @@ function mapUserRow(row, roleOverride) {
  * - slice to paginate in FE
  * - admin and staff only
  */
+const firmRoles = ['admin', 'staff', 'billing_officer']
+
 async function getUsers() {
   const { data, error } = await supabase
     .from("users")
@@ -47,8 +58,9 @@ async function getUsers() {
       middle_name, 
       last_name,
       status, 
-      user_roles(role)
+      user_roles!inner(role)
     `)
+    .in("user_roles.role", firmRoles)
   if (error) throw error
 
   return (data ?? []).map((row) => {
@@ -76,7 +88,25 @@ async function updateUser(user) {
     .single()
 
   if (error) throw error
-  return mapUserRow(data, user.role) // role isn't in this update, so carry it over
+
+  const { data: { session } } = await supabase.auth.getSession()
+  const roleResponse = await fetch(`${apiBaseUrl}/staffs/${user.id}/role`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {}),
+    },
+    body: JSON.stringify({ role: user.role }),
+  })
+
+  if (!roleResponse.ok) {
+    const body = await roleResponse.json().catch(() => null)
+    throw new Error(body?.message ?? "User role update failed")
+  }
+
+  return mapUserRow(data, user.role)
 }
 
 async function updateUserStatus({ id, status }) {
@@ -89,6 +119,18 @@ async function updateUserStatus({ id, status }) {
 
   if (error) throw error
   return mapUserRow(data)
+}
+
+async function updateClientStatus({ ownerId, status }) {
+  const { data, error } = await supabase
+    .from("users")
+    .update({ status })
+    .eq("user_id", ownerId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return { ownerId: data.user_id, status: data.status }
 }
 
 function mapAuthUserRow(authUser, fallback = {}) {
@@ -107,12 +149,12 @@ function mapAuthUserRow(authUser, fallback = {}) {
 }
 // url from backend with postgrest wrapped in express
 async function createStaff(user) {
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/staffs/create`, {
+  const response = await fetch(`${apiBaseUrl}/staffs/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       email: user.email,
-      password: user.password,
+      password: user.temporaryPassword,
       role: user.role,
       firstName: user.firstName,
       middleName: user.middleName,
@@ -128,11 +170,13 @@ async function createStaff(user) {
   return mapAuthUserRow(createdUser, user)
 }
 
-async function fetchRoleOptions(){
+async function fetchFirmRoles(){
   const { data, error } = await supabase
   .from("roles")
   .select("role_id, role_name, description")
+  .in("role_id", firmRoles)
   .order("role_name")
+  
 
   if (error) throw error
   return data
@@ -143,6 +187,7 @@ export{
   getUsers, 
   updateUser,
   updateUserStatus, 
+  updateClientStatus,
   createStaff,
-  fetchRoleOptions
+  fetchFirmRoles
 }

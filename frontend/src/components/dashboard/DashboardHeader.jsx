@@ -9,25 +9,22 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 
-import { roleConfig } from "@/components/dashboard/NavData"
+import { authStore } from "@/store/authStore"
 
 export function DashboardHeader({
-  role,
-  user,
   title,
   breadcrumbs = [],
   actions,
   hasUnreadNotifications = false,
   onNotificationsClick,
+  notificationsContent,
   onRequestServiceClick,
 }) {
-  const config = roleConfig[role]
-  const profileHref = config?.profileUrl ?? "#"
+  const role = authStore((state) => state.role)
   const isClient = role === "client"
 
   return (
@@ -76,33 +73,24 @@ export function DashboardHeader({
             onClick={onRequestServiceClick}
           >
             <CirclePlus className="size-4" />
-            <span className="hidden sm:inline">Request a Service</span>
+            <span className="hidden sm:inline">Request Service</span>
           </Button>
         )}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-10 relative"
-          onClick={onNotificationsClick}
-          aria-label="Notifications"
-        >
-          <Bell className="size-5" />
-          {hasUnreadNotifications && (
-            <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-emerald-500" />
-          )}
-        </Button>
-
-        <Button variant="ghost" size="icon" className="rounded-full" asChild>
-          <Link to={profileHref} aria-label="Profile">
-            <Avatar className="size-9">
-              <AvatarImage src={user?.avatar} alt={user?.name} />
-              <AvatarFallback className="text-xs">
-                {user?.name ? user.name.slice(0, 2).toUpperCase() : "AC"}
-              </AvatarFallback>
-            </Avatar>
-          </Link>
-        </Button>
+        {notificationsContent ?? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-10 relative"
+            onClick={onNotificationsClick}
+            aria-label="Notifications"
+          >
+            <Bell className="size-5" />
+            {hasUnreadNotifications && (
+              <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-emerald-500" />
+            )}
+          </Button>
+        )}
       </div>
     </header>
   )

@@ -1,6 +1,7 @@
 import { Users } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { Skeleton } from "@/components/ui/skeleton"
 import { defaultUserColumns } from "./firm-user-columns"
 import { FirmUserRow } from "./firm-user-row"
@@ -17,7 +18,12 @@ import { FirmUserRow } from "./firm-user-row"
  * @param {string} emptyMessage - Message shown when the list is empty.
  * @param {string} emptyDescription - Optional secondary line under the empty message.
  * @param {Function} actions - Optional (user) => ReactNode rendered in a trailing Actions column.
+ * @param {boolean} equalColumns - Gives every column the same width (fixed table layout) so
+ *   short, centered columns are evenly spaced. Default false (auto layout).
+ * @param {"right"|"center"} actionsAlign - Alignment of the Actions column. Default "right".
  * @param {Function} onRowClick - Optional (user, event) => void applied to every row.
+ * @param {number} page - Current page number. Defaults to 1.
+ * @param {Function} onPageChange - Optional (page: number) => void callback.
  * @param {string} className - Extra classes merged onto the wrapper card.
  */
 export function FirmUserTable({
@@ -29,24 +35,32 @@ export function FirmUserTable({
   emptyMessage = "No users found.",
   emptyDescription,
   actions,
+  actionsAlign = "right",
+  equalColumns = false,
   onRowClick,
+  page = 1,
+  onPageChange,
   className,
   ...props
 }) {
   const showActions = typeof actions === "function"
   const isEmpty = !loading && users.length === 0
   const columnCount = columns.length + (showActions ? 1 : 0)
+  const totalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedUsers = users.slice((visiblePage - 1) * PAGE_SIZE, visiblePage * PAGE_SIZE)
 
   return (
-    <div
-      data-slot="firm-user-table"
-      className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
-      {...props}
-    >
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
+    <>
+      <div
+        data-slot="firm-user-table"
+        className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
+        {...props}
+      >
+        <div className="overflow-x-auto">
+          <table className={cn("w-full border-collapse text-sm", equalColumns && "table-fixed")}>
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
               {columns.map((column) => (
                 <th
                   key={column.key ?? column.label}
@@ -57,7 +71,10 @@ export function FirmUserTable({
                 </th>
               ))}
               {showActions && (
-                <th scope="col" className="px-4 py-3 text-right font-semibold">
+                <th
+                  scope="col"
+                  className={cn("px-4 py-3 font-semibold", actionsAlign === "center" ? "text-center" : "text-right")}
+                >
                   Actions
                 </th>
               )}
@@ -97,16 +114,16 @@ export function FirmUserTable({
                       </td>
                     </tr>
                   )
-                : users.map((user, index) => (
+                : paginatedUsers.map((user, index) => (
                     <FirmUserRow
-                      key={getRowKey(user, index)}
+                      key={getRowKey(user, (visiblePage - 1) * PAGE_SIZE + index)}
                       user={user}
                       columns={columns}
                       onRowClick={onRowClick}
                     >
                       {showActions && (
                         <td
-                          className="px-4 py-3 text-right align-middle"
+                          className={cn("px-4 py-3 align-middle", actionsAlign === "center" ? "text-center" : "text-right")}
                           onClick={(event) => event.stopPropagation()}
                         >
                           {actions(user)}
@@ -115,8 +132,14 @@ export function FirmUserTable({
                     </FirmUserRow>
                   ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
-    </div>
+      <PaginationFooter
+        page={visiblePage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
+    </>
   )
 }

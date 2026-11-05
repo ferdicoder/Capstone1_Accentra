@@ -1,10 +1,15 @@
 import { cn } from "@/lib/utils"
-import { statusBadgeStyles, statusDotStyles } from "./engagement-variants"
+import {
+  getEngagementDisplayStatus,
+  statusBadgeStyles,
+  statusDotStyles,
+} from "./engagement-variants"
 
 const defaultStatusLabels = {
-  active: "Active",
+  document_collection: "Document Collection",
+  for_validation: "For Validation",
+  in_progress: "In Progress",
   completed: "Completed",
-  on_hold: "On Hold",
   cancelled: "Cancelled",
 }
 
@@ -16,7 +21,7 @@ export function EngagementStatusBadge({
   ...props
 }) {
   const labels = { ...defaultStatusLabels, ...statusLabels }
-  const value = typeof status === "string" ? status.toLowerCase() : status
+  const value = getEngagementDisplayStatus(status)
   const label = labels[value] ?? status ?? "Unknown"
 
   return (

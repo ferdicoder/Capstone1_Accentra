@@ -1,17 +1,21 @@
 import {
+  Ban,
   Check,
+  CheckCircle2,
   ChevronDown,
   ClipboardList,
   Clock,
   Filter,
   Loader2,
   MoreHorizontal,
+  Pencil,
   Plus,
   Search,
   Trash2,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -36,6 +40,7 @@ import { ServiceCategoryBadge, ServiceStatusBadge } from "./service-badges"
 import {
   categoryFilterOptions,
   formatBasePrice,
+  formatBytes,
   statusFilterOptions,
 } from "./service-management-variants"
 
@@ -116,15 +121,6 @@ const defaultServiceColumns = [
     render: (service) => <ServiceCategoryBadge category={service?.category} />,
   },
   {
-    key: "description",
-    label: "Description",
-    render: (service) => (
-      <p className="line-clamp-1 max-w-56 text-xs text-muted-foreground">
-        {service?.description}
-      </p>
-    ),
-  },
-  {
     key: "basePrice",
     label: "Base Price",
     render: (service) => (
@@ -135,7 +131,7 @@ const defaultServiceColumns = [
   },
   {
     key: "estimatedTime",
-    label: "Estimated Time",
+    label: "Estimated Processing Days",
     render: (service) => (
       <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
         <Clock className="size-3.5 shrink-0" />
@@ -211,23 +207,32 @@ export function ServiceManagementTable({
   emptyDescription,
   actions,
   onRowClick,
+  page = 1,
+  onPageChange,
   className,
   ...props
 }) {
   const showActions = typeof actions === "function"
   const isEmpty = !loading && services.length === 0
   const columnCount = columns.length + (showActions ? 1 : 0)
+  const totalPages = Math.max(1, Math.ceil(services.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedServices = services.slice(
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE
+  )
 
   return (
-    <div
-      data-slot="service-management-table"
-      className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
-      {...props}
-    >
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
+    <>
+      <div
+        data-slot="service-management-table"
+        className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
+        {...props}
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
               {columns.map((column) => (
                 <th
                   key={column.key ?? column.label}
@@ -237,11 +242,6 @@ export function ServiceManagementTable({
                   {column.label}
                 </th>
               ))}
-              {showActions && (
-                <th scope="col" className="px-4 py-3 text-right font-semibold">
-                  Actions
-                </th>
-              )}
             </tr>
           </thead>
           <tbody>
@@ -276,9 +276,9 @@ export function ServiceManagementTable({
                       </td>
                     </tr>
                   )
-                : services.map((service, index) => (
+                : paginatedServices.map((service, index) => (
                     <ServiceManagementRow
-                      key={getRowKey(service, index)}
+                      key={getRowKey(service, (visiblePage - 1) * PAGE_SIZE + index)}
                       service={service}
                       columns={columns}
                       onRowClick={onRowClick}
@@ -294,9 +294,222 @@ export function ServiceManagementTable({
                     </ServiceManagementRow>
                   ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
-    </div>
+      <PaginationFooter
+        page={visiblePage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
+    </>
+  )
+}
+
+/** Service details shown when a staff member or administrator selects a service. */
+export function ServiceDetailsDialog({
+  open = false,
+  onOpenChange,
+  service,
+  categoryOptions = categoryFilterOptions,
+  onEdit,
+  onToggleStatus,
+  onDelete,
+}) {
+  if (!service) return null
+
+  const categoryLabel =
+    categoryOptions.find((option) => option.value === service.category)?.label ??
+    service.category ??
+    "—"
+  const workflowTasks = service.workflowTasks ?? []
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent data-slot="service-details-dialog" className="max-w-2xl">
+        <DialogHeader className="border-b border-border pb-4">
+          <DialogTitle>{service.name}</DialogTitle>
+          <DialogDescription>
+            {onEdit
+              ? "Review and manage this service template."
+              : "Read-only details for this service template."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="overflow-y-auto pr-1">
+          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Description
+              </p>
+              <p className="mt-1 text-sm leading-6 text-foreground">
+                {service.description || "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Category
+              </p>
+              <div className="mt-1">
+                <ServiceCategoryBadge category={service.category} categoryLabels={{ [service.category]: categoryLabel }} />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Status
+              </p>
+              <div className="mt-1">
+                <ServiceStatusBadge status={service.status} />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Base Price
+              </p>
+              <p className="mt-1 text-sm font-medium tabular-nums">{formatBasePrice(service.basePrice)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Estimated Time
+              </p>
+              <p className="mt-1 text-sm">{service.estimatedTime || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Active Engagements
+              </p>
+              <p className="mt-1 text-sm font-medium tabular-nums">{service.activeEngagements ?? 0}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Retainer Coverage
+              </p>
+              <p className="mt-1 text-sm">{service.isRetainerCovered ? "Covered" : "Not covered"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Recurring Service
+              </p>
+              <p className="mt-1 text-sm">{service.isRecurring ? "Yes" : "No"}</p>
+            </div>
+          </div>
+
+          <div className="mt-6 border-t border-border pt-5">
+            <h3 className="text-sm font-medium text-foreground">Engagement Tasks</h3>
+            {workflowTasks.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {workflowTasks.map((task, index) => (
+                  <li
+                    key={task.id ?? `${task.name}-${index}`}
+                    className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm text-foreground">{task.name || "Unnamed task"}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {task.required ? "Required" : "Optional"}
+                        </p>
+                      </div>
+                      {task.hasReferenceDocument && (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          Reference document
+                        </span>
+                      )}
+                    </div>
+                    {task.referenceDocument && (
+                      <p className="mt-2 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+                        {task.referenceDocument.name}
+                        {task.referenceDocument.size ? ` (${formatBytes(task.referenceDocument.size)})` : ""}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">No engagement tasks configured.</p>
+            )}
+          </div>
+        </div>
+
+        {(onEdit || onToggleStatus || onDelete) && (
+          <DialogFooter className="flex-row flex-wrap justify-end gap-2 border-t border-border pt-4">
+            {onToggleStatus && (
+              <Button
+                type="button"
+                variant={service.status === "active" ? "outline" : "default"}
+                className={service.status === "active" ? undefined : "bg-forest-900 text-white hover:opacity-90"}
+                onClick={() => onToggleStatus(service)}
+              >
+                {service.status === "active" ? (
+                  <Ban className="size-4" />
+                ) : (
+                  <CheckCircle2 className="size-4" />
+                )}
+                {service.status === "active" ? "Deactivate" : "Activate"}
+              </Button>
+            )}
+            {onEdit && (
+              <Button type="button" variant="outline" onClick={() => onEdit(service)}>
+                <Pencil className="size-4" />
+                Edit service
+              </Button>
+            )}
+            {onDelete && (
+              <Button type="button" variant="destructive" onClick={() => onDelete(service)}>
+                <Trash2 className="size-4" />
+                Delete
+              </Button>
+            )}
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function ServiceStatusDialog({
+  open = false,
+  onOpenChange,
+  service,
+  onConfirm,
+  updating = false,
+}) {
+  const isActive = service?.status === "active"
+  const action = isActive ? "deactivate" : "activate"
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent data-slot="service-status-dialog">
+        <DialogHeader>
+          <DialogTitle>
+            {isActive ? "Deactivate service?" : "Activate service?"}
+          </DialogTitle>
+          <DialogDescription>
+            Are you sure you want to {action}{" "}
+            <span className="font-medium text-foreground">{service?.name}</span>?
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="flex-row justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={updating}
+            onClick={() => onOpenChange?.(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant={isActive ? "destructive" : "default"}
+            className={!isActive ? "bg-forest-900 text-white hover:opacity-90" : undefined}
+            disabled={updating}
+            onClick={onConfirm}
+          >
+            {updating ? "Saving..." : isActive ? "Deactivate" : "Activate"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

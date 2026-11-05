@@ -1,10 +1,11 @@
 import { Inbox } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { EngagementStatusBadge } from "./engagement-status-badge"
-import { formatRevenue, formatDate, getClientFullName, firmStaffMap } from "./engagement-variants"
+import { formatDate, getClientFullName } from "./engagement-variants"
 
 const getInitials = (name) => {
   if (!name) return "AC"
@@ -12,6 +13,15 @@ const getInitials = (name) => {
 }
 
 const defaultEngagementColumns = [
+  {
+    key: "engagementNumber",
+    label: "Engagement Number",
+    render: (engagement) => (
+      <span className="text-sm font-medium tabular-nums text-foreground">
+        {engagement?.engagementNumber}
+      </span>
+    ),
+  },
   {
     key: "client",
     label: "Client",
@@ -34,37 +44,10 @@ const defaultEngagementColumns = [
     ),
   },
   {
-    key: "engagementNumber",
-    label: "Engagement No.",
-    render: (engagement) => (
-      <span className="text-sm font-medium tabular-nums text-foreground">
-        {engagement?.engagementNumber}
-      </span>
-    ),
-  },
-  {
     key: "serviceName",
     label: "Service",
     render: (engagement) => (
       <span className="line-clamp-1 max-w-48 text-sm text-foreground">{engagement?.serviceName}</span>
-    ),
-  },
-  {
-    key: "assignedStaff",
-    label: "Assigned To",
-    render: (engagement) => (
-      <span className="text-sm text-foreground">
-        {firmStaffMap[engagement?.assignedStaff] ?? "—"}
-      </span>
-    ),
-  },
-  {
-    key: "serviceFee",
-    label: "Fee",
-    render: (engagement) => (
-      <span className="text-sm font-medium tabular-nums text-foreground">
-        {formatRevenue(engagement?.serviceFee)}
-      </span>
     ),
   },
   {
@@ -92,24 +75,33 @@ export function EngagementList({
   emptyMessage = "No engagements found.",
   emptyDescription,
   actions,
+  showActions = typeof actions === "function", // Show the actions column if actions is a function
   onRowClick,
+  page = 1,
+  onPageChange,
   className,
   ...props
 }) {
-  const showActions = typeof actions === "function"
   const isEmpty = !loading && engagements.length === 0
   const columnCount = columns.length + (showActions ? 1 : 0)
+  const totalPages = Math.max(1, Math.ceil(engagements.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedEngagements = engagements.slice(
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE
+  )
 
   return (
-    <div
-      data-slot="engagement-list"
-      className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
-      {...props}
-    >
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
+    <>
+      <div
+        data-slot="engagement-list"
+        className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
+        {...props}
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
               {columns.map((column) => (
                 <th
                   key={column.key ?? column.label}
@@ -120,7 +112,7 @@ export function EngagementList({
                 </th>
               ))}
               {showActions && (
-                <th scope="col" className="w-[180px] px-4 py-3 text-left font-semibold">
+                <th scope="col" className="w-45 px-4 py-3 text-left font-semibold">
                   Actions
                 </th>
               )}
@@ -160,9 +152,9 @@ export function EngagementList({
                       </td>
                     </tr>
                   )
-                : engagements.map((engagement, index) => (
+                : paginatedEngagements.map((engagement, index) => (
                     <tr
-                      key={getRowKey(engagement, index)}
+                      key={getRowKey(engagement, (visiblePage - 1) * PAGE_SIZE + index)}
                       className={cn(
                         "border-b border-border/60 transition-colors last:border-b-0",
                         onRowClick && "cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
@@ -180,7 +172,7 @@ export function EngagementList({
                       ))}
                       {showActions && (
                         <td
-                          className="w-[180px] px-4 py-3 align-middle"
+                          className="w-45 px-4 py-3 align-middle"
                           onClick={(event) => event.stopPropagation()}
                         >
                           <div className="flex items-center justify-start gap-2">
@@ -191,8 +183,14 @@ export function EngagementList({
                     </tr>
                   ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
-    </div>
+      <PaginationFooter
+        page={visiblePage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
+    </>
   )
 }

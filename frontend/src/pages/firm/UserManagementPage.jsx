@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from "react"
-import { Ban, CheckCircle2, Pencil } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { FirmUsersToolbar } from "@/components/firm/users/firm-users-toolbar"
 import { FirmUserTable } from "@/components/firm/users/firm-user-table"
-import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-menu"
 import { FirmUserCreateDialog } from "@/components/firm/users/firm-user-create-dialog"
-import { FirmUserEditDialog } from "@/components/firm/users/firm-user-edit-dialog"
+import { PAGE_SIZE } from "@/components/shared/pagination-footer"
 
-import { useFetchUsers,useUpdateUser, useToggleUserStatus, useCreateStaff, useFetchRoleOptions } from "@/hooks/useUsers"
+import {
+  useFetchUsers,
+  useCreateStaff,
+  useFetchFirmRoles,
+} from "@/hooks/useUsers"
 
 
 
@@ -20,11 +23,11 @@ const buildDisplayName = ({ firstName, middleName, lastName, extension, name }) 
 }
 
 export default function UserManagementPage() {
+  const navigate = useNavigate()
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingUser, setEditingUser] = useState(null)
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [page, setPage] = useState(1)
   const [notice, setNotice] = useState("")
   const [loading, setLoading] = useState(true)
 
@@ -35,10 +38,14 @@ export default function UserManagementPage() {
   }, [])
 
   const { data: users = [], isLoading, error } = useFetchUsers()
-  const { data: roles = [], isLoading: rolesLoading } = useFetchRoleOptions()
-  const updateUser = useUpdateUser()
-  const toggleStatus = useToggleUserStatus()
+  const { data: roles = [], isLoading: rolesLoading } = useFetchFirmRoles()
   const createStaff = useCreateStaff()
+
+  // Emails already taken, so the Add User form can refuse a duplicate.
+  const existingEmails = useMemo(
+    () => users.map((user) => user.email).filter(Boolean),
+    [users]
+  )
 
   // DB-backed role list, shaped for the dropdowns (value = role_id, label = role_name).
   const roleOptions = useMemo(
@@ -50,44 +57,44 @@ export default function UserManagementPage() {
   // for searching
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase()
-    return users.filter((user) => {
+    const matchingUsers = users.filter((user) => {
       const displayName = buildDisplayName(user).toLowerCase()
       const matchesSearch =
         !query || displayName.includes(query) || (user.email ?? "").toLowerCase().includes(query)
       const matchesRole = !roleFilter || user.role === roleFilter
       return matchesSearch && matchesRole
     })
-  }, [users, search, roleFilter])
+    return matchingUsers
+  }, [
+    users,
+    search,
+    roleFilter,
+  ])
 
-  const toggleDeactivate = (user) => {
-    const nextStatus = user.status === "deactivated" ? "inactive" : "deactivated"
-    toggleStatus.mutate({ id: user.id, status: nextStatus })
-    setNotice(`${user.name} ${nextStatus === "deactivated" ? "deactivated" : "reactivated"}`)
-  }
+  // The list is paginated, 8 firm users per page.
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
 
   const handleCreate = (values) => {
     createStaff.mutate(values, {
-      onSuccess: () => {
+      onSuccess() {
         setDialogOpen(false)
         setNotice(`${values.firstName} ${values.lastName} added`)
       },
     })
   }
 
-  const openEditDialog = (user) => {
-    setEditingUser(user)
-    setEditDialogOpen(true)
+  const openCreateDialog = () => {
+    // Clear a previous attempt's error so it can't linger on a fresh form.
+    createStaff.reset()
+    setDialogOpen(true)
   }
 
-  const handleSave = (values) => {
-    updateUser.mutate(values, {
-      onSuccess: () => {
-        setEditDialogOpen(false)
-        setNotice(`${values.firstName} ${values.lastName} updated`)
-      },
-    })
-  }
-
+  // The API wrapper reports every failure as "Staff creation failed", so the
+  // most common causes are spelled out here instead.
+  const createError = createStaff.error
+    ? "We couldn't create this account. The email address may already be registered, or the password may not meet the account requirements."
+    : ""
   usePageMeta({
     title: "Firm Users",
     breadcrumbs: [
@@ -118,11 +125,17 @@ export default function UserManagementPage() {
 
       <FirmUsersToolbar
         searchValue={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => {
+          setSearch(value)
+          setPage(1)
+        }}
         roleFilter={roleFilter}
-        onRoleFilterChange={setRoleFilter}
+        onRoleFilterChange={(value) => {
+          setRoleFilter(value)
+          setPage(1)
+        }}
         roleOptions={roleOptions}
-        onAddUser={() => setDialogOpen(true)}
+        onAddUser={openCreateDialog}
         resultCount={`${filteredUsers.length} of ${users.length} users`}
       />
 
@@ -131,18 +144,9 @@ export default function UserManagementPage() {
         loading={isLoading}
         emptyMessage="No users match your filters."
         emptyDescription="Try clearing the search or filters."
-        actions={(user) => (
-          <FirmUserActionsMenu
-            user={user}
-            items={[
-              { key: "edit", label: "Edit user", icon: Pencil, onSelect: openEditDialog },
-              { type: "separator" },
-              user.status === "deactivated"
-                ? { key: "activate", label: "Reactivate", icon: CheckCircle2, onSelect: toggleDeactivate }
-                : { key: "deactivate", label: "Deactivate", icon: Ban, destructive: true, onSelect: toggleDeactivate },
-            ]}
-          />
-        )}
+        onRowClick={(user) => navigate(`/admin/users/${user.id}`)}
+        page={currentPage}
+        onPageChange={setPage}
       />
 
       <FirmUserCreateDialog
@@ -152,17 +156,10 @@ export default function UserManagementPage() {
         roleOptions={roleOptions}
         rolesLoading={rolesLoading}
         submitting={createStaff.isPending}
+        existingEmails={existingEmails}
+        error={createError}
       />
 
-      <FirmUserEditDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        user={editingUser}
-        onSubmit={handleSave}
-        roleOptions={roleOptions}
-        rolesLoading={rolesLoading}
-        submitting={updateUser.isPending}
-      />
         </>
       )}
     </>

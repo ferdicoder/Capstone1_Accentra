@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 
 import { LandingCTA } from "@/components/landing/landing-cta"
 import { LandingFeatures } from "@/components/landing/landing-features"
@@ -8,14 +8,13 @@ import { LandingProblem } from "@/components/landing/landing-problem"
 import { LandingRoles } from "@/components/landing/landing-roles"
 import { LandingSolution } from "@/components/landing/landing-solution"
 import { LandingWorkflow } from "@/components/landing/landing-workflow"
-import { SignInRoleDialog } from "@/components/landing/sign-in-role-dialog"
 import { useLandingScrollMotion } from "@/components/landing/use-landing-scroll-motion"
 
 export default function LandingPage() {
-  const [signInOpen, setSignInOpen] = useState(false)
+  const navigate = useNavigate()
   useLandingScrollMotion()
 
-  const openSignIn = () => setSignInOpen(true)
+  const openSignIn = () => navigate("/client/signin")
 
   return (
     <main className="landing-page min-h-screen overflow-x-clip bg-[#fbfcfa] text-[#123b3d]">
@@ -27,7 +26,6 @@ export default function LandingPage() {
       <LandingRoles />
       <LandingCTA onSignIn={openSignIn} />
       <LandingFooter onSignIn={openSignIn} />
-      <SignInRoleDialog open={signInOpen} onOpenChange={setSignInOpen} />
     </main>
   )
 }

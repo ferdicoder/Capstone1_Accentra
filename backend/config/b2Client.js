@@ -1,7 +1,7 @@
 import axios from 'axios';
 import https from 'https';
 
-export const b2HttpsAgent = new https.Agent({ family: 4 });
+export const b2HttpsAgent = new https.Agent({ family: 4 }); // for IPv4 when Ipv6 in unreliable
 
 let authCache = null;
 let authCacheExpiry = 0;
@@ -14,8 +14,7 @@ export async function authorizeB2() {
     `${process.env.B2_KEY_ID}:${process.env.B2_APPLICATION_KEY}`
   ).toString('base64');
 
-  const res = await axios.get(
-    'https://api.backblazeb2.com/b2api/v3/b2_authorize_account',
+  const res = await axios.get('https://api.backblazeb2.com/b2api/v3/b2_authorize_account',
     {
       headers: { Authorization: `Basic ${credentials}` },
       httpsAgent: b2HttpsAgent,

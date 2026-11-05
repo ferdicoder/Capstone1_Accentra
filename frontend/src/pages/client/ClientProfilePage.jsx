@@ -1,36 +1,17 @@
-import { useEffect, useState } from "react"
-import { Save } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Save, Lock, Check, X, ShieldQuestion, Loader2, FileEdit, TriangleAlert } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 import { cn } from "@/lib/utils"
+import { authStore } from "@/store/authStore"
+import { useFetchMyBusiness, useUpdateMyBusiness } from "@/hooks/useBusinesses"
 
 import { Button } from "@/components/ui/button"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-
-// import { updateClientProfile, updateClientPassword } from "@/api/profileService"
-
-const currentUser = {
-  name: "Maria Santos",
-  email: "maria.santos@santosretail.com",
-  avatar: "",
-}
-
-// Field shape matches formData in SignupPage.jsx exactly (minus password/confirmPassword)
-const initialProfile = {
-  firstName: "Maria",
-  middleName: "Reyes",
-  lastName: "Santos",
-  birthDate: "1990-04-12",
-  email: "maria.santos@santosretail.com",
-  businessName: "Santos Retail Trading",
-  businessType: "sole-proprietorship",
-  tin: "123-456-789-000",
-  industry: "retail",
-  contactNumber: "+63 917 555 1234",
-  address: "12 Mercado St. Sta Ana Manila 1009",
-}
+import { ForgotPasswordModal } from "@/components/client/ForgotPasswordModal"
 
 const initialSecurity = {
   currentPassword: "",
@@ -50,23 +31,351 @@ const selectClass = cn(
   controlClass,
   "h-8 rounded-lg border border-input px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 )
+// Personal Information fields are read-only — styled visibly disabled so it's
+// clear at a glance these can't be edited from this page.
+const readOnlyClass = cn(controlClass, "cursor-not-allowed bg-muted/50 text-muted-foreground")
+
+// --- Password requirements (kept local to this page — not a shared component) ---
+
+const passwordRequirements = [
+  { key: "lowercase", label: "At least one lowercase letter", test: (pw) => /[a-z]/.test(pw) },
+  { key: "uppercase", label: "At least one uppercase letter", test: (pw) => /[A-Z]/.test(pw) },
+  { key: "number", label: "At least one number", test: (pw) => /[0-9]/.test(pw) },
+  { key: "minLength", label: "Minimum 8 characters", test: (pw) => pw.length >= 8 },
+]
+
+function isPasswordValid(password) {
+  return passwordRequirements.every((req) => req.test(password))
+}
+
+// Field shape matches formData in SignupPage.jsx exactly (minus password/confirmPassword).
+// Address is normalized into houseNo/streetName/barangay/district/city/zipCode —
+// same six fields SignupPage step 2 collects — instead of one free-text string,
+// so what the client edits here maps 1:1 to what was captured at signup.
+const emptyProfile = {
+  firstName: "",
+  middleName: "",
+  lastName: "",
+  birthDate: "",
+  email: "",
+  businessName: "",
+  businessType: "",
+  tin: "",
+  industry: "",
+  contactNumber: "",
+  houseNo: "",
+  streetName: "",
+  barangay: "",
+  district: "",
+  city: "",
+  zipCode: "",
+}
+
+// Only these fields are actually editable/saved from this page — Personal
+// Information is read-only, so it's excluded from the "did anything change"
+// comparison used to gate the Save button / success message.
+const EDITABLE_BUSINESS_FIELDS = [
+  "businessName",
+  "businessType",
+  "tin",
+  "industry",
+  "contactNumber",
+  "houseNo",
+  "streetName",
+  "barangay",
+  "district",
+  "city",
+  "zipCode",
+]
+
+// Builds the profile shape above from the logged-in user + their fetched
+// business record, so the form is always synced to whoever is actually
+// signed in rather than a hardcoded sample client.
+function buildProfile(user, business) {
+  return {
+    firstName: user?.firstName ?? "",
+    middleName: user?.middleName ?? "",
+    lastName: user?.lastName ?? "",
+    birthDate: user?.birthDate ?? "",
+    email: user?.email ?? "",
+    businessName: business?.businessName ?? business?.name ?? "",
+    businessType: business?.businessType ?? "",
+    tin: business?.tin ?? business?.tinNo ?? "",
+    industry: business?.industry ?? "",
+    contactNumber: formatPhMobile(toNationalMobile(business?.contactNumber ?? business?.contactNo)),
+    houseNo: business?.houseNo ?? "",
+    streetName: business?.streetName ?? "",
+    barangay: business?.barangay ?? "",
+    district: business?.district ?? "",
+    city: business?.city ?? "",
+    zipCode: business?.zipCode ?? "",
+  }
+}
+
+// Fields where non-digit characters are stripped as the user types.
+// TIN and Contact Number are handled separately below since they also get
+// auto-formatted.
+const DIGITS_ONLY_FIELDS = new Set(["zipCode"])
+
+// --- Philippine mobile number: +63 9XX XXX XXXX --------------------------
+// "+63" is shown as a fixed prefix next to the input, so the field itself only
+// holds the 10-digit national number (starting with 9). Whatever the user
+// types or pastes — "0917...", "63917...", "+63 917 ..." — is reduced to
+// those 10 digits.
+const PH_MOBILE_MAX_DIGITS = 10
+const TOO_MANY_DIGITS_MESSAGE = "Too many digits. A PH mobile number is 10 digits after +63"
+// How long the "too many digits" warning stays once the user stops typing.
+const TOO_MANY_DIGITS_TIMEOUT_MS = 2000
+
+function stripPhPrefix(rawValue) {
+  let digits = String(rawValue ?? "").replace(/\D/g, "")
+  if (digits.startsWith("63")) digits = digits.slice(2)
+  else if (digits.startsWith("0")) digits = digits.slice(1)
+  return digits
+}
+
+function toNationalMobile(rawValue) {
+  return stripPhPrefix(rawValue).slice(0, PH_MOBILE_MAX_DIGITS)
+}
+
+// Formats the 10 national digits as "9XX XXX XXXX", adding spaces as you type.
+function formatPhMobile(national) {
+  return [national.slice(0, 3), national.slice(3, 6), national.slice(6, 10)]
+    .filter(Boolean)
+    .join(" ")
+}
+
+function getPhoneWarning(national) {
+  if (!national) return ""
+  if (national[0] !== "9") {
+    return "Invalid phone number. PH mobile numbers start with 9 (e.g. +63 917 123 4567)."
+  }
+  if (national.length < PH_MOBILE_MAX_DIGITS) {
+    return "Invalid phone number. Enter all 10 digits after +63."
+  }
+  return ""
+}
+
+// Formats a raw digit string as XXX-XXX-XXX-XXX (BIR's 12-digit online format),
+// inserting hyphens progressively as the user types rather than all at once.
+function formatTin(digitsOnly) {
+  const groups = [
+    digitsOnly.slice(0, 3),
+    digitsOnly.slice(3, 6),
+    digitsOnly.slice(6, 9),
+    digitsOnly.slice(9, 12),
+  ]
+  return groups.filter(Boolean).join("-")
+}
+
+// A complete TIN is either the legacy 9-digit format or the 12-digit online
+// format (9 digits + a 3-digit branch code, usually "000"). Anything shorter
+// than 9 is incomplete/invalid outright; exactly 9 is valid but not yet in
+// the 12-digit shape most online portals require, so that gets its own
+// reminder rather than a flat "invalid" — 10 or 11 digits is a half-finished
+// 12-digit number, so it's treated the same as "too short."
+function getTinWarning(digitsOnly) {
+  if (!digitsOnly) return ""
+  if (digitsOnly.length < 9) return "Invalid TIN ID. Must be at least 9 digits."
+  if (digitsOnly.length === 9) {
+    return "This is a 9-digit TIN. Add 000 at the end to complete the 12-digit format."
+  }
+  if (digitsOnly.length < 12) return "Invalid TIN ID. Must be 9 or 12 digits."
+  return ""
+}
+
+function getInitials(firstName, lastName) {
+  const letters = [firstName?.[0], lastName?.[0]].filter(Boolean)
+  return letters.length ? letters.join("").toUpperCase() : "?"
+}
+
+// --- Confirmation modal ---------------------------------------------------
+// Forces the user to double-check before an action proceeds. Same card used
+// for both the Business Information save and the Password change — only the
+// icon, title, description, and confirm label differ per use.
+function ConfirmationModal({
+  open,
+  icon: Icon,
+  title,
+  description,
+  confirmLabel,
+  isConfirming,
+  onCancel,
+  onConfirm,
+}) {
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={isConfirming ? undefined : onCancel}
+        aria-hidden="true"
+      />
+
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-modal-title"
+        aria-describedby="confirm-modal-description"
+        className="relative w-full max-w-xs rounded-3xl border border-border bg-card pt-10 pb-6 px-6 text-center shadow-lg"
+      >
+        {/* Icon circle, half-overlapping the top edge of the card */}
+        <div className="absolute left-1/2 top-0 flex size-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-amber-500 text-white shadow-md">
+          <Icon className="size-7" />
+        </div>
+
+        <h2 id="confirm-modal-title" className="text-base font-bold text-foreground">
+          {title}
+        </h2>
+        <p id="confirm-modal-description" className="mt-1.5 text-sm text-muted-foreground">
+          {description}
+        </p>
+
+        <div className="mt-6 flex flex-col gap-2.5">
+          <Button
+            type="button"
+            onClick={onConfirm}
+            disabled={isConfirming}
+            className="h-11 w-full gap-2 rounded-full bg-forest-900 text-white hover:opacity-90 disabled:opacity-60"
+          >
+            {isConfirming && <Loader2 className="size-4 animate-spin" />}
+            {isConfirming ? "Saving..." : confirmLabel}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isConfirming}
+            className="h-11 w-full rounded-full border-2 text-muted-foreground hover:text-foreground"
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function ClientProfilePage() {
+  const user = authStore((state) => state.user)
+  const authLoading = authStore((state) => state.loading)
+
+  const { data: business, isLoading: businessLoading } = useFetchMyBusiness(user?.id)
+  const businessId = business?.id
+  const updateBusiness = useUpdateMyBusiness(user?.id)
+
   const [activeTab, setActiveTab] = useState("info")
-  const [profile, setProfile] = useState(initialProfile)
+  const [profile, setProfile] = useState(emptyProfile)
   const [security, setSecurity] = useState(initialSecurity)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [fieldErrors, setFieldErrors] = useState({})
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
+  // Gates "Are you sure you want to change your information?" — opened by
+  // handleSaveInfo once the business form is valid; the real save only runs
+  // from confirmInfoChange, once the user clicks Confirm.
+  const [isInfoConfirmOpen, setIsInfoConfirmOpen] = useState(false)
+  // Same idea for the password form.
+  const [isPasswordConfirmOpen, setIsPasswordConfirmOpen] = useState(false)
 
-  // Simulated load so the shared skeleton system has something to show.
+  // Snapshot of the last-saved (or last-loaded) profile, used to detect
+  // whether the user actually changed anything before hitting Save.
+  const savedProfileRef = useRef(emptyProfile)
+  const profileFormRef = useRef(null)
+
+  // Timer that auto-hides the "too many digits" warning once the user
+  // stops typing.
+  const tooManyDigitsTimerRef = useRef(null)
+
+  const loading = authLoading || businessLoading
+
+  // Clean up a pending timer if the page unmounts.
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500)
-    return () => clearTimeout(timer)
+    return () => clearTimeout(tooManyDigitsTimerRef.current)
   }, [])
 
+  // Keep the form synced to whoever is actually logged in: re-derive
+  // profile whenever the user or their business record (re)loads, instead
+  // of only ever showing the static sample data it was initialized with.
+  useEffect(() => {
+    if (!loading) {
+      const nextProfile = buildProfile(user, business)
+      setProfile(nextProfile)
+      savedProfileRef.current = nextProfile
+    }
+  }, [loading, user, business])
+
+  // Personal Information (firstName, middleName, lastName, birthDate, email) is
+  // read-only, so only Business Information fields go through this handler now.
   const updateProfileField = (event) => {
     const { name, value } = event.target
+
+    if (name === "tin") {
+      // Letters (or any char besides digits/hyphens) typed or pasted in —
+      // hyphens are allowed through since we insert them ourselves, but
+      // anything else triggers the "Numbers only." message. That check
+      // takes priority; otherwise fall back to the length-based warning.
+      const hasInvalidChar = /[^\d-]/.test(value)
+      const digitsOnly = value.replace(/\D/g, "").slice(0, 12)
+
+      setFieldErrors((current) => ({
+        ...current,
+        tin: hasInvalidChar ? "Numbers only." : getTinWarning(digitsOnly),
+      }))
+      setProfile((current) => ({ ...current, tin: formatTin(digitsOnly) }))
+      return
+    }
+
+    if (name === "contactNumber") {
+      // Allow the characters a pasted number might contain (+, spaces,
+      // hyphens, parentheses); anything else (letters etc.) is rejected.
+      const hasInvalidChar = /[^\d\s+\-()]/.test(value)
+      const fullNational = stripPhPrefix(value)
+      const national = fullNational.slice(0, PH_MOBILE_MAX_DIGITS)
+
+      // True only when the user tried to type/paste beyond the 10-digit limit.
+      const hasTooManyDigits = fullNational.length > PH_MOBILE_MAX_DIGITS
+
+      // Every new keystroke resets the auto-hide timer.
+      clearTimeout(tooManyDigitsTimerRef.current)
+
+      setFieldErrors((current) => ({
+        ...current,
+        contactNumber: hasInvalidChar
+          ? "Numbers only."
+          : hasTooManyDigits
+            ? TOO_MANY_DIGITS_MESSAGE
+            : getPhoneWarning(national),
+      }))
+
+      // The extra digit is dropped, so the field stays at 10 digits and
+      // won't trigger another change on its own. Auto-hide the warning
+      // once the user stops typing.
+      if (hasTooManyDigits && !hasInvalidChar) {
+        tooManyDigitsTimerRef.current = setTimeout(() => {
+          setFieldErrors((current) =>
+            current.contactNumber === TOO_MANY_DIGITS_MESSAGE
+              ? { ...current, contactNumber: "" }
+              : current
+          )
+        }, TOO_MANY_DIGITS_TIMEOUT_MS)
+      }
+
+      setProfile((current) => ({ ...current, contactNumber: formatPhMobile(national) }))
+      return
+    }
+
+    if (DIGITS_ONLY_FIELDS.has(name)) {
+      const cleanValue = value.replace(/\D/g, "")
+      setFieldErrors((current) => ({
+        ...current,
+        [name]: cleanValue !== value ? "Numbers only." : "",
+      }))
+      setProfile((current) => ({ ...current, [name]: cleanValue }))
+      return
+    }
+
     setProfile((current) => ({ ...current, [name]: value }))
   }
 
@@ -75,37 +384,130 @@ export default function ClientProfilePage() {
     setSecurity((current) => ({ ...current, [name]: value }))
   }
 
-  const handleSaveInfo = async (event) => {
+  const hasProfileChanges = EDITABLE_BUSINESS_FIELDS.some(
+    (key) => profile[key] !== savedProfileRef.current[key]
+  )
+
+  // Step 1: validate the business info form, then open the confirmation
+  // modal instead of saving immediately.
+  const handleSaveInfo = (event) => {
     event.preventDefault()
+    setSaveMessage(null)
+
+    // Nothing to persist — don't hit the API or claim success for a no-op.
+    if (!hasProfileChanges) {
+      setSaveMessage({ type: "error", text: "No changes to save yet." })
+      return
+    }
+
+    // Block save on a genuinely incomplete TIN (anything but 9 or 12 digits).
+    // The exactly-9-digit case still saves — that's a valid legacy TIN, just
+    // flagged with a reminder rather than treated as an error.
+    const tinDigits = profile.tin.replace(/\D/g, "")
+    if (tinDigits.length > 0 && tinDigits.length !== 9 && tinDigits.length !== 12) {
+      setFieldErrors((current) => ({
+        ...current,
+        tin: "Invalid TIN ID. Must be 9 or 12 digits.",
+      }))
+      setSaveMessage({ type: "error", text: "Fix the TIN Number before saving." })
+      scrollToFirstInvalidField(profileFormRef.current)
+      return
+    }
+
+    // Block save on an invalid mobile number too (must be 10 digits starting
+    // with 9). An empty number is allowed through — it's optional here.
+    const phoneNational = profile.contactNumber.replace(/\D/g, "")
+    if (phoneNational.length > 0 && getPhoneWarning(phoneNational)) {
+      setFieldErrors((current) => ({
+        ...current,
+        contactNumber: getPhoneWarning(phoneNational),
+      }))
+      setSaveMessage({ type: "error", text: "Fix the Contact Number before saving." })
+      scrollToFirstInvalidField(profileFormRef.current)
+      return
+    }
+
+    setIsInfoConfirmOpen(true)
+  }
+
+  // Step 2: only runs once the user clicks "Confirm" in the modal. Cancel
+  // just closes the modal — nothing is saved.
+  const confirmInfoChange = async () => {
+    const phoneNational = profile.contactNumber.replace(/\D/g, "")
+
     setIsSaving(true)
     setSaveMessage(null)
     try {
-      // await updateClientProfile(profile)
+      const updatedBusiness = await updateBusiness.mutateAsync({
+        userId: user?.id,
+        businessId,
+        businessName: profile.businessName,
+        businessType: profile.businessType,
+        tin: profile.tin,
+        industry: profile.industry,
+        contactNumber: phoneNational ? `+63${phoneNational}` : "",
+        houseNo: profile.houseNo,
+        streetName: profile.streetName,
+        barangay: profile.barangay,
+        district: profile.district,
+        city: profile.city,
+        zipCode: profile.zipCode,
+      })
+
+      const updatedProfile = buildProfile(user, updatedBusiness)
+      setProfile(updatedProfile)
+      savedProfileRef.current = updatedProfile
+      setIsInfoConfirmOpen(false)
       setSaveMessage({ type: "success", text: "Profile updated successfully." })
     } catch (err) {
       console.error(err)
+      setIsInfoConfirmOpen(false)
       setSaveMessage({ type: "error", text: "Something went wrong. Please try again." })
     } finally {
       setIsSaving(false)
     }
   }
 
-  const handleSavePassword = async (event) => {
+  // Step 1: validate the password form, then open the confirmation modal
+  // instead of saving immediately.
+  const handleSavePassword = (event) => {
     event.preventDefault()
+    setSaveMessage(null)
 
+    if (!security.currentPassword) {
+      setSaveMessage({ type: "error", text: "Enter your current password." })
+      return
+    }
+    if (!isPasswordValid(security.newPassword)) {
+      setSaveMessage({ type: "error", text: "Password doesn't meet the requirements below." })
+      return
+    }
     if (security.newPassword !== security.confirmPassword) {
       setSaveMessage({ type: "error", text: "New password and confirmation don't match." })
       return
     }
 
+    setIsPasswordConfirmOpen(true)
+  }
+
+  // Step 2: only runs once the user clicks "Confirm" in the modal. Cancel
+  // just closes the modal — nothing is saved.
+  const confirmPasswordChange = async () => {
     setIsSaving(true)
     setSaveMessage(null)
     try {
       // await updateClientPassword(security)
+
+      // TODO: remove once updateClientPassword above is wired up — see note
+      // in confirmInfoChange.
+      await new Promise((resolve) => setTimeout(resolve, 700))
+
       setSecurity(initialSecurity)
+      setIsPasswordConfirmOpen(false)
       setSaveMessage({ type: "success", text: "Password updated successfully." })
     } catch (err) {
       console.error(err)
+      setIsPasswordConfirmOpen(false)
       setSaveMessage({ type: "error", text: "Something went wrong. Please try again." })
     } finally {
       setIsSaving(false)
@@ -118,23 +520,22 @@ export default function ClientProfilePage() {
     hasUnreadNotifications: true,
   })
 
+  const displayName = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || "My Profile"
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-2">
-          {loading ? (
-            <PageSkeleton type="profile" />
-          ) : (
-            <>
+      {loading ? (
+        <PageSkeleton type="profile" />
+      ) : (
+        <>
           <div className="flex items-center gap-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-forest-900 text-sm font-semibold text-white">
-              {currentUser.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
+              {getInitials(profile.firstName, profile.lastName)}
             </div>
             <div>
-              <h1 className="text-lg font-semibold leading-tight">{currentUser.name}</h1>
+              <h1 className="text-lg font-semibold leading-tight">{displayName}</h1>
               <p className="text-sm text-muted-foreground">
-                {profile.businessName} · Client since January 2022
+                {profile.businessName || "No business on file"}
               </p>
             </div>
           </div>
@@ -173,15 +574,21 @@ export default function ClientProfilePage() {
           )}
 
           {activeTab === "info" && (
-            <form onSubmit={handleSaveInfo} className="flex flex-col gap-6">
+            <form ref={profileFormRef} onSubmit={handleSaveInfo} className="flex flex-col gap-6">
               {/* Personal + Business cards sit side by side at equal width on large screens,
                   so the form fills the same rail as the header instead of trailing off into empty space. */}
               <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-                {/* Mirrors SignupPage.jsx step 1 (Account) fields */}
+                {/* Read-only: personal identity fields can't be edited by the client directly. */}
                 <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <h2 className="mb-5 text-sm font-semibold">
-                    Personal Information
-                  </h2>
+                  <div className="mb-5 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold">
+                      Personal Information
+                    </h2>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                      <Lock className="size-3" />
+                      Read-only
+                    </span>
+                  </div>
                   <FieldGroup className="gap-5">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field>
@@ -190,8 +597,9 @@ export default function ClientProfilePage() {
                           id="firstName"
                           name="firstName"
                           value={profile.firstName}
-                          onChange={updateProfileField}
-                          className={controlClass}
+                          readOnly
+                          disabled
+                          className={readOnlyClass}
                         />
                       </Field>
                       <Field>
@@ -200,8 +608,9 @@ export default function ClientProfilePage() {
                           id="middleName"
                           name="middleName"
                           value={profile.middleName}
-                          onChange={updateProfileField}
-                          className={controlClass}
+                          readOnly
+                          disabled
+                          className={readOnlyClass}
                         />
                       </Field>
                     </div>
@@ -213,8 +622,9 @@ export default function ClientProfilePage() {
                           id="lastName"
                           name="lastName"
                           value={profile.lastName}
-                          onChange={updateProfileField}
-                          className={controlClass}
+                          readOnly
+                          disabled
+                          className={readOnlyClass}
                         />
                       </Field>
                       <Field>
@@ -224,8 +634,9 @@ export default function ClientProfilePage() {
                           name="birthDate"
                           type="date"
                           value={profile.birthDate}
-                          onChange={updateProfileField}
-                          className={controlClass}
+                          readOnly
+                          disabled
+                          className={readOnlyClass}
                         />
                       </Field>
                     </div>
@@ -237,14 +648,21 @@ export default function ClientProfilePage() {
                         name="email"
                         type="email"
                         value={profile.email}
-                        onChange={updateProfileField}
-                        className={controlClass}
+                        readOnly
+                        disabled
+                        className={readOnlyClass}
                       />
                     </Field>
+
+                    <p className="text-xs text-muted-foreground">
+                      To change your personal information, please contact your firm or support.
+                    </p>
                   </FieldGroup>
                 </div>
 
-                {/* Mirrors SignupPage.jsx step 2 (Info / Firm Information) fields */}
+                {/* Mirrors SignupPage.jsx step 2 (Info / Firm Information) fields — still editable.
+                    Address is now the same six normalized fields signup collects, instead of
+                    one free-text "address" string. */}
                 <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                   <h2 className="mb-5 text-sm font-semibold">
                     Business Information
@@ -291,10 +709,19 @@ export default function ClientProfilePage() {
                         <Input
                           id="tin"
                           name="tin"
+                          inputMode="numeric"
+                          placeholder="123-456-789-000"
+                          maxLength={15}
                           value={profile.tin}
                           onChange={updateProfileField}
                           className={controlClass}
+                          aria-invalid={Boolean(fieldErrors.tin)}
                         />
+                        <FieldDescription
+                          className={fieldErrors.tin ? "text-red-600" : undefined}
+                        >
+                          {fieldErrors.tin || "12 digits, e.g. 123-456-789-000."}
+                        </FieldDescription>
                       </Field>
                       <Field>
                         <FieldLabel htmlFor="industry">Industry</FieldLabel>
@@ -314,30 +741,122 @@ export default function ClientProfilePage() {
                       </Field>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="contactNumber">
-                          Contact Number
-                        </FieldLabel>
+                    <Field>
+                      <FieldLabel htmlFor="contactNumber">
+                        Contact Number
+                      </FieldLabel>
+                      <div className="flex">
+                        <span className="inline-flex h-8 shrink-0 items-center rounded-l-lg border border-r-0 border-input bg-muted px-3 text-sm font-medium text-muted-foreground">
+                          +63
+                        </span>
+                        {/* No maxLength here on purpose: the browser would block the
+                            11th keystroke before onChange fires, so the "too many
+                            digits" warning could never appear. */}
                         <Input
                           id="contactNumber"
                           name="contactNumber"
+                          type="tel"
+                          inputMode="numeric"
+                          placeholder="9XX XXX XXXX"
                           value={profile.contactNumber}
+                          onChange={updateProfileField}
+                          className="w-full rounded-l-none bg-background"
+                          aria-invalid={Boolean(fieldErrors.contactNumber)}
+                        />
+                      </div>
+                      {fieldErrors.contactNumber && (
+                        <FieldDescription className="text-red-600">
+                          {fieldErrors.contactNumber}
+                        </FieldDescription>
+                      )}
+                    </Field>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="houseNo">
+                          House/Bldg./Unit No.
+                        </FieldLabel>
+                        <Input
+                          id="houseNo"
+                          name="houseNo"
+                          value={profile.houseNo}
                           onChange={updateProfileField}
                           className={controlClass}
                         />
                       </Field>
                       <Field>
-                        <FieldLabel htmlFor="address">
-                          Address
+                        <FieldLabel htmlFor="streetName">
+                          Street Name
                         </FieldLabel>
                         <Input
-                          id="address"
-                          name="address"
-                          value={profile.address}
+                          id="streetName"
+                          name="streetName"
+                          value={profile.streetName}
                           onChange={updateProfileField}
                           className={controlClass}
                         />
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="barangay">
+                          Barangay
+                        </FieldLabel>
+                        <Input
+                          id="barangay"
+                          name="barangay"
+                          value={profile.barangay}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="district">
+                          District
+                        </FieldLabel>
+                        <Input
+                          id="district"
+                          name="district"
+                          value={profile.district}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="city">
+                          City / Municipality
+                        </FieldLabel>
+                        <Input
+                          id="city"
+                          name="city"
+                          value={profile.city}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="zipCode">
+                          ZIP Code
+                        </FieldLabel>
+                        <Input
+                          id="zipCode"
+                          name="zipCode"
+                          inputMode="numeric"
+                          maxLength={4}
+                          value={profile.zipCode}
+                          onChange={updateProfileField}
+                          className={controlClass}
+                          aria-invalid={Boolean(fieldErrors.zipCode)}
+                        />
+                        {fieldErrors.zipCode && (
+                          <FieldDescription className="text-red-600">
+                            {fieldErrors.zipCode}
+                          </FieldDescription>
+                        )}
                       </Field>
                     </div>
                   </FieldGroup>
@@ -347,10 +866,14 @@ export default function ClientProfilePage() {
               <div className="flex justify-end">
                 <Button
                   type="submit"
-                  disabled={isSaving}
-                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                  disabled={isSaving || !hasProfileChanges}
+                  className="gap-2 bg-forest-900 text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  <Save className="size-4" />
+                  {isSaving ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Save className="size-4" />
+                  )}
                   {isSaving ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
@@ -361,9 +884,19 @@ export default function ClientProfilePage() {
             <form onSubmit={handleSavePassword} className="flex flex-col gap-6">
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="rounded-xl border border-border bg-card p-6 shadow-sm lg:col-span-2">
-                  <h2 className="mb-5 text-sm font-semibold">
-                    Change Password
-                  </h2>
+                  <div className="mb-5 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold">
+                      Change Password
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setIsForgotPasswordOpen(true)}
+                      className="flex items-center gap-1.5 text-sm font-medium text-emerald-700 underline-offset-4 hover:underline"
+                    >
+                      <ShieldQuestion className="size-4" />
+                      Forgot your current password?
+                    </button>
+                  </div>
                   <FieldGroup className="gap-5">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field>
@@ -410,6 +943,51 @@ export default function ClientProfilePage() {
                         />
                       </Field>
                     </div>
+
+                    {/*
+                      Smooth show/hide: the wrapper is ALWAYS mounted (never
+                      conditionally rendered), so CSS transitions can animate it.
+                      grid-template-rows 0fr -> 1fr animates height smoothly
+                      (a plain max-height transition tends to feel janky/stepped),
+                      combined with an opacity fade for a soft, non-abrupt reveal.
+                    */}
+                    <div
+                      className={cn(
+                        "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
+                        security.newPassword
+                          ? "grid-rows-[1fr] opacity-100"
+                          : "grid-rows-[0fr] opacity-0"
+                      )}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="rounded-lg border border-border bg-muted/30 p-3.5">
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/70">
+                            Password must contain:
+                          </p>
+                          <ul className="flex flex-col gap-1.5">
+                            {passwordRequirements.map((req) => {
+                              const passed = req.test(security.newPassword)
+                              return (
+                                <li
+                                  key={req.key}
+                                  className={cn(
+                                    "flex items-center gap-2 text-xs transition-colors duration-200",
+                                    passed ? "text-emerald-700" : "text-red-600"
+                                  )}
+                                >
+                                  {passed ? (
+                                    <Check className="size-3.5 shrink-0" />
+                                  ) : (
+                                    <X className="size-3.5 shrink-0" />
+                                  )}
+                                  {req.label}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
                   </FieldGroup>
                 </div>
               </div>
@@ -418,16 +996,47 @@ export default function ClientProfilePage() {
                 <Button
                   type="submit"
                   disabled={isSaving}
-                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                  className="gap-2 bg-forest-900 text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  <Save className="size-4" />
+                  {isSaving ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Save className="size-4" />
+                  )}
                   {isSaving ? "Saving..." : "Update Password"}
                 </Button>
               </div>
             </form>
           )}
-            </>
-          )}
-        </div>
+        </>
+      )}
+
+      <ForgotPasswordModal
+        open={isForgotPasswordOpen}
+        onClose={() => setIsForgotPasswordOpen(false)}
+      />
+
+      <ConfirmationModal
+        open={isInfoConfirmOpen}
+        icon={FileEdit}
+        title="Change Information?"
+        description="Are you sure you want to change your information?"
+        confirmLabel="Yes"
+        isConfirming={isSaving}
+        onCancel={() => setIsInfoConfirmOpen(false)}
+        onConfirm={confirmInfoChange}
+      />
+
+      <ConfirmationModal
+  open={isPasswordConfirmOpen}
+  icon={TriangleAlert}
+  title="Change Password?"
+  description="Are you sure you want to change your password?"
+  confirmLabel="Yes"
+  isConfirming={isSaving}
+  onCancel={() => setIsPasswordConfirmOpen(false)}
+  onConfirm={confirmPasswordChange}
+    />
+    </div>
   )
 }

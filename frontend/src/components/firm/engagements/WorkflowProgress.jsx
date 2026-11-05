@@ -1,13 +1,18 @@
 import { CheckCircle2, Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { workflowStages, getWorkflowStageIndex, isWorkflowComplete, isWorkflowCancelled } from "./engagement-variants"
+import {
+  workflowProgressStages,
+  getWorkflowProgressStageIndex,
+  isWorkflowComplete,
+  isWorkflowCancelled,
+} from "./engagement-variants"
 
 export function WorkflowProgress({ workflowStage, className }) {
   const isComplete = isWorkflowComplete(workflowStage)
   const isCancelled = isWorkflowCancelled(workflowStage)
-  const progressIndex = getWorkflowStageIndex(workflowStage)
-  const totalStages = workflowStages.length
+  const progressIndex = getWorkflowProgressStageIndex(workflowStage)
+  const totalStages = workflowProgressStages.length
 
   const progressPercent = isComplete
     ? 100
@@ -15,11 +20,11 @@ export function WorkflowProgress({ workflowStage, className }) {
       ? 0
       : Math.round((progressIndex / (totalStages - 1)) * 100)
 
-  const activeStepIndex = isComplete ? totalStages - 1 : progressIndex
+  const activeStepIndex = isComplete ? totalStages - 1 : Math.max(progressIndex, 0)
 
   // Build grid template: auto 1fr auto 1fr ... auto
   // Circle columns = auto, line columns = 1fr (equal width)
-  const gridCols = workflowStages
+  const gridCols = workflowProgressStages
     .flatMap((_, i) => (i < totalStages - 1 ? ["auto", "1fr"] : ["auto"]))
     .join(" ")
 
@@ -33,7 +38,7 @@ export function WorkflowProgress({ workflowStage, className }) {
       </div>
 
       <div className="grid items-start" style={{ gridTemplateColumns: gridCols }}>
-        {workflowStages.map((stage, i) => {
+        {workflowProgressStages.map((stage, i) => {
           const isDone = i <= activeStepIndex
           const isLast = i === totalStages - 1
           return (

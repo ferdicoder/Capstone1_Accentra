@@ -137,18 +137,29 @@ export function Landing3DLogo({ className = "" }) {
         pmremGenerator.dispose()
 
         const hemisphereLight = new THREE.HemisphereLight(
-          0xd9fff5,
-          0x02353c,
-          0.85,
+          0xbfeee2,
+          0x011a16,
+          0.45,
         )
-        const keyLight = new THREE.DirectionalLight(0xffffff, 1.7)
+        const keyLight = new THREE.DirectionalLight(0xffffff, 2)
         keyLight.position.set(2.5, 3.5, 4)
-        const emeraldLight = new THREE.PointLight(0x10b981, 4.5, 8)
+        const emeraldLight = new THREE.PointLight(0x0b6b4a, 1.2, 8)
         emeraldLight.position.set(-2.4, -1.5, 2.5)
-        const rimLight = new THREE.PointLight(0x9fffd8, 2.6, 7)
+        const rimLight = new THREE.PointLight(0xd8fff1, 2.4, 7)
         rimLight.position.set(2, 1.5, -2)
+        const glintLight = new THREE.PointLight(0xffffff, 18, 4.5)
+        glintLight.position.set(1.1, 1.6, 2)
+        const glintFill = new THREE.PointLight(0xbfffe6, 9, 4)
+        glintFill.position.set(-1.6, 0.9, 1.6)
 
-        scene.add(hemisphereLight, keyLight, emeraldLight, rimLight)
+        scene.add(
+          hemisphereLight,
+          keyLight,
+          emeraldLight,
+          rimLight,
+          glintLight,
+          glintFill,
+        )
 
         const resize = () => {
           if (!renderer || !camera) return
@@ -189,25 +200,62 @@ export function Landing3DLogo({ className = "" }) {
               child.castShadow = false
               child.receiveShadow = false
               if (child.material) {
-                child.material.envMapIntensity = 1.05
-                // Tint the clear asset toward translucent green jade without
+                const material = child.material
+                // Stronger environment reflections give the polished crystal
+                // facets their highlights.
+                material.envMapIntensity = 2.2
+                material.needsUpdate = true
+                // Tint the clear asset toward a dark green crystal without
                 // changing the source GLTF.
-                if ("transmission" in child.material) {
-                  child.material.transmission = 0.28
+                if ("color" in material) {
+                  material.color.set("#0d4a34")
                 }
-                if ("thickness" in child.material) {
-                  child.material.thickness = 1.25
-                  child.material.attenuationDistance = 0.7
-                  child.material.attenuationColor?.set("#087f62")
+                if ("transmission" in material) {
+                  // Partial transmission: thin edges stay translucent while the
+                  // body keeps the deep, saturated gemstone green.
+                  material.transmission = 0.42
                 }
-                if ("roughness" in child.material) {
-                  child.material.roughness = 0.14
+                if ("thickness" in material) {
+                  material.thickness = 2.2
                 }
-                if ("metalness" in child.material) {
-                  child.material.metalness = 0.04
+                if ("attenuationDistance" in material) {
+                  // Short distance so light is absorbed quickly and thick
+                  // sections fall away to near-black green.
+                  material.attenuationDistance = 0.5
                 }
-                if (child.material.color) {
-                  child.material.color.set("#1bbf8a")
+                if ("attenuationColor" in material) {
+                  material.attenuationColor.set("#04281a")
+                }
+                if ("ior" in material) {
+                  // Above glass, closer to a cut gemstone.
+                  material.ior = 1.9
+                }
+                if ("dispersion" in material) {
+                  // Subtle prismatic fringing on the refracted edges.
+                  material.dispersion = 0.6
+                }
+                if ("iridescence" in material) {
+                  material.iridescence = 0.15
+                  material.iridescenceIOR = 1.6
+                }
+                if ("clearcoat" in material) {
+                  material.clearcoat = 1
+                }
+                if ("clearcoatRoughness" in material) {
+                  material.clearcoatRoughness = 0.015
+                }
+                if ("specularIntensity" in material) {
+                  material.specularIntensity = 1
+                }
+                if ("specularColor" in material) {
+                  material.specularColor.set("#f2fffb")
+                }
+                if ("roughness" in material) {
+                  // Near-mirror surface for the wet, glassy shine.
+                  material.roughness = 0.02
+                }
+                if ("metalness" in material) {
+                  material.metalness = 0
                 }
               }
             })

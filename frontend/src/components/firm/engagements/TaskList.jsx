@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Clock, MoreHorizontal, Inbox, Check, MessageSquareWarning } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Clock, MoreHorizontal, Inbox, Check, FileText, MessageSquareWarning, Eye, Download } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,39 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { formatDate } from "./engagement-variants"
+import { ReferenceDocumentUpload } from "@/components/firm/service-management/workflow-tasks"
+import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
+import { normalizePreviewFile } from "@/lib/file-utils"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
+
+/**
+ * A task deadline may not fall after its parent engagement's deadline.
+ * Reuses the same date handling as `formatDate` (date-only values parsed as
+ * local midnight) so comparisons stay consistent with how deadlines render.
+ */
+const isTaskDeadlineAfterEngagement = (taskDeadline, engagementDeadline) => {
+  if (!taskDeadline || !engagementDeadline) return false
+
+  const taskDate = new Date(`${taskDeadline}T00:00:00`)
+  const engagementDate = new Date(
+    `${String(engagementDeadline).slice(0, 10)}T00:00:00`
+  )
+
+  if (Number.isNaN(taskDate.getTime()) || Number.isNaN(engagementDate.getTime())) {
+    return false
+  }
+
+  return taskDate > engagementDate
+}
+
+const getLocalDateInputValue = () => {
+  const today = new Date()
+  const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60_000)
+  return localDate.toISOString().slice(0, 10)
+}
+
+const isTaskDeadlineInPast = (taskDeadline) =>
+  Boolean(taskDeadline) && taskDeadline < getLocalDateInputValue()
 
 // ── Status Helpers ────────────────────────────────────────────────────────────
 
@@ -27,7 +60,7 @@ const statusConfig = {
   approved: { label: "Approved", dotColor: "bg-emerald-500", className: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25" },
   for_review: { label: "For Review", dotColor: "bg-amber-500", className: "bg-amber-500/10 text-amber-700 ring-amber-500/25" },
   for_revision: { label: "For Revision", dotColor: "bg-orange-500", className: "bg-orange-500/10 text-orange-700 ring-orange-500/25" },
-  missing: { label: "Pending", dotColor: "bg-red-500", className: "bg-red-500/10 text-red-600 ring-red-500/25" },
+  missing: { label: "Missing", dotColor: "bg-red-500", className: "bg-red-500/10 text-red-600 ring-red-500/25" },
 }
 
 function TaskStatusBadge({ status }) {
@@ -40,22 +73,37 @@ function TaskStatusBadge({ status }) {
   )
 }
 
+// `referenceFile` holds the stored file's metadata ({ id, name, size, type,
+// downloadUrl } from the task) or a freshly picked file ({ name, size, type,
+// file }). Only a pick carries `.file`, so uploads can tell them apart.
+// `removeReference` + `storedReferenceId` delete the stored row on save.
 function createEmptyTaskForm() {
-  return { name: "", required: false, referenceDocument: false, deadline: "" }
+  return {
+    name: "",
+    required: false,
+    hasReferenceDocument: false,
+    referenceFile: null,
+    storedReferenceId: null,
+    removeReference: false,
+    deadline: "",
+  }
 }
 
 function taskToFormData(task) {
   return {
     name: task.name,
     required: task.required,
-    referenceDocument: task.hasReferenceDocument,
+    hasReferenceDocument: task.hasReferenceDocument,
+    referenceFile: task.referenceDocument ?? null,
+    storedReferenceId: task.referenceDocument?.id ?? null,
+    removeReference: false,
     deadline: task.deadline ?? "",
   }
 }
 
 // ── Deadline Display / Editor ─────────────────────────────────────────────────
 
-function DeadlineCell({ deadline, onChange }) {
+function DeadlineCell({ deadline, onChange, max }) {
   const [editing, setEditing] = useState(false)
 
   if (editing) {
@@ -63,7 +111,12 @@ function DeadlineCell({ deadline, onChange }) {
       <input
         type="date"
         defaultValue={deadline || ""}
-        onChange={(e) => { onChange(e.target.value); setEditing(false) }}
+        min={getLocalDateInputValue()}
+        max={max}
+        onChange={(e) => {
+          if (!isTaskDeadlineInPast(e.target.value)) onChange(e.target.value)
+          setEditing(false)
+        }}
         onBlur={() => setEditing(false)}
         autoFocus
         className="h-8 w-full cursor-pointer rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -83,11 +136,36 @@ function DeadlineCell({ deadline, onChange }) {
   )
 }
 
-function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, submitting }) {
+function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, submitting, engagement }) {
+  const formRef = useRef(null)
   const updateField = (field, value) => setFormData((current) => ({ ...current, [field]: value }))
 
+  useEffect(() => {
+    if (errors.name || errors.deadline) {
+      scrollToFirstInvalidField(formRef.current)
+    }
+  }, [errors])
+
+  // Turning the switch off only discards a *pending* pick (has `.file`) — an
+  // already-stored guide stays attached (visible again when toggled back on).
+  const handleReferenceToggle = (value) =>
+    setFormData((current) => ({
+      ...current,
+      hasReferenceDocument: value,
+      ...(value || !current.referenceFile?.file ? {} : { referenceFile: null }),
+    }))
+
+  const handleReferenceSelect = (file) => setFormData((current) => ({ ...current, referenceFile: file }))
+
+  const handleReferenceRemove = () =>
+    setFormData((current) => ({
+      ...current,
+      referenceFile: null,
+      removeReference: current.removeReference || Boolean(current.storedReferenceId),
+    }))
+
   return (
-    <form onSubmit={onSubmit} className="flex min-h-0 flex-col gap-5 overflow-y-auto">
+    <form ref={formRef} onSubmit={onSubmit} className="flex min-h-0 flex-col gap-5 overflow-y-auto">
       <div className="flex flex-col gap-2">
         <label htmlFor="task-name" className="text-sm font-medium text-foreground">Task name</label>
         <Input
@@ -96,6 +174,7 @@ function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, sub
           onChange={(event) => updateField("name", event.target.value)}
           placeholder="Task name"
           aria-invalid={errors.name || undefined}
+          data-invalid-field={errors.name ? "true" : undefined}
           autoFocus
         />
         {errors.name && <p className="text-xs text-red-500">Task name is required.</p>}
@@ -105,14 +184,25 @@ function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, sub
         <Switch label="Required?" checked={formData.required} onChange={(value) => updateField("required", value)} />
         <Switch
           label="Reference Document"
-          checked={formData.referenceDocument}
-          onChange={(value) => updateField("referenceDocument", value)}
+          checked={formData.hasReferenceDocument}
+          onChange={handleReferenceToggle}
         />
       </div>
-      {formData.referenceDocument && (
-        <p className="text-xs text-muted-foreground -mt-3">
-          The client will be asked to upload a file for this task before it can be reviewed.
-        </p>
+      {formData.hasReferenceDocument && (
+        <div className="-mt-3 flex flex-col gap-2">
+          <p className="text-xs text-muted-foreground">
+            The client will be asked to upload a file for this task before it can be reviewed.
+          </p>
+          <ReferenceDocumentUpload
+            file={formData.referenceFile}
+            onSelect={handleReferenceSelect}
+            onRemove={handleReferenceRemove}
+            disabled={submitting}
+          />
+          <p className="text-xs text-muted-foreground">
+            Optionally attach a guide file for the client to reference.
+          </p>
+        </div>
       )}
 
       <div className="flex flex-col gap-2">
@@ -122,7 +212,18 @@ function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, sub
           type="date"
           value={formData.deadline}
           onChange={(event) => updateField("deadline", event.target.value)}
+          min={getLocalDateInputValue()}
+          max={engagement?.targetEndDate ?? engagement?.startDate ?? undefined}
+          aria-invalid={errors.deadline || undefined}
+          data-invalid-field={errors.deadline ? "true" : undefined}
         />
+        {errors.deadline && (
+          <p className="text-xs text-red-500">
+            {isTaskDeadlineInPast(formData.deadline)
+              ? "Task deadline cannot be in the past."
+              : "Task deadline cannot be later than the engagement deadline."}
+          </p>
+        )}
       </div>
 
       <DialogFooter>
@@ -135,7 +236,7 @@ function TaskForm({ mode, formData, setFormData, errors, onSubmit, onCancel, sub
   )
 }
 
-function TaskDialog({ open, mode, formData, setFormData, errors, onOpenChange, onSubmit, submitting }) {
+function TaskDialog({ open, mode, formData, setFormData, errors, onOpenChange, onSubmit, submitting, engagement }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -145,7 +246,7 @@ function TaskDialog({ open, mode, formData, setFormData, errors, onOpenChange, o
             {mode === "edit" ? "Update this task for the engagement." : "Create a task for this engagement."}
           </DialogDescription>
         </DialogHeader>
-        <TaskForm mode={mode} formData={formData} setFormData={setFormData} errors={errors} onSubmit={onSubmit} onCancel={() => onOpenChange(false)} submitting={submitting} />
+        <TaskForm mode={mode} formData={formData} setFormData={setFormData} errors={errors} onSubmit={onSubmit} onCancel={() => onOpenChange(false)} submitting={submitting} engagement={engagement} />
       </DialogContent>
     </Dialog>
   )
@@ -238,7 +339,7 @@ function TaskDetailDialog({ open, onOpenChange, task }) {
 
 // ── Task Row ──────────────────────────────────────────────────────────────────
 
-function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail, onToggleComplete, onApprove, onRequestRevision }) {
+function TaskRow({ task, documents = [], engagement, onEdit, onDeadlineChange, onOpenDetail, onApprove, onRequestRevision, onPreviewReference }) {
   const isDocBacked = task.hasReferenceDocument
   const canReview = isDocBacked && (task.status === "for_review" || task.status === "for_revision")
 
@@ -246,29 +347,74 @@ function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail,
     <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/30">
       <td className="min-w-0 px-6 py-2.5 pr-4">
         <div className="flex items-center gap-2.5">
-          {!isDocBacked && (
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={task.completed}
-              title={task.completed ? "Mark incomplete" : "Mark complete"}
-              onClick={() => onToggleComplete(task)}
-              className={cn("flex size-4 shrink-0 items-center justify-center rounded border transition-colors", task.completed ? "border-[#02353C] bg-[#02353C] text-white" : "border-input bg-transparent hover:border-[#02353C]/50")}
-            >
-              {task.completed && <Check className="size-3" />}
-            </button>
-          )}
           <button type="button" onClick={onOpenDetail} className="text-sm font-medium text-foreground hover:text-[#02353C] transition-colors">
             {task.name}
             {task.required && <span className="ml-1 text-xs text-red-500 font-semibold">*</span>}
           </button>
         </div>
+        {task.referenceDocument && (
+          <div className="mt-2 flex items-center gap-1.5 pl-6">
+            <button
+              type="button"
+              title="Preview reference file"
+              onClick={onPreviewReference}
+              className="inline-flex min-w-0 max-w-[260px] items-center gap-1 truncate rounded-md border bg-muted/40 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <FileText className="size-3.5 shrink-0" />
+              <span className="truncate">Guide: {task.referenceDocument.name}</span>
+            </button>
+            <a
+              href={task.referenceDocument.downloadUrl}
+              download={task.referenceDocument.name}
+              title="Download reference file"
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Download className="size-3.5" />
+            </a>
+          </div>
+        )}
+        {isDocBacked && documents.length > 0 && (
+          <div className="mt-2 flex flex-col gap-1 pl-6">
+            {documents.map((document) => (
+              <div key={document.id} className="flex min-w-0 items-center gap-2 text-xs">
+                <span className="min-w-0 flex-1 truncate text-muted-foreground" title={document.name}>
+                  {document.name}
+                </span>
+                {document.downloadUrl && (
+                  <>
+                    <a
+                      href={document.downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="View document"
+                      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <Eye className="size-3.5" />
+                    </a>
+                    <a
+                      href={document.downloadUrl}
+                      download={document.name}
+                      title="Download document"
+                      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
+                    >
+                      <Download className="size-3.5" />
+                    </a>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </td>
 
       <td className="w-[160px] px-5 py-2.5"><TaskStatusBadge status={task.status} /></td>
 
       <td className="w-[180px] px-5 py-2.5">
-        <DeadlineCell deadline={task.deadline} onChange={(val) => onDeadlineChange(task.id, val)} />
+        <DeadlineCell
+          deadline={task.deadline}
+          onChange={(val) => onDeadlineChange(task.id, val)}
+          max={engagement?.targetEndDate ?? engagement?.startDate ?? undefined}
+        />
       </td>
 
       <td className="w-[100px] px-4 py-2.5 text-right">
@@ -289,7 +435,6 @@ function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail,
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-40">
               <DropdownMenuItem onClick={onEdit}>Edit Task</DropdownMenuItem>
-              <DropdownMenuItem onClick={onSendReminder}>Send Reminder</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -302,15 +447,23 @@ function TaskRow({ task, onEdit, onSendReminder, onDeadlineChange, onOpenDetail,
 
 export function TaskList({
   engagement,
+  documents = [],
   className,
   onTaskClick,
   onDeadlineChange,
-  onTaskComplete,
   onTaskReview,
   onTaskCreate,
   onTaskUpdate,
+  onBlockedAction,
 }) {
   const tasks = engagement?.tasks ?? []
+  const isTerminalEngagement =
+    engagement?.status === "completed" || engagement?.status === "cancelled"
+  const documentsByTask = useMemo(() => documents.reduce((grouped, document) => {
+    const taskDocuments = grouped[document.engagementTaskId] ?? []
+    grouped[document.engagementTaskId] = [...taskDocuments, document]
+    return grouped
+  }, {}), [documents])
 
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
@@ -320,11 +473,17 @@ export function TaskList({
   const [taskFormErrors, setTaskFormErrors] = useState({})
   const [taskSubmitting, setTaskSubmitting] = useState(false)
   const [taskSubmitError, setTaskSubmitError] = useState("")
-  const [reminderFeedback, setReminderFeedback] = useState("")
   const [revisionDialogOpen, setRevisionDialogOpen] = useState(false)
   const [revisionTask, setRevisionTask] = useState(null)
+  // Kept after close so the dialog doesn't blank during its close animation.
+  const [referencePreviewTask, setReferencePreviewTask] = useState(null)
+  const [referencePreviewOpen, setReferencePreviewOpen] = useState(false)
 
   const openAddTask = () => {
+    if (isTerminalEngagement) {
+      onBlockedAction?.()
+      return
+    }
     setTaskDialogMode("add")
     setTaskFormData(createEmptyTaskForm())
     setTaskFormErrors({})
@@ -353,11 +512,27 @@ export function TaskList({
 
   const handleTaskSubmit = async (event) => {
     event.preventDefault()
+    if (isTerminalEngagement) {
+      setTaskSubmitError("Tasks cannot be added to a completed or cancelled engagement.")
+      onBlockedAction?.()
+      return
+    }
+
     const name = taskFormData.name.trim()
+    const taskDeadlineInvalid = isTaskDeadlineAfterEngagement(taskFormData.deadline, engagement?.targetEndDate ?? engagement?.startDate)
+    const taskDeadlineInPast = isTaskDeadlineInPast(taskFormData.deadline)
+
     if (!name) {
       setTaskFormErrors({ name: true })
       return
     }
+
+    if (taskDeadlineInvalid || taskDeadlineInPast) {
+      setTaskFormErrors({ deadline: true })
+      return
+    }
+
+    setTaskFormErrors({})
 
     setTaskSubmitting(true)
     setTaskSubmitError("")
@@ -365,16 +540,19 @@ export function TaskList({
       if (taskDialogMode === "edit" && selectedTask) {
         await onTaskUpdate?.(selectedTask.id, {
           title: name,
-          hasReferenceDocument: taskFormData.referenceDocument,
+          hasReferenceDocument: taskFormData.hasReferenceDocument,
           required: taskFormData.required,
           dueDate: taskFormData.deadline || null,
+          referenceFile: taskFormData.referenceFile?.file ?? null,
+          removeReferenceDocId: taskFormData.removeReference ? taskFormData.storedReferenceId : null,
         })
       } else {
         await onTaskCreate?.({
           title: name,
-          hasReferenceDocument: taskFormData.referenceDocument,
+          hasReferenceDocument: taskFormData.hasReferenceDocument,
           required: taskFormData.required,
           dueDate: taskFormData.deadline || null,
+          referenceFile: taskFormData.referenceFile?.file ?? null,
         })
       }
       handleTaskDialogChange(false)
@@ -398,9 +576,9 @@ export function TaskList({
     setRevisionTask(null)
   }
 
-  const handleSendReminder = (task) => {
-    setReminderFeedback(`Reminder sent to client for "${task.name}".`)
-    window.setTimeout(() => setReminderFeedback(""), 3000)
+  const openReferencePreview = (task) => {
+    setReferencePreviewTask(task)
+    setReferencePreviewOpen(true)
   }
 
   const handleOpenDetail = (task) => {
@@ -415,20 +593,16 @@ export function TaskList({
     <div className={cn("rounded-xl border border-border bg-card shadow-sm", className)}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-3.5">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Task List</h3>
+          <h3 className="text-sm font-semibold text-foreground">Document Requirements</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {completedCount} of {tasks.length} completed
             {requiredCount > 0 && ` · ${requiredCount} required`}
           </p>
         </div>
-        <Button type="button" size="sm" className="h-8 rounded-lg bg-[#02353C] px-3 text-xs text-white hover:bg-[#02353C]/90" onClick={openAddTask}>
+        <Button type="button" size="sm" className={cn("h-8 rounded-lg bg-[#02353C] px-3 text-xs text-white hover:bg-[#02353C]/90", isTerminalEngagement && "opacity-50")} onClick={openAddTask}>
           Add Task
         </Button>
       </div>
-
-      {reminderFeedback && (
-        <p role="status" className="border-b border-border bg-emerald-500/10 px-6 py-2 text-xs text-emerald-700">{reminderFeedback}</p>
-      )}
 
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
@@ -441,10 +615,10 @@ export function TaskList({
           <table className="w-full min-w-[560px]">
             <thead>
               <tr className="border-b border-border text-left">
-                <th className="min-w-0 px-6 py-2.5 text-xs font-medium text-muted-foreground">Task</th>
-                <th className="w-[160px] px-5 py-2.5 text-xs font-medium text-muted-foreground">Status</th>
-                <th className="w-[180px] px-5 py-2.5 text-xs font-medium text-muted-foreground">Deadline</th>
-                <th className="w-[100px] px-4 py-2.5 text-xs font-medium text-muted-foreground text-right">Actions</th>
+                <th className="min-w-0 px-6 py-2.5 text-xs font-medium text-foreground">Task</th>
+                <th className="w-[160px] px-5 py-2.5 text-xs font-medium text-foreground">Status</th>
+                <th className="w-[180px] px-5 py-2.5 text-xs font-medium text-foreground">Deadline</th>
+                <th className="w-[100px] px-4 py-2.5 text-xs font-medium text-foreground text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -452,13 +626,14 @@ export function TaskList({
                 <TaskRow
                   key={task.id}
                   task={task}
+                  documents={documentsByTask[task.id]}
+                  engagement={engagement}
                   onEdit={() => openEditTask(task)}
-                  onSendReminder={() => handleSendReminder(task)}
                   onDeadlineChange={onDeadlineChange}
                   onOpenDetail={() => handleOpenDetail(task)}
-                  onToggleComplete={(t) => onTaskComplete?.(t.id, !t.completed)}
                   onApprove={handleApprove}
                   onRequestRevision={openRequestRevision}
+                  onPreviewReference={() => openReferencePreview(task)}
                 />
               ))}
             </tbody>
@@ -482,6 +657,16 @@ export function TaskList({
 
       <TaskDetailDialog open={detailOpen} onOpenChange={setDetailOpen} task={selectedTask} />
       <RequestRevisionDialog open={revisionDialogOpen} onOpenChange={setRevisionDialogOpen} task={revisionTask} onSubmit={handleSubmitRevision} />
+      <FilePreviewDialog
+        open={referencePreviewOpen}
+        onOpenChange={setReferencePreviewOpen}
+        files={
+          referencePreviewTask?.referenceDocument
+            ? [normalizePreviewFile(referencePreviewTask.referenceDocument)]
+            : []
+        }
+        subtitle={referencePreviewTask ? `Guide for "${referencePreviewTask.name}"` : undefined}
+      />
     </div>
   )
 }

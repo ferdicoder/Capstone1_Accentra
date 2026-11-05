@@ -1,4 +1,5 @@
 import { supabase } from "@/config/supabase"; 
+import { apiBaseUrl } from "@/config/api"
 
 function mapServiceRow(row) {
   const tasks = Array.isArray(row.template_tasks) ? row.template_tasks : []
@@ -10,14 +11,27 @@ function mapServiceRow(row) {
     basePrice: row.price ?? 0,
     estimatedTime: row.estimated_time ?? "",
     isRecurring: row.is_recurring ?? false,
+    isRetainerCovered: row.is_retainer_covered ?? false,
     status: row.status ?? "deactivated",
     workflowTasks: tasks.map((t) => ({
       id: t.template_id,
       name: t.title ?? "",
       required: t.is_required ?? false,
       hasReferenceDocument: t.has_reference ?? false,
-      referenceDocument: null,
+      referenceDocument: mapTemplateDocument(t.template_documents),
     })),
+  }
+}
+
+function mapTemplateDocument(documents) {
+  const document = Array.isArray(documents) ? documents.at(-1) : documents
+  if (!document) return null
+
+  return {
+    id: document.doc_id,
+    name: document.file_name ?? "Reference document",
+    size: document.file_size,
+    type: document.mime_type,
   }
 }
 
@@ -27,8 +41,11 @@ async function getServices() {
     .from("services")
     .select(`
       service_id, price, service_name, category, description,
-      estimated_time, is_recurring, status,
-      template_tasks(template_id, title, has_reference, is_required)
+      estimated_time, is_recurring, is_retainer_covered, status,
+      template_tasks(
+        template_id, title, has_reference, is_required,
+        template_documents(doc_id, file_name, mime_type, file_size, created_at)
+      )
     `)
     
   if (error) throw error
@@ -44,6 +61,7 @@ async function updateService(service) {
     p_description: service.description,
     p_estimated_time: service.estimatedTime,
     p_is_recurring: service.isRecurring ?? false,
+    p_is_retainer_covered: service.isRetainerCovered ?? false,
     p_status: service.status,
     p_tasks: service.workflowTasks.map((t) => ({
       template_id: t.id ?? null,
@@ -63,9 +81,13 @@ async function updateService(service) {
       category, 
       description,
       estimated_time, 
-      is_recurring, 
+      is_recurring,
+      is_retainer_covered,
       status,
-      template_tasks(template_id, title, has_reference, is_required)
+      template_tasks(
+        template_id, title, has_reference, is_required,
+        template_documents(doc_id, file_name, mime_type, file_size, created_at)
+      )
     `)
     .eq("service_id", serviceId)
     .single()
@@ -88,8 +110,11 @@ async function updateServiceStatus({ id, status }) {
       category, 
       description,
       estimated_time, 
-      is_recurring, status,
-      template_tasks(template_id, title, has_reference, is_required)
+      is_recurring, is_retainer_covered, status,
+      template_tasks(
+        template_id, title, has_reference, is_required,
+        template_documents(doc_id, file_name, mime_type, file_size, created_at)
+      )
     `)
     .single()
     .order('template_id', { foreignTable: 'template_tasks' }) 
@@ -102,9 +127,13 @@ async function deleteService(id) {
 }
 
 async function createService(service) {
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/services/create`, {
+  const { data: { session } } = await supabase.auth.getSession()
+  const response = await fetch(`${apiBaseUrl}/services/create`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+    },
     body: JSON.stringify({
       price: service.basePrice,
       serviceName: service.name,
@@ -112,6 +141,7 @@ async function createService(service) {
       description: service.description,
       estimatedTime: service.estimatedTime,
       isRecurring: service.isRecurring ?? false,
+      isRetainerCovered: service.isRetainerCovered ?? false,
       status: service.status,
       tasks: service.workflowTasks.map((t) => ({
         title: t.name,
@@ -120,7 +150,10 @@ async function createService(service) {
       })),
     }),
   })
-  if (!response.ok) throw new Error('Service creation failed')
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.message || body.error || "Service creation failed")
+  }
   const { service: createdService } = await response.json()
   return mapServiceRow(createdService)
 }

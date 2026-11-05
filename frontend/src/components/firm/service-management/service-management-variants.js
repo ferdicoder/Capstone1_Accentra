@@ -73,6 +73,27 @@ export const serviceTemplateCatalog = [
 export const getServiceTemplatePrice = (serviceName) =>
   serviceTemplateCatalog.find((template) => template.name === serviceName)?.price ?? 0
 
+/**
+ * File types the reference-document upload accepts. Mirrors the server-side
+ * allow-list (backend/config/allowedFileTypes.js) so an unsupported file is
+ * rejected before the upload starts.
+ */
+export const REFERENCE_DOCUMENT_MIME_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]
+
+/** File-picker hint matching REFERENCE_DOCUMENT_MIME_TYPES. */
+export const REFERENCE_DOCUMENT_ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+
+/** Builds the message shown when a file outside the supported types is picked. */
+export const getInvalidFileTypeMessage = (fileName) =>
+  `"${fileName || "This file"}" is not a supported file type. Upload a PDF, JPG, PNG, WEBP, DOC, or DOCX file.`
+
 /** Generates a short unique id for client-side records (tasks, services). */
 export const createTaskId = () => Math.random().toString(36).slice(2, 10)
 

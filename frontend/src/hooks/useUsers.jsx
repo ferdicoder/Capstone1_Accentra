@@ -1,12 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { queryKeys } from "@/config/queryKeys"
 
-import { 
-  getUsers, 
-  updateUser, 
-  updateUserStatus, 
+import {
+  getUsers,
+  updateUser,
+  updateUserStatus,
   createStaff,
-  fetchRoleOptions
+  fetchFirmRoles
 } from "@/services/api/userAPI"
 
 
@@ -14,14 +14,17 @@ export function useFetchUsers() {
   return useQuery({
     queryKey: queryKeys.users,
     queryFn: getUsers,
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60
   })
 }
 
-export function useFetchRoleOptions() {
+export function useFetchFirmRoles() {
   return useQuery({
     queryKey: queryKeys.roles,
-    queryFn: fetchRoleOptions,
-    staleTime: 5 * 60 * 1000
+    queryFn: fetchFirmRoles,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
   })
 }
 
@@ -64,5 +67,3 @@ export function useToggleUserStatus() {
     },
   })
 }
-
-

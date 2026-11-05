@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ChevronDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -19,15 +19,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  serviceTemplateCatalog,
-  getServiceTemplatePrice,
-} from "../service-management/service-management-variants"
-import { registeredClients } from "../engagements/engagement-variants"
 import { useFetchUsers } from "@/hooks/useUsers"
+import { useFetchServices } from "@/hooks/useServices"
+import { useSearchClients } from "@/hooks/useBusinesses"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 
 
 const sectionHeadingClass = "font-heading text-sm font-medium text-foreground"
+const getTodayDateInputValue = () => {
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
 
 function ReadOnlyRow({ label, children }) {
   return (
@@ -49,47 +54,83 @@ export function CreateEngagementDialog({
 }) {
   const isStandalone = !request
 
-  const [serviceName, setServiceName] = useState(() => request?.serviceName ?? "")
+  const [serviceId, setServiceId] = useState(() => request?.serviceId ?? "")
   const [assignedStaff, setAssignedStaff] = useState("")
   const [startDate, setStartDate] = useState("")
   const [targetEndDate, setTargetEndDate] = useState("")
-  const [serviceFee, setServiceFee] = useState(() =>
-    request?.serviceName ? String(getServiceTemplatePrice(request.serviceName)) : ""
-  )
+  const [serviceFee, setServiceFee] = useState("")
 
   const [clientQuery, setClientQuery] = useState(() =>
     isStandalone ? "" : `${request?.client?.firstName ?? ""} ${request?.client?.lastName ?? ""}`.trim()
   )
+  const [debouncedClientQuery, setDebouncedClientQuery] = useState("")
+  const [selectedClientId, setSelectedClientId] = useState("")
+  const [selectedBusinessId, setSelectedBusinessId] = useState("")
   const [clientFirstName, setClientFirstName] = useState(() => request?.client?.firstName ?? "")
   const [clientLastName, setClientLastName] = useState(() => request?.client?.lastName ?? "")
   const [businessName, setBusinessName] = useState(() => request?.business?.businessName ?? "")
   const [businessType, setBusinessType] = useState(() => request?.business?.businessType ?? "")
   const [contactNo, setContactNo] = useState(() => request?.client?.contactNo ?? "")
   const [clientEmail, setClientEmail] = useState(() => request?.client?.email ?? "")
-  const [clientDescription, setClientDescription] = useState(() => request?.clientDescription ?? request?.notes ?? "")
 
   const [errors, setErrors] = useState({})
+  const formRef = useRef(null)
 
 
   const { data: users = [] } = useFetchUsers()
+
+  const {
+    data: services = [],
+    isLoading: servicesLoading,
+    error: servicesError,
+  } = useFetchServices({ enabled: isStandalone })
+
+  const {
+    data: matchingClients = [],
+    isFetching: clientsLoading,
+    error: clientsError,
+  } = useSearchClients(debouncedClientQuery)
+  
+  const offeredServices = services
+    .filter((service) => {
+      const category = service.category?.trim().toLowerCase()
+      const isOfferedCategory = ["tax-filing", "business-registration"].includes(category)
+      return service.status?.trim().toLowerCase() === "active" && isOfferedCategory
+    })
+    .filter(
+      (service, index, offered) =>
+        offered.findIndex(
+          (candidate) =>
+            candidate.name.trim().toLowerCase() === service.name.trim().toLowerCase()
+        ) === index
+    )
+  const selectedService = request
+    ? {
+        id: request.serviceId,
+        name: request.serviceName,
+        basePrice: request.revenue ?? 0,
+      }
+    : offeredServices.find((service) => service.id === serviceId)
+
   const firmStaffOptions = users
     .filter((u) => u.role === "staff")
     .map((u) => ({ value: u.id, label: u.name }))
 
   const activeStaff = firmStaffOptions.find((s) => s.value === assignedStaff)
-  const matchingClients = useMemo(() => {
-    const query = clientQuery.trim().toLowerCase()
-    if (!query) return registeredClients.slice(0, 5)
-    return registeredClients.filter((client) => {
-      const fullName = `${client.firstName} ${client.lastName}`.toLowerCase()
-      const businessName = (client.businessName ?? "").toLowerCase()
-      return fullName.includes(query) || businessName.includes(query)
-    })
+  const todayDate = getTodayDateInputValue()
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedClientQuery(clientQuery.trim())
+    }, 250)
+    return () => window.clearTimeout(timeoutId)
   }, [clientQuery])
 
   const handleServiceChange = (value) => {
-    setServiceName(value)
-    setServiceFee(String(getServiceTemplatePrice(value)))
+    const service = offeredServices.find((item) => item.id === value)
+    if (!service) return
+
+    setServiceId(service.id)
+    setServiceFee(String(service.basePrice ?? 0))
   }
 
   const clientFullName = isStandalone
@@ -102,49 +143,56 @@ export function CreateEngagementDialog({
     event.preventDefault()
 
     const newErrors = {
-      serviceName: !serviceName.trim(),
+      serviceName: !selectedService,
       assignedStaff: !assignedStaff,
-      startDate: !startDate,
+      startDate: !startDate || startDate < todayDate,
       targetEndDate: !targetEndDate,
     }
 
     if (isStandalone) {
-      newErrors.clientFirstName = !clientFirstName.trim()
-      newErrors.clientLastName = !clientLastName.trim()
-      newErrors.businessName = !businessName.trim()
+      newErrors.client = !selectedBusinessId
     }
 
     setErrors(newErrors)
-    if (Object.values(newErrors).some(Boolean)) return
+    if (Object.values(newErrors).some(Boolean)) {
+      scrollToFirstInvalidField(formRef.current)
+      return
+    }
 
     const client = isStandalone
       ? {
+          id: selectedClientId,
           firstName: clientFirstName.trim(),
           lastName: clientLastName.trim(),
           contactNo: contactNo.trim(),
           email: clientEmail.trim(),
-          description: clientDescription.trim(),
         }
       : request?.client
 
     const business = isStandalone
-      ? { businessName: businessName.trim(), businessType: businessType.trim() }
+      ? {
+          id: selectedBusinessId,
+          businessName: businessName.trim(),
+          businessType: businessType.trim(),
+        }
       : request?.business
 
     onSubmit?.({
       requestNumber: request?.requestNumber ?? null,
-      serviceName,
+      serviceId: selectedService.id,
+      serviceName: selectedService.name,
       client,
       business,
       assignedStaff,
       startDate,
       targetEndDate,
-      serviceFee: Number(serviceFee || 0),
-      clientDescription: clientDescription.trim(),
+      serviceFee: Number(selectedService?.basePrice ?? (serviceFee || 0)),
     })
   }
 
   const applyClientSuggestion = (client) => {
+    setSelectedClientId(client.ownerId)
+    setSelectedBusinessId(client.id)
     setClientQuery(`${client.firstName} ${client.lastName}`.trim())
     setClientFirstName(client.firstName)
     setClientLastName(client.lastName)
@@ -152,7 +200,6 @@ export function CreateEngagementDialog({
     setBusinessType(client.businessType ?? "")
     setContactNo(client.contactNo ?? "")
     setClientEmail(client.email ?? "")
-    setClientDescription(client.description ?? "")
   }
 
   return (
@@ -171,6 +218,7 @@ export function CreateEngagementDialog({
         </DialogHeader>
 
         <form
+          ref={formRef}
           onSubmit={handleSubmit}
           className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh] p-1"
         >
@@ -186,35 +234,52 @@ export function CreateEngagementDialog({
           <FieldGroup>
             <Field>
               <FieldLabel>Service<span className="text-red-500">*</span></FieldLabel>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={submitting}
-                      className={cn(
-                        "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
-                        errors.serviceName && "border-red-500 focus-visible:ring-red-500"
-                      )}
-                    />
-                  }
-                >
-                  {serviceName || "Select service"}
-                  <ChevronDown className="size-4 opacity-60" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-64">
-                  {serviceTemplateCatalog.map((template) => (
-                    <DropdownMenuItem
-                      key={template.name}
-                      onClick={() => handleServiceChange(template.name)}
-                    >
-                      {template.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {request ? (
+                <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-1.5 text-sm text-foreground">
+                  {selectedService?.name || "Requested service unavailable"}
+                </div>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={submitting}
+                        aria-invalid={Boolean(errors.serviceName) || undefined}
+                        className={cn(
+                          "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
+                          errors.serviceName && "border-red-500 focus-visible:ring-red-500"
+                        )}
+                      />
+                    }
+                  >
+                    {selectedService?.name || "Select service"}
+                    <ChevronDown className="size-4 opacity-60" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="min-w-64">
+                    {servicesLoading && (
+                      <DropdownMenuItem disabled>Loading services...</DropdownMenuItem>
+                    )}
+                    {!servicesLoading && servicesError && (
+                      <DropdownMenuItem disabled>Unable to load services</DropdownMenuItem>
+                    )}
+                    {!servicesLoading && !servicesError && offeredServices.length === 0 && (
+                      <DropdownMenuItem disabled>
+                        No active tax filing or business registration services available
+                      </DropdownMenuItem>
+                    )}
+                    {!servicesLoading && !servicesError && offeredServices.map((service) => (
+                      <DropdownMenuItem
+                        key={service.id}
+                        onClick={() => handleServiceChange(service.id)}
+                      >
+                        {service.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               {errors.serviceName && <p className="text-sm text-red-500">Select a service.</p>}
             </Field>
           </FieldGroup>
@@ -235,19 +300,40 @@ export function CreateEngagementDialog({
                 <div className="relative">
                   <Input
                     value={clientQuery}
-                    onChange={(e) => setClientQuery(e.target.value)}
+                    aria-invalid={Boolean(errors.client) || undefined}
+                    onChange={(e) => {
+                      setClientQuery(e.target.value)
+                      setSelectedClientId("")
+                      setSelectedBusinessId("")
+                      setClientFirstName("")
+                      setClientLastName("")
+                      setBusinessName("")
+                      setBusinessType("")
+                      setContactNo("")
+                      setClientEmail("")
+                      setErrors((previous) => ({ ...previous, client: false }))
+                    }}
                     placeholder="Search existing client"
                     disabled={submitting}
                     className={cn(
                       "pr-10",
-                      errors.clientFirstName && "border-red-500 focus-visible:ring-red-500"
+                      errors.client && "border-red-500 focus-visible:ring-red-500"
                     )}
                   />
-                  {clientQuery && matchingClients.length > 0 && (
+                  {clientQuery.trim().length >= 2 && (clientsLoading || clientsError || matchingClients.length > 0) && (
                     <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-sm">
-                      {matchingClients.slice(0, 5).map((client) => (
+                      {clientsLoading && (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">Searching clients...</p>
+                      )}
+                      {!clientsLoading && clientsError && (
+                        <p className="px-3 py-2 text-sm text-destructive">Unable to search clients.</p>
+                      )}
+                      {!clientsLoading && !clientsError && matchingClients.length === 0 && (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">No matching clients.</p>
+                      )}
+                      {!clientsLoading && !clientsError && matchingClients.slice(0, 5).map((client) => (
                         <button
-                          key={`${client.firstName}-${client.lastName}`}
+                          key={client.id}
                           type="button"
                           onClick={() => applyClientSuggestion(client)}
                           className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
@@ -263,8 +349,10 @@ export function CreateEngagementDialog({
                     </div>
                   )}
                 </div>
-                {(errors.clientFirstName || errors.clientLastName) && (
-                  <p className="text-sm text-red-500">Client is required.</p>
+                {errors.client && (
+                  <p className="text-sm text-red-500">
+                    Select a client from the search results.
+                  </p>
                 )}
               </Field>
 
@@ -273,9 +361,9 @@ export function CreateEngagementDialog({
                   <FieldLabel>First Name<span className="text-red-500">*</span></FieldLabel>
                   <Input
                     value={clientFirstName}
-                    onChange={(e) => setClientFirstName(e.target.value)}
                     placeholder="Juan"
-                    disabled={submitting}
+                    readOnly
+                    aria-readonly="true"
                     className={cn(errors.clientFirstName && "border-red-500 focus-visible:ring-red-500")}
                   />
                   {errors.clientFirstName && <p className="text-sm text-red-500">First name is required.</p>}
@@ -284,9 +372,9 @@ export function CreateEngagementDialog({
                   <FieldLabel>Last Name<span className="text-red-500">*</span></FieldLabel>
                   <Input
                     value={clientLastName}
-                    onChange={(e) => setClientLastName(e.target.value)}
                     placeholder="Dela Cruz"
-                    disabled={submitting}
+                    readOnly
+                    aria-readonly="true"
                     className={cn(errors.clientLastName && "border-red-500 focus-visible:ring-red-500")}
                   />
                   {errors.clientLastName && <p className="text-sm text-red-500">Last name is required.</p>}
@@ -296,9 +384,9 @@ export function CreateEngagementDialog({
                 <FieldLabel>Business Name<span className="text-red-500">*</span></FieldLabel>
                 <Input
                   value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
                   placeholder="Business name"
-                  disabled={submitting}
+                  readOnly
+                  aria-readonly="true"
                   className={cn(errors.businessName && "border-red-500 focus-visible:ring-red-500")}
                 />
                 {errors.businessName && <p className="text-sm text-red-500">Business name is required.</p>}
@@ -308,18 +396,18 @@ export function CreateEngagementDialog({
                   <FieldLabel>Business Type</FieldLabel>
                   <Input
                     value={businessType}
-                    onChange={(e) => setBusinessType(e.target.value)}
                     placeholder="Sole Proprietorship"
-                    disabled={submitting}
+                    readOnly
+                    aria-readonly="true"
                   />
                 </Field>
                 <Field>
                   <FieldLabel>Contact Number</FieldLabel>
                   <Input
                     value={contactNo}
-                    onChange={(e) => setContactNo(e.target.value)}
                     placeholder="0917 123 4567"
-                    disabled={submitting}
+                    readOnly
+                    aria-readonly="true"
                   />
                 </Field>
               </div>
@@ -328,20 +416,9 @@ export function CreateEngagementDialog({
                 <Input
                   type="email"
                   value={clientEmail}
-                  onChange={(e) => setClientEmail(e.target.value)}
                   placeholder="client@example.com"
-                  disabled={submitting}
-                />
-              </Field>
-              <Field>
-                <FieldLabel>Client Description</FieldLabel>
-                <textarea
-                  value={clientDescription}
-                  onChange={(e) => setClientDescription(e.target.value)}
-                  placeholder="Brief description of the client request or engagement context"
-                  disabled={submitting}
-                  rows={3}
-                  className="min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-xs outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                  readOnly
+                  aria-readonly="true"
                 />
               </Field>
             </FieldGroup>
@@ -388,6 +465,7 @@ export function CreateEngagementDialog({
                         "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
                         errors.assignedStaff && "border-red-500 focus-visible:ring-red-500"
                       )}
+                        aria-invalid={Boolean(errors.assignedStaff) || undefined}
                     />
                   }
                 >
@@ -419,12 +497,22 @@ export function CreateEngagementDialog({
                   id="start-date"
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  min={todayDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value)
+                    setErrors((previous) => ({
+                      ...previous,
+                      startDate: !e.target.value || e.target.value < todayDate,
+                    }))
+                  }}
                   disabled={submitting}
                   className={cn(errors.startDate && "border-red-500 focus-visible:ring-red-500")}
+                  aria-invalid={Boolean(errors.startDate) || undefined}
                 />
                 {errors.startDate && (
-                  <p className="text-sm text-red-500">Start date is required.</p>
+                  <p className="text-sm text-red-500">
+                    Choose today or a future date.
+                  </p>
                 )}
               </Field>
 
@@ -438,8 +526,9 @@ export function CreateEngagementDialog({
                   value={targetEndDate}
                   onChange={(e) => setTargetEndDate(e.target.value)}
                   disabled={submitting}
-                  min={startDate || undefined}
+                  min={startDate || todayDate}
                   className={cn(errors.targetEndDate && "border-red-500 focus-visible:ring-red-500")}
+                  aria-invalid={Boolean(errors.targetEndDate) || undefined}
                 />
                 {errors.targetEndDate && (
                   <p className="text-sm text-red-500">Target completion date is required.</p>

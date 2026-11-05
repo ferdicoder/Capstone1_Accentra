@@ -3,6 +3,7 @@ import { FileText, FileSpreadsheet, FileImage, File, Upload, X, Download, Eye } 
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog,
   DialogContent,
@@ -16,28 +17,33 @@ import { formatDate } from "./engagement-variants"
 
 // ── File icon helpers ─────────────────────────────────────────────────────────
 
-const fileIconMap = {
-  PDF: FileText,
-  DOC: FileText,
-  DOCX: FileText,
-  XLS: FileSpreadsheet,
-  XLSX: FileSpreadsheet,
-  CSV: FileSpreadsheet,
-  PNG: FileImage,
-  JPG: FileImage,
-  JPEG: FileImage,
-  ZIP: File,
+function FileTypeIcon({ fileType, className }) {
+  const resolvedType = resolveFileType(fileType)
+  if (["XLS", "XLSX", "CSV"].includes(resolvedType)) {
+    return <FileSpreadsheet className={className} />
+  }
+  if (["PNG", "JPG", "JPEG", "GIF", "WEBP"].includes(resolvedType)) {
+    return <FileImage className={className} />
+  }
+  if (resolvedType === "ZIP") return <File className={className} />
+  return <FileText className={className} />
 }
 
-function getFileIcon(fileType) {
-  return fileIconMap[fileType?.toUpperCase()] ?? FileText
+function resolveFileType(file) {
+  const value = typeof file === "string" ? file : file?.fileType ?? file?.mimeType
+  const normalized = value?.toString().toLowerCase()
+  if (normalized === "application/pdf") return "PDF"
+  if (normalized?.startsWith("image/")) return normalized.split("/").pop().toUpperCase()
+  if (normalized?.includes("spreadsheet") || normalized?.includes("excel")) return "XLSX"
+  if (normalized?.includes("word")) return "DOCX"
+  if (normalized?.startsWith("text/csv")) return "CSV"
+  if (normalized?.includes("/")) return null
+  return normalized?.toUpperCase()
 }
 
 // ── Compact Document Row (for the card) ──────────────────────────────────────
 
 function CompactDocumentRow({ document, onPreview }) {
-  const Icon = getFileIcon(document?.fileType)
-
   return (
     <button
       type="button"
@@ -46,7 +52,7 @@ function CompactDocumentRow({ document, onPreview }) {
       aria-label={`Preview ${document?.name ?? "document"}`}
     >
       <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-        <Icon className="size-4" />
+        <FileTypeIcon fileType={document} className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground underline-offset-2 hover:underline">{document?.name ?? "—"}</p>
@@ -60,9 +66,12 @@ function CompactDocumentRow({ document, onPreview }) {
 }
 
 function DocumentPreviewDialog({ open, onOpenChange, document }) {
-  const Icon = getFileIcon(document?.fileType)
-
   if (!document) return null
+
+  const fileType = resolveFileType(document)
+  const previewUrl = document.downloadUrl ? `${document.downloadUrl}?inline=true` : null
+  const isPdf = fileType === "PDF"
+  const isImage = ["PNG", "JPG", "JPEG", "GIF", "WEBP"].includes(fileType)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -78,7 +87,7 @@ function DocumentPreviewDialog({ open, onOpenChange, document }) {
         <div className="rounded-xl border border-border bg-muted/30 p-4">
           <div className="flex items-center gap-3 rounded-lg bg-background/80 px-3 py-2">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <Icon className="size-4" />
+              <FileTypeIcon fileType={document} className="size-4" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-foreground">{document.name}</p>
@@ -86,11 +95,27 @@ function DocumentPreviewDialog({ open, onOpenChange, document }) {
             </div>
           </div>
 
-          <div className="mt-4 flex min-h-[200px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-background/70 px-6 py-8 text-center">
-            <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <FileText className="size-5" />
-            </div>
-            <p className="text-sm font-medium text-foreground">Document preview</p>
+          <div className="mt-4 overflow-hidden rounded-lg border border-border bg-background/70">
+            {previewUrl && isPdf && (
+              <iframe
+                src={previewUrl}
+                title={`Preview of ${document.name}`}
+                className="h-[60vh] w-full"
+              />
+            )}
+            {previewUrl && isImage && (
+              <div className="flex max-h-[60vh] items-center justify-center overflow-auto p-2">
+                <img src={previewUrl} alt={document.name} className="max-h-[56vh] max-w-full object-contain" />
+              </div>
+            )}
+            {(!previewUrl || (!isPdf && !isImage)) && (
+              <div className="flex min-h-[200px] flex-col items-center justify-center gap-3 px-6 py-8 text-center">
+                <FileText className="size-5 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">
+                  {previewUrl ? "Preview isn't available for this file type" : "File isn't available"}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -102,15 +127,12 @@ function DocumentPreviewDialog({ open, onOpenChange, document }) {
             type="button"
             variant="secondary"
             className="gap-2"
-            onClick={() => {
-              const link = document.createElement("a")
-              link.href = "#"
-              link.download = document?.name ?? "document"
-              link.click()
-            }}
+            asChild
           >
-            <Download className="size-3.5" />
-            Download
+            <a href={document.downloadUrl} download={document.name}>
+              <Download className="size-3.5" />
+              Download
+            </a>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -121,19 +143,19 @@ function DocumentPreviewDialog({ open, onOpenChange, document }) {
 // ── All Deliverables Dialog Row ──────────────────────────────────────────────
 
 function DeliverableDialogRow({ document, onPreview }) {
-  const Icon = getFileIcon(document?.fileType)
-
   const handleDownload = () => {
-    const link = document.createElement("a")
-    link.href = "#"
+    const link = window.document.createElement("a")
+    link.href = document.downloadUrl
     link.download = document?.name ?? "document"
+    link.target = "_blank"
+    link.rel = "noopener noreferrer"
     link.click()
   }
 
   return (
     <div className="flex items-center gap-3 border-b border-border/60 px-5 py-3.5 transition-colors last:border-b-0 hover:bg-muted/30">
       <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-        <Icon className="size-4" />
+        <FileTypeIcon fileType={document} className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
         <button
@@ -175,6 +197,7 @@ function toFileRecord(file) {
     name: file.name,
     size: file.size,
     type: file.type,
+    file,
   }
 }
 
@@ -182,21 +205,29 @@ function toFileRecord(file) {
 
 const MAX_PREVIEW_DOCS = 1
 
-export function UploadDeliverables({ engagement, className }) {
+export function UploadDeliverables({
+  deliverables = [],
+  isUploading = false,
+  onUpload,
+  disabled = false,
+  onBlockedAction,
+  className,
+}) {
   const inputRef = useRef(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [allDocsOpen, setAllDocsOpen] = useState(false)
   const [previewDoc, setPreviewDoc] = useState(null)
-  const [files, setFiles] = useState([])
   const [selectedFiles, setSelectedFiles] = useState([])
 
-  // Combine engagement documents with any locally uploaded files
-  const engagementDocs = engagement?.documents ?? []
-  const allDeliverables = [...engagementDocs, ...files]
+  const allDeliverables = deliverables
   const hasDocuments = allDeliverables.length > 0
   const previewDocs = allDeliverables.slice(-1)
 
   const openUploadDialog = () => {
+    if (disabled) {
+      onBlockedAction?.()
+      return
+    }
     setSelectedFiles([])
     setDialogOpen(true)
   }
@@ -206,9 +237,9 @@ export function UploadDeliverables({ engagement, className }) {
     event.target.value = ""
   }
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (selectedFiles.length === 0) return
-    setFiles((current) => [...current, ...selectedFiles])
+    await onUpload?.(selectedFiles.map((item) => item.file))
     setSelectedFiles([])
     setDialogOpen(false)
   }
@@ -235,10 +266,14 @@ export function UploadDeliverables({ engagement, className }) {
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
+              className={cn(
+                "size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground",
+                disabled && "opacity-50"
+              )}
               onClick={openUploadDialog}
+              aria-disabled={disabled}
+              title={disabled ? "Completed or cancelled engagements cannot accept deliverables" : "Upload deliverables"}
               aria-label="Upload deliverables"
-              title="Upload deliverables"
             >
               <Upload className="size-4" />
             </Button>
@@ -246,7 +281,7 @@ export function UploadDeliverables({ engagement, className }) {
         </div>
 
         {/* Content */}
-        {!hasDocuments ? (
+        {!hasDocuments && !isUploading ? (
           /* Empty state */
           <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
             <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
@@ -267,6 +302,21 @@ export function UploadDeliverables({ engagement, className }) {
                 </p>
               </div>
             )}
+            {isUploading &&
+              Array.from({ length: Math.max(1, selectedFiles.length) }, (_, index) => (
+                <div
+                  key={`uploading-${index}`}
+                  className="flex items-center gap-3 px-6 py-2.5"
+                  role="status"
+                  aria-label="Uploading deliverable"
+                >
+                  <Skeleton className="size-8 shrink-0 rounded-lg" />
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <Skeleton className="h-3.5 w-2/3" />
+                    <Skeleton className="h-3 w-1/3" />
+                  </div>
+                </div>
+              ))}
           </div>
         )}
       </div>
@@ -277,7 +327,7 @@ export function UploadDeliverables({ engagement, className }) {
           <DialogHeader>
             <DialogTitle>Upload Deliverables</DialogTitle>
             <DialogDescription>
-              Select files to make available for this engagement. Files remain in frontend state for now.
+              Select files to make available for this engagement.
             </DialogDescription>
           </DialogHeader>
           <input
@@ -312,7 +362,9 @@ export function UploadDeliverables({ engagement, className }) {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="button" onClick={handleUpload} disabled={selectedFiles.length === 0}>Upload</Button>
+            <Button type="button" onClick={handleUpload} disabled={selectedFiles.length === 0 || isUploading}>
+              {isUploading ? "Uploading..." : "Upload"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

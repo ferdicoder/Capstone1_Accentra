@@ -1,9 +1,10 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { ChevronDown, Loader2, Pencil, Plus, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import {
   Field,
   FieldDescription,
@@ -25,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { WorkflowTaskList } from "./workflow-tasks"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 import {
   categoryFilterOptions,
   createDefaultWorkflowTasks,
@@ -45,12 +47,14 @@ export function ServiceTemplateForm({
   categoryOptions = categoryFilterOptions,
   onSubmit,
   submitting = false,
+  progress,
   onCancel,
   submitLabel = "Save Service",
   cancelLabel = "Cancel",
   error,
   className,
 }) {
+  const formRef = useRef(null)
   const [name, setName] = useState(() => initialValues?.name ?? "")
   const [category, setCategory] = useState(
     () => initialValues?.category ?? categoryFilterOptions[0]?.value ?? ""
@@ -70,6 +74,9 @@ export function ServiceTemplateForm({
   const activeCategory = categoryOptions.find((option) => option.value === category)
   const activeStatus = statusFilterOptions.find((option) => option.value === status)
   const [isRecurring] = useState(() => initialValues?.isRecurring ?? false)
+  const [isRetainerCovered, setIsRetainerCovered] = useState(
+    () => initialValues?.isRetainerCovered ?? false
+  )
 
   // Clear stale task errors whenever the task list changes.
   const handleTasksChange = (nextTasks) => {
@@ -84,7 +91,7 @@ export function ServiceTemplateForm({
     const parsedEstimatedTime = Number(estimatedTime)
     const taskErrors = tasks.map((task) => ({
       name: !task.name.trim(),
-      reference: Boolean(task.hasReferenceDocument) && !task.referenceDocument,
+      reference: false,
     }))
 
     const newErrors = {
@@ -97,6 +104,7 @@ export function ServiceTemplateForm({
         parsedEstimatedTime < 0,
       tasks: taskErrors,
     }
+
     setErrors(newErrors)
 
     const invalid =
@@ -105,7 +113,10 @@ export function ServiceTemplateForm({
       newErrors.basePrice ||
       newErrors.estimatedTime ||
       taskErrors.some((taskError) => taskError.name || taskError.reference)
-    if (invalid) return
+    if (invalid) {
+      scrollToFirstInvalidField(formRef.current)
+      return
+    }
 
     onSubmit?.({
       id: initialValues?.id,
@@ -116,12 +127,13 @@ export function ServiceTemplateForm({
       estimatedTime: estimatedTime.trim(),
       status,
       isRecurring,
+      isRetainerCovered,
       workflowTasks: tasks.map((task) => ({ ...task, name: task.name.trim() })),
     })
   }
 
   return (
-    <form onSubmit={handleSubmit} className={cn("flex flex-1 flex-col gap-5 overflow-y-auto", className)}>
+    <form ref={formRef} onSubmit={handleSubmit} className={cn("flex flex-1 flex-col gap-5 overflow-y-auto", className)}>
       {error && (
         <p role="alert" className="text-sm text-red-500">
           {error}
@@ -131,9 +143,6 @@ export function ServiceTemplateForm({
       <FieldGroup>
         <div className="flex flex-col gap-1">
           <h3 className={sectionHeadingClass}>Basic Information</h3>
-          <p className="text-sm text-muted-foreground">
-            Details clients see when browsing your service catalog.
-          </p>
         </div>
 
         <Field>
@@ -143,9 +152,13 @@ export function ServiceTemplateForm({
           <Input
             id="service-name"
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value)
+            }}
             placeholder="Tax Filing - Non VAT"
             disabled={submitting}
+            aria-invalid={errors.name || undefined}
+            data-invalid-field={errors.name ? "true" : undefined}
             className={cn(errors.name && "border-red-500 focus-visible:ring-red-500")}
           />
           {errors.name && <p className="text-sm text-red-500">Service name is required.</p>}
@@ -161,6 +174,8 @@ export function ServiceTemplateForm({
                     type="button"
                     variant="outline"
                     disabled={submitting}
+                    aria-invalid={errors.category || undefined}
+                    data-invalid-field={errors.category ? "true" : undefined}
                     className={cn(
                       "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
                       errors.category && "border-red-500 focus-visible:ring-red-500"
@@ -248,6 +263,8 @@ export function ServiceTemplateForm({
               onChange={(event) => setBasePrice(event.target.value.replace(/[^0-9.]/g, ""))}
               placeholder="2500"
               disabled={submitting}
+              aria-invalid={errors.basePrice || undefined}
+              data-invalid-field={errors.basePrice ? "true" : undefined}
               className={cn(
                 errors.basePrice && "border-red-500 focus-visible:ring-red-500"
               )}
@@ -259,7 +276,7 @@ export function ServiceTemplateForm({
 
           <Field>
             <FieldLabel htmlFor="service-estimated-time">
-              Estimated Time<span className="text-red-500">*</span>
+              Estimated Processing Days<span className="text-red-500">*</span>
             </FieldLabel>
             <Input
               id="service-estimated-time"
@@ -270,6 +287,8 @@ export function ServiceTemplateForm({
               onChange={(event) => setEstimatedTime(event.target.value.replace(/[^0-9]/g, ""))}
               placeholder="3"
               disabled={submitting}
+              aria-invalid={errors.estimatedTime || undefined}
+              data-invalid-field={errors.estimatedTime ? "true" : undefined}
               className={cn(
                 errors.estimatedTime && "border-red-500 focus-visible:ring-red-500"
               )}
@@ -279,24 +298,53 @@ export function ServiceTemplateForm({
             )}
           </Field>
         </div>
+
+        <Field>
+          <Switch
+            label="Retainer covered"
+            checked={isRetainerCovered}
+            onChange={setIsRetainerCovered}
+            disabled={submitting}
+          />
+          <FieldDescription>
+            Mark this service as covered by a client retainer.
+          </FieldDescription>
+        </Field>
       </FieldGroup>
 
       <div className="flex flex-col gap-1">
-        <h3 className={sectionHeadingClass}>Workflow Tasks</h3>
-        <p className="text-sm text-muted-foreground">
-          Define the documents and steps a client must complete for this service.
-          Toggle a reference document to attach a template or guide.
-        </p>
+        <h3 className={sectionHeadingClass}>Engagement Tasks</h3>
       </div>
 
       <WorkflowTaskList
         tasks={tasks}
         onChange={handleTasksChange}
         disabled={submitting}
+        uploadingTaskIndexes={progress?.uploadingTaskIndexes}
         errors={errors.tasks}
       />
 
       <DialogFooter className="flex-row justify-end gap-2">
+        {progress?.active && (
+          <div className="mr-auto flex min-w-44 flex-1 flex-col gap-1" aria-live="polite">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{progress.phase}</span>
+              <span>{progress.percent}%</span>
+            </div>
+            <div
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progress.percent}
+              className="h-1.5 overflow-hidden rounded-full bg-muted"
+            >
+              <div
+                className="h-full rounded-full bg-forest-900 transition-[width] duration-200"
+                style={{ width: `${progress.percent}%` }}
+              />
+            </div>
+          </div>
+        )}
         <Button type="button" variant="outline" disabled={submitting} onClick={onCancel}>
           {cancelLabel}
         </Button>
@@ -319,20 +367,19 @@ export function ServiceCreateDialog({
   onSubmit,
   categoryOptions = categoryFilterOptions,
   submitting = false,
+  progress,
   error,
   title = "Add Service",
-  description = "Create a new service template for your firm.",
   submitLabel = "Add Service",
   cancelLabel = "Cancel",
   className,
   ...props
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} {...props}>
+    <Dialog open={open} onOpenChange={(nextOpen) => !submitting && onOpenChange?.(nextOpen)} {...props}>
       <DialogContent data-slot="service-create-dialog" className={className}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         <ServiceTemplateForm
@@ -340,11 +387,57 @@ export function ServiceCreateDialog({
           categoryOptions={categoryOptions}
           onSubmit={onSubmit}
           submitting={submitting}
+          progress={progress}
           error={error}
           onCancel={() => onOpenChange?.(false)}
           submitLabel={submitLabel}
           cancelLabel={cancelLabel}
         />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function ServiceDuplicateDialog({ open = false, onOpenChange }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>The service already exists</DialogTitle>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            type="button"
+            className="bg-forest-900 text-white hover:opacity-90"
+            onClick={() => onOpenChange?.(false)}
+          >
+            Okay
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function ServiceCreateFailureDialog({ open = false, onOpenChange }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Service creation failed</DialogTitle>
+          <DialogDescription>
+            The service could not be created. Please try again.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            type="button"
+            className="bg-forest-900 text-white hover:opacity-90"
+            onClick={() => onOpenChange?.(false)}
+          >
+            Okay
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
@@ -359,6 +452,7 @@ export function ServiceEditDialog({
   onOpenChange,
   onSubmit,
   service,
+  confirmBeforeSave = false,
   categoryOptions = categoryFilterOptions,
   submitting = false,
   error,
@@ -369,27 +463,76 @@ export function ServiceEditDialog({
   className,
   ...props
 }) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange} {...props}>
-      <DialogContent data-slot="service-edit-dialog" className={className}>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+  const [pendingValues, setPendingValues] = useState(null)
 
-        <ServiceTemplateForm
-          mode="edit"
-          initialValues={service}
-          categoryOptions={categoryOptions}
-          onSubmit={onSubmit}
-          submitting={submitting}
-          error={error}
-          onCancel={() => onOpenChange?.(false)}
-          submitLabel={submitLabel}
-          cancelLabel={cancelLabel}
-        />
-      </DialogContent>
-    </Dialog>
+  const handleSubmit = (values) => {
+    if (confirmBeforeSave) {
+      setPendingValues(values)
+      return
+    }
+
+    onSubmit?.(values)
+  }
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange} {...props}>
+        <DialogContent data-slot="service-edit-dialog" className={className}>
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
+
+          <ServiceTemplateForm
+            mode="edit"
+            initialValues={service}
+            categoryOptions={categoryOptions}
+            onSubmit={handleSubmit}
+            submitting={submitting}
+            error={error}
+            onCancel={() => onOpenChange?.(false)}
+            submitLabel={submitLabel}
+            cancelLabel={cancelLabel}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {confirmBeforeSave && (
+        <Dialog
+          open={pendingValues !== null}
+          onOpenChange={(nextOpen) => !nextOpen && setPendingValues(null)}
+        >
+          <DialogContent data-slot="service-edit-confirmation">
+            <DialogHeader>
+              <DialogTitle>Save service changes?</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to save these changes to this service template?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-row justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPendingValues(null)}
+              >
+                Continue Editing
+              </Button>
+              <Button
+                type="button"
+                className="bg-forest-900 text-white hover:opacity-90"
+                onClick={() => {
+                  const values = pendingValues
+                  setPendingValues(null)
+                  onSubmit?.(values)
+                }}
+              >
+                Confirm Save
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   )
 }
 

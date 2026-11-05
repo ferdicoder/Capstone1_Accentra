@@ -1,15 +1,24 @@
 import axios from 'axios'
 import { supabase } from "@/config/supabase"
+import { apiBaseUrl } from "@/config/api"
 
-async function uploadTemplateDocument(templateTaskId, file) {
+async function getAccessToken() {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token
+}
+
+function authHeaders(token) {
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+async function uploadTemplateDocument(templateTaskId, file, onUploadProgress) {
   const formData = new FormData()
   formData.append('document', file)
-
-  const res = await axios.post(
-    `${import.meta.env.VITE_API_BASE_URL}/documents/template/${templateTaskId}`,
-    formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } }
-  )
+  const token = await getAccessToken()
+  const res = await axios.post(`${apiBaseUrl}/documents/template/${templateTaskId}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data', ...authHeaders(token) },
+    onUploadProgress,
+  })
   return res.data
 }
 
@@ -23,8 +32,37 @@ function mapDocumentRow(row) {
     uploadedBy: uploader ? [uploader.first_name, uploader.last_name].filter(Boolean).join(" ") : "—",
     uploadedDate: row.created_at,
     engagementTaskId: row.engagement_task_id,
-    downloadUrl: `${import.meta.env.VITE_API_BASE_URL}/documents/${row.doc_id}/download`,
+    downloadUrl: `${apiBaseUrl}/documents/${row.doc_id}/download`,
   }
+}
+
+function mapDeliverableRow(row) {
+  return { ...row, downloadUrl: `${apiBaseUrl}${row.downloadUrl}` }
+}
+
+async function getEngagementDeliverables(engagementId) {
+  const token = await getAccessToken()
+  const response = await fetch(`${apiBaseUrl}/documents/engagement/${engagementId}/deliverables`, {
+    headers: authHeaders(token),
+  })
+  if (!response.ok) throw new Error("Could not load deliverables")
+  return (await response.json()).map(mapDeliverableRow)
+}
+
+async function uploadEngagementDeliverable({ engagementId, file }) {
+  const token = await getAccessToken()
+  const formData = new FormData()
+  formData.append("document", file)
+  const response = await fetch(`${apiBaseUrl}/documents/engagement/${engagementId}/deliverables`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: formData,
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.error || "Deliverable upload failed")
+  }
+  return mapDeliverableRow(await response.json())
 }
 
 async function getEngagementDocuments(engagementId) {
@@ -45,27 +83,60 @@ async function uploadEngagementDocument({ engagementTaskId, file, uploadedBy }) 
   const formData = new FormData()
   formData.append("document", file)
   if (uploadedBy) formData.append("uploadedBy", uploadedBy)
-
-  const response = await fetch(
-    `${import.meta.env.VITE_API_BASE_URL}/documents/engagement-task/${engagementTaskId}`,
-    { method: "POST", body: formData }
-  )
+  const token = await getAccessToken()
+  const response = await fetch(`${apiBaseUrl}/documents/engagement-task/${engagementTaskId}`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: formData,
+  })
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     throw new Error(body.error || "Document upload failed")
   }
-
   return mapDocumentRow({ ...(await response.json()), uploader: null })
 }
 
 async function deleteEngagementDocument(docId) {
-  const response = await fetch(
-    `${import.meta.env.VITE_API_BASE_URL}/documents/${docId}`,
-    { method: "DELETE" }
-  )
+  const token = await getAccessToken()
+  const response = await fetch(`${apiBaseUrl}/documents/${docId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  })
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     throw new Error(body.error || "Document deletion failed")
+  }
+}
+
+// Firm-provided guide file attached to an engagement task (staff upload).
+async function uploadEngagementTaskReferenceDocument({ engagementTaskId, file }) {
+  const formData = new FormData()
+  formData.append("document", file)
+  const token = await getAccessToken()
+  const response = await fetch(
+    `${apiBaseUrl}/documents/engagement-task/${engagementTaskId}/reference`,
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: formData,
+    }
+  )
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.error || "Reference document upload failed")
+  }
+  return response.json()
+}
+
+async function deleteEngagementTaskReferenceDocument(docId) {
+  const token = await getAccessToken()
+  const response = await fetch(`${apiBaseUrl}/documents/reference/${docId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.error || "Reference document deletion failed")
   }
 }
 
@@ -74,4 +145,8 @@ export {
   getEngagementDocuments,
   uploadEngagementDocument,
   deleteEngagementDocument,
+  getEngagementDeliverables,
+  uploadEngagementDeliverable,
+  uploadEngagementTaskReferenceDocument,
+  deleteEngagementTaskReferenceDocument,
 }

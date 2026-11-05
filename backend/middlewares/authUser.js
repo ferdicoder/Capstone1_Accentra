@@ -1,4 +1,4 @@
-import { supabase } from "../config/supabase.js";
+import { supabaseAdmin } from "../config/supabaseAdmin.js";
 
 const authUser = async (req, res, next) => {
   
@@ -13,7 +13,7 @@ const authUser = async (req, res, next) => {
 
   try {
     const token = authHeader.split(" ")[1]; 
-    const { data, error } = await supabase.auth.getUser(token);
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
 
     if (error || !data?.user) {
       return res.status(401).json({
@@ -23,6 +23,17 @@ const authUser = async (req, res, next) => {
     }
 
     req.user = data.user;
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user.id)
+      .maybeSingle();
+
+    if (roleError) {
+      return next(roleError);
+    }
+
+    req.userRole = roleData?.role ?? data.user.app_metadata?.role;
     next();
   } catch (error) {
     next(error);

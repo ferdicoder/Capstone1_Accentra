@@ -1,10 +1,24 @@
 import { supabase } from '../config/supabase.js';
 import { setUserRole } from './api/userAPI.js';
 import toISODateString from '@/utils/formatDate.js';
+import { canUsePortal } from '@/config/roles.js';
+import { authStore } from '@/store/authStore';
 
-/**
- * fix: every role can login to every auth routes signins
- */
+export async function signinToPortal(portal, email, password) {
+  const result = await signinUser(email, password)
+  if (result?.error) throw new Error("The email or password you entered is incorrect.")
+
+  if (!canUsePortal(portal, result.role)) {
+    await supabase.auth.signOut()
+    authStore.getState().clearAuth()
+    throw new Error("Invalid credentials please try again.")
+  }
+
+  authStore.getState().setAuth(result.data.user, result.role)
+  return result
+}
+
+
 async function signinUser(email, password){
   try{
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -13,7 +27,10 @@ async function signinUser(email, password){
     }); 
     if(error) throw new Error(error.message)
 
-    const role = await setUserRole(data.user);
+    const role = await setUserRole(data.user, false);
+    if (!role) {
+      throw new Error("Invalid Credentials, your account maybe deactivated or not registered. ")
+    }
     console.log("Login Successful"); 
     return { data, role }; 
 
@@ -21,6 +38,97 @@ async function signinUser(email, password){
       console.error(err); 
       throw err;
     }
+}
+
+/**
+ * Number of digits in the recovery code that is emailed to the account owner.
+ *
+ * Matches the length the app already uses for its OTP step (see
+ * components/client/ForgotPasswordModal.jsx) and Supabase Auth's 6-digit
+ * email OTP.
+ */
+const PASSWORD_RECOVERY_OTP_LENGTH = 6
+const PASSWORD_REUSE_MESSAGE = "This password has already been used. Try another."
+
+function getPasswordReuseMessage(error) {
+  const message = `${error?.code ?? ""} ${error?.message ?? ""}`
+  return /password.{0,40}(reuse|used before|previous|same as|different from old)|(?:reuse|used before|previous).{0,40}password/i.test(
+    message
+  )
+    ? PASSWORD_REUSE_MESSAGE
+    : null
+}
+
+/**
+ * Asks Supabase Auth to email a recovery code to the given address.
+ *
+ * The response is intentionally not used to tell the caller whether the
+ * address is registered — the caller must show the same confirmation either
+ * way.
+ *
+ * @param {{ email: string, redirectTo?: string }} params
+ * @returns {Promise<void>}
+ */
+async function requestPasswordRecovery({ email, redirectTo }) {
+  const { error } = await supabase.auth.resetPasswordForEmail(
+    email,
+    redirectTo ? { redirectTo } : undefined
+  )
+  if (error) throw error
+}
+
+/**
+ * Verifies the emailed recovery code and opens a recovery session.
+ *
+ * @param {{ email: string, token: string }} params
+ * @returns {Promise<void>}
+ */
+async function verifyPasswordRecoveryOtp({ email, token }) {
+  const { error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: "recovery",
+  })
+  if (error) throw error
+}
+
+/**
+ * Sets the new password for the account that owns the recovery session.
+ *
+ * @param {{ password: string }} params
+ * @returns {Promise<void>}
+ */
+async function updateRecoveredPassword({ password }) {
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw error
+}
+
+async function changeAuthenticatedPassword({ currentPassword, newPassword }) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+  if (userError) throw userError
+  if (!user?.email) throw new Error("No authenticated account was found.")
+
+  const { error: verificationError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  })
+  if (verificationError) {
+    if (
+      verificationError.code === "invalid_credentials" ||
+      verificationError.message === "Invalid login credentials"
+    ) {
+      throw new Error("Current password is incorrect.")
+    }
+    throw verificationError
+  }
+
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: newPassword,
+  })
+  if (updateError) throw updateError
 }
 
 /*
@@ -32,8 +140,8 @@ async function registerClient(formData) {
     password: formData.password,
     options: {
       data: {
-        first_name: formData.firstName, 
-        last_name: formData.lastName, 
+        first_name: formData.firstName,
+        last_name: formData.lastName,
         middle_name: formData.middleName,
         birth_date: toISODateString(formData.birthDate),
         contact_no: formData.contactNumber,
@@ -43,16 +151,28 @@ async function registerClient(formData) {
         industry: formData.industry,
         house_no: formData.houseNo,
         street: formData.streetName,
-        barangay: formData.barangay, 
-        district: formData.district, 
+        barangay: formData.barangay,
+        district: formData.district,
         city: formData.city,
-        zip_code: formData.zipCode
-      }
-    }
+        zip_code: formData.zipCode,
+      },
+    },
   });
 
-  if (authError) return { data: null, error: authError.message };
-  if (!authData.user) return { data: null, error: 'No user returned from signUp' };
+  if (authError) return { data: null, error: authError };
+  if (!authData?.user) {
+    return { data: null, error: new Error("No user returned from signUp.") };
+  }
+
+  // Supabase may return an empty identities array for an existing email
+  // when email-enumeration protection is enabled. This is not guaranteed
+  // to be exposed in every Auth configuration.
+  if (authData.user.identities?.length === 0) {
+    return {
+      data: null,
+      error: new Error("An account with this email may already exist."),
+    };
+  }
 
   return { data: authData, error: null };
 }
@@ -109,6 +229,12 @@ async function createStaff(email, password, formData){
 */
 
 export{
-  registerClient, 
-  signinUser
+  registerClient,
+  signinUser,
+  PASSWORD_RECOVERY_OTP_LENGTH,
+  requestPasswordRecovery,
+  verifyPasswordRecoveryOtp,
+  updateRecoveredPassword,
+  changeAuthenticatedPassword,
+  getPasswordReuseMessage
 }

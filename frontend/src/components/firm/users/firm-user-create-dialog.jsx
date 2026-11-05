@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ChevronDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -24,8 +24,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { scrollToFirstInvalidField } from "@/lib/form-validation"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// Shown when the email address is already registered.
+const DUPLICATE_EMAIL_ERROR = "The user already exist"
 
 /** Accepts 09XXXXXXXXX or +639XXXXXXXXX (digits, spaces, dashes allowed). */
 const PHONE_PATTERN = /^\+?[0-9\s-]{10,14}$/
@@ -72,6 +76,7 @@ export function FirmUserCreateDialog({
   defaultRole = "staff",
   submitting = false,
   error,
+  existingEmails = [],
   title = "Add User",
   description = "Create a new user and assign them a role.",
   submitLabel = "Add User",
@@ -86,11 +91,13 @@ export function FirmUserCreateDialog({
   const [extension, setExtension] = useState("")
   const [email, setEmail] = useState("")
   const [contactNumber, setContactNumber] = useState("")
+  const [birthdate, setBirthdate] = useState("")
   const [temporaryPassword, setTemporaryPassword] = useState("")
   const [role, setRole] = useState(() =>
     roleOptions.some((option) => option.value === defaultRole) ? defaultRole : ""
   )
   const [errors, setErrors] = useState({})
+  const formRef = useRef(null)
 
   // roleOptions often arrives async (fetched from the roles table), so the
   // dialog can open before it's populated. Apply the default once it lands,
@@ -115,8 +122,19 @@ export function FirmUserCreateDialog({
       temporaryPassword: temporaryPassword.length < 8,
       role: !role,
     }
+
+    // The account must not already exist.
+    const emailExists = existingEmails.some(
+      (existing) =>
+        (existing ?? "").trim().toLowerCase() === email.trim().toLowerCase()
+    )
+    if (emailExists) newErrors.email = DUPLICATE_EMAIL_ERROR
+
     setErrors(newErrors)
-    if (Object.values(newErrors).some(Boolean)) return
+    if (Object.values(newErrors).some(Boolean)) {
+      scrollToFirstInvalidField(formRef.current)
+      return
+    }
 
     onSubmit?.({
       firstName: firstName.trim(),
@@ -125,6 +143,7 @@ export function FirmUserCreateDialog({
       extension: extension.trim(),
       email: email.trim(),
       contactNumber: contactNumber.trim(),
+      birthdate: birthdate.trim(),
       temporaryPassword,
       role,
     })
@@ -138,7 +157,7 @@ export function FirmUserCreateDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto">
           <FieldGroup>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
@@ -151,6 +170,7 @@ export function FirmUserCreateDialog({
                   onChange={(event) => setFirstName(event.target.value)}
                   placeholder="Juan"
                   disabled={submitting}
+                  aria-invalid={Boolean(errors.firstName) || undefined}
                   className={cn(errors.firstName && "border-red-500 focus-visible:ring-red-500")}
                 />
                 {errors.firstName && (
@@ -168,6 +188,7 @@ export function FirmUserCreateDialog({
                   onChange={(event) => setLastName(event.target.value)}
                   placeholder="Dela Cruz"
                   disabled={submitting}
+                  aria-invalid={Boolean(errors.lastName) || undefined}
                   className={cn(errors.lastName && "border-red-500 focus-visible:ring-red-500")}
                 />
                 {errors.lastName && (
@@ -185,6 +206,7 @@ export function FirmUserCreateDialog({
                   onChange={(event) => setMiddleName(event.target.value)}
                   placeholder="Santos"
                   disabled={submitting}
+                  aria-invalid={Boolean(errors.email) || undefined}
                 />
               </Field>
 
@@ -196,6 +218,7 @@ export function FirmUserCreateDialog({
                   onChange={(event) => setExtension(event.target.value)}
                   placeholder="Jr., Sr., III"
                   disabled={submitting}
+                  aria-invalid={Boolean(errors.contactNumber) || undefined}
                 />
               </Field>
             </div>
@@ -208,12 +231,22 @@ export function FirmUserCreateDialog({
                 id="firm-user-email"
                 type="email"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => {
+                  setEmail(event.target.value)
+                  if (errors.email) setErrors((current) => ({ ...current, email: false }))
+                }}
                 placeholder="juan@example.com"
                 disabled={submitting}
+                aria-invalid={Boolean(errors.temporaryPassword) || undefined}
                 className={cn(errors.email && "border-red-500 focus-visible:ring-red-500")}
               />
-              {errors.email && <p className="text-sm text-red-500">Enter a valid email address.</p>}
+              {errors.email && (
+                <p className="text-sm text-red-500">
+                  {errors.email === DUPLICATE_EMAIL_ERROR
+                    ? errors.email
+                    : "Enter a valid email address."}
+                </p>
+              )}
             </Field>
 
             <Field>
@@ -232,6 +265,18 @@ export function FirmUserCreateDialog({
               {errors.contactNumber && (
                 <p className="text-sm text-red-500">Enter a valid contact number.</p>
               )}
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="firm-user-birthdate">Birthday</FieldLabel>
+              <Input
+                id="firm-user-birthdate"
+                name="birthdate"
+                type="date"
+                value={birthdate}
+                onChange={(event) => setBirthdate(event.target.value)}
+                disabled={submitting}
+              />
             </Field>
 
             <Field>
@@ -267,6 +312,7 @@ export function FirmUserCreateDialog({
                       type="button"
                       variant="outline"
                       disabled={submitting || rolesLoading || rolesUnavailable}
+                      aria-invalid={Boolean(errors.role) || undefined}
                       className={cn(
                         "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
                         errors.role && "border-red-500 focus-visible:ring-red-500"

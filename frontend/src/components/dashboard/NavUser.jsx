@@ -1,11 +1,12 @@
+import { Link } from "react-router-dom"
 import {
-  BadgeCheck,
-  Bell,
   ChevronsUpDown,
   LogOut,
+  Settings,
 } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { supabase } from "@/config/supabase"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,8 +23,16 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 
-export function NavUser({ user }) {
+export function NavUser({ user, settingsHref = "#" }) {
   const { isMobile } = useSidebar()
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      console.error("Logout failed:", error)
+    }
+  }
 
   if (!user) return null
 
@@ -50,9 +59,9 @@ export function NavUser({ user }) {
                 </AvatarFallback>
               </Avatar>
 
+              {/* BUG fix: footer trigger no longer shows the email — name only. */}
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-semibold">{user.name}</span>
-                <span className="truncate text-xs">{user.email}</span>
               </div>
 
               <ChevronsUpDown className="ml-auto size-4 shrink-0 group-data-[collapsible=icon]:hidden" />
@@ -82,20 +91,19 @@ export function NavUser({ user }) {
 
                       <DropdownMenuSeparator />
 
-                      <DropdownMenuItem>
-                        <BadgeCheck />
-                        Account
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem>
-                        <Bell />
-                        Notifications
+                      <DropdownMenuItem asChild>
+                        <Link to={settingsHref}>
+                          <span className="flex items-center gap-2">
+                            <Settings className="size-4" />
+                            Settings
+                          </span>
+                        </Link>
                       </DropdownMenuItem>
                     </DropdownMenuGroup>
 
                     <DropdownMenuSeparator />
 
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>
                       <LogOut />
                       Log out
                     </DropdownMenuItem>
