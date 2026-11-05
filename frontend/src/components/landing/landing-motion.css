@@ -1,0 +1,33 @@
+/* Scroll snapping, only active while the landing page is mounted */
+html.landing-snap {
+  scroll-snap-type: y proximity;
+  scroll-padding-top: 4.5rem; /* height of the sticky nav */
+  scroll-behavior: smooth;
+}
+
+/* Entrance animation for each page */
+.landing-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 700ms ease,
+    transform 700ms ease;
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.landing-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.landing-snap {
+    scroll-behavior: auto;
+  }
+
+  .landing-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

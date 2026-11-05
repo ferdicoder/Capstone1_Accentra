@@ -1,23 +1,44 @@
-import {
-  Briefcase,
-  ClipboardList,
-  FileText,
-  MessageSquareText,
-  ShieldCheck,
-  Users,
-} from "lucide-react"
+import { Briefcase, Users } from "lucide-react"
 
-// The single source of horizontal width for the whole landing page.
-//
-// `w-full` is deliberate: a percentage such as 94vw would actually NARROW the
-// layout between roughly 1100px and 1500px, where the viewport minus padding
-// is already wider than 94% of the viewport. Letting the container run at full
-// width and stopping it only at a high cap means the content never shrinks as
-// the window grows - it expands continuously to 1800px, then holds. The
-// padding supplies the side margin, which lands at roughly 5% on a large
-// desktop instead of the 8-10% a tighter cap produced.
-export const landingContainer =
-  "mx-auto w-full max-w-[1800px] px-5 sm:px-8"
+export const landingContainer = "mx-auto w-full max-w-[1800px] px-5 sm:px-8"
+
+// Brand        #02353C primary · #062c31 nav/footer · #0A4B52 hover
+// Accent       #10B981 actions · #34D399 hover · #6EE7B7 on dark · #047857 text on light · #E6F7EF tint
+// Surfaces     #FAFBF9 canvas · #F2F7F4 alternate · #FFFFFF
+// Borders      #DCE9E5 default · #B9D9CE strong
+// Text (light) #02353C headings · #3D5F5A body · #557570 secondary
+
+const buttonBase =
+  "inline-flex cursor-pointer items-center justify-center gap-2 rounded-md text-[0.9375rem] font-semibold transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-4"
+
+export const ui = {
+  h1: "text-[clamp(2.5rem,5vw,4rem)] font-semibold leading-[1.06] tracking-[-0.03em] text-balance",
+  h2: "text-[clamp(2rem,4vw,3rem)] font-semibold leading-[1.12] tracking-[-0.025em] text-balance",
+  h3: "text-lg font-semibold leading-snug tracking-[-0.01em]",
+  lead: "text-lg leading-[1.7]",
+  small: "text-[0.9375rem] leading-6",
+
+  btn: `${buttonBase} px-5 py-3`,
+  btnSm: `${buttonBase} px-4 py-2.5`,
+  btnPrimary:
+    "bg-[#10B981] text-[#02353C] hover:bg-[#34D399] focus-visible:outline-[#6EE7B7]",
+  btnSolid:
+    "bg-[#02353C] text-white hover:bg-[#0A4B52] focus-visible:outline-[#02353C]",
+  btnOutline:
+    "border border-[#B9D9CE] text-[#02353C] hover:bg-[#F2F7F4] focus-visible:outline-[#02353C]",
+  btnOutlineDark:
+    "border border-white/25 text-white hover:border-white/45 hover:bg-white/5 focus-visible:outline-[#6EE7B7]",
+  btnGhostDark:
+    "text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-[#6EE7B7]",
+
+  navLink:
+    "py-2 text-[0.9375rem] text-white/70 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#6EE7B7]",
+  footerLink:
+    "block text-[0.9375rem] text-white/55 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#6EE7B7]",
+
+  iconTile:
+    "flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#E6F7EF] text-[#047857]",
+}
 
 export const navigationLinks = [
   { label: "Features", href: "#features" },
@@ -26,147 +47,101 @@ export const navigationLinks = [
   { label: "For clients", href: "#for-clients" },
 ]
 
-export const problemItems = [
-  {
-    title: "Scattered files",
-    description: "Important documents live across too many places.",
-  },
-  {
-    title: "Unclear progress",
-    description: "Clients and staff lose track of what happens next.",
-  },
-  {
-    title: "Manual follow-up",
-    description: "Updates and coordination take time away from the work.",
-  },
-]
-
-export const solutionNodes = [
-  {
-    label: "Client",
-    description: "Requests, files, and updates",
-    icon: Users,
-  },
-  {
-    label: "Accounting firm",
-    description: "Services, people, and workflow",
-    icon: ShieldCheck,
-  },
-  {
-    label: "Firm staff",
-    description: "Assigned work and progress",
-    icon: ClipboardList,
-  },
-]
-
-export const solutionDetails = [
-  "Service requests",
-  "Engagements",
-  "Documents",
-  "Tasks",
-  "Workflow progress",
-  "Activity updates",
-  "Deliverables",
-  "Audit logs",
-  "Billing-related processes where applicable",
-]
-
-export const solutionHighlights = [
-  "Client and firm communication",
-  "Documents, tasks, and deliverables",
-  "Workflow progress and activity updates",
-]
-
 export const features = [
   {
-    icon: ClipboardList,
+    title: "Client management",
+    description:
+      "Maintain organized client profiles with essential information and engagement records.",
+  },
+  {
     title: "Service requests",
     description:
-      "Give clients a clear way to request accounting work and keep the request connected to the engagement it starts.",
+      "Clients submit requests for accounting services, and the firm reviews and manages them.",
   },
   {
-    icon: Briefcase,
+    title: "Service templates",
+    description:
+      "Create reusable templates with descriptions, predefined tasks, document requirements, and billing details.",
+  },
+  {
     title: "Engagement management",
     description:
-      "See active engagements, assigned staff, dates, and progress without losing the wider practice context.",
+      "Create client engagements from service templates, with flexibility for specific requirements.",
   },
   {
-    icon: FileText,
-    title: "Documents and review",
+    title: "Document management and review",
     description:
-      "Organize required files, review submissions, and keep deliverables connected to the work they belong to.",
+      "Clients submit documents; staff review, approve, or request revisions in one place.",
   },
   {
-    icon: ClipboardList,
-    title: "Tasks and workflow",
+    title: "Task and progress monitoring",
     description:
-      "Track assigned tasks and move each engagement through its shared workflow with clear ownership.",
+      "Manage engagement tasks and give clients visibility into the progress of their services.",
   },
   {
-    icon: MessageSquareText,
-    title: "Activity updates and audit log",
+    title: "Billing management",
     description:
-      "Keep client communication, activity updates, approvals, and revision requests close to the engagement.",
+      "Organize billing records, record retainer fees, and monitor payment statuses.",
   },
   {
-    icon: ShieldCheck,
-    title: "Services and firm context",
+    title: "Client portal",
     description:
-      "Bring service templates, firm users, client information, and role-based views into one practical workspace.",
+      "A dedicated space to request services, upload documents, track progress, view billing, and download deliverables.",
   },
 ]
 
 export const workflow = [
   {
     number: "01",
-    title: "Documentation Collection",
-    description: "Gather the documents and information the engagement needs.",
+    tag: "Client",
+    title: "Request a service",
+    description:
+      "Clients submit their desired accounting service through the client portal.",
   },
   {
     number: "02",
-    title: "Document Verification",
+    tag: "Firm",
+    title: "Review and create an engagement",
     description:
-      "Review submissions for completeness before the work moves forward.",
+      "The firm reviews the request and creates an engagement from the right service template.",
   },
   {
     number: "03",
-    title: "Processing",
-    description: "Keep assigned tasks, documents, and progress moving together.",
+    tag: "Staff",
+    title: "Manage tasks and documents",
+    description:
+      "Staff handle assigned tasks, review submitted documents, and update activities.",
   },
   {
     number: "04",
-    title: "Approval",
-    description: "Review completed work and confirm the next step with clarity.",
-  },
-  {
-    number: "05",
-    title: "Payment",
-    description: "Close the engagement with a visible, manageable final step.",
+    tag: "Client",
+    title: "Monitor and complete",
+    description:
+      "Clients follow progress, view billing, and access completed deliverables.",
   },
 ]
 
 export const roles = [
   {
     label: "Firm Admin",
-    title: "A clearer view of the whole firm.",
     description:
-      "Manage users, services, engagements, and the workflows that keep the practice moving.",
-    icon: ShieldCheck,
+      "Oversees firm operations, manages user accounts, configures service templates, and supervises engagements and billing.",
     anchor: "for-firms",
   },
   {
     label: "Firm Staff",
-    title: "Less hunting. More doing.",
     description:
-      "Handle assigned engagements, review documents, manage tasks, and update progress in context.",
-    icon: ClipboardList,
+      "Handles assigned client engagements, manages tasks, reviews submitted documents, and updates engagement progress.",
+  },
+  {
+    label: "Billing Officer",
+    description:
+      "Manages billing records, retainer fees, and payment status monitoring.",
   },
   {
     label: "Client",
-    title: "Know what happens next.",
     description:
-      "Request services, submit documents, track progress, and receive updates from the firm.",
-    icon: Users,
+      "Requests services, submits documents, monitors progress, views billing, and retrieves completed deliverables.",
     anchor: "for-clients",
   },
 ]
