@@ -18,9 +18,7 @@ export async function signinToPortal(portal, email, password) {
   return result
 }
 
-/**
- * fix: every role can login to every auth routes signins
- */
+
 async function signinUser(email, password){
   try{
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -31,7 +29,7 @@ async function signinUser(email, password){
 
     const role = await setUserRole(data.user, false);
     if (!role) {
-      throw new Error("Your account does not have a valid firm role assigned.")
+      throw new Error("Invalid Credentials, your account maybe deactivated or not registered. ")
     }
     console.log("Login Successful"); 
     return { data, role }; 
