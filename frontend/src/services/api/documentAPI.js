@@ -65,6 +65,18 @@ async function uploadEngagementDeliverable({ engagementId, file }) {
   return mapDeliverableRow(await response.json())
 }
 
+async function deleteEngagementDeliverable(deliverableId) {
+  const token = await getAccessToken()
+  const response = await fetch(`${apiBaseUrl}/documents/deliverables/${deliverableId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.error || "Deliverable deletion failed")
+  }
+}
+
 async function getEngagementDocuments(engagementId) {
   const { data, error } = await supabase
     .from("engagement_documents")
@@ -147,6 +159,7 @@ export {
   deleteEngagementDocument,
   getEngagementDeliverables,
   uploadEngagementDeliverable,
+  deleteEngagementDeliverable,
   uploadEngagementTaskReferenceDocument,
   deleteEngagementTaskReferenceDocument,
 }

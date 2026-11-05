@@ -20,6 +20,7 @@ import {
   deleteEngagementDocument,
   getEngagementDeliverables,
   uploadEngagementDeliverable,
+  deleteEngagementDeliverable,
   uploadEngagementTaskReferenceDocument,
   deleteEngagementTaskReferenceDocument,
 } from "@/services/api/documentAPI"
@@ -178,6 +179,16 @@ export function useUploadEngagementDeliverable(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: uploadEngagementDeliverable,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementDeliverables(engagementId) })
+    },
+  })
+}
+
+export function useDeleteEngagementDeliverable(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteEngagementDeliverable,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.engagementDeliverables(engagementId) })
     },

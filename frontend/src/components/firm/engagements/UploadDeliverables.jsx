@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { FileText, FileSpreadsheet, FileImage, File, Upload, X, Download, Eye } from "lucide-react"
+import { FileText, FileSpreadsheet, FileImage, File, Upload, X, Download, Eye, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -142,7 +142,7 @@ function DocumentPreviewDialog({ open, onOpenChange, document }) {
 
 // ── All Deliverables Dialog Row ──────────────────────────────────────────────
 
-function DeliverableDialogRow({ document, onPreview }) {
+function DeliverableDialogRow({ document, onPreview, onDelete, canDelete, isDeleting }) {
   const handleDownload = () => {
     const link = window.document.createElement("a")
     link.href = document.downloadUrl
@@ -185,6 +185,20 @@ function DeliverableDialogRow({ document, onPreview }) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {canDelete && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+          onClick={() => onDelete(document)}
+          disabled={isDeleting}
+          aria-label={`Delete ${document?.name ?? "deliverable"}`}
+          title="Delete deliverable"
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      )}
     </div>
   )
 }
@@ -208,7 +222,10 @@ const MAX_PREVIEW_DOCS = 1
 export function UploadDeliverables({
   deliverables = [],
   isUploading = false,
+  isDeleting = false,
+  canDelete = false,
   onUpload,
+  onDelete,
   disabled = false,
   onBlockedAction,
   className,
@@ -218,6 +235,7 @@ export function UploadDeliverables({
   const [allDocsOpen, setAllDocsOpen] = useState(false)
   const [previewDoc, setPreviewDoc] = useState(null)
   const [selectedFiles, setSelectedFiles] = useState([])
+  const [deleteDoc, setDeleteDoc] = useState(null)
 
   const allDeliverables = deliverables
   const hasDocuments = allDeliverables.length > 0
@@ -371,6 +389,35 @@ export function UploadDeliverables({
 
       <DocumentPreviewDialog open={Boolean(previewDoc)} onOpenChange={(isOpen) => !isOpen && setPreviewDoc(null)} document={previewDoc} />
 
+      <Dialog open={Boolean(deleteDoc)} onOpenChange={(open) => !open && setDeleteDoc(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete deliverable?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete {deleteDoc?.name ?? "this deliverable"} from the engagement.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteDoc(null)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={async () => {
+                const deleted = await onDelete?.(deleteDoc.id)
+                if (deleted === false) return
+                setDeleteDoc(null)
+                setAllDocsOpen(false)
+              }}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── All Deliverables Dialog ────────────────────────────────────────── */}
       <Dialog open={allDocsOpen} onOpenChange={setAllDocsOpen}>
         <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
@@ -385,7 +432,14 @@ export function UploadDeliverables({
               <p className="px-5 py-8 text-center text-sm text-muted-foreground">No deliverables uploaded yet.</p>
             ) : (
               allDeliverables.map((doc) => (
-                <DeliverableDialogRow key={doc.id} document={doc} onPreview={() => setPreviewDoc(doc)} />
+                <DeliverableDialogRow
+                  key={doc.id}
+                  document={doc}
+                  onPreview={() => setPreviewDoc(doc)}
+                  onDelete={setDeleteDoc}
+                  canDelete={canDelete}
+                  isDeleting={isDeleting}
+                />
               ))
             )}
           </div>

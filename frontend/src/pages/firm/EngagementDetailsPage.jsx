@@ -35,6 +35,7 @@ import {
   useFetchEngagementDocuments,
   useFetchEngagementDeliverables,
   useUploadEngagementDeliverable,
+  useDeleteEngagementDeliverable,
   useUploadEngagementTaskReference,
   useDeleteEngagementTaskReference,
   useUpdateEngagementDetails,
@@ -76,6 +77,7 @@ export default function EngagementDetailsPage() {
     canManageEngagements ? id : null
   )
   const uploadDeliverable = useUploadEngagementDeliverable(id)
+  const deleteDeliverable = useDeleteEngagementDeliverable(id)
   const updateStatus = useUpdateEngagementStatus()
   const reviewTask = useReviewEngagementTask(id)
 
@@ -92,6 +94,7 @@ export default function EngagementDetailsPage() {
   const [terminalActionDialogOpen, setTerminalActionDialogOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [notice, setNotice] = useState("")
+  const [noticeIsError, setNoticeIsError] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
 
   usePageMeta({
@@ -111,8 +114,9 @@ export default function EngagementDetailsPage() {
     engagement.status === "completed" || engagement.status === "cancelled"
   const canCancelEngagement = hasCancelPermission && !isTerminalEngagement
 
-  const showNotice = (message) => {
+  const showNotice = (message, isError = false) => {
     setNotice(message)
+    setNoticeIsError(isError)
     setTimeout(() => setNotice(""), 3000)
   }
 
@@ -401,7 +405,15 @@ export default function EngagementDetailsPage() {
 
         {/* ── Notice ────────────────────────────────────────────────────── */}
         {notice && (
-          <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
+          <div
+            role={noticeIsError ? "alert" : "status"}
+            className={cn(
+              "rounded-lg px-3 py-2 text-sm ring-1 ring-inset",
+              noticeIsError
+                ? "bg-destructive/10 text-destructive ring-destructive/20"
+                : "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20"
+            )}
+          >
             {notice}
           </div>
         )}
@@ -412,8 +424,20 @@ export default function EngagementDetailsPage() {
             <UploadDeliverables
               deliverables={deliverables}
               isUploading={uploadDeliverable.isPending}
+              isDeleting={deleteDeliverable.isPending}
+              canDelete={role === "admin" || role === "staff"}
               disabled={isTerminalEngagement}
               onBlockedAction={() => setTerminalActionDialogOpen(true)}
+              onDelete={async (deliverableId) => {
+                try {
+                  await deleteDeliverable.mutateAsync(deliverableId)
+                  showNotice("Deliverable deleted")
+                  return true
+                } catch (deleteError) {
+                  showNotice(deleteError?.message || "Could not delete deliverable", true)
+                  return false
+                }
+              }}
               onUpload={async (files) => {
                 if (isTerminalEngagement) {
                   setTerminalActionDialogOpen(true)
