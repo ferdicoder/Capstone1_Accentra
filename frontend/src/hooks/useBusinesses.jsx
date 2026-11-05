@@ -6,6 +6,7 @@ import {
   updateBusinessType,
   updateMyBusiness,
 } from "@/services/api/businessAPI"
+import { updateClientStatus } from "@/services/api/userAPI"
 import { queryKeys } from "@/config/queryKeys"
 
 export function useFetchBusinesses({ enabled = true } = {}) {
@@ -56,6 +57,21 @@ export function useUpdateMyBusiness(userId) {
     mutationFn: updateMyBusiness,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.myBusiness(userId) })
+    },
+  })
+}
+
+export function useToggleClientStatus() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: updateClientStatus,
+    onSuccess: ({ ownerId, status }) => {
+      queryClient.setQueryData(queryKeys.businesses, (businesses = []) =>
+        businesses.map((business) =>
+          business.ownerId === ownerId ? { ...business, ownerStatus: status } : business
+        )
+      )
     },
   })
 }

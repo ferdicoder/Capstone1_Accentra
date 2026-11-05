@@ -3,13 +3,21 @@ import { authStore } from "@/store/authStore";
 import { apiBaseUrl } from "@/config/api";
 
 async function setUserRole(user, persist = true) {
-  const { data: roleData, error } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', user.id)
-    .single();
+  const [{ data: roleData, error: roleError }, { data: userData, error: userError }] =
+    await Promise.all([
+      supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single(),
+      supabase
+        .from("users")
+        .select("status")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+    ])
 
-  if (error) {
+  if (roleError || userError || userData?.status === "deactivated") {
     if (persist) authStore.getState().clearAuth();
     return null;
   }
@@ -113,6 +121,18 @@ async function updateUserStatus({ id, status }) {
   return mapUserRow(data)
 }
 
+async function updateClientStatus({ ownerId, status }) {
+  const { data, error } = await supabase
+    .from("users")
+    .update({ status })
+    .eq("user_id", ownerId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return { ownerId: data.user_id, status: data.status }
+}
+
 function mapAuthUserRow(authUser, fallback = {}) {
   const meta = authUser.user_metadata ?? {}
   return {
@@ -167,6 +187,7 @@ export{
   getUsers, 
   updateUser,
   updateUserStatus, 
+  updateClientStatus,
   createStaff,
   fetchFirmRoles
 }

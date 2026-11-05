@@ -5,7 +5,11 @@ import { ArrowLeft, Pencil } from "lucide-react"
 import { PageNotFound, PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { usePageMeta } from "@/hooks/usePageMeta"
-import { useFetchBusinesses, useUpdateBusinessType } from "@/hooks/useBusinesses"
+import {
+  useFetchBusinesses,
+  useToggleClientStatus,
+  useUpdateBusinessType,
+} from "@/hooks/useBusinesses"
 import { useFetchEngagements } from "@/hooks/useEngagements"
 import { useFetchBillings } from "@/hooks/useBillings"
 import { authStore } from "@/store/authStore"
@@ -74,6 +78,7 @@ export default function ClientDetailPage() {
   const isLoading = businessesLoading || engagementsLoading
   const updateClient = clientStore((state) => state.updateClient)
   const updateBusinessType = useUpdateBusinessType()
+  const toggleClientStatus = useToggleClientStatus()
 
   const [editing, setEditing] = useState(false)
   const [selectedClientType, setSelectedClientType] = useState("")
@@ -174,12 +179,22 @@ export default function ClientDetailPage() {
   })
 
   const handleConfirmDeactivation = () => {
-    updateClient(client.id, { deactivated: client.status !== "deactivated" })
-    setDeactivationOpen(false)
-    setNotice(
-      client.status === "deactivated" ? "Client reactivated" : "Client deactivated"
+    const nextStatus = client.status === "deactivated" ? "active" : "deactivated"
+    toggleClientStatus.mutate(
+      { ownerId: client.ownerId, status: nextStatus },
+      {
+        onSuccess: () => {
+          updateClient(client.id, { deactivated: nextStatus === "deactivated" })
+          setDeactivationOpen(false)
+          setNotice(nextStatus === "deactivated" ? "Client deactivated" : "Client reactivated")
+          setTimeout(() => setNotice(""), 3000)
+        },
+        onError: (statusError) => {
+          setNotice(statusError?.message ?? "Failed to update client status")
+          setTimeout(() => setNotice(""), 3000)
+        },
+      }
     )
-    setTimeout(() => setNotice(""), 3000)
   }
 
   return (
@@ -362,6 +377,7 @@ export default function ClientDetailPage() {
         entityType="client"
         action={client.status === "deactivated" ? "reactivate" : "deactivate"}
         onConfirm={handleConfirmDeactivation}
+        submitting={toggleClientStatus.isPending}
       />
 
       <Dialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
