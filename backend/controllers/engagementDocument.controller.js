@@ -127,6 +127,33 @@ export async function downloadEngagementDeliverable(req, res) {
   }
 }
 
+export async function deleteEngagementDeliverable(req, res) {
+  const { deliverableId } = req.params;
+
+  try {
+    const { data: doc, error } = await supabaseAdmin
+      .from('deliverable_documents')
+      .select('storage_key, b2_file_id')
+      .eq('deliverable_doc_id', deliverableId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!doc) return res.status(404).json({ error: 'Deliverable not found' });
+
+    await deleteFileVersion(doc.storage_key, doc.b2_file_id);
+
+    const { error: deleteError } = await supabaseAdmin
+      .from('deliverable_documents')
+      .delete()
+      .eq('deliverable_doc_id', deliverableId);
+    if (deleteError) throw deleteError;
+
+    return res.sendStatus(204);
+  } catch (err) {
+    console.error('Deliverable delete failed:', err);
+    return res.status(500).json({ error: 'Could not delete deliverable' });
+  }
+}
+
 export async function uploadEngagementDocument(req, res) {
   const { engagementTaskId } = req.params;
   const { uploadedBy } = req.body ?? {};

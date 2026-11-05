@@ -3,6 +3,7 @@ import {
   getEngagementDeliverables,
   uploadEngagementDeliverable,
   downloadEngagementDeliverable,
+  deleteEngagementDeliverable,
   uploadEngagementDocument,
   downloadEngagementDocument,
   deleteEngagementDocument,
@@ -28,6 +29,12 @@ engagementDocumentRouter
     uploadEngagementDeliverable
   )
   .get('/deliverables/:deliverableId/download', downloadEngagementDeliverable)
+  .delete(
+    '/deliverables/:deliverableId',
+    authUser,
+    requireRole('admin', 'staff'),
+    deleteEngagementDeliverable
+  )
   // Firm-provided reference files for engagement tasks — registered before the
   // generic /:docId routes so "reference" never gets treated as a doc id.
   .post(
