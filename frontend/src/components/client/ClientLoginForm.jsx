@@ -126,14 +126,15 @@ export function ClientLoginForm({
             type="submit"
             disabled={isSubmitting}
             className="
-            w-111
-            h-10
+            h-14
+            w-3/4
+            max-w-sm
+            self-center
             rounded-lg
-            bg-linear-to-r
-            from-[#0F3443]
-            to-[#10B981]
+            bg-forest-900
+            text-lg
             text-white
-            hover:opacity-90
+            hover:bg-[#18a16f]
             transition-all
             focus-visible:ring-2
             focus-visible:ring-emerald-500
@@ -154,7 +155,11 @@ export function ClientLoginForm({
 
           <FieldDescription className="text-center">
             Don&apos;t have an account?{" "}
-            <Link to="/client/signup" className="underline underline-offset-4 text-navy-900 transition-colors hover:text-emerald-700!">
+            <Link
+              to="/client/signup"
+              state={{ clientAuthSlide: "from-left" }}
+              className="underline underline-offset-4 text-navy-900 transition-colors hover:text-emerald-700!"
+            >
               Sign up
             </Link>
           </FieldDescription>

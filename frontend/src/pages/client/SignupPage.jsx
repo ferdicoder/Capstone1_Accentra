@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { ArrowLeft, Check, X } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import logoText from "@/assets/3dLogo1.svg";
 
 import { registerClient } from "../../services/authService";
@@ -120,6 +120,10 @@ export default function SignupPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+  const slideClass = location.state?.clientAuthSlide === "from-left"
+    ? "client-auth-slide-from-left"
+    : "";
 
   const errorFor = (name) => errors[name] || "";
   const displayedTin = formatTin(formData.tin, !isTinFocused);
@@ -168,7 +172,7 @@ export default function SignupPage() {
       );
       if (!result?.data?.user) throw new Error("Registration could not be completed. Please try again.");
 
-      navigate("/client/signin");
+      navigate("/client/signin", { state: { clientAuthSlide: "from-right" } });
     } catch (error) {
       console.error("Client registration failed:", error);
       setSubmitError(error.message || "Something went wrong during registration.");
@@ -206,8 +210,8 @@ export default function SignupPage() {
   const steps = ["Personal Information", "Business Registration"];
 
   return (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-5 bg-[#fbfcfa] px-4 py-8 sm:gap-6">
-      <header className="w-full max-w-2xl">
+    <main className="relative flex min-h-svh flex-col items-center justify-center gap-5 bg-[#fbfcfa] px-4 py-8 sm:gap-6">
+      <header className="absolute left-4 top-4 z-10">
         <button
           type="button"
           onClick={() => navigate("/")}
@@ -217,7 +221,7 @@ export default function SignupPage() {
           Back
         </button>
       </header>
-      <div className="w-full max-w-2xl rounded-xl border border-border bg-white p-5 shadow-[0_20px_50px_rgba(15,71,62,0.14)] sm:p-8">
+      <div className={`w-full max-w-2xl rounded-xl border border-border bg-white p-5 shadow-[0_20px_50px_rgba(15,71,62,0.14)] sm:p-8 ${slideClass}`}>
         <Link
           to="/"
           aria-label="Accentra home"
@@ -542,7 +546,11 @@ export default function SignupPage() {
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
           Already have an account?{" "}
-          <Link to="/client/signin" className="font-medium text-foreground underline underline-offset-4 hover:text-emerald-700">
+          <Link
+            to="/client/signin"
+            state={{ clientAuthSlide: "from-right" }}
+            className="font-medium text-forest-900 underline underline-offset-4 hover:text-emerald-700"
+          >
             Sign in
           </Link>
         </p>

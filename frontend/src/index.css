@@ -5,6 +5,45 @@
 
 @custom-variant dark (&:is(.dark *));
 
+.client-auth-slide-from-left {
+    animation: client-auth-slide-from-left 280ms ease-out both;
+}
+
+.client-auth-slide-from-right {
+    animation: client-auth-slide-from-right 280ms ease-out both;
+}
+
+@keyframes client-auth-slide-from-left {
+    from {
+        opacity: 0.6;
+        transform: translateX(-24px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes client-auth-slide-from-right {
+    from {
+        opacity: 0.6;
+        transform: translateX(24px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .client-auth-slide-from-left,
+    .client-auth-slide-from-right {
+        animation: none;
+    }
+}
+
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Inter Variable', sans-serif;
