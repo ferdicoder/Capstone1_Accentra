@@ -1,11 +1,11 @@
-import { AuthLayout } from "@/layout/auth-layout";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { Check, X } from "lucide-react";
+import { ArrowLeft, Check, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import logoText from "@/assets/3dLogo1.svg";
 
 import { registerClient } from "../../services/authService";
 import { accountSchema, businessSchema, passwordRequirements } from "/src/schemas/signupSchema";
@@ -206,8 +206,30 @@ export default function SignupPage() {
   const steps = ["Personal Information", "Business Registration"];
 
   return (
-    <AuthLayout>
-      <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
+    <main className="flex min-h-svh flex-col items-center justify-center gap-5 bg-[#fbfcfa] px-4 py-8 sm:gap-6">
+      <header className="w-full max-w-2xl">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="inline-flex items-center gap-1.5 rounded-md py-2 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#02353C]"
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Back
+        </button>
+      </header>
+      <div className="w-full max-w-2xl rounded-xl border border-border bg-white p-5 shadow-[0_20px_50px_rgba(15,71,62,0.14)] sm:p-8">
+        <Link
+          to="/"
+          aria-label="Accentra home"
+          className="mx-auto mb-4 block h-16 w-64"
+        >
+          <img
+            src={logoText}
+            alt="Accentra"
+            className="h-16 w-64 object-contain"
+          />
+        </Link>
+        <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
         <div className="flex items-center justify-between gap-2">
           {steps.map((step, index) => {
             const number = index + 1;
@@ -343,7 +365,10 @@ export default function SignupPage() {
                 type="password"
               />
 
-              <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600">
+              <Button
+                type="submit"
+                className="h-14 w-3/4 max-w-sm self-center bg-forest-900 text-lg text-white hover:bg-[#18a16f]"
+              >
                 Continue
               </Button>
             </>
@@ -513,14 +538,15 @@ export default function SignupPage() {
             </>
           )}
         </FieldGroup>
-      </form>
+        </form>
 
-      <p className="mt-4 text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
-        <Link to="/client/signin" className="font-medium text-foreground underline underline-offset-4 hover:text-emerald-700">
-          Sign in
-        </Link>
-      </p>
-    </AuthLayout>
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          Already have an account?{" "}
+          <Link to="/client/signin" className="font-medium text-foreground underline underline-offset-4 hover:text-emerald-700">
+            Sign in
+          </Link>
+        </p>
+      </div>
+    </main>
   );
 }
