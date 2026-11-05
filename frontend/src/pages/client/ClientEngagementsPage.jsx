@@ -245,9 +245,6 @@ export default function ClientEngagementsPage() {
     <div className="flex flex-1 flex-col gap-5 px-2 py-2">
       <div>
         <h1 className="text-xl font-semibold">My Engagements</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {engagements.length} total engagement{engagements.length === 1 ? "" : "s"}
-        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

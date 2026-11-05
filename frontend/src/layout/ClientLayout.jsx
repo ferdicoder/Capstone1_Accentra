@@ -76,9 +76,6 @@ export function ClientLayout() {
             <div className="mb-2 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold">New Service Request</h2>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  Tell us what you need and we'll get started.
-                </p>
               </div>
               <button
                 onClick={closeNewRequest}

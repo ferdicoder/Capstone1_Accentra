@@ -659,9 +659,6 @@ export default function ClientEngagementDetailPage() {
                 <h2 className="text-lg font-semibold sm:text-xl">
                   Engagement Details
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  View client and service information
-                </p>
               </div>
               <button
                 type="button"
@@ -755,9 +752,6 @@ export default function ClientEngagementDetailPage() {
                     <h3 className="text-base font-semibold">
                       Service Information
                     </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Details about the selected service
-                    </p>
                   </div>
 
                   <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2">

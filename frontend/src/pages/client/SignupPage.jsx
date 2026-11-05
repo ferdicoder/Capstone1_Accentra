@@ -237,9 +237,6 @@ export default function SignupPage() {
             <>
               <div className="flex flex-col items-center gap-1 text-center">
                 <h1 className="text-2xl font-bold">Create your account</h1>
-                <p className="text-sm text-balance text-muted-foreground">
-                  Fill in the form below to create your account
-                </p>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -354,9 +351,6 @@ export default function SignupPage() {
             <>
               <div className="flex flex-col items-center gap-1 text-center">
                 <h1 className="text-2xl font-bold">Business Registration</h1>
-                <p className="text-sm text-muted-foreground">
-                  Is your business currently registered with the Bureau of Internal Revenue (BIR)?
-                </p>
               </div>
 
               <Field>

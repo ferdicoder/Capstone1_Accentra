@@ -207,12 +207,6 @@ export function ForgotPasswordModal({ open, onClose }) {
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold">Reset your password</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {reset.step === RESET_STEPS.CHOOSE_METHOD && "We'll send a verification code to confirm it's you."}
-              {reset.step === RESET_STEPS.VERIFY_OTP && `Enter the code we sent to your ${reset.method === "email" ? "email" : "phone"}.`}
-              {reset.step === RESET_STEPS.NEW_PASSWORD && "Choose a new password for your account."}
-              {reset.step === RESET_STEPS.SUCCESS && "You're all set."}
-            </p>
           </div>
           <button
             onClick={handleClose}

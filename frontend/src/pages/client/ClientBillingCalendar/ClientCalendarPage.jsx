@@ -234,7 +234,6 @@ export default function ClientCalendarPage() {
       events={events}
       eventTypes={EVENT_TYPES}
       title="My Calendar"
-      description="Payment due dates, document deadlines, and engagement target dates in one view"
       summaryItems={getSummaryItems}
       onOpenEvent={(event) => navigate(event.href)}
       emptyMessage="Nothing due on this day."

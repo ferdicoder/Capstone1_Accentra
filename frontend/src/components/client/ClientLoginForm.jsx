@@ -59,9 +59,6 @@ export function ClientLoginForm({
       
         <div className="flex flex-col items-center"> {/* this div centers the welcome message and description text */}
           <h1 className="text-2xl font-bold">Welcome Back!</h1>
-          <p className="text-xs text-balance text-muted-foreground alig">
-            Please enter your details
-          </p>
         </div>
 
         <Field> {/* this component represents the emailform field */}

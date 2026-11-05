@@ -116,7 +116,6 @@ export default function ClientDashboard() {
 
   const firstName =
     user?.firstName ?? user?.user_metadata?.first_name ?? user?.name ?? ""
-  const businessName = business?.businessName ?? business?.name ?? ""
 
   // --- Engagements -----------------------------------------------------------
 
@@ -262,11 +261,6 @@ export default function ClientDashboard() {
         <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">
           {firstName ? `${greeting()}, ${firstName}` : greeting()}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {businessName
-            ? `${businessName} · Here is the latest on your services and billing.`
-            : "Here is the latest on your services and billing."}
-        </p>
       </div>
 
       {loadError && (

@@ -21,7 +21,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
 import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
@@ -166,7 +165,6 @@ function TaskDetailDialog({ open, onOpenChange, task, onPreviewReference }) {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{task.name}</DialogTitle>
-          <DialogDescription>Requirement details for this engagement</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -282,10 +280,6 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Upload Files</DialogTitle>
-          <DialogDescription>
-            Choose the file(s) needed for &ldquo;{task.name}&rdquo;. You&rsquo;ll be asked to confirm
-            before anything is sent to your firm.
-          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
@@ -388,7 +382,6 @@ function WarningIllustration() {
 function AttachConfirmDialog({
   open,
   onOpenChange,
-  taskName,
   files = [],
   isSubmitting,
   progress,
@@ -420,11 +413,6 @@ function AttachConfirmDialog({
           <DialogTitle className="text-center text-lg">
             Attach {plural ? "these files" : "this file"}?
           </DialogTitle>
-          {taskName && (
-            <DialogDescription className="text-center">
-              For <span className="font-medium text-foreground">{taskName}</span>
-            </DialogDescription>
-          )}
         </DialogHeader>
 
         {/* Files being attached */}
@@ -913,7 +901,6 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
       <AttachConfirmDialog
         open={Boolean(confirmTask)}
         onOpenChange={handleConfirmDialogChange}
-        taskName={confirmTask?.name}
         files={confirmTask ? pendingByTask[confirmTask.id] ?? [] : []}
         isSubmitting={isSubmitting}
         progress={uploadProgress}
