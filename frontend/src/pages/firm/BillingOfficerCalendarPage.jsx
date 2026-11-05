@@ -80,7 +80,7 @@ const EVENT_TYPES = {
   },
 }
 
-// The mock data uses "unpaid" / "for_verification" / "paid" while
+// The mock data uses "unpaid" / "for verification" / "paid" while
 // billing-variants.js uses "pending" / "paid" / ... This page accepts both.
 // "pending" and "unpaid" both mean "not paid yet".
 const PAID_STATUSES = ["paid"]
@@ -90,12 +90,12 @@ const isTrackedStatus = (billing) =>
   !CLOSED_STATUSES.includes(billing.status)
 
 const getPendingPayment = (billing) =>
-  billing.payments?.find((payment) => payment.status === "pending") ?? null
+  billing.payments?.find((payment) => payment.reference_id) ?? null
 
 // A bill is "under review" only when a payment was actually submitted.
 // NOT when status === "pending", because "pending" also means "unpaid".
 const needsReview = (billing) =>
-  billing?.status === "for_verification" || Boolean(getPendingPayment(billing))
+  billing?.status === "for verification" || Boolean(getPendingPayment(billing))
 
 function resolveClientName(client, engagement) {
   const person = client ?? engagement?.client

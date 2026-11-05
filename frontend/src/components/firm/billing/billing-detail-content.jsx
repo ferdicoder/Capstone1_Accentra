@@ -129,9 +129,13 @@ export function BillingDetailContent({
             </InfoRow>
 
             <InfoRow label="Payment Status">
-              {billing.payment_status
-                ? billing.payment_status.charAt(0).toUpperCase() + billing.payment_status.slice(1)
-                : "No payment submitted"}
+              {billing.status === "for verification"
+                ? "For Verification"
+                : billing.status === "for resubmission"
+                  ? "For Resubmission"
+                  : billing.status === "paid"
+                    ? "Paid"
+                    : "No payment submitted"}
             </InfoRow>
 
             <InfoRow label="Payment Proof">

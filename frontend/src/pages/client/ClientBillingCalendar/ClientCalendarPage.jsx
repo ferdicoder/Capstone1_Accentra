@@ -45,7 +45,7 @@ const EVENT_TYPES = {
 
 // Billing statuses that still need action. Both the mock name (unpaid) and the
 // database name (pending) are accepted.
-const OPEN_BILLING_STATUSES = ["unpaid", "pending", "overdue", "for_verification"]
+const OPEN_BILLING_STATUSES = ["unpaid", "pending", "overdue", "for verification", "for resubmission"]
 
 // Task statuses where the client still has to upload something.
 const UPLOAD_TASK_STATUSES = ["missing", "for_revision"]
@@ -54,7 +54,7 @@ const UPLOAD_TASK_STATUSES = ["missing", "for_revision"]
 const CLOSED_ENGAGEMENT_STATUSES = ["completed", "cancelled"]
 
 const getPendingPayment = (billing) =>
-  billing.payments?.find((payment) => payment.status === "pending") ?? null
+  billing.payments?.find((payment) => payment.reference_id) ?? null
 
 function buildEvents({ billings, engagements, today }) {
   const events = []
@@ -85,7 +85,7 @@ function buildEvents({ billings, engagements, today }) {
 
     const pendingPayment = getPendingPayment(billing)
     const underReview =
-      billing.status === "for_verification" || Boolean(pendingPayment)
+      billing.status === "for verification" || Boolean(pendingPayment)
 
     let type
     let date = dueDate

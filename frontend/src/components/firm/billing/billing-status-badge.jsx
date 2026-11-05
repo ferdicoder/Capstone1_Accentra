@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils"
 import {
   billingStatusLabels,
   isFinalBillingStatus,
+  normalizeBillingStatus,
   statusBadgeStyles,
   statusDotStyles,
 } from "./billing-variants"
@@ -11,7 +12,7 @@ import {
  * Same visual system as FirmUserStatusBadge / EngagementStatusBadge.
  */
 export function BillingStatusBadge({ status, showDot = true, className, ...props }) {
-  const value = typeof status === "string" ? status.toLowerCase() : status
+  const value = normalizeBillingStatus(status)
   const label = billingStatusLabels[value] ?? status ?? "Unknown"
   const isLocked = isFinalBillingStatus(value)
 

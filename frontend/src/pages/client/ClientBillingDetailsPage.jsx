@@ -40,17 +40,13 @@ const statusStyles = {
 }
 
 const paymentStatusLabels = {
-  pending: "Payment Under Review",
-  verified: "Payment Verified",
-  rejected: "Payment Proof Rejected",
-  refunded: "Payment Refunded",
+  "for verification": "Payment Under Review",
+  "for resubmission": "Payment Proof Rejected",
 }
 
 const paymentStatusStyles = {
-  pending: "bg-blue-50 text-blue-700 border-blue-200",
-  verified: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  rejected: "bg-orange-50 text-orange-700 border-orange-200",
-  refunded: "bg-slate-100 text-slate-600 border-slate-200",
+  "for verification": "bg-blue-50 text-blue-700 border-blue-200",
+  "for resubmission": "bg-orange-50 text-orange-700 border-orange-200",
 }
 
 export default function ClientBillingDetailPage() {
@@ -60,6 +56,7 @@ export default function ClientBillingDetailPage() {
 
   const [proofFile, setProofFile] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState("gcash")
+  const [referenceId, setReferenceId] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
@@ -69,12 +66,13 @@ export default function ClientBillingDetailPage() {
   const { data: invoice, isLoading, error: queryError } = useFetchBilling(id)
   const uploadProof = useUploadPaymentProof()
 
-  const paymentStatus = invoice?.payment_status
+  const paymentStatus = ["for verification", "for resubmission"].includes(invoice?.status)
+    ? invoice.status
+    : null
   const paymentStatusLabel = paymentStatusLabels[paymentStatus]
   const hasUploadedProof = Boolean(invoice?.payment_proof_url)
   const canSubmitPayment =
-    ["pending", "overdue"].includes(invoice?.status) &&
-    !["pending", "verified"].includes(paymentStatus)
+    ["pending", "overdue", "for resubmission"].includes(invoice?.status)
 
   usePageMeta({
     title: invoice?.id ?? "Billing Details",
@@ -134,6 +132,7 @@ export default function ClientBillingDetailPage() {
         billingId: invoice.id,
         paymentMethod,
         uploadedBy: user?.id,
+        referenceId,
       })
       setSuccess("Payment submitted for verification.")
     } catch (err) {
@@ -297,7 +296,7 @@ export default function ClientBillingDetailPage() {
 
           {!canSubmitPayment ? (
             <div className="mt-4 rounded-lg bg-muted/40 p-4">
-              {paymentStatus === "pending" ? (
+              {paymentStatus === "for verification" ? (
                 <>
                   <Clock className="size-5 text-blue-600" />
                   <p className="mt-2 text-sm font-medium">
@@ -307,7 +306,7 @@ export default function ClientBillingDetailPage() {
                     Your payment submission is being reviewed by the firm.
                   </p>
                 </>
-              ) : paymentStatus === "verified" || invoice.status === "paid" ? (
+              ) : invoice.status === "paid" ? (
                 <>
                   <CheckCircle2 className="size-5 text-emerald-600" />
                   <p className="mt-2 text-sm font-medium">
@@ -333,7 +332,7 @@ export default function ClientBillingDetailPage() {
                 </div>
               )}
 
-              {paymentStatus === "rejected" && (
+              {paymentStatus === "for resubmission" && (
                 <p className="mt-3 text-sm text-orange-700">
                   Your previous payment proof was rejected. Upload a new proof to submit another payment attempt.
                 </p>
@@ -370,6 +369,20 @@ export default function ClientBillingDetailPage() {
                     <option value="gcash">GCash</option>
                     <option value="bank_transfer">Bank Transfer</option>
                   </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">
+                    Payment Reference
+                  </label>
+                  <input
+                    value={referenceId}
+                    onChange={(event) => setReferenceId(event.target.value)}
+                    placeholder="Enter your payment reference"
+                    disabled={isSubmitting}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    required
+                  />
                 </div>
 
                 <div className="space-y-1.5">

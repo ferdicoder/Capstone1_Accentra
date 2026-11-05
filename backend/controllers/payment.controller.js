@@ -5,7 +5,7 @@ const PAYMENT_METHODS = new Set(['gcash', 'bank_transfer']);
 
 export async function submitPayment(req, res) {
   const { billingId } = req.params;
-  const { paymentMethod, uploadedBy } = req.body ?? {};
+  const { paymentMethod, uploadedBy, referenceId } = req.body ?? {};
 
   if (!req.file) {
     return res.status(400).json({ error: 'No payment proof file was provided' });
@@ -26,7 +26,7 @@ export async function submitPayment(req, res) {
       .single();
 
     if (billingError) throw billingError;
-    if (!billing || !['pending', 'overdue'].includes(billing.status)) {
+    if (!billing || !['pending', 'overdue', 'for resubmission'].includes(billing.status)) {
       return res.status(400).json({ error: 'This billing record is not available for payment' });
     }
 
@@ -36,7 +36,7 @@ export async function submitPayment(req, res) {
         billing_id: billingId,
         amount: billing.total_amount,
         payment_method: paymentMethod,
-        status: 'pending',
+        reference_id: referenceId?.trim() || null,
       })
       .select()
       .single();
@@ -59,6 +59,14 @@ export async function submitPayment(req, res) {
       });
 
     if (documentError) throw documentError;
+
+    if (referenceId?.trim()) {
+      const { error: billingUpdateError } = await supabaseAdmin
+        .from('billings')
+        .update({ status: 'for verification' })
+        .eq('billing_id', billingId);
+      if (billingUpdateError) throw billingUpdateError;
+    }
 
     const { data: updatedPayment, error: updateError } = await supabaseAdmin
       .from('payments')

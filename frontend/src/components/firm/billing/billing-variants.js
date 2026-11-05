@@ -17,10 +17,27 @@ export const invoiceTypeFilterOptions = INVOICE_TYPES.map((value) => ({
 
 export const billingStatusLabels = {
   pending: "Pending",
+  "for verification": "For Verification",
+  "for resubmission": "For Resubmission",
   paid: "Paid",
   overdue: "Overdue",
   refunded: "Refunded",
   cancelled: "Cancelled",
+}
+
+const billingStatusAliases = {
+  for_verification: "for verification",
+  "under verification": "for verification",
+  revision_requested: "for resubmission",
+  "revision requested": "for resubmission",
+  unpaid: "pending",
+  issued: "pending",
+}
+
+export const normalizeBillingStatus = (status) => {
+  if (typeof status !== "string") return status
+  const normalized = status.trim().toLowerCase().replaceAll("_", " ")
+  return billingStatusAliases[normalized] ?? normalized
 }
 
 export const PAYMENT_METHODS = [
@@ -40,6 +57,8 @@ export const paymentMethodLabels = {
 /** Semantic hex colors for status values, per the Accentra billing color system. */
 export const statusToneColors = {
   pending: "#3B82F6",
+  "for verification": "#3B82F6",
+  "for resubmission": "#F97316",
   paid: "#10B981",
   overdue: "#DC2626",
   cancelled: "#6B7280",
@@ -48,6 +67,8 @@ export const statusToneColors = {
 
 export const statusBadgeStyles = {
   pending: "bg-blue-500/10 text-blue-600 ring-blue-500/25",
+  "for verification": "bg-blue-500/10 text-blue-600 ring-blue-500/25",
+  "for resubmission": "bg-orange-500/10 text-orange-600 ring-orange-500/25",
   paid:
     "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20",
   overdue:
@@ -58,6 +79,8 @@ export const statusBadgeStyles = {
 
 export const statusDotStyles = {
   pending: "bg-blue-500",
+  "for verification": "bg-blue-500",
+  "for resubmission": "bg-orange-500",
   paid: "bg-emerald-500",
   overdue: "bg-red-600",
   cancelled: "bg-muted-foreground",
@@ -68,7 +91,7 @@ export const billingStatusFilterOptions = Object.entries(billingStatusLabels).ma
   ([value, label]) => ({ value, label })
 )
 
-export const billingStatusChangeOptions = ["pending", "paid", "refunded", "cancelled"].map(
+export const billingStatusChangeOptions = ["pending", "for verification", "for resubmission", "paid", "cancelled"].map(
   (value) => ({ value, label: billingStatusLabels[value] })
 )
 
@@ -84,7 +107,4 @@ export const formatPeso = (amount) => {
 
 /** A payment can only be verified when it is awaiting review and has a reference. */
 export const isVerifiable = (billing) =>
-  billing?.payment_status === "pending" ||
-  billing?.status === "for_verification" ||
-  billing?.status === "pending" ||
-  billing?.payments?.some((payment) => payment.status === "pending")
+  billing?.status === "for verification"

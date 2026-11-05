@@ -1,6 +1,4 @@
 import { useState } from "react"
-import { Loader2 } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -20,7 +18,7 @@ const REJECTION_REMARKS_MAX_LENGTH = 1000
  * flow: first confirm, then require a remarks entry before rejecting.
  * Reject changes the single billing status back to the existing
  * unresolved/pending state (spec section 9: never a persistent
- * "payment_status = verified").
+ * billing status to "paid").
  */
 export function RejectPaymentDialog({ billing, open, onOpenChange, onConfirm, submitting = false }) {
   const [step, setStep] = useState("confirm")

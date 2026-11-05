@@ -8,7 +8,8 @@ export const getDueDate = (invoice) => invoice.dueDate ?? invoice.due_date ?? nu
 export function classifyInvoice(invoice, today) {
   if (invoice.status === "paid") return "paid"
   if (["cancelled", "refunded"].includes(invoice.status)) return ""
-  if (invoice.payment_status === "pending") return "review"
+  if (invoice.status === "for verification") return "review"
+  if (invoice.status === "for resubmission") return "open"
   const due = parseDate(getDueDate(invoice))
   if (invoice.status === "overdue" || (due && due < today)) return "overdue"
   return "open"

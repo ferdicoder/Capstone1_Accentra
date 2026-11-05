@@ -350,8 +350,8 @@ export default function ClientDetailPage() {
                       </td>
                       <td className="px-3 py-3">{payment?.reference_id ?? "—"}</td>
                       <td className="px-3 py-3">
-                        {payment?.status ? (
-                          <BillingStatusBadge status={payment.status} />
+                        {billing.status ? (
+                          <BillingStatusBadge status={billing.status} />
                         ) : (
                           "No payment submitted"
                         )}

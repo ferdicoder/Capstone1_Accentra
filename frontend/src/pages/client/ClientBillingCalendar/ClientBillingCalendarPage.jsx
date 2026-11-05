@@ -69,7 +69,7 @@ const EVENT_TYPES = {
   },
 }
 
-const UNPAID_STATUSES = ["unpaid", "pending", "overdue", "for_verification"]
+const UNPAID_STATUSES = ["unpaid", "pending", "overdue", "for verification", "for resubmission"]
 const PAID_STATUSES = ["paid"]
 const ALL_SERVICES = "all"
 const RETAINER_GROUP = "Retainer fees"
@@ -78,7 +78,7 @@ const isTrackedStatus = (status) =>
   PAID_STATUSES.includes(status) || UNPAID_STATUSES.includes(status)
 
 const getPendingPayment = (billing) =>
-  billing.payments?.find((payment) => payment.status === "pending") ?? null
+  billing.payments?.find((payment) => payment.reference_id) ?? null
 
 function buildEvents({ billings, engagements, today }) {
   const engagementById = new Map(
@@ -127,7 +127,7 @@ function buildEvents({ billings, engagements, today }) {
         : "Paid (shown on its due date)"
     } else {
       const pending = getPendingPayment(billing)
-      if (billing.status === "for_verification" || pending) {
+      if (billing.status === "for verification" || pending) {
         type = "verifying"
         date =
           parseDate(pending?.created_at ?? pending?.submitted_at) ?? dueDate

@@ -1,11 +1,12 @@
 import { supabase } from "@/config/supabase"
 import { apiBaseUrl } from "@/config/api"
+import { normalizeBillingStatus } from "@/components/firm/billing/billing-variants"
 
 const BILLING_SELECT = `
   billing_id, business_id, billing_type, total_amount, status, due_date,
   billing_engagements(billing_id, engagement_id, amount, service_name),
   payments(
-    payment_id, billing_id, amount, payment_method, reference_id, status,
+    payment_id, billing_id, amount, payment_method, reference_id,
     payment_documents(payment_doc_id, file_name, mime_type, file_size, created_at)
   )
 `
@@ -29,15 +30,13 @@ function getLatestPaymentDocument(payment) {
 function mapBilling(row) {
   const links = row.billing_engagements ?? []
   const payments = row.payments ?? []
-  const payment = [...payments]
-    .sort((first, second) => {
-      if (first.status === "pending" && second.status !== "pending") return -1
-      if (first.status !== "pending" && second.status === "pending") return 1
-      return getPaymentCreatedAt(second) - getPaymentCreatedAt(first)
-    })[0] ?? null
+  const payment = [...payments].sort(
+    (first, second) => getPaymentCreatedAt(second) - getPaymentCreatedAt(first)
+  )[0] ?? null
   return {
     ...row,
     id: row.billing_id,
+    status: normalizeBillingStatus(row.status),
     invoice_type: row.billing_type,
     amount: Number(row.total_amount ?? 0),
     engagement_id: links[0]?.engagement_id ?? null,
@@ -49,7 +48,6 @@ function mapBilling(row) {
     payment_proof_name: getLatestPaymentDocument(payment)?.file_name ?? null,
     payment_proof_size: getLatestPaymentDocument(payment)?.file_size ?? null,
     payment_reference: payment?.reference_id ?? null,
-    payment_status: payment?.status ?? null,
     billing_month: null,
     billing_year: null,
   }
@@ -152,19 +150,27 @@ export async function createPayment({ billingId, amount, paymentMethod, referenc
     .from("payments")
     .insert({
       billing_id: billingId, amount, payment_method: paymentMethod,
-      reference_id: referenceId, status: "pending",
+      reference_id: referenceId,
     })
     .select()
     .single()
 
   if (error) throw error
+  if (referenceId?.trim()) {
+    const { error: billingError } = await supabase
+      .from("billings")
+      .update({ status: "for verification" })
+      .eq("billing_id", billingId)
+    if (billingError) throw billingError
+  }
   return data
 }
 
-export async function uploadPaymentProof(file, billingId, paymentMethod, uploadedBy) {
+export async function uploadPaymentProof(file, billingId, paymentMethod, uploadedBy, referenceId) {
   const formData = new FormData()
   formData.append("document", file)
   formData.append("paymentMethod", paymentMethod)
+  if (referenceId?.trim()) formData.append("referenceId", referenceId.trim())
   if (uploadedBy) formData.append("uploadedBy", uploadedBy)
 
   const response = await fetch(
@@ -181,24 +187,19 @@ export async function uploadPaymentProof(file, billingId, paymentMethod, uploade
 export async function updatePaymentStatus({ paymentId, billingId, status, referenceId }) {
   const { data, error } = await supabase
     .from("payments")
-    .update({ status, reference_id: referenceId ?? undefined })
+    .update({ reference_id: referenceId ?? undefined })
     .eq("payment_id", paymentId)
     .select()
     .single()
   if (error) throw error
 
-  if (billingId && (status === "verified" || status === "rejected" || status === "refunded")) {
-    const billing = await getBilling(billingId)
-    const verifiedTotal = (billing.payments ?? [])
-      .filter((payment) => payment.status === "verified")
-      .reduce((total, payment) => total + Number(payment.amount || 0), 0)
-    const nextStatus =
-      status === "refunded"
-        ? "refunded"
-        : verifiedTotal >= Number(billing.total_amount ?? billing.amount ?? 0)
-          ? "paid"
-          : "pending"
-    await updateBillingStatus({ id: billingId, status: nextStatus })
+  if (billingId && status) {
+    const nextStatus = {
+      verified: "paid",
+      rejected: "for resubmission",
+      refunded: "pending",
+    }[status]
+    if (nextStatus) await updateBillingStatus({ id: billingId, status: nextStatus })
   }
   return data
 }

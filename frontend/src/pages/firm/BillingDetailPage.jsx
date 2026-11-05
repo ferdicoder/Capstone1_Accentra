@@ -162,7 +162,7 @@ export default function BillingDetailPage() {
     return
   }
 
-  const payment = billing.payments?.find((item) => item.status === "pending")
+  const payment = billing.payments?.[0]
   if (!payment) return
   updatePayment.mutate({ paymentId: payment.payment_id, billingId: billing.id, status: "verified", referenceId }, {
     onSuccess: () => { setNotice(`${billing.id} payment verified`); setVerifyOpen(false); setTimeout(() => setNotice(""), 3000) },
@@ -173,7 +173,7 @@ export default function BillingDetailPage() {
   const handleConfirmRejection = (remarks) => {
     if (!billing) return
 
-    const payment = billing.payments?.find((item) => item.status === "pending")
+    const payment = billing.payments?.[0]
     if (!payment) return
     updatePayment.mutate({ paymentId: payment.payment_id, billingId: billing.id, status: "rejected" }, {
       onSuccess: () => { setVerifyOpen(false); showNotice(`${billing.id} payment rejected. Reason: ${remarks}`) },

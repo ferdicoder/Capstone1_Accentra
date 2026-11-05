@@ -61,7 +61,8 @@ export function useUpdatePaymentStatus() {
 export function useUploadPaymentProof() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ file, billingId, paymentMethod, uploadedBy }) => uploadPaymentProof(file, billingId, paymentMethod, uploadedBy),
+    mutationFn: ({ file, billingId, paymentMethod, uploadedBy, referenceId }) =>
+      uploadPaymentProof(file, billingId, paymentMethod, uploadedBy, referenceId),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.billing(vars.billingId) })
       qc.invalidateQueries({ queryKey: queryKeys.billings })

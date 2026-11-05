@@ -14,7 +14,8 @@ const OUTSTANDING_BILLING_STATUSES = [
   "unpaid",
   "pending",
   "overdue",
-  "for_verification",
+  "for verification",
+  "for resubmission",
   "issued",
   "under verification",
 ]

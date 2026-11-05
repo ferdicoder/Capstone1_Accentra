@@ -220,7 +220,7 @@ export default function ClientDashboard() {
     const add = (list, bucket) =>
       list.forEach((invoice) => {
         const kind =
-          invoice.payment_status === "rejected" && bucket !== "review"
+          invoice.status === "for resubmission" && bucket !== "review"
             ? "rejected"
             : bucket
         rows.push({ invoice, kind })

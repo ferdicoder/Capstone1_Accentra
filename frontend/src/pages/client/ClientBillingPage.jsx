@@ -3,44 +3,40 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   AlertCircle,
+  Check,
   ChevronRight,
   Clock,
   FileText,
+  Filter,
   Search,
+  X,
 } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchBusinessBillings } from "@/hooks/useBillings"
 import { authStore } from "@/store/authStore"
+import { billingStatusLabels } from "@/components/firm/billing/billing-variants"
+import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
 
-// Replace with the authenticated client's billing records from your API.
-const statusStyles = {
-  issued: "border-amber-200 bg-amber-50 text-amber-700",
-  pending: "border-blue-200 bg-blue-50 text-blue-700",
-  overdue: "border-red-200 bg-red-50 text-red-700",
-  paid: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  cancelled: "border-slate-200 bg-slate-100 text-slate-600",
-  refunded: "border-slate-200 bg-slate-100 text-slate-600",
-  Unpaid:
-    "border-amber-200 bg-amber-50 text-amber-700",
-  "Under Verification":
-    "border-blue-200 bg-blue-50 text-blue-700",
-  "Revision Requested":
-    "border-orange-200 bg-orange-50 text-orange-700",
-  Paid:
-    "border-emerald-200 bg-emerald-50 text-emerald-700",
-  Cancelled:
-    "border-slate-200 bg-slate-100 text-slate-600",
-}
-
-const filters = [
-  "All",
-  "pending", "overdue", "paid", "cancelled", "refunded",
+const statusFilters = [
+  "pending",
+  "for verification",
+  "for resubmission",
+  "paid",
+  "cancelled",
 ]
-
-const statusLabels = { pending: "Pending", overdue: "Overdue", paid: "Paid", cancelled: "Cancelled", refunded: "Refunded" }
 
 function formatCurrency(amount) {
   return `₱${Number(amount).toLocaleString("en-PH", {
@@ -55,7 +51,7 @@ export default function ClientBillingPage() {
   const { data: business } = useFetchMyBusiness(user?.id)
   const { data: invoices = [], isLoading, error } = useFetchBusinessBillings(business?.id)
   const [search, setSearch] = useState("")
-  const [activeFilter, setActiveFilter] = useState("All")
+  const [activeFilter, setActiveFilter] = useState("")
 
   usePageMeta({
     title: "My Billing",
@@ -68,24 +64,24 @@ export default function ClientBillingPage() {
   })
 
   const unpaidInvoices = invoices.filter(
-    (invoice) =>     ["pending", "overdue"].includes(invoice.status)
+    (invoice) => ["pending", "overdue", "for resubmission"].includes(invoice.status)
   )
 
   const outstandingAmount = invoices
     .filter((invoice) =>
-      ["pending", "overdue"].includes(
+      ["pending", "overdue", "for resubmission"].includes(
         invoice.status
       )
     )
     .reduce((total, invoice) => total + invoice.amount, 0)
 
   const pendingVerificationCount = invoices.filter(
-    (invoice) =>     invoice.status === "pending"
+    (invoice) => invoice.status === "for verification"
   ).length
 
   const filteredInvoices = invoices.filter((invoice) => {
     const query = search.trim().toLowerCase()
-    const matchesFilter = activeFilter === "All" || invoice.status === activeFilter
+    const matchesFilter = !activeFilter || invoice.status === activeFilter
     const matchesSearch = [invoice.id, invoice.engagement_id, invoice.billing_type]
       .filter(Boolean).some((value) => String(value).toLowerCase().includes(query))
     return matchesFilter && matchesSearch
@@ -134,34 +130,103 @@ export default function ClientBillingPage() {
         <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-semibold">Billing History</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {filteredInvoices.length} of {invoices.length} billing records
+            </p>
           </div>
 
-          <div className="relative w-full sm:max-w-xs">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search invoices..."
-              className="pl-9"
-            />
-          </div>
-        </div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <div className="relative w-full sm:w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search invoices..."
+                aria-label="Search invoices"
+                className="pl-9"
+              />
+            </div>
 
-        <div className="flex gap-2 overflow-x-auto border-b px-4 py-3">
-          {filters.map((filter) => (
-            <button
-              key={filter}
-              type="button"
-              onClick={() => setActiveFilter(filter)}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                activeFilter === filter
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {filter}
-            </button>
-          ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    className={`w-full justify-between gap-2 sm:w-auto ${
+                      activeFilter
+                        ? "border-forest-900/40 text-forest-900"
+                        : ""
+                    }`}
+                  />
+                }
+              >
+                <span className="flex items-center gap-2">
+                  <Filter className="size-4" />
+                  {activeFilter
+                    ? billingStatusLabels[activeFilter]
+                    : "All statuses"}
+                </span>
+                <ChevronRight className="size-4 rotate-90 opacity-60" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Filter by billing status</DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onClick={() => setActiveFilter("")}
+                    className="cursor-pointer"
+                  >
+                    <span className="flex w-4 shrink-0 justify-center">
+                      {!activeFilter && <Check className="size-4" />}
+                    </span>
+                    <span className="flex-1">All statuses</span>
+                    <span className="text-xs text-muted-foreground">
+                      {invoices.length}
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {statusFilters.map((status) => {
+                    const count = invoices.filter(
+                      (invoice) => invoice.status === status
+                    ).length
+                    return (
+                      <DropdownMenuItem
+                        key={status}
+                        onClick={() => setActiveFilter(status)}
+                        className="cursor-pointer"
+                      >
+                        <span className="flex w-4 shrink-0 justify-center">
+                          {activeFilter === status && (
+                            <Check className="size-4" />
+                          )}
+                        </span>
+                        <span className="flex-1">
+                          {billingStatusLabels[status]}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {count}
+                        </span>
+                      </DropdownMenuItem>
+                    )
+                  })}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {(search || activeFilter) && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setSearch("")
+                  setActiveFilter("")
+                }}
+                className="gap-1.5"
+              >
+                <X className="size-4" />
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
 
         {isLoading ? <p className="p-8 text-center text-sm text-muted-foreground">Loading billing…</p> : error ? <p className="p-8 text-center text-sm text-destructive">{error.message}</p> : filteredInvoices.length === 0 ? (
@@ -195,14 +260,7 @@ export default function ClientBillingPage() {
                     {invoice.billing_type}
                   </p>
                   <div className="mt-2">
-                    <span
-                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${
-                        statusStyles[invoice.status] ??
-                        "border-border bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {statusLabels[invoice.status] ?? invoice.status}
-                    </span>
+                    <BillingStatusBadge status={invoice.status} />
                   </div>
                 </div>
 
