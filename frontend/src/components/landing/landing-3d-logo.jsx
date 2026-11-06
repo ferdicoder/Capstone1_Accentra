@@ -12,13 +12,15 @@ const ACCENT_NAME = /swoosh|wave|curve|accent/i
 /**
  * Renders the supplied Accentra GLTF as a restrained section accent.
  *
- * The model is loaded only when this component mounts, rendered on demand
- * rather than in a permanent animation loop, and stays front-facing while its
- * horizontal offset and front-facing rotation are driven by page scroll
- * progress through the section. It is decorative and never receives pointer
- * or focus events.
+ * The model is loaded only when this component mounts. Optional motion runs
+ * only while visible and when reduced motion is not requested. It is
+ * decorative and never receives pointer or focus events.
  */
-export function Landing3DLogo({ className = "" }) {
+export function Landing3DLogo({
+  className = "",
+  animateEntrance = true,
+  animateFloatRotate = false,
+}) {
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
 
@@ -41,6 +43,7 @@ export function Landing3DLogo({ className = "" }) {
     let resizeObserver
     let intersectionObserver
     let scrollFrame = 0
+    let animationFrame = 0
     let isVisible = true
     let baseScale = 1
 
@@ -69,17 +72,18 @@ export function Landing3DLogo({ className = "" }) {
       // A short slide from beside its resting place, not from off-screen.
       const startX = finalX - modelWidth * 0.35
       const easedProgress = progress * progress * (3 - 2 * progress)
-      const offset = motionPreference.matches
-        ? finalX
-        : startX + (finalX - startX) * easedProgress
+      const offset =
+        !animateEntrance || motionPreference.matches
+          ? finalX
+          : startX + (finalX - startX) * easedProgress
 
       container.style.setProperty("--landing-3d-x", `${offset}px`)
-      container.style.opacity = motionPreference.matches
+      container.style.opacity = !animateEntrance || motionPreference.matches
         ? "1"
         : String(0.4 + 0.6 * easedProgress)
     }
 
-    const applyScrollProgress = () => {
+    const applyScrollProgress = (timestamp = performance.now()) => {
       const sectionProgress = getSectionProgress()
       container.dataset.scrollProgress = sectionProgress.toFixed(3)
       setEntrancePosition(sectionProgress)
@@ -87,14 +91,69 @@ export function Landing3DLogo({ className = "" }) {
       if (!model || !isVisible) return
 
       // Turn the logo toward the viewer as it reaches its resting position.
-      const entranceTurn = motionPreference.matches
-        ? 0
-        : -Math.PI * 0.25 * (1 - sectionProgress)
-      model.rotation.set(0, entranceTurn, 0)
-      model.position.set(0, 0, 0)
+      const frontFacingRotation = -Math.PI * 0.25
+      const rotationY = animateEntrance
+        ? motionPreference.matches
+          ? 0
+          : frontFacingRotation * (1 - sectionProgress)
+        : frontFacingRotation
+      const elapsed = timestamp / 1000
+      model.rotation.set(
+        animateFloatRotate && !motionPreference.matches
+          ? Math.sin(elapsed * 0.8) * 0.035
+          : 0,
+        rotationY +
+          (animateFloatRotate && !motionPreference.matches
+            ? elapsed * 0.32
+            : 0),
+        animateFloatRotate && !motionPreference.matches
+          ? Math.sin(elapsed * 0.65) * 0.025
+          : 0,
+      )
+      model.position.set(
+        0,
+        animateFloatRotate && !motionPreference.matches
+          ? Math.sin(elapsed * 1.6) * 0.08
+          : 0,
+        0,
+      )
       model.scale.setScalar(baseScale)
 
       renderScene()
+    }
+
+    const stopFloatAnimation = () => {
+      if (!animationFrame) return
+      window.cancelAnimationFrame(animationFrame)
+      animationFrame = 0
+    }
+
+    const animateFrame = (timestamp) => {
+      animationFrame = 0
+      if (
+        cancelled ||
+        !isVisible ||
+        !model ||
+        !animateFloatRotate ||
+        motionPreference.matches
+      ) {
+        return
+      }
+
+      applyScrollProgress(timestamp)
+      animationFrame = window.requestAnimationFrame(animateFrame)
+    }
+
+    const startFloatAnimation = () => {
+      if (
+        !animationFrame &&
+        isVisible &&
+        model &&
+        animateFloatRotate &&
+        !motionPreference.matches
+      ) {
+        animationFrame = window.requestAnimationFrame(animateFrame)
+      }
     }
 
     const scheduleRender = () => {
@@ -107,9 +166,11 @@ export function Landing3DLogo({ className = "" }) {
 
     const handleMotionChange = () => {
       if (motionPreference.matches) {
+        stopFloatAnimation()
         applyScrollProgress()
       } else {
-        scheduleRender()
+        startFloatAnimation()
+        if (!animateFloatRotate) scheduleRender()
       }
     }
 
@@ -251,6 +312,7 @@ export function Landing3DLogo({ className = "" }) {
             model.position.set(0, 0, 0)
             scene.add(model)
             applyScrollProgress()
+            startFloatAnimation()
             resize()
           },
           undefined,
@@ -262,7 +324,12 @@ export function Landing3DLogo({ className = "" }) {
         intersectionObserver = new IntersectionObserver(
           ([entry]) => {
             isVisible = entry.isIntersecting
-            if (isVisible) scheduleRender()
+            if (isVisible) {
+              startFloatAnimation()
+              if (!animateFloatRotate) scheduleRender()
+            } else {
+              stopFloatAnimation()
+            }
           },
           { rootMargin: "160px" },
         )
@@ -287,6 +354,7 @@ export function Landing3DLogo({ className = "" }) {
       window.removeEventListener("resize", scheduleRender)
       motionPreference.removeEventListener?.("change", handleMotionChange)
       if (scrollFrame) window.cancelAnimationFrame(scrollFrame)
+      stopFloatAnimation()
       resizeObserver?.disconnect()
       intersectionObserver?.disconnect()
       model?.traverse((child) => {
@@ -301,7 +369,7 @@ export function Landing3DLogo({ className = "" }) {
       environmentTexture?.dispose()
       renderer?.dispose()
     }
-  }, [])
+  }, [animateEntrance, animateFloatRotate])
 
   return (
     <div

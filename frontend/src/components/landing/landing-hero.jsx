@@ -1,5 +1,4 @@
 import { ArrowRight } from "lucide-react"
-import { Link } from "react-router-dom"
 
 // 1) Large vertical photo: replace ./hero-team.jpg with your photo.
 import heroImage from "./hero-team.jpg"
@@ -19,6 +18,7 @@ const secondaryImage = Object.values(secondaryImages)[0] ?? null
 export function LandingHero({ onSignIn }) {
   return (
     <section
+      id="home"
       data-landing-hero
       className="flex min-h-svh snap-start items-center overflow-x-clip bg-[#FAFBF9] pt-[4.5rem] text-[#02353C]"
     >
@@ -28,33 +28,25 @@ export function LandingHero({ onSignIn }) {
         className={`${landingContainer} grid w-full items-center gap-10 py-8 lg:grid-cols-[1fr_1fr] lg:gap-12`}
       >
         <div className="landing-enter landing-hero-copy">
-          <p className="inline-block border-b border-[#DCE9E5] pb-3 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-[#047857]">
-            Accounting practice management for Philippine firms
+          <p className="inline-block border-b border-[#DCE9E5] pb-3 text-sm font-semibold tracking-[0.02em] text-[#047857] sm:text-base">
+            Accounting Services by JOBAL
           </p>
           <h1 className="mt-6 max-w-[640px] text-[clamp(2.25rem,4.6vw,4rem)] font-semibold leading-[1.04] tracking-[-0.035em] text-balance">
-            One platform. Organized engagements. Better client coordination.
+            Your Business, Made Simpler.
           </h1>
           <p className="mt-6 max-w-[540px] text-lg leading-[1.65] text-[#3D5F5A]">
-            Accentra is a web-based practice management system for accounting
-            firms and solo practitioners, with clients, service requests,
-            engagements, documents, tasks, and billing in one place.
+            Providing reliable business registration and tax filing services
+            to help businesses manage their essential requirements.
           </p>
 
-          <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
-            <Link
-              to="/client/signup"
+          <div className="mt-8">
+            <a
+              href="#features"
               className="inline-flex items-center justify-center gap-2 rounded-md bg-[#02353C] px-5 py-3 text-[0.9375rem] font-semibold text-white transition-colors hover:bg-[#0A4B52] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#02353C]"
             >
-              Get started
+              Explore our services
               <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
-            <button
-              type="button"
-              onClick={onSignIn}
-              className="w-fit cursor-pointer border-b border-[#10B981] pb-0.5 text-sm text-[#02353C] transition-colors hover:border-[#02353C] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#02353C]"
-            >
-              Already a client? Open your portal
-            </button>
+            </a>
           </div>
         </div>
 

@@ -1,44 +1,51 @@
-import { Landing3DLogo } from "./landing-3d-logo"
 import { features, landingContainer, ui } from "./landing-data"
 
 export function LandingOverview() {
   return (
     <section
       id="features"
-      className="flex min-h-[calc(100svh-4.5rem)] snap-start items-center bg-white py-12"
+      className="flex min-h-[calc(100svh-4.5rem)] snap-start items-center bg-white py-14 sm:py-16"
       aria-labelledby="overview-heading"
     >
-      <div
-        className={`${landingContainer} grid w-full gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-center lg:gap-16`}
-      >
-        <div data-reveal className="landing-reveal">
-          <div className="relative h-[11rem] w-full">
-            <Landing3DLogo className="left-0 top-1/2 h-[11rem] w-[11rem]" />
-          </div>
+      <div className={`${landingContainer} w-full`}>
+        <div data-reveal className="landing-reveal max-w-2xl">
           <h2
             id="overview-heading"
-            className={`mt-6 max-w-[520px] ${ui.h2} text-[#02353C]`}
+            className={`${ui.h2} text-[#02353C]`}
           >
-            One workspace for every engagement.
+            Our Services
           </h2>
-          <p className={`mt-5 max-w-[480px] ${ui.lead} text-[#3D5F5A]`}>
-            Managing engagements gets harder when client information,
-            documents, tasks, and payments are scattered. Accentra brings them
-            together.
+          <p className={`mt-4 ${ui.lead} text-[#3D5F5A]`}>
+            Reliable support for business registration and tax filing to help
+            you manage essential business requirements.
           </p>
         </div>
 
         <ul
           data-reveal
           style={{ "--reveal-delay": "150ms" }}
-          className="landing-reveal grid gap-x-10 sm:grid-cols-2"
+          className="landing-reveal mt-8 grid gap-6 lg:grid-cols-2 lg:gap-8"
         >
-          {features.map(({ title, description }) => (
-            <li key={title} className="border-t border-[#DCE9E5] py-4">
-              <h3 className="font-semibold text-[#02353C]">{title}</h3>
-              <p className="mt-1 text-sm leading-5 text-[#3D5F5A]">
-                {description}
-              </p>
+          {features.map(({ title, description, image }) => (
+            <li
+              key={title}
+              className="group overflow-hidden rounded-2xl border border-[#DCE9E5] bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-[#02353C]/10"
+            >
+              <div className="aspect-[16/9] overflow-hidden bg-[#F2F7F4]">
+                <img
+                  src={image}
+                  alt={title}
+                  loading="lazy"
+                  decoding="async"
+                  className="size-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.03]"
+                />
+              </div>
+              <div className="p-5 sm:p-6">
+                <h3 className="text-lg font-semibold text-[#02353C]">{title}</h3>
+                <p className="mt-2 text-sm leading-6 text-[#3D5F5A]">
+                  {description}
+                </p>
+              </div>
             </li>
           ))}
         </ul>

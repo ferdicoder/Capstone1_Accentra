@@ -1,47 +1,65 @@
-import { Link } from "react-router-dom"
-
-import { LandingBrand } from "./landing-brand"
 import { landingContainer } from "./landing-data"
 
+const quickLinks = [
+  { label: "Home", href: "#home" },
+  { label: "Service", href: "#features" },
+  { label: "How It Works", href: "#workflow" },
+  { label: "About", href: "#about" },
+]
+
+const services = ["Business Registration", "Tax Filing"]
+
 const footerLink =
-  "transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300"
+  "text-sm text-white/70 transition-colors hover:text-[#6EE7B7] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#6EE7B7]"
 
-export function LandingFooter({ onSignIn }) {
+export function LandingFooter() {
   return (
-    <footer className="snap-end bg-[#062c31] py-8 text-white">
+    <footer className="snap-end bg-[#062c31] text-white">
       <div
-        className={`${landingContainer} flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between`}
+        className={`${landingContainer} grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr] lg:gap-16 lg:py-14`}
       >
-        <LandingBrand dark />
+        <div className="max-w-md">
+          <h2 className="text-lg font-semibold tracking-tight text-white">
+            Accounting Services by JOBAL
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-white/65">
+            Supporting businesses since 2006 through business registration and
+            tax filing services.
+          </p>
+        </div>
 
-        <nav
-          aria-label="Footer"
-          className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-white/55"
-        >
-          <a href="#features" className={footerLink}>
-            Features
-          </a>
-          <a href="#workflow" className={footerLink}>
-            How it works
-          </a>
-          <Link to="/firm/signin" className={footerLink}>
-            Firm sign in
-          </Link>
-          <button
-            type="button"
-            onClick={onSignIn}
-            className={`${footerLink} cursor-pointer`}
-          >
-            Client sign in
-          </button>
+        <nav aria-label="Quick links">
+          <h3 className="text-sm font-semibold text-white">Quick Links</h3>
+          <ul className="mt-4 flex flex-col items-start gap-3">
+            {quickLinks.map(({ label, href }) => (
+              <li key={href}>
+                <a href={href} className={footerLink}>
+                  {label}
+                </a>
+              </li>
+            ))}
+          </ul>
         </nav>
+
+        <div>
+          <h3 className="text-sm font-semibold text-white">Our Services</h3>
+          <ul className="mt-4 flex flex-col gap-3 text-sm text-white/70">
+            {services.map((service) => (
+              <li key={service}>{service}</li>
+            ))}
+          </ul>
+        </div>
       </div>
 
-      <div
-        className={`${landingContainer} mt-6 border-t border-white/10 pt-4 text-xs text-white/35`}
-      >
-        © {new Date().getFullYear()} Accentra. Simplifying the way accounting
-        practices work.
+      <div className="border-t border-white/10">
+        <div
+          className={`${landingContainer} flex flex-col gap-2 py-4 text-xs text-white/55 sm:flex-row sm:items-center sm:justify-between`}
+        >
+          <p>© 2026 Accounting Services by JOBAL. All rights reserved.</p>
+          <p>
+            Powered by <span className="font-medium text-white/75">Accentra</span>
+          </p>
+        </div>
       </div>
     </footer>
   )

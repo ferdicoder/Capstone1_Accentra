@@ -1,4 +1,6 @@
 import { Briefcase, Users } from "lucide-react"
+import businessRegistrationImage from "@/assets/BusinessReg.png"
+import taxFilingImage from "@/assets/TaxFiling.png"
 
 export const landingContainer = "mx-auto w-full max-w-[1800px] px-5 sm:px-8"
 
@@ -41,52 +43,24 @@ export const ui = {
 }
 
 export const navigationLinks = [
-  { label: "Features", href: "#features" },
+  { label: "Home", href: "#home" },
+  { label: "Service", href: "#features" },
   { label: "How it works", href: "#workflow" },
-  { label: "For firms", href: "#for-firms" },
-  { label: "For clients", href: "#for-clients" },
+  { label: "About", href: "#about" },
 ]
 
 export const features = [
   {
-    title: "Client management",
+    title: "Business Registration",
     description:
-      "Maintain organized client profiles with essential information and engagement records.",
+      "Reliable support with business registration and essential setup requirements.",
+    image: businessRegistrationImage,
   },
   {
-    title: "Service requests",
+    title: "Tax Filing",
     description:
-      "Clients submit requests for accounting services, and the firm reviews and manages them.",
-  },
-  {
-    title: "Service templates",
-    description:
-      "Create reusable templates with descriptions, predefined tasks, document requirements, and billing details.",
-  },
-  {
-    title: "Engagement management",
-    description:
-      "Create client engagements from service templates, with flexibility for specific requirements.",
-  },
-  {
-    title: "Document management and review",
-    description:
-      "Clients submit documents; staff review, approve, or request revisions in one place.",
-  },
-  {
-    title: "Task and progress monitoring",
-    description:
-      "Manage engagement tasks and give clients visibility into the progress of their services.",
-  },
-  {
-    title: "Billing management",
-    description:
-      "Organize billing records, record retainer fees, and monitor payment statuses.",
-  },
-  {
-    title: "Client portal",
-    description:
-      "A dedicated space to request services, upload documents, track progress, view billing, and download deliverables.",
+      "Reliable support with tax filing and managing essential tax requirements.",
+    image: taxFilingImage,
   },
 ]
 

@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom"
 
 import "@/components/landing/landing-motion.css"
+import { LandingAbout } from "@/components/landing/landing-about"
 import { LandingFooter } from "@/components/landing/landing-footer"
 import { LandingHero } from "@/components/landing/landing-hero"
 import { LandingOverview } from "@/components/landing/landing-overview"
@@ -18,7 +19,8 @@ export default function LandingPage() {
       <LandingHero onSignIn={openSignIn} />
       <LandingOverview />
       <LandingProcess />
-      <LandingFooter onSignIn={openSignIn} />
+      <LandingAbout />
+      <LandingFooter />
     </main>
   )
 }
