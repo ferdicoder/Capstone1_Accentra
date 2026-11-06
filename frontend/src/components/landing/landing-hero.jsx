@@ -74,9 +74,6 @@ export function LandingHero({ onSignIn }) {
             </div>
           </div>
 
-          <p className="mt-1 text-right text-[0.6875rem] text-[#557570] lg:mt-3">
-            Photo credit: update to match your photos
-          </p>
         </figure>
       </div>
     </section>
