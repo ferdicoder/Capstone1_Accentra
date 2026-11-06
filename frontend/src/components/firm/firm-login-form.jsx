@@ -62,11 +62,8 @@ export function FirmLoginForm({
     
       <FieldGroup> {/* this component groups related form fields together, providing a semantic structure and styling for the form */}
       
-        <div className="flex flex-col items-center"> {/* this div centers the welcome message and description text */}
+        <div className="flex flex-col items-center">
           <h1 className="text-2xl font-bold">Welcome Back!</h1>
-          <p className="text-xs text-balance text-muted-foreground alig">
-            Please enter your details
-          </p>
         </div>
 
         <Field> {/* this component represents the emailform field */}
@@ -114,27 +111,16 @@ export function FirmLoginForm({
         {loginError && (
           <div
             role="alert"
-            className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+            className="flex items-center gap-1.5 text-sm text-red-500"
           >
-            <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <CircleAlert aria-hidden="true" className="size-4 shrink-0" />
             <p>{loginError}</p>
           </div>
         )}
 
         <Field> {/* this component represents the submit button and the sign-up link */}
           <Button type="submit"
-          className="
-          mt-4
-          w-full
-          h-10
-          rounded-xl
-          bg-emerald-700
-          hover:bg-forest-900
-          text-white
-          transition-colors
-          focus-visible:ring-2
-          focus-visible:ring-emerald-500
-          "
+          className="h-12 w-3/4 max-w-sm self-center rounded-lg bg-forest-900 text-lg text-white transition-all hover:bg-[#18a16f] focus-visible:ring-2 focus-visible:ring-emerald-500"
           >Login</Button>
 
           <FieldDescription className="text-center">

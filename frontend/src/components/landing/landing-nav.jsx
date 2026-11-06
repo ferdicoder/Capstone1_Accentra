@@ -8,7 +8,7 @@ import { landingContainer, navigationLinks } from "./landing-data"
 const link =
   "text-[0.875rem] text-white/75 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#6EE7B7]"
 
-export function LandingNav({ onSignIn }) {
+export function LandingNav({ onSignIn, sectionPrefix = "" }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButtonRef = useRef(null)
 
@@ -41,7 +41,7 @@ export function LandingNav({ onSignIn }) {
 
           <div className="hidden items-center gap-8 lg:flex">
             {navigationLinks.map((l) => (
-              <a key={l.href} href={l.href} className={link}>
+              <a key={l.href} href={`${sectionPrefix}${l.href}`} className={link}>
                 {l.label}
               </a>
             ))}
@@ -90,7 +90,7 @@ export function LandingNav({ onSignIn }) {
             {navigationLinks.map((l) => (
               <a
                 key={l.href}
-                href={l.href}
+                href={`${sectionPrefix}${l.href}`}
                 onClick={closeMenu}
                 className={`${link} py-1.5`}
               >

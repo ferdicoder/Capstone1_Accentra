@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { ArrowLeft, Check, X } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { LandingNav } from "@/components/landing/landing-nav";
 
 import { registerClient } from "../../services/authService";
 import { accountSchema, businessSchema, passwordRequirements } from "/src/schemas/signupSchema";
@@ -209,18 +210,24 @@ export default function SignupPage() {
   const steps = ["Personal Information", "Business Registration"];
 
   return (
-    <main className="relative flex min-h-svh flex-col items-center justify-center gap-5 bg-[#fbfcfa] px-4 py-8 sm:gap-6">
-      <header className="absolute left-4 top-4 z-10">
-        <button
-          type="button"
-          onClick={() => navigate("/")}
-          className="inline-flex items-center gap-1.5 rounded-md py-2 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#02353C]"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Back
-        </button>
-      </header>
-      <div className={`client-auth-card w-full max-w-2xl rounded-xl border border-border bg-white p-5 shadow-[0_20px_50px_rgba(15,71,62,0.14)] sm:p-8 ${slideClass}`}>
+    <>
+      <LandingNav
+        onSignIn={() => navigate("/client/signin", { state: { clientAuthSlide: true } })}
+        sectionPrefix="/"
+      />
+      <main className="min-h-svh pt-[4.5rem]">
+        <div className="relative flex min-h-[calc(100svh-4.5rem)] flex-col items-center justify-center gap-5 bg-[#fbfcfa] px-4 py-8 sm:gap-6">
+          <header className="absolute left-4 top-4 z-10">
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="inline-flex items-center gap-1.5 rounded-md py-2 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#02353C]"
+            >
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              Back
+            </button>
+          </header>
+          <div className={`client-auth-card w-full max-w-2xl rounded-xl border border-border bg-white p-5 shadow-[0_20px_50px_rgba(15,71,62,0.14)] sm:p-8 ${slideClass}`}>
         <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
         <div className="flex items-center justify-between gap-2">
           {steps.map((step, index) => {
@@ -542,7 +549,9 @@ export default function SignupPage() {
             Sign in
           </Link>
         </p>
-      </div>
-    </main>
+          </div>
+        </div>
+      </main>
+    </>
   );
 }
