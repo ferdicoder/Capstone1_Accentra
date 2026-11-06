@@ -3,6 +3,18 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 
+:is(button, a, [role="button"])[class*="bg-forest-900"]:hover:not(:disabled):not([aria-disabled="true"]),
+:is(button, a, [role="button"])[class*="bg-[#02353C]"]:hover:not(:disabled):not([aria-disabled="true"]) {
+    background-color: #18a16f;
+    opacity: 1;
+}
+
+:is(button, a, [role="button"])[class*="from-[#0F3443]"]:hover:not(:disabled):not([aria-disabled="true"]) {
+    background-color: #18a16f;
+    background-image: none;
+    opacity: 1;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 .client-auth-slide-up {

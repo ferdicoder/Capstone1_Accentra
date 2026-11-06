@@ -4,12 +4,14 @@
  * fast-refresh lint rule stays happy.
  */
 
-/** Maps a raw role value to its badge styling. Only Admin and Staff are used. */
+/** Maps each firm role to its badge styling. */
 export const roleBadgeStyles = {
   admin:
     "bg-forest-900/10 text-forest-900 ring-forest-900/25 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20",
   staff:
     "bg-sky-500/10 text-sky-700 ring-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-500/20",
+  billing_officer:
+    "bg-amber-500/10 text-amber-700 ring-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20",
 }
 
 /**

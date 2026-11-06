@@ -144,6 +144,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="dashboard" replace /> },
           { path: "dashboard", element: <BillingOfficerDashboard /> },
+          { path: "profile", element: <StaffProfilePage /> },
           { path: "engagements", element: <EngagementsPage /> },
           { path: "engagements/:id", element: <EngagementDetailsPage /> },
           { path: "billing", element: <BillingPage /> },

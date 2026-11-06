@@ -4,13 +4,14 @@ import { roleBadgeStyles } from "./firm-user-variants"
 const defaultRoleLabels = {
   admin: "Admin",
   staff: "Staff",
+  billing_officer: "Billing Officer",
 }
 
 /**
  * Presentational pill that renders a user's role with a distinct color.
- * Only Admin and Staff roles are used by the User Management module.
+ * Firm roles each have a distinct color.
  *
- * @param {string} role - Raw role value, e.g. "admin" or "staff".
+ * @param {string} role - Raw role value, e.g. "admin", "staff", or "billing_officer".
  * @param {Object} roleLabels - Optional { value: label } overrides for display text.
  * @param {string} className - Extra classes merged onto the badge.
  */
