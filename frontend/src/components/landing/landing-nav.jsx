@@ -29,7 +29,7 @@ export function LandingNav({ onSignIn, sectionPrefix = "" }) {
   return (
     <header className="fixed inset-x-0 top-0 z-50">
       <nav
-        className="border-b border-white/10 bg-[#062c31]"
+        className="relative border-b border-white/10 bg-[#062c31] shadow-[0_14px_36px_rgba(2,30,32,0.48)]"
         aria-label="Main navigation"
       >
         <div
@@ -57,7 +57,7 @@ export function LandingNav({ onSignIn, sectionPrefix = "" }) {
             </button>
             <Link
               to="/client/signup"
-              className="rounded-md bg-[#10B981] px-4 py-2 text-[0.875rem] font-semibold text-[#02353C] transition-colors hover:bg-[#34D399] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#6EE7B7]"
+              className="rounded-md bg-white px-4 py-2 text-[0.875rem] font-semibold text-[#02353C] transition-colors hover:bg-[#E6F7EF] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#6EE7B7]"
             >
               Create account
             </Link>
@@ -84,7 +84,7 @@ export function LandingNav({ onSignIn, sectionPrefix = "" }) {
       {menuOpen && (
         <div
           id="landing-mobile-menu"
-          className="landing-menu-in border-b border-white/10 bg-[#062c31] lg:hidden"
+          className="landing-menu-in border-b border-white/10 bg-[#062c31] shadow-[0_14px_36px_rgba(2,30,32,0.48)] lg:hidden"
         >
           <div className={`${landingContainer} flex flex-col gap-3 py-4`}>
             {navigationLinks.map((l) => (
@@ -111,7 +111,7 @@ export function LandingNav({ onSignIn, sectionPrefix = "" }) {
               <Link
                 to="/client/signup"
                 onClick={closeMenu}
-                className="rounded-md bg-[#10B981] px-4 py-2 text-sm font-semibold text-[#02353C]"
+                className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-[#02353C] transition-colors hover:bg-[#E6F7EF]"
               >
                 Create account
               </Link>

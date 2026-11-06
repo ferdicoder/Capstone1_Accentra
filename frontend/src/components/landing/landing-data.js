@@ -67,31 +67,33 @@ export const features = [
 export const workflow = [
   {
     number: "01",
-    tag: "Client",
-    title: "Request a service",
+    title: "Create Your Account",
     description:
-      "Clients submit their desired accounting service through the client portal.",
+      "Register your account and provide your personal information to get started with Accentra.",
   },
   {
     number: "02",
-    tag: "Firm",
-    title: "Review and create an engagement",
+    title: "Choose a Service",
     description:
-      "The firm reviews the request and creates an engagement from the right service template.",
+      "Explore JOBAL's available services, including Tax Filing and Business Registration Assistance, and submit your service request.",
   },
   {
     number: "03",
-    tag: "Staff",
-    title: "Manage tasks and documents",
+    title: "Submit Required Documents",
     description:
-      "Staff handle assigned tasks, review submitted documents, and update activities.",
+      "Provide the necessary information and upload the documents requested by JOBAL. The firm will review your submissions and inform you if anything else is needed.",
   },
   {
     number: "04",
-    tag: "Client",
-    title: "Monitor and complete",
+    title: "Track Your Progress",
     description:
-      "Clients follow progress, view billing, and access completed deliverables.",
+      "Stay informed about your service request, review updates from the firm, and access your completed deliverables through Accentra.",
+  },
+  {
+    number: "05",
+    title: "Review Your Bill and Submit Payment Reference",
+    description:
+      "View your invoice and submit your payment reference through Accentra. The firm will verify your payment and update its status.",
   },
 ]
 

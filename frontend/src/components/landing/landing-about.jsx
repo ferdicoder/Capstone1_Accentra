@@ -22,10 +22,27 @@ export function LandingAbout() {
             Supporting Businesses Since 2006.
           </h2>
           <p className={`mx-auto mt-5 max-w-2xl ${ui.lead} text-[#3D5F5A] lg:mx-0`}>
-            Accounting Services by JOBAL provides business registration and
-            tax filing services, helping businesses manage their essential
-            requirements with confidence.
+            Based in Quezon City, Philippines, Accounting Services by JOBAL
+            provides Tax Filing and Business Registration Assistance to help
+            businesses manage their essential requirements.
           </p>
+          <div className="mx-auto mt-8 max-w-2xl border-t border-[#DCE9E5] pt-6 lg:mx-0">
+            <h3 className="text-lg font-semibold text-[#02353C]">
+              Get in Touch
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-[#3D5F5A]">
+              For inquiries and concerns about our services, you may contact
+              Accounting Services by JOBAL through our official email address.
+            </p>
+            <a
+              href="https://mail.google.com/mail/?view=cm&fs=1&to=jetjojet%40gmail.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-block font-medium text-[#047857] underline decoration-[#10B981] underline-offset-4 transition-colors hover:text-[#02353C] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#02353C]"
+            >
+              jetjojet@gmail.com
+            </a>
+          </div>
         </div>
         <div
           data-reveal
