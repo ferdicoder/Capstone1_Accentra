@@ -348,9 +348,15 @@ export default function ClientBillingDetailPage() {
               )}
 
               {paymentStatus === "for resubmission" && (
-                <p className="mt-3 text-sm text-orange-700">
-                  Your previous payment proof was rejected. Upload a new proof to submit another payment attempt.
-                </p>
+                <div className="mt-3">
+                  <p className="text-sm text-orange-700">
+                    {invoice.remark ||
+                      "Your previous payment proof was rejected."}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Upload a new proof to submit another payment attempt.
+                  </p>
+                </div>
               )}
 
               <p className="mt-1 text-sm text-muted-foreground">

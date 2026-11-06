@@ -158,6 +158,12 @@ export function BillingDetailContent({
                 ? billing.payment_reference
                 : "Not yet verified"}
             </InfoRow>
+
+            {billing.remark && (
+              <InfoRow label="Remark">
+                <span className="text-orange-700">{billing.remark}</span>
+              </InfoRow>
+            )}
           </div>
 
           {verifiable && (

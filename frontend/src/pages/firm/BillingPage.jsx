@@ -134,9 +134,9 @@ export default function BillingPage() {
 
   const handleConfirmVerification = () => {
     if (!verifying) return
-    const payment = verifying.payments?.find((item) => item.status === "pending")
-    if (!payment) return showNotice("No pending payment was found.")
-    updatePayment.mutate({ paymentId: payment.payment_id, billingId: verifying.id, status: "verified" }, {
+    const paymentId = verifying.payment_id ?? verifying.payments?.[0]?.payment_id
+    if (!paymentId) return showNotice("No payment was found for this billing.")
+    updatePayment.mutate({ paymentId, billingId: verifying.id, status: "verified" }, {
       onSuccess: () => { showNotice(`${verifying.id} payment verified`); setVerifying(null) },
       onError: (err) => showNotice(err.message),
     })
@@ -144,13 +144,14 @@ export default function BillingPage() {
 
   const handleConfirmRejection = (remarks) => {
     if (!verifying) return
-    const payment = verifying.payments?.find((item) => item.status === "pending")
-    if (!payment) return showNotice("No pending payment was found.")
+    const paymentId = verifying.payment_id ?? verifying.payments?.[0]?.payment_id
+    if (!paymentId) return showNotice("No payment was found for this billing.")
     updatePayment.mutate(
       {
-        paymentId: payment.payment_id,
+        paymentId,
         billingId: verifying.id,
         status: "rejected",
+        remark: remarks,
       },
       {
         onSuccess: () => {

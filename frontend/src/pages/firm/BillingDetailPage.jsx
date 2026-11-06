@@ -155,27 +155,27 @@ export default function BillingDetailPage() {
     )
   }
 
- const handleConfirmVerification = (paymentMethod, referenceId) => {
-  if (!billing || !paymentMethod) return
+  const handleConfirmVerification = (paymentMethod, referenceId) => {
+    if (!billing || !paymentMethod) return
 
-  if (paymentMethod !== "cash" && !referenceId) {
-    return
+    if (paymentMethod !== "cash" && !referenceId) {
+      return
+    }
+
+    const paymentId = billing.payment_id ?? billing.payments?.[0]?.payment_id
+    if (!paymentId) return
+    updatePayment.mutate({ paymentId, billingId: billing.id, status: "verified", referenceId }, {
+      onSuccess: () => { setNotice(`${billing.id} payment verified`); setVerifyOpen(false); setTimeout(() => setNotice(""), 3000) },
+      onError: (err) => showNotice(err.message),
+    })
   }
-
-  const payment = billing.payments?.[0]
-  if (!payment) return
-  updatePayment.mutate({ paymentId: payment.payment_id, billingId: billing.id, status: "verified", referenceId }, {
-    onSuccess: () => { setNotice(`${billing.id} payment verified`); setVerifyOpen(false); setTimeout(() => setNotice(""), 3000) },
-    onError: (err) => showNotice(err.message),
-  })
-}
 
   const handleConfirmRejection = (remarks) => {
     if (!billing) return
 
-    const payment = billing.payments?.[0]
-    if (!payment) return
-    updatePayment.mutate({ paymentId: payment.payment_id, billingId: billing.id, status: "rejected" }, {
+    const paymentId = billing.payment_id ?? billing.payments?.[0]?.payment_id
+    if (!paymentId) return
+    updatePayment.mutate({ paymentId, billingId: billing.id, status: "rejected", remark: remarks }, {
       onSuccess: () => { setVerifyOpen(false); showNotice(`${billing.id} payment rejected. Reason: ${remarks}`) },
       onError: (err) => showNotice(err.message),
     })

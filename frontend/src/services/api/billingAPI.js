@@ -3,7 +3,7 @@ import { apiBaseUrl } from "@/config/api"
 import { normalizeBillingStatus } from "@/components/firm/billing/billing-variants"
 
 const BILLING_SELECT = `
-  billing_id, business_id, billing_type, total_amount, status, due_date,
+  billing_id, business_id, billing_type, total_amount, status, remark, due_date,
   billing_engagements(billing_id, engagement_id, amount, service_name),
   payments(
     payment_id, billing_id, amount, payment_method, reference_id,
@@ -37,6 +37,7 @@ function mapBilling(row) {
     ...row,
     id: row.billing_id,
     status: normalizeBillingStatus(row.status),
+    remark: row.remark ?? null,
     invoice_type: row.billing_type,
     amount: Number(row.total_amount ?? 0),
     engagement_id: links[0]?.engagement_id ?? null,
@@ -48,6 +49,7 @@ function mapBilling(row) {
     payment_proof_name: getLatestPaymentDocument(payment)?.file_name ?? null,
     payment_proof_size: getLatestPaymentDocument(payment)?.file_size ?? null,
     payment_reference: payment?.reference_id ?? null,
+    payment_id: payment?.payment_id ?? null,
     billing_month: null,
     billing_year: null,
   }
@@ -134,9 +136,12 @@ export async function createBilling({ invoice_type, amount, due_date, client_id,
   return getBilling(billing.billing_id)
 }
 
-export async function updateBillingStatus({ id, status }) {
+export async function updateBillingStatus({ id, status, remark }) {
+  const update = { status }
+  if (remark !== undefined) update.remark = remark
+
   const { data, error } = await supabase
-    .from("billings").update({ status })
+    .from("billings").update(update)
     .eq("billing_id", id)
     .select(BILLING_SELECT)
     .single()
@@ -159,7 +164,7 @@ export async function createPayment({ billingId, amount, paymentMethod, referenc
   if (referenceId?.trim()) {
     const { error: billingError } = await supabase
       .from("billings")
-      .update({ status: "for verification" })
+      .update({ status: "for verification", remark: null })
       .eq("billing_id", billingId)
     if (billingError) throw billingError
   }
@@ -184,14 +189,18 @@ export async function uploadPaymentProof(file, billingId, paymentMethod, uploade
   return response.json()
 }
 
-export async function updatePaymentStatus({ paymentId, billingId, status, referenceId }) {
-  const { data, error } = await supabase
-    .from("payments")
-    .update({ reference_id: referenceId ?? undefined })
-    .eq("payment_id", paymentId)
-    .select()
-    .single()
-  if (error) throw error
+export async function updatePaymentStatus({ paymentId, billingId, status, referenceId, remark }) {
+  let data = null
+  if (referenceId != null) {
+    const { data: payment, error } = await supabase
+      .from("payments")
+      .update({ reference_id: referenceId })
+      .eq("payment_id", paymentId)
+      .select()
+      .single()
+    if (error) throw error
+    data = payment
+  }
 
   if (billingId && status) {
     const nextStatus = {
@@ -199,7 +208,15 @@ export async function updatePaymentStatus({ paymentId, billingId, status, refere
       rejected: "for resubmission",
       refunded: "pending",
     }[status]
-    if (nextStatus) await updateBillingStatus({ id: billingId, status: nextStatus })
+    if (nextStatus) {
+      const billingUpdate = { id: billingId, status: nextStatus }
+      if (status === "rejected") {
+        billingUpdate.remark = remark?.trim() || null
+      } else if (status === "verified") {
+        billingUpdate.remark = null
+      }
+      await updateBillingStatus(billingUpdate)
+    }
   }
   return data
 }

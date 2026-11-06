@@ -63,7 +63,7 @@ export async function submitPayment(req, res) {
     if (referenceId?.trim()) {
       const { error: billingUpdateError } = await supabaseAdmin
         .from('billings')
-        .update({ status: 'for verification' })
+        .update({ status: 'for verification', remark: null })
         .eq('billing_id', billingId);
       if (billingUpdateError) throw billingUpdateError;
     }

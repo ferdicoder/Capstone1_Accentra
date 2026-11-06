@@ -532,7 +532,7 @@ export default function BillingOfficerCalendarPage() {
     }
 
     updatePayment.mutate(
-      { paymentId: payment.payment_id, billingId: billing.id, status: "rejected" },
+      { paymentId: payment.payment_id, billingId: billing.id, status: "rejected", remark: remarks },
       {
         onSuccess: () => {
           setRejectingEvent(null)
