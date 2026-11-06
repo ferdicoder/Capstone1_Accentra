@@ -702,31 +702,50 @@ export function ServiceDeleteDialog({
   service,
   onConfirm,
   deleting = false,
-  title = "Delete Service",
+  title,
   cancelLabel = "Cancel",
-  confirmLabel = "Delete",
+  confirmLabel,
   className,
   ...props
 }) {
-  const hasEngagements = Number(service?.activeEngagements) > 0
+  const engagementCount = Number(service?.activeEngagements) || 0
+  const requestCount = Number(service?.serviceRequestCount) || 0
+  const isUsed = engagementCount + requestCount > 0
+  const referenceSummary = [
+    engagementCount > 0 ? `${engagementCount} engagement${engagementCount === 1 ? "" : "s"}` : null,
+    requestCount > 0 ? `${requestCount} service request${requestCount === 1 ? "" : "s"}` : null,
+  ]
+    .filter(Boolean)
+    .join(" and ")
+
+  const dialogTitle = title ?? (isUsed ? "Deactivate Service" : "Delete Service")
+  const dialogConfirmLabel = confirmLabel ?? (isUsed ? "Deactivate" : "Delete")
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} {...props}>
       <DialogContent data-slot="service-delete-dialog" className={className}>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete{" "}
-            <span className="font-medium text-foreground">{service?.name}</span>? This action
-            cannot be undone.
+            {isUsed ? (
+              <>
+                <span className="font-medium text-foreground">{service?.name}</span> is used by{" "}
+                {referenceSummary} and cannot be permanently deleted. Deactivating it removes it
+                from new engagements while keeping existing records intact.
+              </>
+            ) : (
+              <>
+                Are you sure you want to permanently delete{" "}
+                <span className="font-medium text-foreground">{service?.name}</span>? This action
+                cannot be undone.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
-        {hasEngagements && (
-          <div className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 ring-1 ring-red-500/20 ring-inset dark:text-red-400">
-            This service currently has {service.activeEngagements} active engagement
-            {service.activeEngagements === 1 ? "" : "s"}. Deleting it will remove it from the
-            catalog.
+        {isUsed && (
+          <div className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-700 ring-1 ring-amber-500/20 ring-inset dark:text-amber-400">
+            This service is referenced by {referenceSummary}. Only deactivation is available.
           </div>
         )}
 
@@ -747,10 +766,16 @@ export function ServiceDeleteDialog({
           >
             {deleting ? (
               <Loader2 className="size-4 animate-spin" />
+            ) : isUsed ? (
+              <Ban className="size-4" />
             ) : (
               <Trash2 className="size-4" />
             )}
-            {deleting ? "Deleting…" : confirmLabel}
+            {deleting
+              ? isUsed
+                ? "Deactivating…"
+                : "Deleting…"
+              : dialogConfirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -379,11 +379,37 @@ export default function ServiceManagementPage() {
 
   const handleDelete = () => {
     if (!deletingService) return
-    deleteService.mutate(deletingService.id, {
+    const service = deletingService
+    const isUsed =
+      (Number(service.activeEngagements) || 0) + (Number(service.serviceRequestCount) || 0) > 0
+
+    if (isUsed) {
+      // Used services can only be deactivated (soft delete) — the backend
+      // rejects hard deletes for anything referenced by an engagement/request.
+      toggleStatus.mutate(
+        { id: service.id, status: "deactivated" },
+        {
+          onSuccess: () => {
+            setDeleteOpen(false)
+            setNotice({ tone: "danger", message: `${service.name} deactivated` })
+            setDeletingService(null)
+          },
+          onError: (err) => {
+            setNotice({ tone: "danger", message: err.message })
+          },
+        }
+      )
+      return
+    }
+
+    deleteService.mutate(service.id, {
       onSuccess: () => {
         setDeleteOpen(false)
-        setNotice({ tone: "danger", message: `${deletingService.name} deleted` })
+        setNotice({ tone: "danger", message: `${service.name} deleted` })
         setDeletingService(null)
+      },
+      onError: (err) => {
+        setNotice({ tone: "danger", message: err.message })
       },
     })
   }
@@ -506,7 +532,7 @@ export default function ServiceManagementPage() {
             onOpenChange={setDeleteOpen}
             service={deletingService}
             onConfirm={handleDelete}
-            deleting={deleteService.isPending}
+            deleting={deleteService.isPending || toggleStatus.isPending}
           />
 
           <CategoryCreateDialog

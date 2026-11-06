@@ -15,6 +15,7 @@ npm run dev --prefix frontend   # Vite dev server, http://localhost:5173
 
 - The frontend talks to Supabase (Postgrest + Auth) **directly** for almost all CRUD, via `frontend/src/services/api/*.js` and React Query hooks in `frontend/src/hooks/`. The Express backend (`/api/v1`) only handles privileged/file operations: staff account creation, service template RPCs, Backblaze B2 document upload/download/delete, payment proofs.
 - The Supabase schema/migrations are **not in this repo**. Table names, RPC functions, and RLS policies live in a separate Supabase project; verify against the live schema, and don't assume code changes alone are deployable.
+- Known DB functions for services are versioned in `backend/sql/*.sql` (create/update service templates, atomic `delete_service_with_cleanup`) — reference copies only; they are applied **manually** via the Supabase SQL editor, and the live DB is the source of truth. The backend hard-deletes services through `delete_service_with_cleanup`, which enforces the "used by an engagement/service request → deactivate instead" guard.
 - File bytes go to Backblaze B2, **not** Supabase Storage. Uploads are held in Multer `memoryStorage`, capped at 15 MB, MIME allowlist in `backend/config/allowedFileTypes.js`.
 - Auth is Supabase PKCE. Backend routes validate `Bearer` tokens via `supabaseAdmin.auth.getUser(token)` and resolve roles from the `user_roles` table (`authUser` + `requireRole` middlewares). Frontend role state lives in the Zustand `authStore`, populated by `setUserRole` in `frontend/src/services/api/userAPI.js`.
 

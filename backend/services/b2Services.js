@@ -45,6 +45,20 @@ async function deleteFileVersion(fileName, fileId) {
   return res.data;
 }
 
+// template_documents only stores storage_key (no B2 file id), so resolve the
+// file id via list_file_versions before deleting.
+async function deleteFileByName(fileName) {
+  const { apiUrl, authorizationToken } = await authorizeB2();
+  const listRes = await axios.post(
+    `${apiUrl}/b2api/v3/b2_list_file_versions`,
+    { fileName, maxFileCount: 1 },
+    { headers: { Authorization: authorizationToken }, httpsAgent: b2HttpsAgent, timeout: 15000 }
+  );
+  const entry = listRes.data?.files?.[0];
+  if (!entry) return null;
+  return deleteFileVersion(entry.fileName, entry.fileId);
+}
+
 async function downloadFile(fileName) {
   const { downloadUrl, authorizationToken } = await authorizeB2();
   const res = await axios.get(
@@ -62,5 +76,6 @@ async function downloadFile(fileName) {
 export {
   uploadFile,
   deleteFileVersion,
+  deleteFileByName,
   downloadFile
 }

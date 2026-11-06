@@ -35,6 +35,40 @@ function mapTemplateDocument(documents) {
   }
 }
 
+// Counts how many engagements / service requests reference each service, so the
+// UI can tell "used" services (deactivate only) from unused ones (hard delete).
+async function fetchUsageCounts() {
+  const [engagementsResult, requestsResult] = await Promise.all([
+    supabase.from("engagements").select("service_id"),
+    supabase.from("service_requests").select("service_id"),
+  ])
+  if (engagementsResult.error) throw engagementsResult.error
+  if (requestsResult.error) throw requestsResult.error
+
+  const tally = (rows) => {
+    const counts = new Map()
+    for (const row of rows ?? []) {
+      if (!row.service_id) continue
+      counts.set(row.service_id, (counts.get(row.service_id) ?? 0) + 1)
+    }
+    return counts
+  }
+
+  return {
+    engagementCounts: tally(engagementsResult.data),
+    requestCounts: tally(requestsResult.data),
+  }
+}
+
+async function attachUsage(mappedRows) {
+  const { engagementCounts, requestCounts } = await fetchUsageCounts()
+  return mappedRows.map((service) => ({
+    ...service,
+    activeEngagements: engagementCounts.get(service.id) ?? 0,
+    serviceRequestCount: requestCounts.get(service.id) ?? 0,
+  }))
+}
+
 // refactor: paginate 
 async function getServices() {
   const { data, error } = await supabase
@@ -49,7 +83,7 @@ async function getServices() {
     `)
     
   if (error) throw error
-  return (data ?? []).map(mapServiceRow)
+  return attachUsage((data ?? []).map(mapServiceRow))
 }
 
 async function updateService(service) {
@@ -94,7 +128,7 @@ async function updateService(service) {
     .order('template_id', { foreignTable: 'template_tasks' }) 
   if (fetchError) throw fetchError
 
-  return mapServiceRow(updated)
+  return attachUsage([mapServiceRow(updated)]).then(([service]) => service)
 }
 
 // to be refactor: just one fn if the frontend remove the inactive
@@ -121,9 +155,22 @@ async function updateServiceStatus({ id, status }) {
   if (error) throw error
   return mapServiceRow(data)
 }
-// Soft delete 
+
+// Hard delete — only allowed by the backend when the service has never been
+// used by an engagement or service request.
 async function deleteService(id) {
-  return updateServiceStatus({ id, status: "deactivated" })
+  const { data: { session } } = await supabase.auth.getSession()
+  const response = await fetch(`${apiBaseUrl}/services/${id}`, {
+    method: "DELETE",
+    headers: {
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+    },
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.message || body.error || "Service deletion failed")
+  }
+  return id
 }
 
 async function createService(service) {
