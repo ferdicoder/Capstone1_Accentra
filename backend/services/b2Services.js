@@ -45,8 +45,9 @@ async function deleteFileVersion(fileName, fileId) {
   return res.data;
 }
 
-// template_documents only stores storage_key (no B2 file id), so resolve the
-// file id via list_file_versions before deleting.
+// Fallback for rows without a b2_file_id (legacy data): resolve the file id
+// via list_file_versions before deleting. Prefer deleteFileVersion when the
+// id is available.
 async function deleteFileByName(fileName) {
   const { apiUrl, authorizationToken } = await authorizeB2();
   const listRes = await axios.post(

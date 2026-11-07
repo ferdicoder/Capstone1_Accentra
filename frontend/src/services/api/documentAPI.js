@@ -22,17 +22,24 @@ async function uploadTemplateDocument(templateTaskId, file, onUploadProgress) {
   return res.data
 }
 
+// Accepts either a flat row (backend responses put file fields at the top
+// level) or a nested PostgREST row from engagement_task_submissions, where
+// file metadata lives under `files`.
 function mapDocumentRow(row) {
-  const uploader = row.uploader
+  const file = row.files ?? row
+  const uploader = file.uploader ?? row.uploader
+  const fileId = row.file_id ?? file.file_id ?? row.doc_id
   return {
-    id: row.doc_id,
-    name: row.file_name,
-    mimeType: row.mime_type,
-    fileSize: row.file_size,
+    id: fileId,
+    name: file.file_name,
+    mimeType: file.mime_type,
+    fileSize: file.file_size,
     uploadedBy: uploader ? [uploader.first_name, uploader.last_name].filter(Boolean).join(" ") : "—",
-    uploadedDate: row.created_at,
+    uploadedDate: file.created_at,
     engagementTaskId: row.engagement_task_id,
-    downloadUrl: `${apiBaseUrl}/documents/${row.doc_id}/download`,
+    reviewStatus: row.review_status ?? null,
+    remark: row.remark ?? null,
+    downloadUrl: `${apiBaseUrl}/documents/${fileId}/download`,
   }
 }
 
@@ -79,22 +86,29 @@ async function deleteEngagementDeliverable(deliverableId) {
 
 async function getEngagementDocuments(engagementId) {
   const { data, error } = await supabase
-    .from("engagement_documents")
+    .from("engagement_task_submissions")
     .select(`
-      doc_id, file_name, mime_type, file_size, created_at, engagement_task_id,
-      engagement_tasks!inner(engagement_id),
-      uploader:users!engagement_documents_uploaded_by_fkey(user_id, first_name, last_name)
+      file_id, engagement_task_id, review_status, remark,
+      files(
+        file_id, file_name, mime_type, file_size, created_at, uploaded_by,
+        uploader:users!files_uploaded_by_fkey(user_id, first_name, last_name)
+      ),
+      engagement_tasks!inner(engagement_id)
     `)
     .eq("engagement_tasks.engagement_id", engagementId)
-    .order("created_at", { ascending: false })
   if (error) throw error
-  return (data ?? []).map(mapDocumentRow)
+  // Junction rows carry no created_at — order by the embedded file instead.
+  const rows = [...(data ?? [])].sort(
+    (first, second) =>
+      new Date(second.files?.created_at ?? 0).getTime() -
+      new Date(first.files?.created_at ?? 0).getTime()
+  )
+  return rows.map(mapDocumentRow)
 }
 
-async function uploadEngagementDocument({ engagementTaskId, file, uploadedBy }) {
+async function uploadEngagementDocument({ engagementTaskId, file }) {
   const formData = new FormData()
   formData.append("document", file)
-  if (uploadedBy) formData.append("uploadedBy", uploadedBy)
   const token = await getAccessToken()
   const response = await fetch(`${apiBaseUrl}/documents/engagement-task/${engagementTaskId}`, {
     method: "POST",
@@ -105,7 +119,7 @@ async function uploadEngagementDocument({ engagementTaskId, file, uploadedBy }) 
     const body = await response.json().catch(() => ({}))
     throw new Error(body.error || "Document upload failed")
   }
-  return mapDocumentRow({ ...(await response.json()), uploader: null })
+  return mapDocumentRow(await response.json())
 }
 
 async function deleteEngagementDocument(docId) {

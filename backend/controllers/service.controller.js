@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "../config/supabaseAdmin.js";
-import { deleteFileByName } from "../services/b2Services.js";
+import { deleteFileByName, deleteFileVersion } from "../services/b2Services.js";
 
 async function createService(req, res) {
   const {
@@ -51,7 +51,7 @@ async function createService(req, res) {
         status,
         template_tasks(
           template_id, title, has_reference, is_required,
-          template_documents(doc_id, file_name, mime_type, file_size, created_at)
+          template_task_documents(file_id, files(file_name, mime_type, file_size, created_at))
         )
       `)
       .eq('service_id', serviceId)
@@ -81,8 +81,8 @@ async function deleteService(req, res) {
     const taskIds = (tasks ?? []).map((task) => task.template_id);
     const { data: documents, error: documentsError } = taskIds.length
       ? await supabaseAdmin
-          .from('template_documents')
-          .select('storage_key')
+          .from('template_task_documents')
+          .select('files(storage_key, b2_file_id)')
           .in('template_task_id', taskIds)
       : { data: [], error: null };
     if (documentsError) throw new Error(documentsError.message);
@@ -112,11 +112,16 @@ async function deleteService(req, res) {
     // delete must not fail the request (the file would just be orphaned).
     await Promise.all(
       (documents ?? []).map(async (document) => {
-        if (!document.storage_key) return;
+        const file = document.files;
+        if (!file?.storage_key) return;
         try {
-          await deleteFileByName(document.storage_key);
+          if (file.b2_file_id) {
+            await deleteFileVersion(file.storage_key, file.b2_file_id);
+          } else {
+            await deleteFileByName(file.storage_key);
+          }
         } catch (cleanupErr) {
-          console.error('B2 cleanup failed for orphaned template file:', document.storage_key, cleanupErr);
+          console.error('B2 cleanup failed for orphaned template file:', file.storage_key, cleanupErr);
         }
       })
     );

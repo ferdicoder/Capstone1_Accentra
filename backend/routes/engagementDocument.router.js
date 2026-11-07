@@ -48,10 +48,11 @@ engagementDocumentRouter
   .delete('/reference/:docId', authUser, requireRole('admin', 'staff'), deleteEngagementTaskReference)
   .post(
     '/engagement-task/:engagementTaskId',
+    authUser,
     multerUpload.single('document'),
     uploadEngagementDocument
   )
   .get('/:docId/download', downloadEngagementDocument)
-  .delete('/:docId', deleteEngagementDocument);
+  .delete('/:docId', authUser, deleteEngagementDocument);
 
 export default engagementDocumentRouter;
