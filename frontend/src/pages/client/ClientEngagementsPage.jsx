@@ -973,12 +973,13 @@ export default function ClientEngagementsPage() {
             </tbody>
           </table>
         </div>
+      
+      </div>
         <PaginationFooter
           page={visiblePage}
           totalPages={totalPages}
           onPageChange={setPage}
         />
-      </div>
     </div>
   )
 }

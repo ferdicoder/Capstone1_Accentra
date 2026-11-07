@@ -640,12 +640,12 @@ export default function ClientServiceRequestsPage() {
             </tbody>
           </table>
         </div>
-        <PaginationFooter
+      </div>
+       <PaginationFooter
           page={visiblePage}
           totalPages={totalPages}
           onPageChange={setPage}
         />
-      </div>
 
       <DeclineRemarkDialog
         open={remarkOpen}
