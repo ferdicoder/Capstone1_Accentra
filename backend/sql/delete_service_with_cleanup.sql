@@ -29,8 +29,8 @@ BEGIN
     SELECT COALESCE(ARRAY_AGG(template_id), '{}') INTO v_task_ids
     FROM template_tasks WHERE service_id = p_service_id;
 
-    DELETE FROM template_documents WHERE template_task_id = ANY(v_task_ids);
-    DELETE FROM template_tasks     WHERE template_id      = ANY(v_task_ids);
+    DELETE FROM template_task_documents WHERE template_task_id = ANY(v_task_ids);
+    DELETE FROM template_tasks           WHERE template_id      = ANY(v_task_ids);
     DELETE FROM services           WHERE service_id       = p_service_id;
 
     RETURN p_service_id;

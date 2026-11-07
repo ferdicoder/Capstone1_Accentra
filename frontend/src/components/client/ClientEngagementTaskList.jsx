@@ -85,7 +85,7 @@ const SAME_SUBMISSION_WINDOW_MS = 2 * 60 * 1000
 // ── Document Helpers ──────────────────────────────────────────────────────────
 
 // One shape for every file in this component. A document can arrive as:
-//   - a row straight from the upload endpoint (file_name, doc_id, created_at, ...)
+//   - a row straight from the upload endpoint (file_name, file_id, created_at, ...)
 //   - a mapped document from the documents list (name, id, downloadUrl, ...)
 // Pass the original File as the second argument for a file that was just
 // uploaded, so it can still be previewed before it has a download link.
@@ -93,7 +93,7 @@ export function normalizeDocument(source, file = null) {
   const raw = source ?? {}
   const downloadUrl = raw.downloadUrl ?? null
   return {
-    id: raw.id ?? raw.doc_id ?? null,
+    id: raw.id ?? raw.file_id ?? raw.doc_id ?? null,
     taskId: raw.engagementTaskId ?? raw.engagement_task_id ?? null,
     name: raw.name ?? raw.file_name ?? raw.fileName ?? file?.name ?? "Untitled file",
     mimeType: raw.mimeType ?? raw.mime_type ?? raw.fileType ?? file?.type ?? null,

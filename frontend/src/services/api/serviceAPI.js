@@ -18,20 +18,30 @@ function mapServiceRow(row) {
       name: t.title ?? "",
       required: t.is_required ?? false,
       hasReferenceDocument: t.has_reference ?? false,
-      referenceDocument: mapTemplateDocument(t.template_documents),
+      referenceDocument: mapTemplateDocument(t.template_task_documents),
     })),
   }
 }
 
 function mapTemplateDocument(documents) {
-  const document = Array.isArray(documents) ? documents.at(-1) : documents
+  const list = Array.isArray(documents) ? documents : [documents]
+  // Junction rows (template_task_documents) link to the shared `files` table
+  // — metadata lives there, and the junction has no created_at of its own.
+  const document = list
+    .filter(Boolean)
+    .sort(
+      (first, second) =>
+        new Date(second.files?.created_at ?? second.created_at ?? 0).getTime() -
+        new Date(first.files?.created_at ?? first.created_at ?? 0).getTime()
+    )[0]
   if (!document) return null
 
+  const file = document.files ?? document
   return {
-    id: document.doc_id,
-    name: document.file_name ?? "Reference document",
-    size: document.file_size,
-    type: document.mime_type,
+    id: document.file_id ?? file.file_id ?? file.doc_id,
+    name: file.file_name ?? "Reference document",
+    size: file.file_size,
+    type: file.mime_type,
   }
 }
 
@@ -78,7 +88,7 @@ async function getServices() {
       estimated_time, is_recurring, is_retainer_covered, status,
       template_tasks(
         template_id, title, has_reference, is_required,
-        template_documents(doc_id, file_name, mime_type, file_size, created_at)
+        template_task_documents(file_id, files(file_name, mime_type, file_size, created_at))
       )
     `)
     
@@ -120,7 +130,7 @@ async function updateService(service) {
       status,
       template_tasks(
         template_id, title, has_reference, is_required,
-        template_documents(doc_id, file_name, mime_type, file_size, created_at)
+        template_task_documents(file_id, files(file_name, mime_type, file_size, created_at))
       )
     `)
     .eq("service_id", serviceId)
@@ -147,7 +157,7 @@ async function updateServiceStatus({ id, status }) {
       is_recurring, is_retainer_covered, status,
       template_tasks(
         template_id, title, has_reference, is_required,
-        template_documents(doc_id, file_name, mime_type, file_size, created_at)
+        template_task_documents(file_id, files(file_name, mime_type, file_size, created_at))
       )
     `)
     .single()

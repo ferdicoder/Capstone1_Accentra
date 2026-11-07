@@ -1,7 +1,7 @@
 -- Applied manually via the Supabase SQL editor (schema lives outside this repo).
 -- Fixes: (1) duplicated p_is_recurring param (missing comma, did not compile),
 -- (2) adds p_is_retainer_covered to match frontend/src/services/api/serviceAPI.js,
--- (3) deletes template_documents of dropped tasks before deleting the tasks
+-- (3) deletes template_task_documents of dropped tasks before deleting the tasks
 -- so removing a task cannot hit an FK violation.
 -- Do NOT revoke execute from authenticated — the frontend calls this RPC directly.
 
@@ -48,8 +48,8 @@ BEGIN
     WHERE t->>'template_id' IS NOT NULL;
 
     -- Remove documents of dropped tasks first so the task delete below
-    -- cannot hit an FK violation.
-    DELETE FROM template_documents
+    -- cannot hit an FK violation. The `files` rows go away via cascade.
+    DELETE FROM template_task_documents
     WHERE template_task_id IN (
         SELECT template_id FROM template_tasks
         WHERE service_id = p_service_id

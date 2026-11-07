@@ -170,8 +170,8 @@ export default function ClientDetailPage() {
       : [{ billing, payment: null }]
   ).sort((first, second) => {
     const getMostRecentDate = ({ billing, payment }) =>
-      payment?.payment_documents
-        ?.map((document) => document.created_at)
+      payment?.payment_proofs
+        ?.map((proof) => proof.files?.created_at)
         .filter(Boolean)
         .sort()
         .at(-1) ?? billing.due_date ?? ""
@@ -325,8 +325,8 @@ export default function ClientDetailPage() {
                 </thead>
                 <tbody>
                   {clientPaymentHistory.map(({ billing, payment }, index) => {
-                    const paymentDate = payment?.payment_documents
-                      ?.map((document) => document.created_at)
+                    const paymentDate = payment?.payment_proofs
+                      ?.map((proof) => proof.files?.created_at)
                       .filter(Boolean)
                       .sort()
                       .at(-1)
