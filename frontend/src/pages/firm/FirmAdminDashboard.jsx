@@ -12,15 +12,11 @@ import {
   focusRing,
 } from "@/components/shared/dashboard"
 // Reused as-is from the Engagements page.
-import { CreateEngagementDialog } from "@/components/firm/service-requests/create-engagement-dialog"
 import { CreateBillingDialog } from "@/components/firm/billing/create-billing-dialog"
 import { isVerifiable } from "@/components/firm/billing/billing-variants"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchServiceRequests } from "@/hooks/useServiceRequests"
-import {
-  useFetchEngagements,
-  useCreateStandaloneEngagement,
-} from "@/hooks/useEngagements"
+import { useFetchEngagements } from "@/hooks/useEngagements"
 import { useFetchBillings, useCreateBilling } from "@/hooks/useBillings"
 import { useFetchBusinesses } from "@/hooks/useBusinesses"
 import { useFetchRecentActivity } from "@/hooks/UseRecentActivity"
@@ -28,11 +24,7 @@ import { authStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 import { describeActivity } from "@/lib/activity-log"
 import { classifyInvoice, getReadyToBill } from "@/lib/billing-status"
-import {
-  OUTSTANDING_BILL_MESSAGE,
-  buildOutstandingClientSet,
-  hasOutstandingBill,
-} from "@/lib/outstanding-bill"
+import { buildOutstandingClientSet } from "@/lib/outstanding-bill"
 import { isEngagementActive, stageLabel, stageTone } from "@/lib/vocab"
 import { describeDueDate, parseDate, useToday } from "@/lib/date-utils"
 
@@ -88,10 +80,6 @@ const F = {
     isRetainer: (c) =>
       (c.business?.clientType ?? c.clientType) === "retainer", // VERIFY
   },
-  // Selected business inside CreateEngagementDialog values.
-  business: {
-    clientId: (b) => b?.clientId ?? b?.client_id ?? b?.userId ?? b?.user_id, // VERIFY
-  },
 }
 
 const belongsToClient = (engagement, client) =>
@@ -139,7 +127,6 @@ export default function FirmAdminDashboard() {
   const billingsQuery = useFetchBillings()
   const clientsQuery = useFetchBusinesses()
   const activityQuery = useFetchRecentActivity()
-  const createEngagement = useCreateStandaloneEngagement()
   const createBilling = useCreateBilling()
 
   const requests = requestsQuery.data ?? []
@@ -148,8 +135,6 @@ export default function FirmAdminDashboard() {
   const clients = clientsQuery.data ?? []
   const activity = activityQuery.data ?? []
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [guardError, setGuardError] = useState("")
   const [billDialogOpen, setBillDialogOpen] = useState(false)
   const [billClientId, setBillClientId] = useState("")
   const [notice, setNotice] = useState("")
@@ -309,34 +294,6 @@ export default function FirmAdminDashboard() {
     )
   }, [retainerClients, engagements, billings, outstandingClientIds, today])
 
-  // --- Create engagement (same dialog the Engagements page uses) --------------
-  const handleCreateEngagement = (values) => {
-    // Visible half of the outstanding-bill rule. The backend must also enforce it.
-    const clientId = F.business.clientId(values.business)
-    if (clientId && hasOutstandingBill(billings, clientId)) {
-      setGuardError(OUTSTANDING_BILL_MESSAGE)
-      return
-    }
-    setGuardError("")
-    createEngagement.mutate(
-      {
-        businessId: values.business.id,
-        serviceId: values.serviceId,
-        assignedStaff: values.assignedStaff,
-        startDate: values.startDate,
-        dueDate: values.targetEndDate,
-        fee: values.serviceFee,
-      },
-      {
-        onSuccess: () => {
-          setDialogOpen(false)
-          setNotice("Engagement created successfully.")
-          setTimeout(() => setNotice(""), 5000)
-        },
-      }
-    )
-  }
-
   // Same create-billing dialog the Billing page uses. initialClientId is passed
   // for the dialog to preselect the client (ignored if it does not support it).
   const handleCreateBilling = (values) => {
@@ -355,11 +312,6 @@ export default function FirmAdminDashboard() {
   const openBill = (clientId) => {
     setBillClientId(clientId)
     setBillDialogOpen(true)
-  }
-
-  const openCreate = () => {
-    setGuardError("")
-    setDialogOpen(true)
   }
 
   // --- Render ----------------------------------------------------------------
@@ -583,12 +535,6 @@ export default function FirmAdminDashboard() {
                   warning={row.hasOutstanding ? "Unpaid bill" : undefined}
                   badge={{ label: `Retainer Fee: ${badge.label}`, tone: badge.tone }}
                   actions={[
-                    {
-                      label: "Create engagement",
-                      onClick: openCreate,
-                      disabled: row.hasOutstanding,
-                      reason: "This client has an unpaid bill",
-                    },
                     // Only while this month's Retainer Fee bill does not exist yet.
                     ...(row.feeKey === "none"
                       ? [
@@ -670,13 +616,6 @@ export default function FirmAdminDashboard() {
         initialClientId={billClientId}
       />
 
-      <CreateEngagementDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onSubmit={handleCreateEngagement}
-        submitting={createEngagement.isPending}
-        error={guardError || createEngagement.error?.message}
-      />
     </div>
   )
 }
