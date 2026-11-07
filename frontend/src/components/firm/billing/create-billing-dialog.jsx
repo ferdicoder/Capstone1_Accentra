@@ -608,9 +608,7 @@ export function CreateBillingDialog({
             </Field>
             {(isServiceFee || isRetainerFee) && (
               <Field>
-                <FieldLabel>
-                  Engagements <span className="text-red-500">*</span>
-                </FieldLabel>
+                <FieldLabel>Engagements</FieldLabel>
                 {selectedEngagements.map((engagement) => (
                   <div
                     key={engagement.id}
