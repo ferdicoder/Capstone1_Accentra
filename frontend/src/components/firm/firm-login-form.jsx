@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
-import { CircleAlert } from "lucide-react"
+import { CircleAlert, Eye, EyeOff } from "lucide-react"
 import {
   Field,
   FieldDescription,
@@ -25,6 +25,7 @@ export function FirmLoginForm({
     const [errors, setErrors] = useState({})
   const [loginError, setLoginError] = useState("")
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
     const navigate = useNavigate(); 
 
@@ -96,15 +97,32 @@ export function FirmLoginForm({
               Forgot your password?
             </button>
           </div>
-          <Input 
-          id="password" 
-          name="password"
-          type="password" 
-          className={cn(errors.password && "border-red-500 focus-visible:ring-red-500")}
-          />
-          {errors.password && (
-            <p className="text-sm text-red-500">Password is required.</p>
-          )}
+          <div className="relative">
+            <Input
+              id="password"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              className={cn(
+                "pr-10",
+                errors.password && "border-red-500 focus-visible:ring-red-500"
+              )}
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#02353C]"
+            >
+              {showPassword ? (
+                <EyeOff className="size-4" aria-hidden="true" />
+              ) : (
+                <Eye className="size-4" aria-hidden="true" />
+              )}
+            </button>
+          </div>
         </Field>
 
         {loginError && (

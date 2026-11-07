@@ -749,13 +749,13 @@ export function AdminForgotPasswordModal({ onClose, floating = false }) {
   if (!floating) return form
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
-      <button
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <button 
         type="button"
         aria-label="Close password recovery"
         tabIndex={-1}
         onClick={handleClose}
-        className="absolute inset-0 cursor-default bg-black/40 backdrop-blur-sm"
+         className="absolute inset-0 cursor-default bg-black/40 backdrop-blur-sm"
       />
       <div
         role="dialog"
