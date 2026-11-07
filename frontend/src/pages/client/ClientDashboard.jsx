@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Briefcase, CheckCircle2, ChevronRight, FileText, Receipt } from "lucide-react"
+import { Briefcase, CheckCircle2, ChevronRight } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import {
@@ -37,14 +37,14 @@ const CLIENT_TASK_STATUSES = ["missing", "for_revision"]
 // Rows shown per section on the dashboard. "View all" goes to the full page.
 const MAX_ROWS = 4
 
-// Badge + icon chip shown on each "Documents to Submit" row.
+// Badge shown on each "Documents to Submit" row.
 const documentBadges = {
   missing: { label: "Pending Submission", tone: "bg-orange-50 text-orange-700" },
   for_revision: { label: "Needs Revision", tone: "bg-red-50 text-red-700" },
   needed: { label: "Documents Needed", tone: "bg-amber-50 text-amber-700" },
 }
 
-// Badge + icon chip shown on each "Outstanding Billing" row.
+// Badge shown on each "Outstanding Billing" row.
 const billingBadges = {
   rejected: { label: "Proof Rejected", tone: "bg-orange-50 text-orange-700" },
   overdue: { label: "Overdue", tone: "bg-red-50 text-red-700" },
@@ -324,8 +324,6 @@ export default function ClientDashboard() {
                 return (
                   <ListRowAction
                     key={item.id}
-                    icon={FileText}
-                    iconTone={badge.tone}
                     title={item.title}
                     subtitle={`${item.serviceName} · ${item.stage}`}
                     badge={badge}
@@ -365,8 +363,6 @@ export default function ClientDashboard() {
                   <ListRowLink
                     key={invoice.id}
                     to={`/client/billing/${invoice.id}`}
-                    icon={Receipt}
-                    iconTone={badge.tone}
                     title={type ? billingTypeLabel(type) : invoice.id}
                     subtitle={
                       kind === "review"

@@ -14,8 +14,10 @@ export function Badge({ tone, children }) {
   )
 }
 
-// Small colored square holding a row's icon.
+// Small colored square holding a row's icon. Renders nothing when no icon is given.
 export function IconChip({ icon: Icon, tone }) {
+  if (!Icon) return null
+
   return (
     <span
       className={cn(

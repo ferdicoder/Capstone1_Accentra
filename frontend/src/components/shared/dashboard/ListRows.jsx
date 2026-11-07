@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { AlertTriangle, ArrowRight, ChevronRight, Clock } from "lucide-react"
+import { AlertTriangle, ArrowRight, ChevronRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Badge, IconChip } from "./Badge"
@@ -27,15 +27,10 @@ export function ListRowLink({
             {subtitle && (
               <p
                 className={cn(
-                  "flex items-center gap-1 text-xs",
+                  "text-xs",
                   urgent ? "font-medium text-red-700" : "text-muted-foreground"
                 )}
               >
-                {urgent ? (
-                  <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
-                ) : (
-                  <Clock className="size-3 shrink-0" aria-hidden="true" />
-                )}
                 {subtitle}
               </p>
             )}
