@@ -16,7 +16,7 @@ export function LandingAbout() {
           className="landing-reveal mx-auto max-w-3xl text-center lg:mx-0 lg:text-left"
         >
           <p className="text-sm font-semibold tracking-wide text-[#047857]">
-            Accounting Services by JOBAL
+            Jobal Business Consultancy
           </p>
           <h2 id="about-heading" className={`mt-4 ${ui.h2} text-[#02353C]`}>
             Supporting Businesses Since 2006.

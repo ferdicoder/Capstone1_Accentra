@@ -29,7 +29,7 @@ export function LandingHero({ onSignIn }) {
       >
         <div className="landing-enter landing-hero-copy">
           <p className="inline-block border-b border-[#DCE9E5] pb-3 text-sm font-semibold tracking-[0.02em] text-[#047857] sm:text-base">
-            Accounting Services by JOBAL
+            Jobal Business Consultancy
           </p>
           <h1 className="mt-6 max-w-[640px] text-[clamp(2.25rem,4.6vw,4rem)] font-semibold leading-[1.04] tracking-[-0.035em] text-balance">
             Your Business, Made Simpler.

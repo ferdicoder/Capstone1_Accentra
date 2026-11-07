@@ -20,7 +20,7 @@ export function LandingFooter() {
       >
         <div className="max-w-md">
           <h2 className="text-lg font-semibold tracking-tight text-white">
-            Accounting Services by JOBAL
+            Jobal Business Consultancy
           </h2>
           <p className="mt-3 text-sm leading-6 text-white/65">
             Supporting businesses since 2006 through business registration and
@@ -55,7 +55,7 @@ export function LandingFooter() {
         <div
           className={`${landingContainer} flex flex-col gap-2 py-4 text-xs text-white/55 sm:flex-row sm:items-center sm:justify-between`}
         >
-          <p>© 2026 Accounting Services by JOBAL. All rights reserved.</p>
+          <p>© 2026 Jobal Business Consultancy. All rights reserved.</p>
           <p>
             Powered by <span className="font-medium text-white/75">Accentra</span>
           </p>
