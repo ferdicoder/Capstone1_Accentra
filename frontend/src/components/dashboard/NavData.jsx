@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Receipt,
   CalendarDays,
+  FileText,
 } from "lucide-react"
 
 export const firmAdminNav = [
@@ -16,6 +17,7 @@ export const firmAdminNav = [
   { title: "Services", url: "/admin/services", icon: ClipboardList, items: [] },
   { title: "Engagements", url: "/admin/engagements", icon: Briefcase, items: [] },
   { title: "Billing", url: "/admin/billing", icon: Receipt, items: [] },
+  { title: "Reports", url: "/admin/reports", icon: FileText, items: [] },
   {
     title: "User Management",
     url: "/admin/users",

@@ -35,6 +35,7 @@ import ClientDetailPage from "@/pages/firm/ClientDetailPage";
 import BillingPage from "@/pages/firm/BillingPage";
 import BillingDetailPage from "@/pages/firm/BillingDetailPage";
 import BillingOfficerDashboard from "@/pages/firm/BillingOfficerDashboard";
+import ReportsPage from "@/pages/firm/report/ReportsPage"; // ADDED (file: src/pages/firm/report/ReportsPage.jsx)
 import LandingPage from "@/pages/LandingPage";
 
 export const router = createBrowserRouter([
@@ -95,6 +96,7 @@ export const router = createBrowserRouter([
           { path: "staff/:id", element: <StaffProfilePage /> },
           { path: "billing", element: <BillingPage /> },
           { path: "billing/:id", element: <BillingDetailPage /> },
+          { path: "reports", element: <ReportsPage /> }, // ADDED
         ],
       },
     ],

@@ -11,7 +11,9 @@ import {
   X,
 } from "lucide-react"
 
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchBilling, useUploadPaymentProof } from "@/hooks/useBillings"
@@ -26,19 +28,19 @@ function formatCurrency(amount) {
   })}`
 }
 
-const statusStyles = {
-  issued: "bg-amber-50 text-amber-700 border-amber-200",
-  pending: "bg-blue-50 text-blue-700 border-blue-200",
-  overdue: "bg-red-50 text-red-700 border-red-200",
-  paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  cancelled: "bg-slate-100 text-slate-600 border-slate-200",
-  refunded: "bg-slate-100 text-slate-600 border-slate-200",
-  Unpaid: "bg-amber-50 text-amber-700 border-amber-200",
-  "Under Verification": "bg-blue-50 text-blue-700 border-blue-200",
-  "Revision Requested": "bg-orange-50 text-orange-700 border-orange-200",
-  Paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  Cancelled: "bg-slate-100 text-slate-600 border-slate-200",
+// Date-only strings ("2026-03-01") are read as LOCAL dates so they never
+// show as the previous day.
+function formatDate(value) {
+  if (!value) return null
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  const date = match ? new Date(+match[1], +match[2] - 1, +match[3]) : new Date(value)
+  return Number.isNaN(date.getTime())
+    ? null
+    : date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
+
+const BILLING_TYPE_LABELS = { service_fee: "Service Fee", retainer_fee: "Retainer Fee" }
+const billingTypeLabel = (type) => BILLING_TYPE_LABELS[type] ?? type ?? "Billing"
 
 const paymentStatusLabels = {
   "for verification": "Payment Under Review",
@@ -48,6 +50,21 @@ const paymentStatusLabels = {
 const paymentStatusStyles = {
   "for verification": "bg-blue-50 text-blue-700 border-blue-200",
   "for resubmission": "bg-orange-50 text-orange-700 border-orange-200",
+}
+
+const inputClass =
+  "h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+
+function BackLink() {
+  return (
+    <Link
+      to="/client/billing"
+      className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+    >
+      <ArrowLeft className="size-4" />
+      Back to My Billing
+    </Link>
+  )
 }
 
 export default function ClientBillingDetailPage() {
@@ -67,7 +84,7 @@ export default function ClientBillingDetailPage() {
   const [referenceInvalid, setReferenceInvalid] = useState(false)
 
   const user = authStore((state) => state.user)
-  const { data: business } = useFetchMyBusiness(user?.id)
+  const { data: business, isLoading: businessLoading } = useFetchMyBusiness(user?.id)
   const { data: invoice, isLoading, error: queryError } = useFetchBilling(id)
   const uploadProof = useUploadPaymentProof()
 
@@ -78,6 +95,7 @@ export default function ClientBillingDetailPage() {
   const hasUploadedProof = Boolean(invoice?.payment_proof_url)
   const canSubmitPayment =
     ["pending", "overdue", "for resubmission"].includes(invoice?.status)
+  const typeLabel = billingTypeLabel(invoice?.billing_type ?? invoice?.invoice_type)
 
   usePageMeta({
     title: invoice?.id ?? "Billing Details",
@@ -90,11 +108,16 @@ export default function ClientBillingDetailPage() {
       navigate("/client/service-requests"),
   })
 
-  const handleFileChange = (event) => {
-    const file = event.target.files?.[0] ?? null
+  const clearErrors = () => {
     setError("")
     setProofInvalid(false)
     setReferenceInvalid(false)
+  }
+
+  const handleFileChange = (event) => {
+    const input = event.target
+    const file = input.files?.[0] ?? null
+    clearErrors()
 
     if (!file) return
 
@@ -105,15 +128,19 @@ export default function ClientBillingDetailPage() {
       "application/pdf",
     ]
 
+    // Reset the input on a rejected file so picking the same file again
+    // still triggers a change event.
     if (!allowedTypes.includes(file.type)) {
       setError("Upload a JPG, PNG, WEBP, or PDF file.")
       setProofInvalid(true)
+      input.value = ""
       return
     }
 
     if (file.size > 5 * 1024 * 1024) {
       setError("The file must be 5 MB or smaller.")
       setProofInvalid(true)
+      input.value = ""
       return
     }
 
@@ -124,26 +151,24 @@ export default function ClientBillingDetailPage() {
     event.preventDefault()
     // Keep a reference now: event.currentTarget is cleared after the first await.
     const form = event.currentTarget
-    setError("")
+    clearErrors()
     setSuccess("")
-    setProofInvalid(false)
-    setReferenceInvalid(false)
 
     if (!canSubmitPayment) return
 
+    const cleanReference = referenceId.trim()
     const validationErrors = getZodFieldErrors(clientPaymentProofSchema, {
       paymentMethod,
-      referenceId,
+      referenceId: cleanReference,
       proofFile,
     })
     if (Object.keys(validationErrors).length > 0) {
-      const proofError = Boolean(validationErrors.proofFile)
       setError(
         validationErrors.proofFile ??
           validationErrors.referenceId ??
           validationErrors.paymentMethod
       )
-      setProofInvalid(proofError)
+      setProofInvalid(Boolean(validationErrors.proofFile))
       setReferenceInvalid(Boolean(validationErrors.referenceId))
       scrollToFirstInvalidField(form)
       return
@@ -158,9 +183,13 @@ export default function ClientBillingDetailPage() {
         billingId: invoice.id,
         paymentMethod,
         uploadedBy: user?.id,
-        referenceId,
+        referenceId: cleanReference,
       })
       setSuccess("Payment submitted for verification.")
+      // Clear the form so the same proof can't be submitted twice by accident.
+      setProofFile(null)
+      setReferenceId("")
+      if (fileInputRef.current) fileInputRef.current.value = ""
     } catch (err) {
       setError(err?.message ?? "Unable to submit your payment.")
     } finally {
@@ -168,17 +197,18 @@ export default function ClientBillingDetailPage() {
     }
   }
 
-  if (isLoading) return <p className="p-8 text-sm text-muted-foreground">Loading billing…</p>
-  if (!invoice || queryError) {
+  if (isLoading || businessLoading) {
+    return <p className="p-8 text-sm text-muted-foreground">Loading billing…</p>
+  }
+
+  // A client must only ever see their own invoices. This hides another
+  // client's invoice in the UI; the backend must also refuse to return it.
+  const notMine = invoice && invoice.business_id !== business?.id
+
+  if (!invoice || queryError || notMine) {
     return (
       <div className="space-y-4 px-2 py-2 sm:px-4 lg:px-6">
-        <Link
-          to="/client/billing"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" />
-          Back to My Billing
-        </Link>
+        <BackLink />
 
         <div className="rounded-xl border p-8 text-center">
           <FileText className="mx-auto size-8 text-muted-foreground" />
@@ -193,15 +223,13 @@ export default function ClientBillingDetailPage() {
     )
   }
 
+  const engagementList = invoice.billing_engagements
+    ?.map((item) => item.engagement_id)
+    .join(", ")
+
   return (
     <div className="flex flex-1 flex-col gap-5 px-2 py-2 sm:px-4 lg:px-6">
-      <Link
-        to="/client/billing"
-        className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" />
-        Back to My Billing
-      </Link>
+      <BackLink />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -212,7 +240,7 @@ export default function ClientBillingDetailPage() {
             {invoice.id}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {invoice.billing_type}
+            {typeLabel}
           </p>
         </div>
       </div>
@@ -221,16 +249,10 @@ export default function ClientBillingDetailPage() {
         {/* Invoice details */}
         <section className="overflow-hidden rounded-xl border bg-background">
           <div className="border-b p-5">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <FileText className="size-5 text-muted-foreground" />
               <h2 className="font-semibold">Billing Summary</h2>
-
-                <span
-                className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${
-                  statusStyles[invoice.status] ?? "border-border"
-                }`}>
-                {invoice.status}
-              </span>
+              <BillingStatusBadge status={invoice.status} />
             </div>
           </div>
 
@@ -240,10 +262,10 @@ export default function ClientBillingDetailPage() {
                 Service / Engagement
               </p>
               <p className="mt-1 font-medium">
-                {invoice.billing_engagements?.[0]?.service_name ?? invoice.billing_type}
+                {invoice.billing_engagements?.[0]?.service_name ?? typeLabel}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {invoice.billing_engagements?.map((item) => item.engagement_id).join(", ") ?? "—"}
+                {engagementList || "—"}
               </p>
             </div>
 
@@ -252,7 +274,7 @@ export default function ClientBillingDetailPage() {
                 Description
               </p>
               <p className="mt-1 text-sm">
-                Billing for {invoice.billing_type}
+                Billing for {typeLabel}
               </p>
             </div>
 
@@ -262,7 +284,7 @@ export default function ClientBillingDetailPage() {
                   Invoice Date
                 </p>
                 <p className="mt-1 text-sm font-medium">
-                  {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : "—"}
+                  {formatDate(invoice.invoiceDate ?? invoice.created_at) ?? "—"}
                 </p>
               </div>
 
@@ -271,7 +293,7 @@ export default function ClientBillingDetailPage() {
                   Due Date
                 </p>
                 <p className="mt-1 text-sm font-medium">
-                  {invoice.dueDate ?? "Not specified"}
+                  {formatDate(invoice.dueDate) ?? "Not specified"}
                 </p>
               </div>
             </div>
@@ -399,26 +421,31 @@ export default function ClientBillingDetailPage() {
                     value={paymentMethod}
                     onChange={(event) => setPaymentMethod(event.target.value)}
                     disabled={isSubmitting}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className={inputClass}
                   >
                     <option value="gcash">GCash</option>
                     <option value="bank_transfer">Bank Transfer</option>
                   </select>
                 </div>
 
-                {/* data-invalid is what scrollToFirstInvalidField looks for. */}
+                {/* data-invalid-field is what scrollToFirstInvalidField looks for. */}
                 <div className="space-y-1.5 rounded-lg">
-                  <label className="text-sm font-medium">
+                  <label htmlFor="client-payment-reference" className="text-sm font-medium">
                     Payment Reference
+                    <span className="ml-0.5 text-red-500">*</span>
                   </label>
                   <input
+                    id="client-payment-reference"
                     value={referenceId}
-                    onChange={(event) => setReferenceId(event.target.value)}
+                    onChange={(event) => {
+                      setReferenceId(event.target.value)
+                      if (referenceInvalid) setReferenceInvalid(false)
+                    }}
                     aria-invalid={referenceInvalid || undefined}
                     data-invalid-field={referenceInvalid ? "true" : undefined}
                     placeholder="Enter your payment reference"
                     disabled={isSubmitting}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className={cn(inputClass, referenceInvalid && "border-red-500")}
                     required
                   />
                 </div>
@@ -469,6 +496,7 @@ export default function ClientBillingDetailPage() {
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       aria-invalid={proofInvalid}
+                      data-invalid-field={proofInvalid ? "true" : undefined}
                       className={`flex w-full flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-center transition-colors hover:bg-muted/40 ${
                         proofInvalid ? "border-red-500 bg-red-50/50" : ""
                       }`}
