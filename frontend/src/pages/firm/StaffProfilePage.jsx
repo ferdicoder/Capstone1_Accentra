@@ -1,8 +1,7 @@
 import { useMemo, useRef, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, Check, Pencil, Save, ShieldQuestion, X } from "lucide-react"
+import { ArrowLeft, Pencil, Save } from "lucide-react"
 
-import { AdminForgotPasswordModal } from "@/components/firm/admin-forgot-password-modal"
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchUsers } from "@/hooks/useUsers"
@@ -13,15 +12,7 @@ import {
   sanitizePhoneInput,
   scrollToFirstInvalidField,
 } from "@/lib/form-validation"
-import { passwordRequirements } from "@/lib/passwordRequirements"
-import {
-  passwordChangeSchema,
-  profilePersonalInfoSchema,
-} from "@/schemas/profileSchema"
-import {
-  changeAuthenticatedPassword,
-  getPasswordReuseMessage,
-} from "@/services/authService"
+import { profilePersonalInfoSchema } from "@/schemas/profileSchema"
 import { cn } from "@/lib/utils"
 
 import { buttonVariants, Button } from "@/components/ui/button"
@@ -40,7 +31,6 @@ import { FirmUserStatusBadge } from "@/components/firm/users/firm-user-status-ba
 
 const controlClass = "w-full bg-background"
 const readOnlyClass = cn(controlClass, "cursor-not-allowed bg-muted/50 text-muted-foreground")
-const initialSecurity = { currentPassword: "", newPassword: "", confirmPassword: "" }
 
 const getInitials = (name) => {
   const initials = (name ?? "")
@@ -53,17 +43,10 @@ const getInitials = (name) => {
 }
 
 function StaffSettings({ profile, role }) {
-  const [activeTab, setActiveTab] = useState("personal")
   const [editing, setEditing] = useState(false)
   const [confirmationOpen, setConfirmationOpen] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
   const [personalInfoErrors, setPersonalInfoErrors] = useState({})
-  const [security, setSecurity] = useState(initialSecurity)
-  const [securityErrors, setSecurityErrors] = useState({})
-  const [isSaving, setIsSaving] = useState(false)
-  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
-  const passwordSaveInProgress = useRef(false)
-  const securityFormRef = useRef(null)
   const personalInfoFormRef = useRef(null)
   const [personalInfo, setPersonalInfo] = useState({
     firstName: profile.firstName,
@@ -123,60 +106,6 @@ function StaffSettings({ profile, role }) {
     })
   }
 
-  const updateSecurityField = (name, value) => {
-    setSecurity((current) => ({ ...current, [name]: value }))
-    setSecurityErrors((current) => ({ ...current, [name]: undefined }))
-    setSaveMessage(null)
-  }
-
-  const handleSavePassword = async (event) => {
-    event.preventDefault()
-    if (passwordSaveInProgress.current) return
-
-    const nextErrors = getZodFieldErrors(passwordChangeSchema, security)
-
-    setSecurityErrors(nextErrors)
-    if (Object.keys(nextErrors).length > 0) {
-      setSaveMessage(null)
-      scrollToFirstInvalidField(securityFormRef.current)
-      return
-    }
-
-    passwordSaveInProgress.current = true
-    setIsSaving(true)
-    setSaveMessage(null)
-    try {
-      await changeAuthenticatedPassword({
-        currentPassword: security.currentPassword,
-        newPassword: security.newPassword,
-      })
-      setSecurity(initialSecurity)
-      setSecurityErrors({})
-      setSaveMessage({ type: "success", text: "Password updated successfully." })
-    } catch (error) {
-      console.error("Staff password change failed:", error?.message)
-      const reuseMessage = getPasswordReuseMessage(error)
-      if (reuseMessage) {
-        setSecurity((current) => ({ ...current, currentPassword: "" }))
-        setSecurityErrors({ newPassword: reuseMessage })
-        setSaveMessage(null)
-        return
-      }
-      setSecurity(initialSecurity)
-      if (error?.message === "Current password is incorrect.") {
-        setSecurityErrors({ currentPassword: error.message })
-      } else {
-        setSaveMessage({
-          type: "error",
-          text: "We couldn't update your password. Please try again.",
-        })
-      }
-    } finally {
-      passwordSaveInProgress.current = false
-      setIsSaving(false)
-    }
-  }
-
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-2">
       <div className="flex items-center gap-4">
@@ -186,31 +115,6 @@ function StaffSettings({ profile, role }) {
         <div>
           <h1 className="text-lg font-semibold leading-tight">{displayName}</h1>
         </div>
-      </div>
-
-      <div className="flex gap-8 border-b">
-        {[
-          { key: "personal", label: "Personal Information" },
-          { key: "security", label: "Security" },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => {
-              if (editing) cancelEditing()
-              setActiveTab(tab.key)
-              setSaveMessage(null)
-            }}
-            className={cn(
-              "-mb-px border-b-2 pb-3 text-sm font-medium transition-colors",
-              activeTab === tab.key
-                ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
       </div>
 
       {saveMessage && (
@@ -228,19 +132,51 @@ function StaffSettings({ profile, role }) {
         </div>
       )}
 
-      {activeTab === "personal" && (
-        <form
-          ref={personalInfoFormRef}
-          onSubmit={handleSavePersonalInfo}
-          noValidate
-          className="flex flex-col gap-6"
-        >
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-              <h2 className="text-sm font-semibold">Personal Information</h2>
-              <p className="mb-5 mt-1 text-sm text-muted-foreground">
-                Your contact details for the firm.
-              </p>
-              <FieldGroup className="gap-5">
+      <form
+        ref={personalInfoFormRef}
+        onSubmit={handleSavePersonalInfo}
+        noValidate
+        className="flex flex-col gap-6"
+      >
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-semibold">Personal Information</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Your contact details for the firm.
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {editing ? (
+                  <>
+                    <Button type="button" variant="outline" onClick={cancelEditing}>
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                    >
+                      <Save className="size-4" />
+                      Save Changes
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => {
+                      setSaveMessage(null)
+                      setEditing(true)
+                    }}
+                  >
+                    <Pencil className="size-4" />
+                    Edit
+                  </Button>
+                )}
+              </div>
+            </div>
+            <FieldGroup className="gap-5">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor="staff-first-name">First Name</FieldLabel>
@@ -341,173 +277,8 @@ function StaffSettings({ profile, role }) {
                 )}
                 </FieldGroup>
               </div>
-          </div>
-
-          <div className="flex justify-end gap-2">
-            {editing ? (
-              <>
-                <Button type="button" variant="outline" onClick={cancelEditing}>
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="gap-2 bg-forest-900 text-white hover:opacity-90"
-                >
-                  <Save className="size-4" />
-                  Save Changes
-                </Button>
-              </>
-            ) : (
-              <Button
-                type="button"
-                onClick={() => {
-                  setSaveMessage(null)
-                  setEditing(true)
-                }}
-                className="gap-2 bg-forest-900 text-white hover:opacity-90"
-              >
-                <Pencil className="size-4" />
-                Edit
-              </Button>
-            )}
-          </div>
-        </form>
-      )}
-
-      {activeTab === "security" && (
-        <form
-          ref={securityFormRef}
-          onSubmit={handleSavePassword}
-          noValidate
-          className="flex flex-col gap-6"
-        >
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-xl border border-border bg-card p-6 shadow-sm lg:col-span-2">
-              <div className="mb-5 flex items-center justify-between">
-                <h2 className="text-sm font-semibold">Change Password</h2>
-                <button
-                  type="button"
-                  onClick={() => setIsForgotPasswordOpen(true)}
-                  className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-emerald-700 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
-                >
-                  <ShieldQuestion className="size-4" />
-                  Forgot your current password?
-                </button>
-              </div>
-              <FieldGroup className="gap-5">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field data-invalid={Boolean(securityErrors.currentPassword) || undefined}>
-                    <FieldLabel htmlFor="staff-current-password">
-                      Current Password<span className="text-red-500">*</span>
-                    </FieldLabel>
-                    <Input
-                      id="staff-current-password"
-                      type="password"
-                      autoComplete="current-password"
-                      value={security.currentPassword}
-                      onValueChange={(value) => updateSecurityField("currentPassword", value)}
-                      disabled={isSaving}
-                      aria-required="true"
-                      aria-invalid={Boolean(securityErrors.currentPassword) || undefined}
-                      aria-describedby={
-                        securityErrors.currentPassword ? "staff-current-password-error" : undefined
-                      }
-                      className={controlClass}
-                    />
-                    <FieldError id="staff-current-password-error">
-                      {securityErrors.currentPassword}
-                    </FieldError>
-                  </Field>
-                  <div />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field data-invalid={Boolean(securityErrors.newPassword) || undefined}>
-                    <FieldLabel htmlFor="staff-new-password">
-                      New Password<span className="text-red-500">*</span>
-                    </FieldLabel>
-                    <Input
-                      id="staff-new-password"
-                      type="password"
-                      autoComplete="new-password"
-                      value={security.newPassword}
-                      onValueChange={(value) => updateSecurityField("newPassword", value)}
-                      disabled={isSaving}
-                      aria-required="true"
-                      aria-invalid={Boolean(securityErrors.newPassword) || undefined}
-                      aria-describedby={
-                        securityErrors.newPassword ? "staff-new-password-error" : undefined
-                      }
-                      className={controlClass}
-                    />
-                    <FieldError id="staff-new-password-error">
-                      {securityErrors.newPassword}
-                    </FieldError>
-                  </Field>
-                  <Field data-invalid={Boolean(securityErrors.confirmPassword) || undefined}>
-                    <FieldLabel htmlFor="staff-confirm-password">
-                      Confirm New Password<span className="text-red-500">*</span>
-                    </FieldLabel>
-                    <Input
-                      id="staff-confirm-password"
-                      type="password"
-                      autoComplete="new-password"
-                      value={security.confirmPassword}
-                      onValueChange={(value) => updateSecurityField("confirmPassword", value)}
-                      disabled={isSaving}
-                      aria-required="true"
-                      aria-invalid={Boolean(securityErrors.confirmPassword) || undefined}
-                      aria-describedby={
-                        securityErrors.confirmPassword ? "staff-confirm-password-error" : undefined
-                      }
-                      className={controlClass}
-                    />
-                    <FieldError id="staff-confirm-password-error">
-                      {securityErrors.confirmPassword}
-                    </FieldError>
-                  </Field>
-                </div>
-                <ul className="flex flex-col gap-1 text-xs">
-                  {passwordRequirements.map((requirement) => (
-                    <li
-                      key={requirement.key}
-                      className={cn(
-                        "flex items-center gap-2 transition-colors",
-                        requirement.test(security.newPassword)
-                          ? "text-emerald-700"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      {requirement.test(security.newPassword) ? (
-                        <Check aria-hidden="true" className="size-3.5 shrink-0" />
-                      ) : (
-                        <X aria-hidden="true" className="size-3.5 shrink-0" />
-                      )}
-                      {requirement.label}
-                    </li>
-                  ))}
-                </ul>
-              </FieldGroup>
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <Button
-              type="submit"
-              disabled={isSaving}
-              className="gap-2 bg-forest-900 text-white hover:opacity-90"
-            >
-              <Save className="size-4" />
-              {isSaving ? "Saving..." : "Update Password"}
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {isForgotPasswordOpen && (
-        <AdminForgotPasswordModal
-          floating
-          onClose={() => setIsForgotPasswordOpen(false)}
-        />
-      )}
+        </div>
+      </form>
 
       <Dialog
         open={confirmationOpen}
