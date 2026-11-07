@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { useFetchServices } from "@/hooks/useServices"
 import { useCreateServiceRequest } from "@/hooks/useServiceRequests"
+import { getZodFieldErrors } from "@/lib/form-validation"
+import { serviceRequestSchema } from "@/schemas/serviceRequestSchema"
 
 const initialFormState = {
   serviceId: "",
@@ -51,8 +53,9 @@ export function NewServiceRequestForm({
       )
       return
     }
-    if (!formData.serviceId) {
-      setError("Please select a service.")
+    const validationErrors = getZodFieldErrors(serviceRequestSchema, formData)
+    if (Object.keys(validationErrors).length > 0) {
+      setError(validationErrors.serviceId)
       return
     }
 

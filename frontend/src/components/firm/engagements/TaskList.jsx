@@ -23,7 +23,8 @@ import { formatDate } from "./engagement-variants"
 import { ReferenceDocumentUpload } from "@/components/firm/service-management/workflow-tasks"
 import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
 import { normalizePreviewFile } from "@/lib/file-utils"
-import { scrollToFirstInvalidField } from "@/lib/form-validation"
+import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validation"
+import { engagementTaskSchema, revisionRemarkSchema } from "@/schemas/engagementSchema"
 
 /**
  * A task deadline may not fall after its parent engagement's deadline.
@@ -256,9 +257,13 @@ function TaskDialog({ open, mode, formData, setFormData, errors, onOpenChange, o
 
 function RequestRevisionDialog({ open, onOpenChange, task, onSubmit }) {
   const [remark, setRemark] = useState("")
+  const [remarkError, setRemarkError] = useState(false)
 
   const handleOpenChange = (next) => {
-    if (next) setRemark("")
+    if (next) {
+      setRemark("")
+      setRemarkError(false)
+    }
     onOpenChange(next)
   }
 
@@ -266,7 +271,11 @@ function RequestRevisionDialog({ open, onOpenChange, task, onSubmit }) {
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    if (!remark.trim()) return
+    const validationErrors = getZodFieldErrors(revisionRemarkSchema, { remark })
+    if (validationErrors.remark) {
+      setRemarkError(true)
+      return
+    }
     onSubmit(remark.trim())
   }
 
@@ -283,12 +292,17 @@ function RequestRevisionDialog({ open, onOpenChange, task, onSubmit }) {
             <textarea
               id="revision-remark"
               value={remark}
-              onChange={(e) => setRemark(e.target.value)}
+              onChange={(e) => {
+                setRemark(e.target.value)
+                setRemarkError(false)
+              }}
               rows={4}
+              aria-invalid={remarkError || undefined}
               autoFocus
               placeholder="e.g. The scanned copy is missing page 2."
               className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
+            {remarkError && <p className="text-xs text-red-500">Enter a revision remark.</p>}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -521,14 +535,16 @@ export function TaskList({
     const name = taskFormData.name.trim()
     const taskDeadlineInvalid = isTaskDeadlineAfterEngagement(taskFormData.deadline, engagement?.targetEndDate ?? engagement?.startDate)
     const taskDeadlineInPast = isTaskDeadlineInPast(taskFormData.deadline)
-
-    if (!name) {
-      setTaskFormErrors({ name: true })
-      return
+    const validationErrors = getZodFieldErrors(engagementTaskSchema, taskFormData)
+    const nextErrors = {
+      name: Boolean(validationErrors.name),
+      deadline:
+        Boolean(validationErrors.deadline) || taskDeadlineInvalid || taskDeadlineInPast,
     }
 
-    if (taskDeadlineInvalid || taskDeadlineInPast) {
-      setTaskFormErrors({ deadline: true })
+    if (nextErrors.name || nextErrors.deadline) {
+      setTaskFormErrors(nextErrors)
+      scrollToFirstInvalidField(event.currentTarget)
       return
     }
 

@@ -14,6 +14,8 @@ import { Link } from "react-router-dom";
 import { signinToPortal } from "../../services/authService";
 import { getHome } from "@/config/roles";
 import { useNavigate } from "react-router-dom";
+import { getZodFieldErrors } from "@/lib/form-validation"
+import { loginFormSchema } from "@/schemas/loginSchema"
 
 export function ClientLoginForm({
   className,
@@ -28,13 +30,11 @@ export function ClientLoginForm({
     const handleSubmit = async (event) => {
       event.preventDefault()
 
-      const email = event.target.email.value
-      const password = event.target.password.value
+      const formData = new FormData(event.currentTarget)
+      const email = formData.get("email")?.toString() ?? ""
+      const password = formData.get("password")?.toString() ?? ""
 
-      const newErrors = {
-        email: !email,
-        password: !password,
-      } 
+      const newErrors = getZodFieldErrors(loginFormSchema, { email, password })
       setErrors(newErrors)
       setCredentialsError("")
       if (newErrors.email || newErrors.password) return
@@ -66,6 +66,7 @@ export function ClientLoginForm({
             Email<span className=" text-red-500">*</span></FieldLabel>
           <Input 
           id="email" 
+          name="email"
           type="email" 
           placeholder="m@example.com" 
           disabled={isSubmitting}
@@ -93,6 +94,7 @@ export function ClientLoginForm({
           </div>
           <Input 
           id="password" 
+          name="password"
           type="password" 
           disabled={isSubmitting}
           className={cn((errors.password || credentialsError) && "border-red-500 focus-visible:ring-red-500")}

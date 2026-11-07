@@ -12,7 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { firmStaffMap } from "./engagement-variants"
-import { scrollToFirstInvalidField } from "@/lib/form-validation"
+import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validation"
+import { noteSchema } from "@/schemas/engagementSchema"
 
 const MAX_CHARS = 1000
 
@@ -26,8 +27,7 @@ export function AddNoteDialog({ open, onOpenChange, engagement, onSubmit }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    const newErrors = {}
-    if (!content.trim()) newErrors.content = true
+    const newErrors = getZodFieldErrors(noteSchema, { content })
     setErrors(newErrors)
     if (Object.keys(newErrors).length > 0) {
       scrollToFirstInvalidField(formRef.current)

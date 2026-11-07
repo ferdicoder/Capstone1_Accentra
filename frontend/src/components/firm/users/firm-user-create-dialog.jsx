@@ -24,15 +24,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { scrollToFirstInvalidField } from "@/lib/form-validation"
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validation"
+import { firmUserCreateSchema } from "@/schemas/userManagementSchema"
 
 // Shown when the email address is already registered.
 const DUPLICATE_EMAIL_ERROR = "The user already exist"
-
-/** Accepts 09XXXXXXXXX or +639XXXXXXXXX (digits, spaces, dashes allowed). */
-const PHONE_PATTERN = /^\+?[0-9\s-]{10,14}$/
 
 /**
  * Presentational "Add User" modal form for the firm user list.
@@ -114,14 +110,17 @@ export function FirmUserCreateDialog({
   const handleSubmit = (event) => {
     event.preventDefault()
 
-    const newErrors = {
-      firstName: !firstName.trim(),
-      lastName: !lastName.trim(),
-      email: !email.trim() || !EMAIL_PATTERN.test(email.trim()),
-      contactNumber: !contactNumber.trim() || !PHONE_PATTERN.test(contactNumber.trim()),
-      temporaryPassword: temporaryPassword.length < 8,
-      role: !role,
-    }
+    const newErrors = getZodFieldErrors(firmUserCreateSchema, {
+      firstName,
+      middleName,
+      lastName,
+      extension,
+      email,
+      contactNumber,
+      birthdate,
+      temporaryPassword,
+      role,
+    })
 
     // The account must not already exist.
     const emailExists = existingEmails.some(
@@ -131,7 +130,7 @@ export function FirmUserCreateDialog({
     if (emailExists) newErrors.email = DUPLICATE_EMAIL_ERROR
 
     setErrors(newErrors)
-    if (Object.values(newErrors).some(Boolean)) {
+    if (Object.keys(newErrors).length > 0) {
       scrollToFirstInvalidField(formRef.current)
       return
     }

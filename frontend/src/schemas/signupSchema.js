@@ -20,7 +20,16 @@ const optionalName = (label) =>
     `${label} can only contain letters.`
   );
 
-const optionalText = z.string().optional();
+const emailSchema = z.string().trim().min(1, "Email is required.").email("Enter a valid email address.");
+
+export const firmRegistrationInfoSchema = z.object({
+  businessName: z.string().trim().min(1, "Business name is required."),
+  businessType: z.string().trim().min(1, "Select a business type."),
+  tin: z.string().trim().min(1, "TIN number is required."),
+  industry: z.string().trim().min(1, "Industry is required."),
+  email: emailSchema,
+  address: z.string().trim().min(1, "Address is required."),
+});
 
 export const passwordRequirements = [
   { key: "lowercase", label: "At least one lowercase letter", test: (value) => /[a-z]/.test(value) },

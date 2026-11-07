@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { FileText, Loader2 } from "lucide-react"
+import { useRef, useState } from "react"
+import { FileText } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { formatRevenue } from "./service-request-variants"
+import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validation"
+import { optionalNoteSchema } from "@/schemas/serviceRequestSchema"
 
 const textareaClass =
   "min-h-20 w-full resize-none rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 dark:bg-input/30 dark:disabled:bg-input/80"
@@ -41,6 +43,8 @@ export function RequiredDocumentsDialog({
   className,
 }) {
   const [note, setNote] = useState("")
+  const [noteError, setNoteError] = useState("")
+  const formRef = useRef(null)
 
   const businessName = engagement?.business?.businessName ?? "—"
   const staffLabel = engagement?.assignedStaff || "—"
@@ -48,6 +52,13 @@ export function RequiredDocumentsDialog({
 
   const handleSubmit = (event) => {
     event.preventDefault()
+    const validationErrors = getZodFieldErrors(optionalNoteSchema, { content: note })
+    if (validationErrors.content) {
+      setNoteError(validationErrors.content)
+      scrollToFirstInvalidField(formRef.current)
+      return
+    }
+    setNoteError("")
     onSubmit?.({ engagement, note: note.trim() })
   }
 
@@ -71,7 +82,7 @@ export function RequiredDocumentsDialog({
           )}
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh]">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh]">
           <div className="flex items-center gap-2">
             <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
               <FileText className="size-3.5" />
@@ -118,11 +129,18 @@ export function RequiredDocumentsDialog({
 
             <textarea
               value={note}
-              onChange={(e) => setNote(e.target.value)}
+              onChange={(e) => {
+                setNote(e.target.value)
+                setNoteError("")
+              }}
+              maxLength={1000}
+              aria-invalid={Boolean(noteError) || undefined}
+              data-invalid-field={noteError ? "true" : undefined}
               placeholder="Add any internal notes about this engagement…"
               rows={3}
               className={textareaClass}
             />
+            {noteError && <p className="text-xs text-red-500">{noteError}</p>}
           </div>
 
           {error && (

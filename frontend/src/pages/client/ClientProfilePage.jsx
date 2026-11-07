@@ -3,10 +3,11 @@ import { Save, Lock, Check, X, ShieldQuestion, Loader2, FileEdit, TriangleAlert 
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
-import { scrollToFirstInvalidField } from "@/lib/form-validation"
+import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validation"
 import { cn } from "@/lib/utils"
 import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness, useUpdateMyBusiness } from "@/hooks/useBusinesses"
+import { clientBusinessProfileSchema, passwordChangeSchema } from "@/schemas/profileSchema"
 
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -43,10 +44,6 @@ const passwordRequirements = [
   { key: "number", label: "At least one number", test: (pw) => /[0-9]/.test(pw) },
   { key: "minLength", label: "Minimum 8 characters", test: (pw) => pw.length >= 8 },
 ]
-
-function isPasswordValid(password) {
-  return passwordRequirements.every((req) => req.test(password))
-}
 
 // Field shape matches formData in SignupPage.jsx exactly (minus password/confirmPassword).
 // Address is normalized into houseNo/streetName/barangay/district/city/zipCode —
@@ -412,29 +409,13 @@ export default function ClientProfilePage() {
       return
     }
 
-    // Block save on a genuinely incomplete TIN (anything but 9 or 12 digits).
-    // The exactly-9-digit case still saves — that's a valid legacy TIN, just
-    // flagged with a reminder rather than treated as an error.
-    const tinDigits = profile.tin.replace(/\D/g, "")
-    if (tinDigits.length > 0 && tinDigits.length !== 9 && tinDigits.length !== 12) {
-      setFieldErrors((current) => ({
-        ...current,
-        tin: "Invalid TIN ID. Must be 9 or 12 digits.",
-      }))
-      setSaveMessage({ type: "error", text: "Fix the TIN Number before saving." })
-      scrollToFirstInvalidField(profileFormRef.current)
-      return
-    }
-
-    // Block save on an invalid mobile number too (must be 10 digits starting
-    // with 9). An empty number is allowed through — it's optional here.
-    const phoneNational = profile.contactNumber.replace(/\D/g, "")
-    if (phoneNational.length > 0 && getPhoneWarning(phoneNational)) {
-      setFieldErrors((current) => ({
-        ...current,
-        contactNumber: getPhoneWarning(phoneNational),
-      }))
-      setSaveMessage({ type: "error", text: "Fix the Contact Number before saving." })
+    const validationErrors = getZodFieldErrors(clientBusinessProfileSchema, {
+      ...profile,
+      contactNumber: profile.contactNumber.replace(/\D/g, ""),
+    })
+    setFieldErrors(validationErrors)
+    if (Object.keys(validationErrors).length > 0) {
+      setSaveMessage({ type: "error", text: "Please fix the highlighted fields before saving." })
       scrollToFirstInvalidField(profileFormRef.current)
       return
     }
@@ -487,20 +468,7 @@ export default function ClientProfilePage() {
     event.preventDefault()
     setSaveMessage(null)
 
-    const errors = {}
-    if (!security.currentPassword) {
-      errors.currentPassword = "Enter your current password."
-    }
-    if (!security.newPassword) {
-      errors.newPassword = "Enter a new password."
-    } else if (!isPasswordValid(security.newPassword)) {
-      errors.newPassword = "Password doesn't meet the requirements below."
-    }
-    if (!security.confirmPassword) {
-      errors.confirmPassword = "Confirm your new password."
-    } else if (security.newPassword !== security.confirmPassword) {
-      errors.confirmPassword = "New password and confirmation don't match."
-    }
+    const errors = getZodFieldErrors(passwordChangeSchema, security)
 
     setSecurityErrors(errors)
 

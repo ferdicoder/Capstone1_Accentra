@@ -18,7 +18,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { INVOICE_TYPES, invoiceTypeLabels } from './billing-variants';
-import { scrollToFirstInvalidField } from '@/lib/form-validation';
+import { getZodFieldErrors, scrollToFirstInvalidField } from '@/lib/form-validation';
+import { billingSchema } from '@/schemas/billingSchema';
 
 const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
 const MONTHS = [
@@ -406,6 +407,15 @@ export function CreateBillingDialog({
       !isServiceFee ||
       (lineAmounts.length > 0 &&
         lineAmounts.every((value) => Number.isFinite(value) && value > 0));
+    const schemaErrors = getZodFieldErrors(billingSchema, {
+      clientId,
+      invoiceType,
+      amount: isServiceFee ? serviceTotal : numericAmount,
+      dueDate,
+      engagementIds,
+      billingMonth: billingMonth ? Number(billingMonth) : undefined,
+      billingYear: billingYear ? Number(billingYear) : undefined,
+    });
     const newErrors = {
       invoiceType: !invoiceType,
       client:
@@ -424,6 +434,10 @@ export function CreateBillingDialog({
           numericAmount <= 0,
       dueDate: dueDateInvalid,
     };
+    newErrors.invoiceType ||= Boolean(schemaErrors.invoiceType);
+    newErrors.client ||= Boolean(schemaErrors.clientId);
+    newErrors.amount ||= Boolean(schemaErrors.amount);
+    newErrors.dueDate ||= Boolean(schemaErrors.dueDate);
     setErrors(newErrors);
     if (Object.values(newErrors).some(Boolean)) {
       scrollToFirstInvalidField(formRef.current);

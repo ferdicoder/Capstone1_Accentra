@@ -15,6 +15,8 @@ import { RequestActionButtons, RequestActionNotice } from "./request-action-butt
 import { RequestDetailsCard } from "./request-details-card"
 import { ServiceRequestAvatar } from "./service-request-avatar"
 import { formatSubmittedDate } from "./service-request-variants"
+import { getZodFieldErrors } from "@/lib/form-validation"
+import { rejectionRemarksSchema } from "@/schemas/serviceRequestSchema"
 
 /**
  * Modal that shows a single service request for review. The parent owns
@@ -71,8 +73,9 @@ export function RequestDetailDialog({
   const handleSubmitRejection = (event) => {
     event.preventDefault()
     const reason = remarks.trim()
-    if (!reason) {
-      setRemarksError("Please enter a reason for rejecting this request.")
+    const validationErrors = getZodFieldErrors(rejectionRemarksSchema, { remarks: reason })
+    if (Object.keys(validationErrors).length > 0) {
+      setRemarksError(validationErrors.remarks)
       return
     }
     onReject?.(request, reason, () => {

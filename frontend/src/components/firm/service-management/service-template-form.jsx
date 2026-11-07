@@ -26,7 +26,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { WorkflowTaskList } from "./workflow-tasks"
-import { scrollToFirstInvalidField } from "@/lib/form-validation"
+import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validation"
+import { categoryNameSchema, serviceTemplateSchema } from "@/schemas/engagementSchema"
 import {
   categoryFilterOptions,
   createDefaultWorkflowTasks,
@@ -89,19 +90,23 @@ export function ServiceTemplateForm({
 
     const parsedPrice = Number(basePrice)
     const parsedEstimatedTime = Number(estimatedTime)
-    const taskErrors = tasks.map((task) => ({
-      name: !task.name.trim(),
+    const validationErrors = getZodFieldErrors(serviceTemplateSchema, {
+      name,
+      category,
+      basePrice: basePrice.trim() ? parsedPrice : Number.NaN,
+      estimatedTime: estimatedTime.trim() ? parsedEstimatedTime : Number.NaN,
+      tasks,
+    })
+    const taskErrors = tasks.map((_task, index) => ({
+      name: Boolean(validationErrors[`tasks.${index}.name`]),
       reference: false,
     }))
 
     const newErrors = {
-      name: !name.trim(),
-      category: !category,
-      basePrice: !basePrice.trim() || !Number.isFinite(parsedPrice) || parsedPrice < 0,
-      estimatedTime:
-        !estimatedTime.trim() ||
-        !Number.isInteger(parsedEstimatedTime) ||
-        parsedEstimatedTime < 0,
+      name: Boolean(validationErrors.name),
+      category: Boolean(validationErrors.category),
+      basePrice: Boolean(validationErrors.basePrice),
+      estimatedTime: Boolean(validationErrors.estimatedTime),
       tasks: taskErrors,
     }
 
@@ -560,8 +565,9 @@ export function CategoryCreateDialog({
       (category) => category.label.trim().toLowerCase() === trimmedName.toLowerCase()
     )
 
-    if (!trimmedName) {
-      setError("Category name is required.")
+    const validationErrors = getZodFieldErrors(categoryNameSchema, { name })
+    if (Object.keys(validationErrors).length > 0) {
+      setError(validationErrors.name)
       return
     }
     if (duplicate) {
@@ -645,8 +651,9 @@ export function CategoryManagementDialog({
         category.label.trim().toLowerCase() === trimmedName.toLowerCase()
     )
 
-    if (!trimmedName) {
-      setError("Category name is required.")
+    const validationErrors = getZodFieldErrors(categoryNameSchema, { name: editingName })
+    if (Object.keys(validationErrors).length > 0) {
+      setError(validationErrors.name)
       return
     }
     if (duplicate) {

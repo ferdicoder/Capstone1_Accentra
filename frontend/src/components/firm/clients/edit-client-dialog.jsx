@@ -26,12 +26,8 @@ import {
   clientTypeOptions,
   industryOptions,
 } from "./client-variants"
-import { scrollToFirstInvalidField } from "@/lib/form-validation"
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-/** Accepts 09XXXXXXXXX or +639XXXXXXXXX (digits, spaces, dashes allowed). */
-const PHONE_PATTERN = /^\+?[0-9\s-]{10,14}$/
+import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validation"
+import { clientEditSchema } from "@/schemas/userManagementSchema"
 
 const errorClass = "border-red-500 focus-visible:ring-red-500"
 
@@ -109,16 +105,9 @@ function EditClientForm({ client, onSubmit, onDeactivate, onCancel, submitLabel,
   const handleSubmit = (event) => {
     event.preventDefault()
 
-    const newErrors = {
-      firstName: !values.firstName.trim(),
-      lastName: !values.lastName.trim(),
-      email: !values.email.trim() || !EMAIL_PATTERN.test(values.email.trim()),
-      // Contact number is optional for clients without one on file, but must be valid if present.
-      contactNo: Boolean(values.contactNo.trim()) && !PHONE_PATTERN.test(values.contactNo.trim()),
-      businessName: !values.businessName.trim(),
-    }
+    const newErrors = getZodFieldErrors(clientEditSchema, values)
     setErrors(newErrors)
-    if (Object.values(newErrors).some(Boolean)) {
+    if (Object.keys(newErrors).length > 0) {
       scrollToFirstInvalidField(formRef.current)
       return
     }

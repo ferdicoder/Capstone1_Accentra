@@ -25,11 +25,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { scrollToFirstInvalidField } from "@/lib/form-validation"
 import { authStore } from "@/store/authStore"
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-/** Accepts 09XXXXXXXXX or +639XXXXXXXXX (digits, spaces, dashes allowed). */
-const PHONE_PATTERN = /^\+?[0-9\s-]{10,14}$/
+import { getZodFieldErrors } from "@/lib/form-validation"
+import {
+  firmUserEditSchema,
+  protectedFirmUserEditSchema,
+} from "@/schemas/userManagementSchema"
 
 /** Reads the first non-empty string from a list of candidate keys on `user`. */
 const getField = (user, ...keys) => {
@@ -90,18 +90,17 @@ function EditUserForm({
   const handleSubmit = (event) => {
     event.preventDefault()
 
-    const newErrors = isProtectedFirmAdmin
-      ? { role: !role }
-      : {
-          firstName: !firstName.trim(),
-          lastName: !lastName.trim(),
-          email: !email.trim() || !EMAIL_PATTERN.test(email.trim()),
-          contactNumber:
-            !contactNumber.trim() || !PHONE_PATTERN.test(contactNumber.trim()),
-          role: !role,
-        }
+    const schema = isProtectedFirmAdmin
+      ? protectedFirmUserEditSchema
+      : firmUserEditSchema
+    const newErrors = getZodFieldErrors(
+      schema,
+      isProtectedFirmAdmin
+        ? { role }
+        : { firstName, middleName, lastName, extension, email, contactNumber, role }
+    )
     setErrors(newErrors)
-    if (Object.values(newErrors).some(Boolean)) {
+    if (Object.keys(newErrors).length > 0) {
       scrollToFirstInvalidField(formRef.current)
       return
     }

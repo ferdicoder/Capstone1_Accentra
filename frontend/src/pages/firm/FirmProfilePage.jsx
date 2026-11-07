@@ -22,7 +22,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { AdminForgotPasswordModal } from "@/components/firm/admin-forgot-password-modal"
-import { scrollToFirstInvalidField } from "@/lib/form-validation"
+import {
+  getZodFieldErrors,
+  sanitizeNameInput,
+  sanitizePhoneInput,
+  scrollToFirstInvalidField,
+} from "@/lib/form-validation"
+import {
+  adminPersonalInfoSchema,
+  firmInformationSchema,
+  passwordChangeSchema,
+} from "@/schemas/profileSchema"
+import { paymentInformationSchema } from "@/schemas/billingSchema"
 
 // import { updateFirmProfile, updateFirmPassword } from "@/services/firmService"
 
@@ -75,11 +86,13 @@ export default function FirmProfilePage() {
   const [paymentInformation, setPaymentInformation] = useState(initialPaymentInformation)
   const [security, setSecurity] = useState(initialSecurity)
   const [securityErrors, setSecurityErrors] = useState({})
+  const [profileErrors, setProfileErrors] = useState({})
   const [editingTab, setEditingTab] = useState(null)
   const [confirmationOpen, setConfirmationOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const passwordSaveInProgress = useRef(false)
   const securityFormRef = useRef(null)
+  const profileFormRef = useRef(null)
   const savedProfileRef = useRef(initialProfile)
   const savedPaymentInformationRef = useRef(initialPaymentInformation)
   const [saveMessage, setSaveMessage] = useState(null)
@@ -94,7 +107,13 @@ export default function FirmProfilePage() {
 
   const updateProfileField = (event) => {
     const { name, value } = event.target
-    setProfile((current) => ({ ...current, [name]: value }))
+    const nextValue = name === "contactNumber"
+      ? sanitizePhoneInput(value)
+      : ["firstName", "lastName"].includes(name)
+        ? sanitizeNameInput(value)
+        : value
+    setProfile((current) => ({ ...current, [name]: nextValue }))
+    setProfileErrors((current) => ({ ...current, [name]: undefined }))
   }
 
   const updateSecurityField = (name, value) => {
@@ -106,6 +125,23 @@ export default function FirmProfilePage() {
   const handleSaveInfo = (event) => {
     event.preventDefault()
     if (editingTab !== "info" && editingTab !== "personal") return
+    const schema = editingTab === "info" ? firmInformationSchema : adminPersonalInfoSchema
+    const values = editingTab === "info"
+      ? { firmName: profile.firmName, firmType: profile.firmType }
+      : {
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          workEmail: profile.workEmail,
+          contactNumber: profile.contactNumber,
+        }
+    const errors = getZodFieldErrors(schema, values)
+    setProfileErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setSaveMessage({ type: "error", text: "Please correct the information before saving." })
+      scrollToFirstInvalidField(profileFormRef.current)
+      return
+    }
+    setSaveMessage(null)
     setConfirmationOpen(true)
   }
 
@@ -114,24 +150,7 @@ export default function FirmProfilePage() {
 
     if (passwordSaveInProgress.current) return
 
-    const nextErrors = {}
-    if (!security.currentPassword) {
-      nextErrors.currentPassword = "Please enter your current password."
-    }
-    if (!security.newPassword) {
-      nextErrors.newPassword = "Please enter a new password."
-    } else if (
-      !passwordRequirements.every((requirement) => requirement.test(security.newPassword))
-    ) {
-      nextErrors.newPassword = "Your password doesn't meet the requirements below."
-    } else if (security.newPassword === security.currentPassword) {
-      nextErrors.newPassword = "This password has already been used. Try another."
-    }
-    if (!security.confirmPassword) {
-      nextErrors.confirmPassword = "Please confirm your new password."
-    } else if (security.newPassword !== security.confirmPassword) {
-      nextErrors.confirmPassword = "Passwords do not match."
-    }
+    const nextErrors = getZodFieldErrors(passwordChangeSchema, security)
 
     setSecurityErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) {
@@ -178,6 +197,11 @@ export default function FirmProfilePage() {
   const handleSavePaymentInformation = (event) => {
     event.preventDefault()
     if (editingTab !== "payment") return
+    if (Object.keys(getZodFieldErrors(paymentInformationSchema, paymentInformation)).length > 0) {
+      setSaveMessage({ type: "error", text: "Complete the payment information before saving." })
+      return
+    }
+    setSaveMessage(null)
     setConfirmationOpen(true)
   }
 
@@ -195,6 +219,7 @@ export default function FirmProfilePage() {
     }
     setEditingTab(null)
     setConfirmationOpen(false)
+    setProfileErrors({})
     setSaveMessage(null)
   }
 
@@ -355,7 +380,7 @@ export default function FirmProfilePage() {
           )}
 
           {activeTab === "personal" && (
-            <form onSubmit={handleSaveInfo} className="flex flex-col gap-6">
+            <form ref={profileFormRef} onSubmit={handleSaveInfo} noValidate className="flex flex-col gap-6">
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                 <h2 className="text-sm font-semibold">Personal Information</h2>
                 <p className="mb-5 mt-1 text-sm text-muted-foreground">
@@ -371,8 +396,13 @@ export default function FirmProfilePage() {
                         value={profile.firstName}
                         onChange={updateProfileField}
                         disabled={editingTab !== "personal" || isSaving}
+                        aria-invalid={Boolean(profileErrors.firstName) || undefined}
+                        data-invalid-field={profileErrors.firstName ? "true" : undefined}
                         className={controlClass}
                       />
+                      {profileErrors.firstName && (
+                        <FieldError>{profileErrors.firstName}</FieldError>
+                      )}
                     </Field>
                     <Field>
                       <FieldLabel htmlFor="lastName">Last Name</FieldLabel>
@@ -382,8 +412,13 @@ export default function FirmProfilePage() {
                         value={profile.lastName}
                         onChange={updateProfileField}
                         disabled={editingTab !== "personal" || isSaving}
+                        aria-invalid={Boolean(profileErrors.lastName) || undefined}
+                        data-invalid-field={profileErrors.lastName ? "true" : undefined}
                         className={controlClass}
                       />
+                      {profileErrors.lastName && (
+                        <FieldError>{profileErrors.lastName}</FieldError>
+                      )}
                     </Field>
                   </div>
                   <Field>
@@ -403,11 +438,18 @@ export default function FirmProfilePage() {
                     <Input
                       id="contactNumber"
                       name="contactNumber"
+                      type="tel"
+                      inputMode="tel"
                       value={profile.contactNumber}
                       onChange={updateProfileField}
                       disabled={editingTab !== "personal" || isSaving}
+                      aria-invalid={Boolean(profileErrors.contactNumber) || undefined}
+                      data-invalid-field={profileErrors.contactNumber ? "true" : undefined}
                       className={controlClass}
                     />
+                    {profileErrors.contactNumber && (
+                      <FieldError>{profileErrors.contactNumber}</FieldError>
+                    )}
                   </Field>
                 </FieldGroup>
               </div>

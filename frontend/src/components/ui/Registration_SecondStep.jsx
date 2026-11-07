@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/field";
 
 import { Input } from "@/components/ui/input";
+import { getZodFieldErrors } from "@/lib/form-validation";
+import { firmRegistrationInfoSchema } from "@/schemas/signupSchema";
 
 export function RegisterFirmInfo({
   className,
@@ -22,14 +24,20 @@ export function RegisterFirmInfo({
 
     const form = e.target;
 
-    const newErrors = {
-      businessName: !form.businessName.value,
-      businessType: !form.businessType.value,
-      tin: !form.tin.value,
-      industry: !form.industry.value,
-      email: !form.email.value,
-      address: !form.address.value,
-    };
+    const validationErrors = getZodFieldErrors(firmRegistrationInfoSchema, {
+      businessName: form.businessName.value,
+      businessType: form.businessType.value,
+      tin: form.tin.value,
+      industry: form.industry.value,
+      email: form.email.value,
+      address: form.address.value,
+    });
+    const newErrors = Object.fromEntries(
+      ["businessName", "businessType", "tin", "industry", "email", "address"].map((field) => [
+        field,
+        Boolean(validationErrors[field]),
+      ])
+    );
 
     setErrors(newErrors);
 

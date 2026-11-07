@@ -1,3 +1,22 @@
+export function getZodFieldErrors(schema, values) {
+  const result = schema.safeParse(values)
+  if (result.success) return {}
+
+  return result.error.issues.reduce((errors, issue) => {
+    const field = issue.path.join(".")
+    if (field && !errors[field]) errors[field] = issue.message
+    return errors
+  }, {})
+}
+
+export function sanitizePhoneInput(value) {
+  return value.replace(/[^\d+\s-]/g, "")
+}
+
+export function sanitizeNameInput(value) {
+  return value.replace(/[^\p{L}\p{M}\s.'’-]/gu, "")
+}
+
 export function scrollToFirstInvalidField(form) {
   if (!form) return
 

@@ -16,7 +16,8 @@ import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchBilling, useUploadPaymentProof } from "@/hooks/useBillings"
 import { authStore } from "@/store/authStore"
-import { scrollToFirstInvalidField } from "@/lib/form-validation"
+import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validation"
+import { clientPaymentProofSchema } from "@/schemas/billingSchema"
 
 function formatCurrency(amount) {
   return `₱${Number(amount).toLocaleString("en-PH", {
@@ -63,6 +64,7 @@ export default function ClientBillingDetailPage() {
   // True when the proof of payment is the field that is missing / invalid.
   // Drives the red outline and the auto-locate scroll.
   const [proofInvalid, setProofInvalid] = useState(false)
+  const [referenceInvalid, setReferenceInvalid] = useState(false)
 
   const user = authStore((state) => state.user)
   const { data: business } = useFetchMyBusiness(user?.id)
@@ -92,6 +94,7 @@ export default function ClientBillingDetailPage() {
     const file = event.target.files?.[0] ?? null
     setError("")
     setProofInvalid(false)
+    setReferenceInvalid(false)
 
     if (!file) return
 
@@ -124,13 +127,24 @@ export default function ClientBillingDetailPage() {
     setError("")
     setSuccess("")
     setProofInvalid(false)
+    setReferenceInvalid(false)
 
     if (!canSubmitPayment) return
 
-    if (!proofFile) {
-      setError("Upload your proof of payment before submitting.")
-      setProofInvalid(true)
-      // Scroll to the proof-of-payment box and flash it.
+    const validationErrors = getZodFieldErrors(clientPaymentProofSchema, {
+      paymentMethod,
+      referenceId,
+      proofFile,
+    })
+    if (Object.keys(validationErrors).length > 0) {
+      const proofError = Boolean(validationErrors.proofFile)
+      setError(
+        validationErrors.proofFile ??
+          validationErrors.referenceId ??
+          validationErrors.paymentMethod
+      )
+      setProofInvalid(proofError)
+      setReferenceInvalid(Boolean(validationErrors.referenceId))
       scrollToFirstInvalidField(form)
       return
     }
@@ -393,16 +407,15 @@ export default function ClientBillingDetailPage() {
                 </div>
 
                 {/* data-invalid is what scrollToFirstInvalidField looks for. */}
-                <div
-                  className="space-y-1.5 rounded-lg"
-                  data-invalid={proofInvalid ? "true" : undefined}
-                >
+                <div className="space-y-1.5 rounded-lg">
                   <label className="text-sm font-medium">
                     Payment Reference
                   </label>
                   <input
                     value={referenceId}
                     onChange={(event) => setReferenceId(event.target.value)}
+                    aria-invalid={referenceInvalid || undefined}
+                    data-invalid-field={referenceInvalid ? "true" : undefined}
                     placeholder="Enter your payment reference"
                     disabled={isSubmitting}
                     className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"

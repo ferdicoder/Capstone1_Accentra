@@ -15,6 +15,8 @@ import { useNavigate } from "react-router-dom";
 import { signinToPortal } from "@/services/authService";
 import { getHome } from "@/config/roles";
 import { AdminForgotPasswordModal } from "@/components/firm/admin-forgot-password-modal";
+import { getZodFieldErrors } from "@/lib/form-validation"
+import { loginFormSchema } from "@/schemas/loginSchema"
 
 export function FirmLoginForm({
   className,
@@ -33,10 +35,7 @@ export function FirmLoginForm({
       const email = formData.get("email")?.toString().trim() ?? ""
       const password = formData.get("password")?.toString() ?? ""
 
-      const newErrors = {
-        email: !email,
-        password: !password,
-      } 
+      const newErrors = getZodFieldErrors(loginFormSchema, { email, password })
       setErrors(newErrors)
       setLoginError("")
       if (newErrors.email || newErrors.password) return

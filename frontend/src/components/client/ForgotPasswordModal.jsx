@@ -5,6 +5,13 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { getZodFieldErrors } from "@/lib/form-validation"
+import {
+  emailRecoverySchema,
+  otpSchema,
+  phoneRecoverySchema,
+  resetPasswordSchema,
+} from "@/schemas/loginSchema"
 
 // import { requestPasswordResetOtp, verifyPasswordResetOtp, resetPassword } from "@/services/authService"
 
@@ -14,14 +21,6 @@ const passwordRequirements = [
   { key: "number", label: "At least one number", test: (pw) => /[0-9]/.test(pw) },
   { key: "minLength", label: "Minimum 8 characters", test: (pw) => pw.length >= 8 },
 ]
-
-function isPasswordValid(password) {
-  return passwordRequirements.every((req) => req.test(password))
-}
-
-// Same pattern SignupPage.jsx uses — requires a proper "name@domain.tld"
-// shape, so something like "user@wras" (no dot/TLD) is rejected.
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/
 
 // Philippine mobile numbers: 11 digits total (e.g. 09123456789), shown with
 // a fixed +63 prefix so the user only ever types the local 11-digit number.
@@ -95,19 +94,17 @@ export function ForgotPasswordModal({ open, onClose }) {
     updateReset({ error: "" })
 
     const contact = reset.contact.trim()
-
-    if (!contact) {
-      updateReset({ error: reset.method === "email" ? "Enter your email address." : "Enter your mobile number." })
-      return
-    }
-
-    if (reset.method === "email" && !EMAIL_PATTERN.test(contact)) {
-      updateReset({ error: "Enter a valid email address, e.g. example@gmail.com." })
-      return
-    }
-
-    if (reset.method === "phone" && contact.length !== PH_PHONE_LENGTH) {
-      updateReset({ error: "Enter a valid mobile number." })
+    const contactSchema = reset.method === "email" ? emailRecoverySchema : phoneRecoverySchema
+    const contactValues = reset.method === "email" ? { email: contact } : { contact }
+    const contactErrors = getZodFieldErrors(contactSchema, contactValues)
+    if (Object.keys(contactErrors).length > 0) {
+      updateReset({
+        error: reset.method === "email"
+          ? contactErrors.email === "Email is required."
+            ? "Enter your email address."
+            : "Enter a valid email address, e.g. example@gmail.com."
+          : contactErrors.contact,
+      })
       return
     }
 
@@ -133,7 +130,8 @@ export function ForgotPasswordModal({ open, onClose }) {
     event.preventDefault()
     updateReset({ error: "" })
 
-    if (reset.otp.trim().length !== OTP_LENGTH) {
+    const otpErrors = getZodFieldErrors(otpSchema, { code: reset.otp.trim() })
+    if (Object.keys(otpErrors).length > 0) {
       updateReset({ error: `Enter the ${OTP_LENGTH}-digit code.` })
       return
     }
@@ -172,12 +170,16 @@ export function ForgotPasswordModal({ open, onClose }) {
     event.preventDefault()
     updateReset({ error: "" })
 
-    if (!isPasswordValid(reset.newPassword)) {
-      updateReset({ error: "Your password doesn't meet all requirements below." })
-      return
-    }
-    if (reset.newPassword !== reset.confirmPassword) {
-      updateReset({ error: "Passwords do not match." })
+    const passwordErrors = getZodFieldErrors(resetPasswordSchema, {
+      newPassword: reset.newPassword,
+      confirmPassword: reset.confirmPassword,
+    })
+    if (Object.keys(passwordErrors).length > 0) {
+      updateReset({
+        error: passwordErrors.newPassword
+          ? "Your password doesn't meet all requirements below."
+          : passwordErrors.confirmPassword,
+      })
       return
     }
 

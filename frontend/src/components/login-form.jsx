@@ -6,9 +6,10 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
-  FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { getZodFieldErrors } from "@/lib/form-validation"
+import { loginFormSchema } from "@/schemas/loginSchema"
 
 export function LoginForm({
   className,
@@ -22,10 +23,7 @@ export function LoginForm({
       const email= event.target.email.value
       const password = event.target.password.value
 
-      const newErrors = {
-        email: !email,
-        password: !password,
-      }
+      const newErrors = getZodFieldErrors(loginFormSchema, { email, password })
 
       setErrors(newErrors)
       if (!newErrors.email && !newErrors.password) {

@@ -23,6 +23,8 @@ import { useFetchUsers } from "@/hooks/useUsers"
 import { useFetchServices } from "@/hooks/useServices"
 import { useSearchClients } from "@/hooks/useBusinesses"
 import { scrollToFirstInvalidField } from "@/lib/form-validation"
+import { getZodFieldErrors } from "@/lib/form-validation"
+import { engagementSchema } from "@/schemas/engagementSchema"
 
 
 const sectionHeadingClass = "font-heading text-sm font-medium text-foreground"
@@ -142,15 +144,19 @@ export function CreateEngagementDialog({
   const handleSubmit = (event) => {
     event.preventDefault()
 
+    const validationErrors = getZodFieldErrors(engagementSchema, {
+      serviceName: selectedService ? selectedService.name : "",
+      assignedStaff,
+      startDate: startDate && startDate >= todayDate ? startDate : "",
+      targetEndDate,
+      standaloneClient: isStandalone ? selectedBusinessId : undefined,
+    })
     const newErrors = {
-      serviceName: !selectedService,
-      assignedStaff: !assignedStaff,
-      startDate: !startDate || startDate < todayDate,
-      targetEndDate: !targetEndDate,
-    }
-
-    if (isStandalone) {
-      newErrors.client = !selectedBusinessId
+      serviceName: Boolean(validationErrors.serviceName),
+      assignedStaff: Boolean(validationErrors.assignedStaff),
+      startDate: Boolean(validationErrors.startDate),
+      targetEndDate: Boolean(validationErrors.targetEndDate),
+      ...(isStandalone ? { client: !selectedBusinessId } : {}),
     }
 
     setErrors(newErrors)

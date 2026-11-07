@@ -12,7 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { firmStaffMap } from "./engagement-variants"
-import { scrollToFirstInvalidField } from "@/lib/form-validation"
+import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validation"
+import { activityUpdateSchema } from "@/schemas/engagementSchema"
 
 const MAX_TITLE_CHARS = 100
 const MAX_DESC_CHARS = 500
@@ -29,9 +30,10 @@ export function ActivityUpdateDialog({ open, onOpenChange, engagement, onSubmit 
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    const newErrors = {}
-    if (!title.trim()) newErrors.title = true
-    if (!description.trim()) newErrors.description = true
+    const newErrors = getZodFieldErrors(activityUpdateSchema, {
+      title,
+      description,
+    })
     setErrors(newErrors)
     if (Object.keys(newErrors).length > 0) {
       scrollToFirstInvalidField(formRef.current)

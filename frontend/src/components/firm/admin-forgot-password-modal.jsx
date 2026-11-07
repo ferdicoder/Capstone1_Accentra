@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/input-group"
 import { authStore } from "@/store/authStore"
 import { supabase } from "@/config/supabase"
-import { isPasswordValid, passwordRequirements } from "@/lib/passwordRequirements"
+import { passwordRequirements } from "@/lib/passwordRequirements"
 import {
   PASSWORD_RECOVERY_OTP_LENGTH,
   requestPasswordRecovery,
@@ -25,12 +25,16 @@ import {
   verifyPasswordRecoveryOtp,
   getPasswordReuseMessage,
 } from "@/services/authService"
+import {
+  emailRecoverySchema,
+  otpSchema,
+  resetPasswordSchema,
+} from "@/schemas/loginSchema"
+import { getZodFieldErrors } from "@/lib/form-validation"
 
 // Same shape the app already uses for its OTP step (see
 // components/client/ForgotPasswordModal.jsx) and Supabase Auth's email OTP.
 const OTP_LENGTH = PASSWORD_RECOVERY_OTP_LENGTH
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/
 
 const RECOVERY_STEPS = {
   EMAIL: "email",
@@ -218,12 +222,13 @@ export function AdminForgotPasswordModal({ onClose, floating = false }) {
     event.preventDefault()
 
     const trimmedEmail = email.trim()
-    if (!trimmedEmail) {
-      setErrors({ email: "Enter your email address." })
-      return
-    }
-    if (!EMAIL_PATTERN.test(trimmedEmail)) {
-      setErrors({ email: "Enter a valid email address, e.g. admin@firm.ph." })
+    const validationErrors = getZodFieldErrors(emailRecoverySchema, { email: trimmedEmail })
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors({
+        email: validationErrors.email === "Email is required."
+          ? "Enter your email address."
+          : "Enter a valid email address, e.g. admin@firm.ph.",
+      })
       return
     }
 
@@ -277,7 +282,8 @@ export function AdminForgotPasswordModal({ onClose, floating = false }) {
     event.preventDefault()
 
     const token = code.join("")
-    if (token.length !== OTP_LENGTH) {
+    const validationErrors = getZodFieldErrors(otpSchema, { code: token })
+    if (Object.keys(validationErrors).length > 0) {
       setErrors({ code: `Enter all ${OTP_LENGTH} digits of the code.` })
       return
     }
@@ -302,18 +308,17 @@ export function AdminForgotPasswordModal({ onClose, floating = false }) {
   const handleUpdatePassword = async (event) => {
     event.preventDefault()
 
-    const nextErrors = {}
-
-    if (!password) {
-      nextErrors.password = "Enter a new password."
-    } else if (!isPasswordValid(password)) {
-      nextErrors.password = "Your password doesn't meet all the requirements below."
-    }
-
-    if (!confirmPassword) {
-      nextErrors.confirmPassword = "Re-enter your new password."
-    } else if (password !== confirmPassword) {
-      nextErrors.confirmPassword = "Passwords do not match."
+    const validationErrors = getZodFieldErrors(resetPasswordSchema, {
+      newPassword: password,
+      confirmPassword,
+    })
+    const nextErrors = {
+      ...(validationErrors.newPassword
+        ? { password: validationErrors.newPassword.replace("Please enter a new password.", "Enter a new password.") }
+        : {}),
+      ...(validationErrors.confirmPassword
+        ? { confirmPassword: validationErrors.confirmPassword.replace("Please confirm your new password.", "Re-enter your new password.") }
+        : {}),
     }
 
     setErrors(nextErrors)

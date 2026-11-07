@@ -9,6 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { getZodFieldErrors } from "@/lib/form-validation"
+import { rejectionRemarksSchema } from "@/schemas/billingSchema"
 
 const REJECTION_REMARKS_MAX_LENGTH = 1000
 
@@ -40,8 +42,9 @@ export function RejectPaymentDialog({ billing, open, onOpenChange, onConfirm, su
   const handleSubmitRemarks = (event) => {
     event.preventDefault()
     const reason = remarks.trim()
-    if (!reason) {
-      setRemarksError("Please enter a reason for rejecting this payment.")
+    const errors = getZodFieldErrors(rejectionRemarksSchema, { remarks: reason })
+    if (Object.keys(errors).length > 0) {
+      setRemarksError(errors.remarks)
       return
     }
     onConfirm?.(reason)

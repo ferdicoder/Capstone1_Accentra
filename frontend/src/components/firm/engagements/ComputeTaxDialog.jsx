@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/dialog"
 import { firmStaffMap } from "./engagement-variants"
 import { nonVatTaxTreatments, vatFilingPeriods } from "./tax-filing-variants"
-import { scrollToFirstInvalidField } from "@/lib/form-validation"
+import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validation"
+import { taxComputationSetupSchema } from "@/schemas/engagementSchema"
 
 const staffOptions = Object.entries(firmStaffMap).map(([value, label]) => ({ value, label }))
 
@@ -29,11 +30,17 @@ export function ComputeTaxDialog({ open, onOpenChange, isVat, onContinue }) {
 
   const handleContinue = (e) => {
     e.preventDefault()
-    const newErrors = {}
-    if (!filingPeriod.trim()) newErrors.filingPeriod = true
-    if (isVat && !vatFilingPeriod) newErrors.vatFilingPeriod = true
-    if (!isVat && !taxTreatment) newErrors.taxTreatment = true
-    if (!assignedStaff) newErrors.assignedStaff = true
+    const validationErrors = getZodFieldErrors(taxComputationSetupSchema, {
+      filingPeriod,
+      isVat,
+      vatFilingPeriod,
+      taxTreatment,
+      assignedStaff,
+      internalNotes,
+    })
+    const newErrors = Object.fromEntries(
+      Object.keys(validationErrors).map((field) => [field, true])
+    )
 
     setErrors(newErrors)
     if (Object.keys(newErrors).length > 0) {

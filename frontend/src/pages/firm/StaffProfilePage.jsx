@@ -7,8 +7,17 @@ import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchUsers } from "@/hooks/useUsers"
 import { authStore } from "@/store/authStore"
-import { scrollToFirstInvalidField } from "@/lib/form-validation"
+import {
+  getZodFieldErrors,
+  sanitizeNameInput,
+  sanitizePhoneInput,
+  scrollToFirstInvalidField,
+} from "@/lib/form-validation"
 import { passwordRequirements } from "@/lib/passwordRequirements"
+import {
+  passwordChangeSchema,
+  profilePersonalInfoSchema,
+} from "@/schemas/profileSchema"
 import {
   changeAuthenticatedPassword,
   getPasswordReuseMessage,
@@ -48,12 +57,14 @@ function StaffSettings({ profile, role }) {
   const [editing, setEditing] = useState(false)
   const [confirmationOpen, setConfirmationOpen] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
+  const [personalInfoErrors, setPersonalInfoErrors] = useState({})
   const [security, setSecurity] = useState(initialSecurity)
   const [securityErrors, setSecurityErrors] = useState({})
   const [isSaving, setIsSaving] = useState(false)
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
   const passwordSaveInProgress = useRef(false)
   const securityFormRef = useRef(null)
+  const personalInfoFormRef = useRef(null)
   const [personalInfo, setPersonalInfo] = useState({
     firstName: profile.firstName,
     middleName: profile.middleName,
@@ -67,14 +78,36 @@ function StaffSettings({ profile, role }) {
       .filter(Boolean)
       .join(" ") || profile.name || "Staff Settings"
 
+  const handleSavePersonalInfo = (event) => {
+    event.preventDefault()
+    if (!editing) return
+
+    const errors = getZodFieldErrors(profilePersonalInfoSchema, personalInfo)
+    setPersonalInfoErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setSaveMessage({ type: "error", text: Object.values(errors)[0] })
+      scrollToFirstInvalidField(personalInfoFormRef.current)
+      return
+    }
+
+    setConfirmationOpen(true)
+  }
+
   const updatePersonalInfo = (event) => {
     const { name, value } = event.target
-    setPersonalInfo((current) => ({ ...current, [name]: value }))
+    const nextValue = name === "contactNumber"
+      ? sanitizePhoneInput(value)
+      : ["firstName", "middleName", "lastName"].includes(name)
+        ? sanitizeNameInput(value)
+        : value
+    setPersonalInfo((current) => ({ ...current, [name]: nextValue }))
+    setPersonalInfoErrors((current) => ({ ...current, [name]: undefined }))
     setSaveMessage(null)
   }
 
   const cancelEditing = () => {
     setPersonalInfo(savedInfo.current)
+    setPersonalInfoErrors({})
     setEditing(false)
     setConfirmationOpen(false)
     setSaveMessage(null)
@@ -100,24 +133,7 @@ function StaffSettings({ profile, role }) {
     event.preventDefault()
     if (passwordSaveInProgress.current) return
 
-    const nextErrors = {}
-    if (!security.currentPassword) {
-      nextErrors.currentPassword = "Please enter your current password."
-    }
-    if (!security.newPassword) {
-      nextErrors.newPassword = "Please enter a new password."
-    } else if (
-      !passwordRequirements.every((requirement) => requirement.test(security.newPassword))
-    ) {
-      nextErrors.newPassword = "Your password doesn't meet the requirements below."
-    } else if (security.newPassword === security.currentPassword) {
-      nextErrors.newPassword = "This password has already been used. Try another."
-    }
-    if (!security.confirmPassword) {
-      nextErrors.confirmPassword = "Please confirm your new password."
-    } else if (security.newPassword !== security.confirmPassword) {
-      nextErrors.confirmPassword = "Passwords do not match."
-    }
+    const nextErrors = getZodFieldErrors(passwordChangeSchema, security)
 
     setSecurityErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) {
@@ -214,10 +230,9 @@ function StaffSettings({ profile, role }) {
 
       {activeTab === "personal" && (
         <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (editing) setConfirmationOpen(true)
-          }}
+          ref={personalInfoFormRef}
+          onSubmit={handleSavePersonalInfo}
+          noValidate
           className="flex flex-col gap-6"
         >
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -235,8 +250,13 @@ function StaffSettings({ profile, role }) {
                       value={personalInfo.firstName}
                       onChange={updatePersonalInfo}
                       disabled={!editing}
+                      aria-invalid={Boolean(personalInfoErrors.firstName) || undefined}
+                      data-invalid-field={personalInfoErrors.firstName ? "true" : undefined}
                       className={controlClass}
                     />
+                    {personalInfoErrors.firstName && (
+                      <FieldError>{personalInfoErrors.firstName}</FieldError>
+                    )}
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="staff-middle-name">Middle Name</FieldLabel>
@@ -246,8 +266,13 @@ function StaffSettings({ profile, role }) {
                       value={personalInfo.middleName}
                       onChange={updatePersonalInfo}
                       disabled={!editing}
+                      aria-invalid={Boolean(personalInfoErrors.middleName) || undefined}
+                      data-invalid-field={personalInfoErrors.middleName ? "true" : undefined}
                       className={controlClass}
                     />
+                    {personalInfoErrors.middleName && (
+                      <FieldError>{personalInfoErrors.middleName}</FieldError>
+                    )}
                   </Field>
                 </div>
                 <Field>
@@ -258,8 +283,13 @@ function StaffSettings({ profile, role }) {
                     value={personalInfo.lastName}
                     onChange={updatePersonalInfo}
                     disabled={!editing}
+                    aria-invalid={Boolean(personalInfoErrors.lastName) || undefined}
+                    data-invalid-field={personalInfoErrors.lastName ? "true" : undefined}
                     className={controlClass}
                   />
+                  {personalInfoErrors.lastName && (
+                    <FieldError>{personalInfoErrors.lastName}</FieldError>
+                  )}
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="staff-email">Email Address</FieldLabel>
@@ -277,11 +307,18 @@ function StaffSettings({ profile, role }) {
                   <Input
                     id="staff-contact-number"
                     name="contactNumber"
+                    type="tel"
+                    inputMode="tel"
                     value={personalInfo.contactNumber}
                     onChange={updatePersonalInfo}
                     disabled={!editing}
+                    aria-invalid={Boolean(personalInfoErrors.contactNumber) || undefined}
+                    data-invalid-field={personalInfoErrors.contactNumber ? "true" : undefined}
                     className={controlClass}
                   />
+                  {personalInfoErrors.contactNumber && (
+                    <FieldError>{personalInfoErrors.contactNumber}</FieldError>
+                  )}
                 </Field>
               </FieldGroup>
 
