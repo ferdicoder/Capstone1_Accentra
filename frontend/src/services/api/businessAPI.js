@@ -15,6 +15,9 @@ function mapBusinessRow(row) {
     name: row.name ?? "",
     businessName: row.name ?? "",
     businessType: row.business_type ?? "",
+    // Raw stored classification: 'retainer' | 'non-retainer' | null
+    // (null = signed up without a business, not yet classified by the firm).
+    type: row.type ?? null,
     clientType: row.type === "retainer" ? "retainer" : "non_retainer",
     retainerFee: row.retainer_fee != null ? Number(row.retainer_fee) : null,
     tinNo: row.tin_no ?? "",
@@ -62,6 +65,7 @@ function mapBusinesslessClientRow(user) {
     name: "",
     businessName: "",
     businessType: "",
+    type: null,
     clientType: "non_retainer",
     retainerFee: null,
     tinNo: "",

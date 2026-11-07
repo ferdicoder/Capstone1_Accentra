@@ -108,6 +108,8 @@ export function ClientDetailsCard({
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
+              ) : client?.type == null ? (
+                <span className="text-muted-foreground">Not set</span>
               ) : (
                 <ClientTypeBadge type={client?.clientType} />
               )}

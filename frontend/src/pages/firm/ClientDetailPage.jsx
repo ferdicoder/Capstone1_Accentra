@@ -391,7 +391,9 @@ export default function ClientDetailPage() {
             <DialogDescription>
               Change this client&apos;s type from{" "}
               <span className="font-medium text-foreground">
-                {clientTypeLabels[client.clientType] ?? client.clientType}
+                {client.type == null
+                  ? "Not set"
+                  : clientTypeLabels[client.clientType] ?? client.clientType}
               </span>{" "}
               to{" "}
               <span className="font-medium text-foreground">

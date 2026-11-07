@@ -145,9 +145,9 @@ async function registerClient(formData) {
         middle_name: formData.middleName,
         birth_date: toISODateString(formData.birthDate),
         contact_no: formData.contactNumber,
-        // The DB trigger only inserts a businesses row when this is true;
-        // the combined "not yet" option (no business / not BIR-registered)
-        // sends false and the client adds their business later from Profile.
+        // The DB trigger always creates a businesses row; this flag only
+        // marks it as unclassified (type = NULL) when the client signed up
+        // without a business. Registered signups get type = 'non-retainer'.
         has_business: formData.birRegistrationStatus !== "none",
         business_name: formData.businessName,
         business_type: formData.businessType,

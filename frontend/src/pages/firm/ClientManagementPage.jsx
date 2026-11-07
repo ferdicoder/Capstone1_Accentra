@@ -19,7 +19,7 @@ const clientColumns = [
     render: (client) => (
       <div className="flex min-w-0 items-center gap-3">
         <FirmUserAvatar name={client.name} />
-        <p className="min-w-0 truncate text-sm font-medium text-foreground">{client.name || "â€”"}</p>
+        <p className="min-w-0 truncate text-sm font-medium text-foreground">{client.name || "-"}</p>
       </div>
     ),
   },
@@ -27,22 +27,22 @@ const clientColumns = [
     key: "business",
     label: "Business",
     render: (client) => (
-      <span className="block truncate text-sm text-foreground">{client.businessName || "â€”"}</span>
+      <span className="block truncate text-sm text-foreground">{client.businessName || "-"}</span>
     ),
   },
   {
     key: "industry",
     label: "Industry",
     render: (client) => (
-      <span className="block truncate text-sm text-foreground">{client.industry || "â€”"}</span>
+      <span className="block truncate text-sm text-foreground">{client.industry || "-"}</span>
     ),
   },
   {
     key: "type",
     label: "Type",
     render: (client) =>
-      client.hasBusiness === false ? (
-        <span className="block truncate text-sm text-foreground">â€”</span>
+      client.hasBusiness === false || client.type == null ? (
+        <span className="block truncate text-sm text-foreground">-</span>
       ) : (
         <ClientTypeBadge type={client.clientType} />
       ),
