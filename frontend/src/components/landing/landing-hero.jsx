@@ -5,6 +5,7 @@ import heroImage from "./hero-team.jpg"
 
 import { LandingNav } from "./landing-nav"
 import { landingContainer } from "./landing-data"
+import { useFetchFirmSettings } from "@/hooks/useFirmSettings"
 
 // 2) Smaller landscape photo: save it as ./hero-secondary.jpg (or .jpeg, .png,
 // .webp) in this folder. It is picked up automatically. Until it exists, a
@@ -16,6 +17,9 @@ const secondaryImages = import.meta.glob("./hero-secondary.{jpg,jpeg,png,webp}",
 const secondaryImage = Object.values(secondaryImages)[0] ?? null
 
 export function LandingHero({ onSignIn }) {
+  const { data: settings } = useFetchFirmSettings()
+  const firmName = settings?.firmName?.trim() || "Jobal Business Consultancy"
+
   return (
     <section
       id="home"
@@ -29,7 +33,7 @@ export function LandingHero({ onSignIn }) {
       >
         <div className="landing-enter landing-hero-copy">
           <p className="inline-block border-b border-[#DCE9E5] pb-3 text-sm font-semibold tracking-[0.02em] text-[#047857] sm:text-base">
-            Jobal Business Consultancy
+            {firmName}
           </p>
           <h1 className="mt-6 max-w-[640px] text-[clamp(2.25rem,4.6vw,4rem)] font-semibold leading-[1.04] tracking-[-0.035em] text-balance">
             Your Business, Made Simpler.

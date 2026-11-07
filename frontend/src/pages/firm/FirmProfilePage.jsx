@@ -1,13 +1,21 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { Pencil, Save, Trash2, Upload } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { cn } from "@/lib/utils"
+import { firmLogoUrl } from "@/services/api/firmSettingsAPI"
+import {
+  useDeleteFirmLogoFile,
+  useFetchFirmSettings,
+  useUpdateFirmSettings,
+  useUploadFirmLogo,
+} from "@/hooks/useFirmSettings"
 
 import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
@@ -22,12 +30,7 @@ import {
   sanitizePhoneInput,
   scrollToFirstInvalidField,
 } from "@/lib/form-validation"
-import {
-  adminPersonalInfoSchema,
-  firmInformationSchema,
-} from "@/schemas/profileSchema"
-
-// import { updateFirmProfile, updateFirmPassword } from "@/services/firmService"
+import { adminPersonalInfoSchema, firmSettingsSchema } from "@/schemas/profileSchema"
 
 const currentUser = {
   name: "Carlo Reyes",
@@ -35,14 +38,20 @@ const currentUser = {
   avatar: "",
 }
 
-// Field shape mirrors the "Register Your Firm" signup form exactly
+// Personal Information tab is still local-only (mock); the Firm Information
+// tab mirrors the public.firm_settings singleton.
 const initialProfile = {
-  firmName: "Reyes & Associates CPA",
   firstName: "Carlo",
   lastName: "Reyes",
   workEmail: "carlo@reyesassociates.ph",
-  firmType: "sole-practitioner",
   contactNumber: "+63 917 001 0001",
+}
+
+const emptyFirmDraft = {
+  firmName: "",
+  contactEmail: "",
+  about: "",
+  termsAndConditions: "",
 }
 
 const tabs = [
@@ -50,36 +59,55 @@ const tabs = [
   { key: "personal", label: "Personal Information" },
 ]
 
-// Shared classes so every input / select on the page matches the shared Input
+// Shared classes so every input on the page matches the shared Input
 // (h-8, rounded-lg, neutral focus ring) used across the User Management module.
 const controlClass = "w-full bg-background"
-const selectClass = cn(
-  controlClass,
-  "h-8 rounded-lg border border-input px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-)
 
 const MAX_LOGO_SIZE = 2 * 1024 * 1024
 
 export default function FirmProfilePage() {
   const [activeTab, setActiveTab] = useState("info")
   const [profile, setProfile] = useState(initialProfile)
-  const [profileErrors, setProfileErrors] = useState({})
+  const [formErrors, setFormErrors] = useState({})
   const [editingTab, setEditingTab] = useState(null)
   const [confirmationOpen, setConfirmationOpen] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  // Null while not editing: firmValues then falls back to the saved row, so
+  // the form always mirrors firm_settings without a sync effect.
+  const [firmDraft, setFirmDraft] = useState(null)
+  const [logoFile, setLogoFile] = useState(null)
   const [logoPreview, setLogoPreview] = useState("")
-  const [logoError, setLogoError] = useState("")
+  const [logoRemoved, setLogoRemoved] = useState(false)
+  const [brokenLogoSrc, setBrokenLogoSrc] = useState(null)
+
   const profileFormRef = useRef(null)
   const logoInputRef = useRef(null)
   const savedProfileRef = useRef(initialProfile)
-  const savedLogoRef = useRef("")
 
-  // Simulated load so the shared skeleton system has something to show.
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500)
-    return () => clearTimeout(timer)
-  }, [])
+  const { data: settings, isLoading } = useFetchFirmSettings()
+  const updateSettings = useUpdateFirmSettings()
+  const uploadLogo = useUploadFirmLogo()
+  const deleteLogo = useDeleteFirmLogoFile()
+
+  const editing = editingTab === "info"
+  const firmValues = editing && firmDraft
+    ? firmDraft
+    : {
+        firmName: settings?.firmName ?? "",
+        contactEmail: settings?.contactEmail ?? "",
+        about: settings?.about ?? "",
+        termsAndConditions: settings?.termsAndConditions ?? "",
+      }
+  const displayFirmName = editing
+    ? firmValues.firmName
+    : settings?.firmName || "Your Firm"
+  const logoSrc = logoRemoved
+    ? ""
+    : logoPreview || (settings?.logoStorageKey ? firmLogoUrl : "")
+  // Brokenness is keyed to the src, so a new src clears it without an effect.
+  const logoBroken = Boolean(logoSrc) && brokenLogoSrc === logoSrc
 
   const updateProfileField = (event) => {
     const { name, value } = event.target
@@ -89,7 +117,14 @@ export default function FirmProfilePage() {
         ? sanitizeNameInput(value)
         : value
     setProfile((current) => ({ ...current, [name]: nextValue }))
-    setProfileErrors((current) => ({ ...current, [name]: undefined }))
+    setFormErrors((current) => ({ ...current, [name]: undefined }))
+  }
+
+  const updateFirmField = (event) => {
+    const { name, value } = event.target
+    setFirmDraft((current) => ({ ...current, [name]: value }))
+    setFormErrors((current) => ({ ...current, [name]: undefined }))
+    setSaveMessage(null)
   }
 
   const handleLogoUpload = (event) => {
@@ -99,43 +134,71 @@ export default function FirmProfilePage() {
     if (!file) return
 
     if (!file.type.startsWith("image/")) {
-      setLogoError("Please upload an image file (PNG, JPG, WebP or SVG).")
+      setFormErrors((current) => ({
+        ...current,
+        logo: "Please upload an image file (PNG, JPG, WebP or SVG).",
+      }))
       return
     }
 
     if (file.size > MAX_LOGO_SIZE) {
-      setLogoError("Logo must be 2 MB or smaller.")
+      setFormErrors((current) => ({
+        ...current,
+        logo: "Logo must be 2 MB or smaller.",
+      }))
       return
     }
 
     const reader = new FileReader()
     reader.onload = () => {
       if (typeof reader.result !== "string") {
-        setLogoError("We couldn't read that file. Please try another image.")
+        setFormErrors((current) => ({
+          ...current,
+          logo: "We couldn't read that file. Please try another image.",
+        }))
         return
       }
+      setLogoFile(file)
       setLogoPreview(reader.result)
-      setLogoError("")
+      setLogoRemoved(false)
+      setFormErrors((current) => ({ ...current, logo: undefined }))
       setSaveMessage(null)
     }
     reader.onerror = () => {
-      setLogoError("We couldn't read that file. Please try another image.")
+      setFormErrors((current) => ({
+        ...current,
+        logo: "We couldn't read that file. Please try another image.",
+      }))
     }
     reader.readAsDataURL(file)
   }
 
   const removeLogo = () => {
+    setLogoFile(null)
     setLogoPreview("")
-    setLogoError("")
+    setLogoRemoved(true)
+    setFormErrors((current) => ({ ...current, logo: undefined }))
     setSaveMessage(null)
+  }
+
+  const resetLogoState = () => {
+    setLogoFile(null)
+    setLogoPreview("")
+    setLogoRemoved(false)
+    setBrokenLogoSrc(null)
   }
 
   const handleSaveInfo = (event) => {
     event.preventDefault()
     if (editingTab !== "info" && editingTab !== "personal") return
-    const schema = editingTab === "info" ? firmInformationSchema : adminPersonalInfoSchema
+    const schema = editingTab === "info" ? firmSettingsSchema : adminPersonalInfoSchema
     const values = editingTab === "info"
-      ? { firmName: profile.firmName, firmType: profile.firmType }
+      ? {
+          firmName: firmDraft.firmName,
+          contactEmail: firmDraft.contactEmail,
+          about: firmDraft.about,
+          termsAndConditions: firmDraft.termsAndConditions,
+        }
       : {
           firstName: profile.firstName,
           lastName: profile.lastName,
@@ -143,7 +206,7 @@ export default function FirmProfilePage() {
           contactNumber: profile.contactNumber,
         }
     const errors = getZodFieldErrors(schema, values)
-    setProfileErrors(errors)
+    setFormErrors(errors)
     if (Object.keys(errors).length > 0) {
       setSaveMessage({ type: "error", text: "Please correct the information before saving." })
       scrollToFirstInvalidField(profileFormRef.current)
@@ -154,28 +217,104 @@ export default function FirmProfilePage() {
   }
 
   const cancelEditing = () => {
-    if (editingTab === "info" || editingTab === "personal") {
+    if (editingTab === "info") {
+      if (settings) {
+        setFirmDraft({
+          firmName: settings.firmName,
+          contactEmail: settings.contactEmail,
+          about: settings.about,
+          termsAndConditions: settings.termsAndConditions,
+        })
+      } else {
+        setFirmDraft(emptyFirmDraft)
+      }
+      resetLogoState()
+    } else if (editingTab === "personal") {
       setProfile(savedProfileRef.current)
-      setLogoPreview(savedLogoRef.current)
     }
     setEditingTab(null)
     setConfirmationOpen(false)
-    setProfileErrors({})
-    setLogoError("")
+    setFormErrors({})
     setSaveMessage(null)
+    setSaving(false)
   }
 
-  const confirmChanges = () => {
-    if (editingTab === "info" || editingTab === "personal") {
+  const confirmChanges = async () => {
+    if (editingTab === "personal") {
       savedProfileRef.current = { ...profile }
-      savedLogoRef.current = logoPreview
       setSaveMessage({
         type: "success",
         text: "Information updated successfully for this session.",
       })
+      setEditingTab(null)
+      setConfirmationOpen(false)
+      return
     }
-    setEditingTab(null)
-    setConfirmationOpen(false)
+
+    if (editingTab !== "info") return
+
+    const previousLogo = {
+      storageKey: settings?.logoStorageKey ?? null,
+      fileId: settings?.logoB2FileId ?? null,
+    }
+
+    try {
+      setSaving(true)
+      let logoKeys = {
+        logoStorageKey: previousLogo.storageKey,
+        logoB2FileId: previousLogo.fileId,
+        logoFileName: settings?.logoFileName ?? null,
+        logoMimeType: settings?.logoMimeType ?? null,
+      }
+
+      if (logoFile) {
+        const uploaded = await uploadLogo.mutateAsync(logoFile)
+        logoKeys = {
+          logoStorageKey: uploaded.storageKey,
+          logoB2FileId: uploaded.b2FileId,
+          logoFileName: uploaded.fileName,
+          logoMimeType: uploaded.mimeType,
+        }
+      } else if (logoRemoved) {
+        logoKeys = {
+          logoStorageKey: null,
+          logoB2FileId: null,
+          logoFileName: null,
+          logoMimeType: null,
+        }
+      }
+
+      await updateSettings.mutateAsync({
+        firmName: firmDraft.firmName.trim(),
+        contactEmail: firmDraft.contactEmail.trim(),
+        about: firmDraft.about,
+        termsAndConditions: firmDraft.termsAndConditions,
+        ...logoKeys,
+      })
+
+      // Best-effort cleanup of the superseded file once the row points elsewhere.
+      if ((logoFile || logoRemoved) && previousLogo.storageKey && previousLogo.fileId) {
+        try {
+          await deleteLogo.mutateAsync(previousLogo)
+        } catch (cleanupErr) {
+          console.error("Previous logo cleanup failed:", cleanupErr)
+        }
+      }
+
+      setSaveMessage({ type: "success", text: "Firm settings updated." })
+      setEditingTab(null)
+      resetLogoState()
+      setConfirmationOpen(false)
+    } catch (error) {
+      console.error("Saving firm settings failed:", error)
+      setSaveMessage({
+        type: "error",
+        text: error?.message || "Could not save firm settings. Please try again.",
+      })
+      setConfirmationOpen(false)
+    } finally {
+      setSaving(false)
+    }
   }
 
   usePageMeta({
@@ -184,22 +323,24 @@ export default function FirmProfilePage() {
     hasUnreadNotifications: true,
   })
 
-  const firmInitial = profile.firmName.trim().charAt(0).toUpperCase() || "A"
+  const firmInitial = displayFirmName.trim().charAt(0).toUpperCase() || "A"
   const editingLabel = editingTab === "personal" ? "Personal Information" : "Firm Information"
+  const avatarSrc = logoBroken ? "" : logoSrc
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-2">
-      {loading ? (
+      {isLoading ? (
         <PageSkeleton type="profile" />
       ) : (
         <>
           <div className="flex items-center gap-4">
             <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-forest-900 text-sm font-semibold text-white">
-              {logoPreview ? (
+              {avatarSrc ? (
                 <img
-                  src={logoPreview}
-                  alt={`${profile.firmName} logo`}
+                  src={avatarSrc}
+                  alt={`${displayFirmName} logo`}
                   className="size-full object-cover"
+                  onError={() => setBrokenLogoSrc(logoSrc)}
                 />
               ) : (
                 firmInitial
@@ -207,7 +348,7 @@ export default function FirmProfilePage() {
             </div>
             <div>
               <h1 className="text-lg font-semibold leading-tight">
-                {profile.firmName}
+                {displayFirmName}
               </h1>
               <p className="text-sm text-muted-foreground">
                 Managed by {currentUser.name}
@@ -250,14 +391,23 @@ export default function FirmProfilePage() {
             </div>
           )}
 
+          {!settings && (
+            <div
+              role="alert"
+              className="rounded-lg bg-amber-500/10 px-4 py-2.5 text-sm text-amber-700 ring-1 ring-amber-500/20 ring-inset"
+            >
+              Firm settings not found. Run the firm_settings seed SQL before editing.
+            </div>
+          )}
+
           {activeTab === "info" && (
-            <form ref={profileFormRef} onSubmit={handleSaveInfo} className="flex flex-col gap-6">
+            <form ref={profileFormRef} onSubmit={handleSaveInfo} noValidate className="flex flex-col gap-6">
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div>
                     <h2 className="text-sm font-semibold">Firm Information</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Details about your accounting firm.
+                      Public details shown on the landing page, sidebar and signup terms.
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -267,15 +417,17 @@ export default function FirmProfilePage() {
                           type="button"
                           variant="outline"
                           onClick={cancelEditing}
+                          disabled={saving}
                         >
                           Cancel
                         </Button>
                         <Button
                           type="submit"
+                          disabled={saving || !settings}
                           className="gap-2 bg-forest-900 text-white hover:opacity-90"
                         >
                           <Save className="size-4" />
-                          Save Changes
+                          {saving ? "Saving..." : "Save Changes"}
                         </Button>
                       </>
                     ) : (
@@ -283,7 +435,15 @@ export default function FirmProfilePage() {
                         type="button"
                         variant="outline"
                         className="gap-2"
+                        disabled={!settings}
                         onClick={() => {
+                          setFirmDraft({
+                            firmName: settings.firmName,
+                            contactEmail: settings.contactEmail,
+                            about: settings.about,
+                            termsAndConditions: settings.termsAndConditions,
+                          })
+                          resetLogoState()
                           setSaveMessage(null)
                           setEditingTab("info")
                         }}
@@ -297,11 +457,12 @@ export default function FirmProfilePage() {
 
                 <div className="mb-5 flex items-center gap-4">
                   <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted text-lg font-semibold text-muted-foreground">
-                    {logoPreview ? (
+                    {avatarSrc ? (
                       <img
-                        src={logoPreview}
-                        alt={`${profile.firmName} logo`}
+                        src={avatarSrc}
+                        alt={`${displayFirmName} logo`}
                         className="size-full object-contain"
+                        onError={() => setBrokenLogoSrc(logoSrc)}
                       />
                     ) : (
                       firmInitial
@@ -329,9 +490,9 @@ export default function FirmProfilePage() {
                           onClick={() => logoInputRef.current?.click()}
                         >
                           <Upload className="size-3.5" />
-                          Upload Logo
+                          {settings?.logoStorageKey || logoPreview ? "Replace Logo" : "Upload Logo"}
                         </Button>
-                        {logoPreview && (
+                        {(settings?.logoStorageKey || logoPreview) && !logoRemoved && (
                           <Button
                             type="button"
                             variant="ghost"
@@ -345,9 +506,9 @@ export default function FirmProfilePage() {
                         )}
                       </div>
                     )}
-                    {logoError && (
+                    {formErrors.logo && (
                       <p role="alert" className="mt-1 text-xs text-red-600">
-                        {logoError}
+                        {formErrors.logo}
                       </p>
                     )}
                   </div>
@@ -359,28 +520,66 @@ export default function FirmProfilePage() {
                     <Input
                       id="firmName"
                       name="firmName"
-                      value={profile.firmName}
-                      onChange={updateProfileField}
-                      disabled={editingTab !== "info"}
+                      value={firmValues.firmName}
+                      onChange={updateFirmField}
+                      disabled={!editing}
+                      aria-invalid={Boolean(formErrors.firmName) || undefined}
+                      data-invalid-field={formErrors.firmName ? "true" : undefined}
                       className={controlClass}
                     />
+                    {formErrors.firmName && <FieldError>{formErrors.firmName}</FieldError>}
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="firmType">Firm Type</FieldLabel>
-                    <select
-                      id="firmType"
-                      name="firmType"
-                      value={profile.firmType}
-                      onChange={updateProfileField}
-                      disabled={editingTab !== "info"}
-                      className={selectClass}
-                    >
-                      <option value="">Select Firm Type</option>
-                      <option value="sole-practitioner">Sole Practitioner</option>
-                      <option value="partnership">Partnership</option>
-                      <option value="corporation">Corporation</option>
-                    </select>
+                    <FieldLabel htmlFor="contactEmail">Contact Email</FieldLabel>
+                    <Input
+                      id="contactEmail"
+                      name="contactEmail"
+                      type="email"
+                      value={firmValues.contactEmail}
+                      onChange={updateFirmField}
+                      disabled={!editing}
+                      aria-invalid={Boolean(formErrors.contactEmail) || undefined}
+                      data-invalid-field={formErrors.contactEmail ? "true" : undefined}
+                      className={controlClass}
+                    />
+                    {formErrors.contactEmail && <FieldError>{formErrors.contactEmail}</FieldError>}
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="about">About</FieldLabel>
+                    <Textarea
+                      id="about"
+                      name="about"
+                      rows={4}
+                      value={firmValues.about}
+                      onChange={updateFirmField}
+                      disabled={!editing}
+                      placeholder="Short description of the firm shown on the landing page."
+                      aria-invalid={Boolean(formErrors.about) || undefined}
+                      data-invalid-field={formErrors.about ? "true" : undefined}
+                      className={controlClass}
+                    />
+                    {formErrors.about && <FieldError>{formErrors.about}</FieldError>}
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="termsAndConditions">Terms and Conditions</FieldLabel>
+                    <Textarea
+                      id="termsAndConditions"
+                      name="termsAndConditions"
+                      rows={8}
+                      value={firmValues.termsAndConditions}
+                      onChange={updateFirmField}
+                      disabled={!editing}
+                      placeholder="Full terms shown to clients in the signup popup."
+                      aria-invalid={Boolean(formErrors.termsAndConditions) || undefined}
+                      data-invalid-field={formErrors.termsAndConditions ? "true" : undefined}
+                      className={controlClass}
+                    />
+                    {formErrors.termsAndConditions && (
+                      <FieldError>{formErrors.termsAndConditions}</FieldError>
+                    )}
                   </Field>
                 </FieldGroup>
               </div>
@@ -442,12 +641,12 @@ export default function FirmProfilePage() {
                         value={profile.firstName}
                         onChange={updateProfileField}
                         disabled={editingTab !== "personal"}
-                        aria-invalid={Boolean(profileErrors.firstName) || undefined}
-                        data-invalid-field={profileErrors.firstName ? "true" : undefined}
+                        aria-invalid={Boolean(formErrors.firstName) || undefined}
+                        data-invalid-field={formErrors.firstName ? "true" : undefined}
                         className={controlClass}
                       />
-                      {profileErrors.firstName && (
-                        <FieldError>{profileErrors.firstName}</FieldError>
+                      {formErrors.firstName && (
+                        <FieldError>{formErrors.firstName}</FieldError>
                       )}
                     </Field>
                     <Field>
@@ -458,12 +657,12 @@ export default function FirmProfilePage() {
                         value={profile.lastName}
                         onChange={updateProfileField}
                         disabled={editingTab !== "personal"}
-                        aria-invalid={Boolean(profileErrors.lastName) || undefined}
-                        data-invalid-field={profileErrors.lastName ? "true" : undefined}
+                        aria-invalid={Boolean(formErrors.lastName) || undefined}
+                        data-invalid-field={formErrors.lastName ? "true" : undefined}
                         className={controlClass}
                       />
-                      {profileErrors.lastName && (
-                        <FieldError>{profileErrors.lastName}</FieldError>
+                      {formErrors.lastName && (
+                        <FieldError>{formErrors.lastName}</FieldError>
                       )}
                     </Field>
                   </div>
@@ -489,12 +688,12 @@ export default function FirmProfilePage() {
                       value={profile.contactNumber}
                       onChange={updateProfileField}
                       disabled={editingTab !== "personal"}
-                      aria-invalid={Boolean(profileErrors.contactNumber) || undefined}
-                      data-invalid-field={profileErrors.contactNumber ? "true" : undefined}
+                      aria-invalid={Boolean(formErrors.contactNumber) || undefined}
+                      data-invalid-field={formErrors.contactNumber ? "true" : undefined}
                       className={controlClass}
                     />
-                    {profileErrors.contactNumber && (
-                      <FieldError>{profileErrors.contactNumber}</FieldError>
+                    {formErrors.contactNumber && (
+                      <FieldError>{formErrors.contactNumber}</FieldError>
                     )}
                   </Field>
                 </FieldGroup>
@@ -504,13 +703,15 @@ export default function FirmProfilePage() {
         </>
       )}
 
-      <Dialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
+      <Dialog open={confirmationOpen} onOpenChange={(open) => {
+        if (!saving) setConfirmationOpen(open)
+      }}>
         <DialogContent data-slot="firm-profile-save-confirmation">
           <DialogHeader>
             <DialogTitle>Confirm changes</DialogTitle>
             <DialogDescription>
-              Save your changes to {editingLabel}? These changes apply to this
-              session only.
+              Save your changes to {editingLabel}? This updates the firm's
+              public settings.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row justify-end gap-2">
@@ -518,15 +719,17 @@ export default function FirmProfilePage() {
               type="button"
               variant="outline"
               onClick={() => setConfirmationOpen(false)}
+              disabled={saving}
             >
               Cancel
             </Button>
             <Button
               type="button"
               onClick={confirmChanges}
+              disabled={saving}
               className="bg-forest-900 text-white hover:opacity-90"
             >
-              Confirm and Save
+              {saving ? "Saving..." : "Confirm and Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

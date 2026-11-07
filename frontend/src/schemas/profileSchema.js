@@ -80,11 +80,13 @@ export const clientBusinessProfileSchema = z.object({
   zipCode: z.string().refine((value) => /^\d*$/.test(value), "ZIP code must contain digits only."),
 })
 
-export const firmInformationSchema = z.object({
+// Mirrors the public.firm_settings singleton: about / terms default to ''
+// in the table, so they are optional here; contact_email is NOT NULL.
+export const firmSettingsSchema = z.object({
   firmName: requiredText("Firm name is required."),
-  firmType: z.enum(["sole-practitioner", "partnership", "corporation"], {
-    error: "Select a firm type.",
-  }),
+  contactEmail: emailSchema,
+  about: z.string(),
+  termsAndConditions: z.string(),
 })
 
 export const adminPersonalInfoSchema = z.object({

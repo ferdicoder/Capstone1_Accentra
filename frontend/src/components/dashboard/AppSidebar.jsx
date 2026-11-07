@@ -1,3 +1,5 @@
+import { useState } from "react"
+
 import darkLogo from "@/assets/Logo1.svg"
 
 import {
@@ -15,13 +17,17 @@ import { NavMain } from "@/components/dashboard/NavMain"
 import { NavUser } from "@/components/dashboard/NavUser"
 import { roleConfig } from "@/components/dashboard/NavData"
 import { authStore } from "@/store/authStore"
+import { useFetchFirmSettings } from "@/hooks/useFirmSettings"
+import { firmLogoUrl } from "@/services/api/firmSettingsAPI"
 
 export function AppSidebar({  user, ...props }) {
   const role = authStore((state) => state.role)
   const sessionUser = authStore((state) => state.user)
   const config = roleConfig[role]
+  const { data: settings } = useFetchFirmSettings()
+  const [logoFailed, setLogoFailed] = useState(false)
   if (!config) return null
-  
+
   const currentUser = user ?? sessionUser
   const metadata = currentUser?.user_metadata ?? {}
 
@@ -39,6 +45,9 @@ export function AppSidebar({  user, ...props }) {
       }
     : null
 
+  const firmName = settings?.firmName?.trim() || "Accentra"
+  const useCustomLogo = Boolean(settings?.logoStorageKey) && !logoFailed
+
   return (
     <Sidebar
       collapsible="icon"
@@ -49,17 +58,18 @@ export function AppSidebar({  user, ...props }) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" className="pointer-events-none hover:bg-sidebar-accent/80 group-data-[collapsible=icon]:justify-center">
-              {/* Logo1.svg sits directly on the sidebar background - no icon
-                  container, background, ring or shadow. Height matches the
-                  previous glyph so the h-12 header height is unchanged. */}
+              {/* Firm logo when one is uploaded, otherwise the platform mark.
+                  Height matches the previous glyph so the h-12 header height
+                  is unchanged. */}
               <img
-                src={darkLogo}
+                src={useCustomLogo ? firmLogoUrl : darkLogo}
                 alt=""
                 aria-hidden="true"
-                className="h-5 w-auto shrink-0"
+                onError={() => setLogoFailed(true)}
+                className="h-5 w-auto max-w-[7rem] shrink-0 object-contain"
               />
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="truncate text-sm font-semibold tracking-tight">Accentra</span>
+                <span className="truncate text-sm font-semibold tracking-tight">{firmName}</span>
                 <span className="truncate text-xs text-white/50">
                   {config.label}
                 </span>

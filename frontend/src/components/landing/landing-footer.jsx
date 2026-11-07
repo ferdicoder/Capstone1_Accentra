@@ -1,4 +1,5 @@
 import { landingContainer } from "./landing-data"
+import { useFetchFirmSettings } from "@/hooks/useFirmSettings"
 
 const quickLinks = [
   { label: "Home", href: "#home" },
@@ -13,6 +14,10 @@ const footerLink =
   "text-sm text-white/70 transition-colors hover:text-[#6EE7B7] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#6EE7B7]"
 
 export function LandingFooter() {
+  const { data: settings } = useFetchFirmSettings()
+  const firmName = settings?.firmName?.trim() || "Jobal Business Consultancy"
+  const copyrightYear = new Date().getFullYear()
+
   return (
     <footer className="snap-end bg-[#062c31] text-white">
       <div
@@ -20,7 +25,7 @@ export function LandingFooter() {
       >
         <div className="max-w-md">
           <h2 className="text-lg font-semibold tracking-tight text-white">
-            Jobal Business Consultancy
+            {firmName}
           </h2>
           <p className="mt-3 text-sm leading-6 text-white/65">
             Supporting businesses since 2006 through business registration and
@@ -55,7 +60,7 @@ export function LandingFooter() {
         <div
           className={`${landingContainer} flex flex-col gap-2 py-4 text-xs text-white/55 sm:flex-row sm:items-center sm:justify-between`}
         >
-          <p>© 2026 Jobal Business Consultancy. All rights reserved.</p>
+          <p>© {copyrightYear} {firmName}. All rights reserved.</p>
           <p>
             Powered by <span className="font-medium text-white/75">Accentra</span>
           </p>

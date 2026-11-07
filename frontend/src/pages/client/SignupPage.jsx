@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ArrowLeft, Check, X, Eye, EyeOff } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LandingNav } from "@/components/landing/landing-nav";
+import { TermsDialog } from "@/components/terms-dialog";
 
 import { registerClient } from "../../services/authService";
 import { accountSchema, businessSchema, passwordRequirements } from "/src/schemas/signupSchema";
@@ -121,6 +122,8 @@ export default function SignupPage() {
   const [submitError, setSubmitError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const slideClass = location.state?.clientAuthSlide
@@ -196,6 +199,14 @@ export default function SignupPage() {
 
     if (currentStep === 1) {
       setCurrentStep(2);
+      return;
+    }
+
+    if (!agreedToTerms) {
+      setErrors((previous) => ({
+        ...previous,
+        termsAgree: "You must agree to the Terms and Conditions to continue.",
+      }));
       return;
     }
 
@@ -589,6 +600,43 @@ export default function SignupPage() {
                 <FieldDescription className="text-red-600">{submitError}</FieldDescription>
               )}
 
+              <Field>
+                <label
+                  htmlFor="termsAgree"
+                  className="flex cursor-pointer items-start gap-2.5 text-sm"
+                >
+                  <input
+                    id="termsAgree"
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={(event) => {
+                      setAgreedToTerms(event.target.checked);
+                      if (event.target.checked) {
+                        setErrors((previous) => {
+                          const next = { ...previous };
+                          delete next.termsAgree;
+                          return next;
+                        });
+                      }
+                    }}
+                    className="mt-0.5 size-4 shrink-0 accent-emerald-600"
+                  />
+                  <span className="text-muted-foreground">
+                    I have read and agree to the{" "}
+                    <button
+                      type="button"
+                      onClick={() => setTermsOpen(true)}
+                      className="font-medium text-forest-900 underline underline-offset-4 hover:text-emerald-700"
+                    >
+                      Terms and Conditions
+                    </button>
+                  </span>
+                </label>
+                {errorFor("termsAgree") && (
+                  <FieldDescription className="text-red-600">{errorFor("termsAgree")}</FieldDescription>
+                )}
+              </Field>
+
               <div className="flex gap-4">
                 <Button type="button" variant="outline" className="flex-1" onClick={handleBack} disabled={isSubmitting}>
                   Back
@@ -619,6 +667,7 @@ export default function SignupPage() {
           </div>
         </div>
       </main>
+      <TermsDialog open={termsOpen} onOpenChange={setTermsOpen} />
     </>
   );
 }
