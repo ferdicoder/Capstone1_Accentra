@@ -3,6 +3,7 @@ import {
   formatDate,
   getClientFullName,
 } from "@/components/firm/engagements/engagement-variants"
+import { BillingEngagementHistory } from "./billing-engagement-history"
 import {
   formatPeso,
   invoiceTypeLabels,
@@ -48,7 +49,6 @@ export function BillingDetailContent({
   }
 
   const verifiable = isVerifiable(billing)
-  const isServiceFee = billing.invoice_type === "service_fee"
   const isRetainerFee = billing.invoice_type === "retainer_fee"
 
   const retainerClient = isRetainerFee ? client : null
@@ -183,60 +183,8 @@ export function BillingDetailContent({
         </div>
       </div>
 
-      {/* Service Fee → Related Engagements */}
-      {isServiceFee && (
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-foreground">
-              Related Engagements
-            </h3>
-
-            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-              {engagements.length}{" "}
-              {engagements.length === 1 ? "engagement" : "engagements"}
-            </span>
-          </div>
-
-          {engagements.length > 0 ? (
-            <div className="flex flex-col divide-y divide-border">
-              {engagements.map((engagement) => (
-                <div
-                  key={engagement.id}
-                  className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-foreground">
-                      {engagement.engagementNumber ?? "Engagement"}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col gap-2.5">
-                    <InfoRow label="Service">
-                      {engagement.serviceName ?? "—"}
-                    </InfoRow>
-
-                    <InfoRow label="Client">
-                      {engagement.client &&
-                      Object.keys(engagement.client).length > 0
-                        ? getClientFullName(engagement.client)
-                        : "—"}
-                    </InfoRow>
-
-                    <InfoRow label="Business">
-                      {engagement.business?.businessName ?? "—"}
-                    </InfoRow>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No engagements are linked to this invoice.
-            </p>
-          )}
-        </div>
-      )}
-
+      {/* Engagements linked to this billing */}
+      <BillingEngagementHistory engagements={engagements} />
     </div>
   )
 }
