@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { X } from "lucide-react"
 
 import { DashboardLayout } from "@/layout/DashboardLayout"
@@ -28,7 +29,9 @@ const hasOutstandingBilling = (billings) =>
   )
 
 export function ClientLayout() {
+  const navigate = useNavigate()
   const user = authStore((state) => state.user)
+  const authLoading = authStore((state) => state.loading)
   const {
     data: business,
     isLoading: isBusinessLoading,
@@ -86,7 +89,7 @@ export function ClientLayout() {
               </button>
             </div>
 
-            {isBusinessLoading ? (
+            {isBusinessLoading || authLoading ? (
               <p className="py-6 text-sm text-muted-foreground">Checking request eligibility...</p>
             ) : businessError ? (
               <div className="space-y-3 py-2">
@@ -98,9 +101,23 @@ export function ClientLayout() {
                 </Button>
               </div>
             ) : !businessId ? (
-              <p className="py-2 text-sm text-red-700">
-                No business found for your account. Please contact support.
-              </p>
+              <div className="space-y-3 py-2">
+                <p className="text-sm text-muted-foreground">
+                  You haven't added a business yet. Add your business in your
+                  profile to request services.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    closeNewRequest()
+                    navigate("/client/profile")
+                  }}
+                >
+                  Go to Profile
+                </Button>
+              </div>
             ) : areBillingsLoading || areBillingsFetching ? (
               <p className="py-6 text-sm text-muted-foreground">Checking outstanding balances...</p>
             ) : billingsError ? (

@@ -162,15 +162,23 @@ export function ClientDetailsCard({
             Business
           </p>
           <dl className="divide-y divide-border/60">
-            <OptionalRow label="Business Name" value={client?.businessName} editing={editing} />
-            <OptionalRow label="Business Type" value={client?.businessType} editing={editing} />
-            <OptionalRow label="Industry" value={client?.industry} editing={editing} />
-            <OptionalRow
-              label="TIN / UEN"
-              value={client?.tinNo && <span className="tabular-nums">{client.tinNo}</span>}
-              editing={editing}
-            />
-            <OptionalRow label="Address" value={client?.address} editing={editing} />
+            {client?.hasBusiness === false ? (
+              <RequestDetailRow label="Business">
+                <span className="text-muted-foreground">No business yet</span>
+              </RequestDetailRow>
+            ) : (
+              <>
+                <OptionalRow label="Business Name" value={client?.businessName} editing={editing} />
+                <OptionalRow label="Business Type" value={client?.businessType} editing={editing} />
+                <OptionalRow label="Industry" value={client?.industry} editing={editing} />
+                <OptionalRow
+                  label="TIN / UEN"
+                  value={client?.tinNo && <span className="tabular-nums">{client.tinNo}</span>}
+                  editing={editing}
+                />
+                <OptionalRow label="Address" value={client?.address} editing={editing} />
+              </>
+            )}
           </dl>
         </div>
       </div>

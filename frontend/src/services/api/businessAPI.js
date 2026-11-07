@@ -6,6 +6,7 @@ function mapBusinessRow(row) {
   return {
     id: row.business_id,
     ownerId: row.owner_id,
+    hasBusiness: true,
     firstName: owner?.first_name ?? "",
     middleName: owner?.middle_name ?? "",
     lastName: owner?.last_name ?? "",
@@ -44,14 +45,63 @@ const FIRM_BUSINESS_SELECT = `
   owner:users(user_id, first_name, middle_name, last_name, email, contact_no, status)
 `
 
-export async function getBusinesses() {
-  const { data, error } = await supabase
-    .from("businesses")
-    .select(FIRM_BUSINESS_SELECT)
-    .order("name")
-  if (error) throw error
+// Synthetic row for a client who signed up without a business: the client
+// exists in users + user_roles but has no businesses row. `id` is the owner's
+// user id — a uuid that can never collide with a real business_id, so every
+// business_id-keyed lookup (engagements, billings) safely matches nothing.
+function mapBusinesslessClientRow(user) {
+  return {
+    id: user.user_id,
+    ownerId: user.user_id,
+    hasBusiness: false,
+    firstName: user.first_name ?? "",
+    middleName: user.middle_name ?? "",
+    lastName: user.last_name ?? "",
+    email: user.email ?? "",
+    ownerStatus: user.status ?? "inactive",
+    name: "",
+    businessName: "",
+    businessType: "",
+    clientType: "non_retainer",
+    retainerFee: null,
+    tinNo: "",
+    tin: "",
+    industry: "",
+    contactNo: user.contact_no ?? "",
+    contactNumber: user.contact_no ?? "",
+    houseNo: "",
+    streetName: "",
+    barangay: "",
+    district: "",
+    city: "",
+    zipCode: "",
+    address: "",
+  }
+}
 
-  return (data ?? []).map(mapBusinessRow)
+// All firm-visible clients: businesses rows plus client-role users who have
+// no business yet (appended after the name-sorted business rows).
+export async function getBusinesses() {
+  const [{ data: businessRows, error: businessError }, { data: clientUsers, error: usersError }] =
+    await Promise.all([
+      supabase.from("businesses").select(FIRM_BUSINESS_SELECT).order("name"),
+      supabase
+        .from("users")
+        .select(
+          "user_id, first_name, middle_name, last_name, email, contact_no, status, user_roles!inner(role)"
+        )
+        .eq("user_roles.role", "client"),
+    ])
+  if (businessError) throw businessError
+  if (usersError) throw usersError
+
+  const mappedBusinesses = (businessRows ?? []).map(mapBusinessRow)
+  const ownersWithBusiness = new Set((businessRows ?? []).map((row) => row.owner_id))
+  const businesslessClients = (clientUsers ?? [])
+    .filter((user) => !ownersWithBusiness.has(user.user_id))
+    .map(mapBusinesslessClientRow)
+
+  return [...mappedBusinesses, ...businesslessClients]
 }
 
 const CLIENT_SEARCH_SELECT = `
@@ -123,13 +173,44 @@ export async function updateBusinessType({ businessId, clientType, retainerFee }
   return mapBusinessRow(data)
 }
 
-// One business per client — owner_id is UNIQUE, so .single() is safe here.
+// One business per client — owner_id is UNIQUE. maybeSingle: clients who
+// signed up without a business legitimately have no row (null, not an error).
 export async function getMyBusiness(userId) {
   const { data, error } = await supabase
     .from("businesses")
     .select(BUSINESS_SELECT)
     .eq("owner_id", userId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+
+  return mapBusinessRow(data)
+}
+
+export async function createMyBusiness({ userId, ...business }) {
+  if (!userId) {
+    throw new Error("A signed-in user is required to create a business.")
+  }
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .insert({
+      owner_id: userId,
+      name: business.businessName,
+      business_type: business.businessType,
+      tin_no: business.tin,
+      industry: business.industry,
+      contact_no: business.contactNumber,
+      house_no: business.houseNo,
+      street: business.streetName,
+      barangay: business.barangay,
+      district: business.district,
+      city: business.city,
+      zip_code: business.zipCode,
+    })
+    .select(BUSINESS_SELECT)
     .single()
+
   if (error) throw error
 
   return mapBusinessRow(data)

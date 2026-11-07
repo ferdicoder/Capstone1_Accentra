@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { Briefcase, CheckCircle2, ChevronRight } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
+import { NoBusinessBanner } from "@/components/client/NoBusinessBanner"
 import {
   Badge,
   EmptyState,
@@ -271,6 +272,8 @@ export default function ClientDashboard() {
           Some information could not be loaded. Refresh the page to try again.
         </div>
       )}
+
+      {business === null && <NoBusinessBanner />}
 
       {/* KPI cards (display only, no icons) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

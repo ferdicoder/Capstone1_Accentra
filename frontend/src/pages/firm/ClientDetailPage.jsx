@@ -250,18 +250,22 @@ export default function ClientDetailPage() {
             >
               {client.status === "deactivated" ? "Reactivate" : "Deactivate"}
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
-              onClick={() => {
-                resetEditState()
-                setEditing(true)
-              }}
-            >
-              <Pencil className="size-4" />
-              Edit Client
-            </Button>
+            {/* Editing the client type writes to businesses.type — only
+                possible once the client has added a business. */}
+            {client.hasBusiness !== false && (
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
+                onClick={() => {
+                  resetEditState()
+                  setEditing(true)
+                }}
+              >
+                <Pencil className="size-4" />
+                Edit Client
+              </Button>
+            )}
           </div>
         ))}
       </div>

@@ -107,7 +107,8 @@ export const accountSchema = z.object({
 });
 
 // Business details are collected only when the client confirms that the
-// business is already BIR-registered. The unregistered path bypasses this schema.
+// business is already BIR-registered. The combined "not yet" path (no
+// business / not registered) bypasses this schema.
 export const businessSchema = z.object({
   birRegistrationStatus: z.literal("registered", {
     error: "Please confirm that your business is BIR-registered.",

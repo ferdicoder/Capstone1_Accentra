@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
+import { NoBusinessBanner } from "@/components/client/NoBusinessBanner"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
@@ -458,6 +459,8 @@ export default function ClientServiceRequestsPage() {
       <div>
         <h1 className="text-xl font-semibold">My Service Requests</h1>
       </div>
+
+      {business === null && <NoBusinessBanner />}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {/* overflow-y-hidden stops the 1px underline overhang (-mb-px) from

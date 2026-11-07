@@ -40,7 +40,12 @@ const clientColumns = [
   {
     key: "type",
     label: "Type",
-    render: (client) => <ClientTypeBadge type={client.clientType} />,
+    render: (client) =>
+      client.hasBusiness === false ? (
+        <span className="block truncate text-sm text-foreground">â€”</span>
+      ) : (
+        <ClientTypeBadge type={client.clientType} />
+      ),
   },
   {
     key: "status",

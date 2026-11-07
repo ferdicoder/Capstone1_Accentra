@@ -6,7 +6,7 @@ import { usePageMeta } from "@/hooks/usePageMeta"
 import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validation"
 import { cn } from "@/lib/utils"
 import { authStore } from "@/store/authStore"
-import { useFetchMyBusiness, useUpdateMyBusiness } from "@/hooks/useBusinesses"
+import { useFetchMyBusiness, useUpdateMyBusiness, useCreateMyBusiness } from "@/hooks/useBusinesses"
 import { clientBusinessProfileSchema, passwordChangeSchema } from "@/schemas/profileSchema"
 
 import { Button } from "@/components/ui/button"
@@ -261,6 +261,7 @@ export default function ClientProfilePage() {
   const { data: business, isLoading: businessLoading } = useFetchMyBusiness(user?.id)
   const businessId = business?.id
   const updateBusiness = useUpdateMyBusiness(user?.id)
+  const createBusiness = useCreateMyBusiness(user?.id)
 
   const [activeTab, setActiveTab] = useState("info")
   const [profile, setProfile] = useState(emptyProfile)
@@ -431,9 +432,8 @@ export default function ClientProfilePage() {
     setIsSaving(true)
     setSaveMessage(null)
     try {
-      const updatedBusiness = await updateBusiness.mutateAsync({
+      const businessPayload = {
         userId: user?.id,
-        businessId,
         businessName: profile.businessName,
         businessType: profile.businessType,
         tin: profile.tin,
@@ -445,13 +445,21 @@ export default function ClientProfilePage() {
         district: profile.district,
         city: profile.city,
         zipCode: profile.zipCode,
-      })
+      }
 
-      const updatedProfile = buildProfile(user, updatedBusiness)
+      // No business row yet (signed up without one) → create instead of update.
+      const savedBusiness = businessId
+        ? await updateBusiness.mutateAsync({ ...businessPayload, businessId })
+        : await createBusiness.mutateAsync(businessPayload)
+
+      const updatedProfile = buildProfile(user, savedBusiness)
       setProfile(updatedProfile)
       savedProfileRef.current = updatedProfile
       setIsInfoConfirmOpen(false)
-      setSaveMessage({ type: "success", text: "Profile updated successfully." })
+      setSaveMessage({
+        type: "success",
+        text: businessId ? "Profile updated successfully." : "Business added successfully.",
+      })
     } catch (err) {
       console.error(err)
       setIsInfoConfirmOpen(false)
@@ -661,6 +669,11 @@ export default function ClientProfilePage() {
                   <h2 className="mb-5 text-sm font-semibold">
                     Business Information
                   </h2>
+                  {!businessId && !businessLoading && (
+                    <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-sm text-muted-foreground">
+                      You haven't added a business yet — fill this in and save to add it.
+                    </div>
+                  )}
                   <FieldGroup className="gap-5">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field>
@@ -1036,8 +1049,12 @@ export default function ClientProfilePage() {
       <ConfirmationModal
         open={isInfoConfirmOpen}
         icon={FileEdit}
-        title="Change Information?"
-        description="Are you sure you want to change your information?"
+        title={businessId ? "Change Information?" : "Add Business?"}
+        description={
+          businessId
+            ? "Are you sure you want to change your information?"
+            : "Add this business to your account?"
+        }
         confirmLabel="Yes"
         isConfirming={isSaving}
         onCancel={() => setIsInfoConfirmOpen(false)}

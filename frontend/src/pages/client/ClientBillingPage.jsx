@@ -26,6 +26,7 @@ import {
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchBusinessBillings } from "@/hooks/useBillings"
+import { NoBusinessBanner } from "@/components/client/NoBusinessBanner"
 import { authStore } from "@/store/authStore"
 import { billingStatusLabels } from "@/components/firm/billing/billing-variants"
 import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
@@ -94,6 +95,8 @@ export default function ClientBillingPage() {
           My Billing
         </h1>
       </div>
+
+      {business === null && <NoBusinessBanner />}
 
       {/* Summary */}
       <div className="grid gap-3 sm:grid-cols-2">

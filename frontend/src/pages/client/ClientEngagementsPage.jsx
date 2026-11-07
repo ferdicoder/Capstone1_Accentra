@@ -18,6 +18,7 @@ import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchMyEngagements } from "@/hooks/useEngagements"
 import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
+import { NoBusinessBanner } from "@/components/client/NoBusinessBanner"
 import { authStore } from "@/store/authStore"
 import { stageLabel } from "@/lib/vocab"
 import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
@@ -721,6 +722,8 @@ export default function ClientEngagementsPage() {
       <div>
         <h1 className="text-xl font-semibold">My Engagements</h1>
       </div>
+
+      {business === null && <NoBusinessBanner />}
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">

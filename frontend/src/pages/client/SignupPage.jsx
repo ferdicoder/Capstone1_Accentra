@@ -186,9 +186,9 @@ export default function SignupPage() {
     setSubmitError("");
 
     const schema = currentStep === 1 ? accountSchema : businessSchema;
-    const stepErrors = currentStep === 2 && formData.birRegistrationStatus === "unregistered"
-      ? {}
-      : getErrors(schema, formData);
+    const skipsBusinessDetails =
+      currentStep === 2 && formData.birRegistrationStatus === "none";
+    const stepErrors = skipsBusinessDetails ? {} : getErrors(schema, formData);
     setErrors(stepErrors);
     if (Object.keys(stepErrors).length) return;
 
@@ -382,7 +382,7 @@ export default function SignupPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
                     ["registered", "Yes, my business is already registered"],
-                    ["unregistered", "No, my business is not registered yet"],
+                    ["none", "No, not yet — I'll add my business later"],
                   ].map(([value, label]) => (
                     <label
                       key={value}
@@ -403,7 +403,7 @@ export default function SignupPage() {
                           setFormData((previous) => ({
                             ...previous,
                             birRegistrationStatus: selectedStatus,
-                            ...(selectedStatus === "unregistered" ? {
+                            ...(selectedStatus !== "registered" ? {
                               businessName: "", businessType: "", tin: "", industry: "",
                               contactNumber: "", houseNo: "", streetName: "", barangay: "",
                               district: "", city: "", zipCode: "",
@@ -505,11 +505,11 @@ export default function SignupPage() {
                     />
                   </div>
                 </>
-              ) : formData.birRegistrationStatus === "unregistered" ? (
+              ) : formData.birRegistrationStatus === "none" ? (
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
-                  <p className="text-sm font-medium text-foreground">You can skip your business information for now.</p>
+                  <p className="text-sm font-medium text-foreground">You can skip your business details for now.</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Since your business is not yet registered, you can complete your business profile later in Settings or when the information becomes available.
+                    Whether your business isn't BIR-registered yet or you don't have one yet, you can add it later from your profile whenever you're ready.
                   </p>
                 </div>
               ) : (

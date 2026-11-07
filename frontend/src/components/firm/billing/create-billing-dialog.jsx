@@ -185,6 +185,9 @@ export function CreateBillingDialog({
     const query = clientSearch.trim().toLowerCase();
     if (!query) return [];
     return clients.filter((client) => {
+      // Billing rows are keyed by business_id — clients without a business
+      // cannot be billed yet.
+      if (client.hasBusiness === false) return false;
       // Retainer fee billings can only be raised against retainer clients.
       if (isRetainerFee && !isRetainerClient(client)) return false;
       const searchableText = [

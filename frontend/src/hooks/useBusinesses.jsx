@@ -3,6 +3,7 @@ import {
   getBusinesses,
   searchClients,
   getMyBusiness,
+  createMyBusiness,
   updateBusinessType,
   updateMyBusiness,
 } from "@/services/api/businessAPI"
@@ -55,6 +56,16 @@ export function useUpdateMyBusiness(userId) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: updateMyBusiness,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.myBusiness(userId) })
+    },
+  })
+}
+
+export function useCreateMyBusiness(userId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createMyBusiness,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.myBusiness(userId) })
     },

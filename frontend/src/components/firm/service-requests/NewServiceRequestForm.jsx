@@ -40,7 +40,7 @@ export function NewServiceRequestForm({
     setError(null)
 
     if (!businessId) {
-      setError("No business found for your account. Please contact support.")
+      setError("You haven't added a business yet. Add your business in your profile to request services.")
       return
     }
     if (isBlockedByUnpaidBills) {
