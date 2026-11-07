@@ -10,6 +10,7 @@ export function Panel({
   count,
   to,
   linkLabel = "View all",
+  showLinkIcon = true,
   className,
   children,
 }) {
@@ -43,7 +44,7 @@ export function Panel({
             )}
           >
             {linkLabel}
-            <ArrowRight className="size-3" aria-hidden="true" />
+            {showLinkIcon && <ArrowRight className="size-3" aria-hidden="true" />}
           </Link>
         )}
       </div>
@@ -53,7 +54,7 @@ export function Panel({
 }
 
 // "View N more" row at the bottom of a panel that has hidden rows.
-export function MoreLink({ to, count }) {
+export function MoreLink({ to, count, showIcon = true }) {
   return (
     <Link
       to={to}
@@ -63,7 +64,7 @@ export function MoreLink({ to, count }) {
       )}
     >
       View {count} more
-      <ArrowRight className="size-3" aria-hidden="true" />
+      {showIcon && <ArrowRight className="size-3" aria-hidden="true" />}
     </Link>
   )
 }

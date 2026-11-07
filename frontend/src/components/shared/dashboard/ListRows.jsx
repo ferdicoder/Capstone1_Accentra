@@ -16,12 +16,13 @@ export function ListRowLink({
   urgent = false,
   badge,
   trailing,
+  showChevron = true,
 }) {
   return (
     <li>
       <Link to={to} className={cn(rowCard, focusRing)}>
         <div className="flex min-w-0 items-start gap-3">
-          <IconChip icon={icon} tone={iconTone} />
+          {icon && <IconChip icon={icon} tone={iconTone} />}
           <div className="flex min-w-0 flex-col gap-1.5">
             <p className="truncate text-sm font-medium">{title}</p>
             {subtitle && (
@@ -41,10 +42,12 @@ export function ListRowLink({
           {trailing && (
             <span className="text-sm font-semibold tabular-nums">{trailing}</span>
           )}
-          <ChevronRight
-            className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-            aria-hidden="true"
-          />
+          {showChevron && (
+            <ChevronRight
+              className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+              aria-hidden="true"
+            />
+          )}
         </div>
       </Link>
     </li>
@@ -133,11 +136,12 @@ export function ListRowWithActions({
   badge,
   warning,
   actions = [],
+  showWarningIcon = true,
 }) {
   return (
     <li className="relative flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background p-4 transition-all hover:border-emerald-200 hover:bg-muted/40 hover:shadow-sm">
       <div className="flex min-w-0 flex-1 basis-56 items-start gap-3">
-        <IconChip icon={icon} tone={iconTone} />
+        {icon && <IconChip icon={icon} tone={iconTone} />}
         <div className="flex min-w-0 flex-col gap-1.5">
           <Link
             to={to}
@@ -153,7 +157,7 @@ export function ListRowWithActions({
           )}
           {warning && (
             <p className="flex items-center gap-1 text-xs font-medium text-red-700">
-              <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
+              {showWarningIcon && <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />}
               {warning}
             </p>
           )}

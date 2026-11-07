@@ -1,17 +1,8 @@
 import { useMemo, useState } from "react"
-import {
-  Briefcase,
-  CheckCircle2,
-  ClipboardList,
-  History,
-  Plus,
-  Users,
-} from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import {
   EmptyState,
-  IconChip,
   InlineError,
   ListRowLink,
   ListRowWithActions,
@@ -137,11 +128,6 @@ const greeting = () => {
   if (hour < 18) return "Good afternoon"
   return "Good evening"
 }
-
-const quickActionClass = cn(
-  "inline-flex w-fit items-center gap-1.5 rounded-lg border bg-background px-3 py-2 text-xs font-medium shadow-sm transition-colors hover:bg-muted/40",
-  focusRing
-)
 
 export default function FirmAdminDashboard() {
   const today = useToday()
@@ -416,10 +402,6 @@ export default function FirmAdminDashboard() {
             What needs your attention across requests, engagements, and billing.
           </p>
         </div>
-        <button type="button" onClick={openCreate} className={quickActionClass}>
-          <Plus className="size-3.5" aria-hidden="true" />
-          New engagement
-        </button>
       </div>
 
       {notice && (
@@ -494,11 +476,12 @@ export default function FirmAdminDashboard() {
           className="lg:col-start-1 lg:row-start-1"
           count={requestsError ? undefined : pendingRequests.length}
           to={ROUTES.requests}
+          showLinkIcon={false}
         >
           {requestsError ? (
-            <InlineError />
+            <InlineError showIcon={false} />
           ) : pendingRequests.length === 0 ? (
-            <EmptyState icon={CheckCircle2} title="No pending requests" positive>
+            <EmptyState title="No pending requests" positive>
               New client requests will appear here.
             </EmptyState>
           ) : (
@@ -512,8 +495,7 @@ export default function FirmAdminDashboard() {
                   <ListRowLink
                     key={request.id}
                     to={ROUTES.requests}
-                    icon={ClipboardList}
-                    iconTone="bg-amber-50 text-amber-700"
+                    showChevron={false}
                     title={F.request.serviceName(request)}
                     subtitle={`${F.request.clientName(request)}${
                       days === null ? "" : ` · waiting ${days} day${days === 1 ? "" : "s"}`
@@ -525,7 +507,7 @@ export default function FirmAdminDashboard() {
             </ul>
           )}
           {!requestsError && pendingRequests.length > MAX_ROWS && (
-            <MoreLink to={ROUTES.requests} count={pendingRequests.length - MAX_ROWS} />
+            <MoreLink to={ROUTES.requests} count={pendingRequests.length - MAX_ROWS} showIcon={false} />
           )}
         </Panel>
 
@@ -535,11 +517,12 @@ export default function FirmAdminDashboard() {
           className="lg:col-start-2 lg:row-start-1 lg:row-span-2"
           count={engagementsError ? undefined : dueSoon.length}
           to={ROUTES.engagements}
+          showLinkIcon={false}
         >
           {engagementsError ? (
-            <InlineError />
+            <InlineError showIcon={false} />
           ) : dueSoon.length === 0 ? (
-            <EmptyState icon={CheckCircle2} title="No upcoming deadlines" positive>
+            <EmptyState title="No upcoming deadlines" positive>
               Active engagements that are late or due this week appear here.
             </EmptyState>
           ) : (
@@ -551,8 +534,7 @@ export default function FirmAdminDashboard() {
                   <ListRowLink
                     key={engagement.id}
                     to={ROUTES.engagement(engagement.id)}
-                    icon={Briefcase}
-                    iconTone={late ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}
+                    showChevron={false}
                     title={engagement.serviceName}
                     subtitle={`${F.engagement.clientName(engagement)} · ${describeDueDate(due, today)}`}
                     urgent={Boolean(late)}
@@ -566,7 +548,7 @@ export default function FirmAdminDashboard() {
             </ul>
           )}
           {!engagementsError && dueSoon.length > MAX_ROWS && (
-            <MoreLink to={ROUTES.engagements} count={dueSoon.length - MAX_ROWS} />
+            <MoreLink to={ROUTES.engagements} count={dueSoon.length - MAX_ROWS} showIcon={false} />
           )}
         </Panel>
       {/* Retainer Clients: monthly review (derived, nothing stored or scheduled) */}
@@ -577,9 +559,9 @@ export default function FirmAdminDashboard() {
         count={retainerError ? undefined : retainerReview.length}
       >
         {retainerError ? (
-          <InlineError />
+          <InlineError showIcon={false} />
         ) : retainerReview.length === 0 ? (
-          <EmptyState icon={Users} title="No Retainer clients yet">
+          <EmptyState title="No Retainer clients yet">
             Clients converted to Retainer will appear here for the monthly review.
           </EmptyState>
         ) : (
@@ -591,8 +573,7 @@ export default function FirmAdminDashboard() {
                 <ListRowWithActions
                   key={row.key}
                   to={ROUTES.client(F.client.detailId(row.client))}
-                  icon={Users}
-                  iconTone="bg-emerald-50 text-emerald-700"
+                  showWarningIcon={false}
                   title={F.client.name(row.client)}
                   subtitle={`${
                     row.thisMonthCount
@@ -643,9 +624,9 @@ export default function FirmAdminDashboard() {
       {/* Recent activity */}
       <Panel title="Recent Activity" description="The latest actions across the firm.">
         {activityQuery.error ? (
-          <InlineError />
+          <InlineError showIcon={false} />
         ) : activity.length === 0 ? (
-          <EmptyState icon={History} title="No recent activity" compact>
+          <EmptyState title="No recent activity" compact>
             Actions on engagements, tasks, and billing will appear here.
           </EmptyState>
         ) : (
@@ -659,7 +640,6 @@ export default function FirmAdminDashboard() {
                   className="flex items-start justify-between gap-3 rounded-xl border bg-background p-4"
                 >
                   <div className="flex min-w-0 items-start gap-3">
-                    <IconChip icon={History} tone="bg-slate-100 text-slate-600" />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{title}</p>
                       {description && (

@@ -9,7 +9,10 @@ import { EngagementList } from "@/components/firm/engagements/engagement-list"
 import { CreateEngagementDialog } from "@/components/firm/service-requests/create-engagement-dialog"
 import { CreateBillingDialog } from "@/components/firm/billing/create-billing-dialog"
 import {
+  dateSortOptions,
   getEngagementDisplayStatus,
+  getEngagementDueTime,
+  matchesStartDateFilter,
   statusFilterOptions,
 } from "@/components/firm/engagements/engagement-variants"
 import { useCreateStandaloneEngagement, useFetchEngagements } from "@/hooks/useEngagements"
@@ -41,6 +44,8 @@ export default function EngagementsPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [clientTypeFilter, setClientTypeFilter] = useState("all")
+  const [startDateFilter, setStartDateFilter] = useState("")
+  const [dateSort, setDateSort] = useState("oldest")
   const [currentPage, setCurrentPage] = useState(1)
   const [notice, setNotice] = useState("")
   const [newEngagementOpen, setNewEngagementOpen] = useState(false)
@@ -92,7 +97,7 @@ export default function EngagementsPage() {
 
   const filteredEngagements = useMemo(() => {
     const query = search.trim().toLowerCase()
-    return allEngagements.filter((engagement) => {
+    const matches = allEngagements.filter((engagement) => {
       const matchesStatus =
         isBillingOfficer ||
         statusFilter === "all" ||
@@ -101,6 +106,7 @@ export default function EngagementsPage() {
         !isBillingOfficer ||
         clientTypeFilter === "all" ||
         engagement.business?.clientType === clientTypeFilter
+      const matchesStartDate = matchesStartDateFilter(engagement.startDate, startDateFilter)
       const matchesSearch =
         !query ||
         [
@@ -110,9 +116,29 @@ export default function EngagementsPage() {
           engagement.client?.firstName,
           engagement.client?.lastName,
         ].some((field) => field?.toLowerCase().includes(query))
-      return matchesStatus && matchesClientType && matchesSearch
+      return matchesStatus && matchesClientType && matchesStartDate && matchesSearch
     })
-  }, [allEngagements, search, statusFilter, clientTypeFilter, isBillingOfficer])
+
+    if (!dateSort) return matches
+
+    const direction = dateSort === "newest" ? -1 : 1
+    return matches.sort((a, b) => {
+      const aTime = getEngagementDueTime(a.targetEndDate)
+      const bTime = getEngagementDueTime(b.targetEndDate)
+      if (aTime === null && bTime === null) return 0
+      if (aTime === null) return 1
+      if (bTime === null) return -1
+      return (aTime - bTime) * direction
+    })
+  }, [
+    allEngagements,
+    search,
+    statusFilter,
+    clientTypeFilter,
+    startDateFilter,
+    dateSort,
+    isBillingOfficer,
+  ])
 
   const handleCreateBilling = (values) => {
     createBilling.mutate(
@@ -186,6 +212,17 @@ export default function EngagementsPage() {
           setCurrentPage(1)
         } : undefined}
         clientTypeOptions={isBillingOfficer ? clientTypeOptions : []}
+        startDateFilter={startDateFilter}
+        onStartDateFilterChange={(value) => {
+          setStartDateFilter(value)
+          setCurrentPage(1)
+        }}
+        dateSort={dateSort}
+        onDateSortChange={(value) => {
+          setDateSort(value)
+          setCurrentPage(1)
+        }}
+        dateSortOptions={dateSortOptions}
         resultCount={`${filteredEngagements.length} of ${allEngagements.length} engagements`}
         actions={canManageEngagements && (
           <Button

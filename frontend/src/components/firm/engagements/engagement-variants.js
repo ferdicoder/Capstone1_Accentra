@@ -20,12 +20,24 @@ export const getEngagementDisplayStatus = (status) => {
 }
 
 export const statusFilterOptions = [
-  { value: "all", label: "All Engagements" },
+  { value: "all", label: "All statuses" },
   { value: "document_collection", label: "Document Collection" },
   { value: "for_validation", label: "For Validation" },
   { value: "in_progress", label: "In Progress" },
   { value: "completed", label: "Completed" },
   { value: "cancelled", label: "Cancelled" },
+]
+
+export const dateSortOptions = [
+  { value: "oldest", label: "Oldest" },
+  { value: "newest", label: "Newest" },
+]
+
+/** Quick presets for the engagement start-date filter. */
+export const startDateFilterOptions = [
+  { value: "", label: "All dates" },
+  { value: "this_month", label: "This month" },
+  { value: "this_year", label: "This year" },
 ]
 
 export const getClientFullName = (client) =>
@@ -51,6 +63,71 @@ export const formatDate = (value) => {
 
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+}
+
+const parseDateOnly = (value) => {
+  if (!value) return null
+
+  const dateValue = value instanceof Date ? value : String(value)
+  const datePart =
+    typeof dateValue === "string"
+      ? dateValue.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+      : null
+  const date = datePart ? new Date(`${datePart}T00:00:00`) : new Date(dateValue)
+
+  if (Number.isNaN(date.getTime())) return null
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+export const getEngagementDueTime = (value) => parseDateOnly(value)?.getTime() ?? null
+
+/**
+ * Filters an engagement by its start date. `filter` is one of the quick
+ * presets ("this_month", "this_year"), a specific "YYYY-MM" month, or a
+ * specific "YYYY" year.
+ */
+export const matchesStartDateFilter = (value, filter, now = new Date()) => {
+  if (!filter) return true
+
+  const startDate = parseDateOnly(value)
+  if (!startDate) return false
+
+  if (filter === "this_month") {
+    return (
+      startDate.getFullYear() === now.getFullYear() &&
+      startDate.getMonth() === now.getMonth()
+    )
+  }
+
+  if (filter === "this_year") {
+    return startDate.getFullYear() === now.getFullYear()
+  }
+
+  if (/^\d{4}$/.test(filter)) {
+    return startDate.getFullYear() === Number(filter)
+  }
+
+  const match = /^(\d{4})-(\d{2})$/.exec(filter)
+  if (!match) return true
+
+  return (
+    startDate.getFullYear() === Number(match[1]) &&
+    startDate.getMonth() === Number(match[2]) - 1
+  )
+}
+
+/** Human-readable label for the start-date filter trigger button. */
+export const formatStartDateFilterLabel = (filter) => {
+  if (!filter) return "Start Date"
+  if (filter === "this_month") return "This month"
+  if (filter === "this_year") return "This year"
+  if (/^\d{4}$/.test(filter)) return filter
+
+  const match = /^(\d{4})-(\d{2})$/.exec(filter)
+  if (!match) return "Start Date"
+
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, 1)
+  return date.toLocaleDateString("en-US", { month: "short", year: "numeric" })
 }
 
 export const formatTimestamp = (value) => {

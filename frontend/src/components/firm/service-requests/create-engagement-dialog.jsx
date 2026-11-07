@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { ChevronDown, Loader2 } from "lucide-react"
+import { AlertTriangle, CheckCircle2, ChevronDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,8 @@ import {
 import { useFetchUsers } from "@/hooks/useUsers"
 import { useFetchServices } from "@/hooks/useServices"
 import { useSearchClients } from "@/hooks/useBusinesses"
+import { useFetchBusinessBillings } from "@/hooks/useBillings"
+import { isOutstandingBill } from "@/lib/outstanding-bill"
 import { scrollToFirstInvalidField } from "@/lib/form-validation"
 import { getZodFieldErrors } from "@/lib/form-validation"
 import { engagementSchema } from "@/schemas/engagementSchema"
@@ -92,7 +94,13 @@ export function CreateEngagementDialog({
     isFetching: clientsLoading,
     error: clientsError,
   } = useSearchClients(debouncedClientQuery)
-  
+
+  const {
+    data: clientBillings = [],
+    isPending: clientBillingsLoading,
+  } = useFetchBusinessBillings(isStandalone ? selectedBusinessId : "")
+  const outstandingBillCount = clientBillings.filter(isOutstandingBill).length
+
   const offeredServices = services
     .filter((service) => {
       const category = service.category?.trim().toLowerCase()
@@ -200,8 +208,8 @@ export function CreateEngagementDialog({
     setSelectedClientId(client.ownerId)
     setSelectedBusinessId(client.id)
     setClientQuery(`${client.firstName} ${client.lastName}`.trim())
-    setClientFirstName(client.firstName)
-    setClientLastName(client.lastName)
+    setClientFirstName(client.firstName ?? "")
+    setClientLastName(client.lastName ?? "")
     setBusinessName(client.businessName ?? "")
     setBusinessType(client.businessType ?? "")
     setContactNo(client.contactNo ?? "")
@@ -228,14 +236,7 @@ export function CreateEngagementDialog({
           onSubmit={handleSubmit}
           className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh] p-1"
         >
-          <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
-              <span className="text-xs font-bold">1</span>
-            </div>
-            <div className="flex flex-col">
-              <h3 className={sectionHeadingClass}>Engagement Information</h3>
-            </div>
-          </div>
+          <h3 className={sectionHeadingClass}>Engagement Information</h3>
 
           <FieldGroup>
             <Field>
@@ -290,14 +291,7 @@ export function CreateEngagementDialog({
             </Field>
           </FieldGroup>
 
-          <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
-              <span className="text-xs font-bold">2</span>
-            </div>
-            <div className="flex flex-col">
-              <h3 className={sectionHeadingClass}>Client Information</h3>
-            </div>
-          </div>
+          <h3 className={sectionHeadingClass}>Client Information</h3>
 
           {isStandalone ? (
             <FieldGroup>
@@ -361,6 +355,49 @@ export function CreateEngagementDialog({
                   </p>
                 )}
               </Field>
+
+              {selectedBusinessId && (
+                <div
+                  role={outstandingBillCount > 0 ? "alert" : "status"}
+                  className={cn(
+                    "flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm",
+                    clientBillingsLoading
+                      ? "border-border bg-muted/40 text-muted-foreground"
+                      : outstandingBillCount > 0
+                        ? "border-amber-300/70 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
+                        : "border-emerald-300/70 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200"
+                  )}
+                >
+                  {clientBillingsLoading ? (
+                    <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" />
+                  ) : outstandingBillCount > 0 ? (
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+                  )}
+                  <div className="min-w-0 space-y-0.5">
+                    {clientBillingsLoading ? (
+                      <p className="font-medium">Checking unpaid bills…</p>
+                    ) : outstandingBillCount > 0 ? (
+                      <>
+                        <p className="font-medium">
+                          {outstandingBillCount} unpaid{" "}
+                          {outstandingBillCount === 1 ? "bill" : "bills"}
+                        </p>
+                        <p>
+                          This client has an outstanding balance. Settle{" "}
+                          {outstandingBillCount === 1 ? "it" : "them"} before creating a new
+                          engagement.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="font-medium">
+                        0 unpaid bills — this client is clear for a new engagement.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
@@ -448,14 +485,7 @@ export function CreateEngagementDialog({
             </div>
           )}
 
-          <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
-              <span className="text-xs font-bold">3</span>
-            </div>
-            <div className="flex flex-col">
-              <h3 className={sectionHeadingClass}>Assignment</h3>
-            </div>
-          </div>
+          <h3 className={sectionHeadingClass}>Assignment</h3>
 
           <FieldGroup>
             <Field>
