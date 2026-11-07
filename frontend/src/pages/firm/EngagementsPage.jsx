@@ -7,6 +7,7 @@ import { usePageMeta } from "@/hooks/usePageMeta"
 import { EngagementFilters } from "@/components/firm/engagements/engagement-filters"
 import { EngagementList } from "@/components/firm/engagements/engagement-list"
 import { CreateEngagementDialog } from "@/components/firm/service-requests/create-engagement-dialog"
+import { UnpaidBillsConfirmDialog } from "@/components/firm/engagements/unpaid-bills-confirm-dialog"
 import { CreateBillingDialog } from "@/components/firm/billing/create-billing-dialog"
 import {
   getEngagementDisplayStatus,
@@ -15,8 +16,15 @@ import {
 import { useCreateStandaloneEngagement, useFetchEngagements } from "@/hooks/useEngagements"
 import { useFetchBillings, useCreateBilling } from "@/hooks/useBillings"
 import { useFetchBusinesses } from "@/hooks/useBusinesses"
+import { useUnpaidBillsLookup } from "@/hooks/useUnpaidBillsLookup"
 import { authStore } from "@/store/authStore"
 import { can } from "@/config/roles"
+import { getOutstandingBills } from "@/lib/outstanding-bill"
+import { isLedBy } from "@/lib/engagement-lead"
+import { isEngagementActive } from "@/lib/workflow-stages"
+
+const STAFF_RESTRICTION_MESSAGE =
+  "You can only create engagements for Retainer clients you currently handle."
 
 export default function EngagementsPage() {
   const navigate = useNavigate()
@@ -27,16 +35,22 @@ export default function EngagementsPage() {
       ? "/firm"
       : "/admin"
   const role = authStore((state) => state.role)
+  const user = authStore((state) => state.user)
   const canManageEngagements = can(role, "manage_engagements")
   const isBillingOfficer = role === "billing_officer"
+  const isAdmin = role === "admin"
+  const isStaff = role === "staff"
 
   const { data: engagements = [], isLoading, error } = useFetchEngagements({
     includeTasks: canManageEngagements,
     status: isBillingOfficer ? "completed" : undefined,
   })
-  const { data: billings = [] } = useFetchBillings({ enabled: isBillingOfficer })
+  // Admin also needs billings, for the unpaid-bill warning on new engagements.
+  const { data: billings = [] } = useFetchBillings({ enabled: isBillingOfficer || isAdmin })
   const { data: clients = [] } = useFetchBusinesses({ enabled: isBillingOfficer })
   const createBilling = useCreateBilling()
+  // Firm Staff has no billing access: unpaid bills come from a read-only lookup.
+  const lookupUnpaidBills = useUnpaidBillsLookup()
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -45,6 +59,8 @@ export default function EngagementsPage() {
   const [notice, setNotice] = useState("")
   const [newEngagementOpen, setNewEngagementOpen] = useState(false)
   const [createBillingFor, setCreateBillingFor] = useState(null)
+  const [formError, setFormError] = useState("")
+  const [confirm, setConfirm] = useState(null) // { values, bills, clientName }
   const createEngagement = useCreateStandaloneEngagement()
 
   // Engagements referenced by an active billing should disappear from the
@@ -59,6 +75,25 @@ export default function EngagementsPage() {
       ),
     [billings]
   )
+
+  // Staff may only create engagements for Retainer clients they currently
+  // handle: clients for whom they lead an active engagement. Derived from the
+  // engagements already loaded. VERIFY: engagement.client.id equals the client
+  // id the create dialog returns (values.client.id).
+  const handledRetainerClientIds = useMemo(() => {
+    if (!isStaff) return new Set()
+    return new Set(
+      engagements
+        .filter(
+          (engagement) =>
+            isEngagementActive(engagement.status) &&
+            isLedBy(engagement, user?.id) &&
+            engagement.business?.clientType === "retainer"
+        )
+        .map((engagement) => engagement.client?.id ?? engagement.clientId)
+        .filter(Boolean)
+    )
+  }, [isStaff, engagements, user?.id])
 
   const statusOptions = useMemo(
     () =>
@@ -126,7 +161,7 @@ export default function EngagementsPage() {
     )
   }
 
-  const handleNewEngagementSubmit = (values) => {
+  const submitStandaloneEngagement = (values) => {
     createEngagement.mutate(
       {
         businessId: values.business.id,
@@ -146,6 +181,39 @@ export default function EngagementsPage() {
     )
   }
 
+  // Standalone engagements (no service request). The dialog returns the client
+  // (owner) id as values.client.id.
+  const handleNewEngagementSubmit = async (values) => {
+    const clientId = values.client?.id
+
+    // Staff: only Retainer clients they currently handle. The backend must
+    // enforce this too.
+    if (isStaff && !(clientId && handledRetainerClientIds.has(clientId))) {
+      setFormError(STAFF_RESTRICTION_MESSAGE)
+      return
+    }
+    setFormError("")
+
+    // Unpaid bills warn and ask, they do not block here (payment terms can be
+    // arranged outside the system). Creating an engagement FROM a service request
+    // is blocked instead, on the Service Requests page.
+    const bills = clientId
+      ? isStaff
+        ? await lookupUnpaidBills(clientId)
+        : getOutstandingBills(billings, clientId)
+      : []
+    if (bills.length > 0) {
+      setNewEngagementOpen(false) // reopened on cancel; the form keeps its values
+      setConfirm({
+        values,
+        bills,
+        clientName: values.business?.businessName ?? "This client",
+      })
+      return
+    }
+    submitStandaloneEngagement(values)
+  }
+
   usePageMeta({
     title: "Engagements",
     breadcrumbs: [
@@ -154,11 +222,12 @@ export default function EngagementsPage() {
     ],
   })
 
-  
-
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-1">
+        <p className="text-sm text-muted-foreground">
+          View and manage all active client engagements created from approved service requests.
+        </p>
         {notice && (
           <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
             {notice}
@@ -192,7 +261,10 @@ export default function EngagementsPage() {
             type="button"
             size="sm"
             className="h-8 gap-1.5 rounded-lg bg-[#02353C] text-white hover:opacity-90"
-            onClick={() => setNewEngagementOpen(true)}
+            onClick={() => {
+              setFormError("")
+              setNewEngagementOpen(true)
+            }}
           >
             <Plus className="size-4" />
             New Engagement
@@ -218,18 +290,37 @@ export default function EngagementsPage() {
           </Button>
         ) : undefined}
         emptyMessage="No engagements match your filters."
+        emptyDescription="Try clearing the search or changing the status filter."
         page={currentPage}
         onPageChange={setCurrentPage}
       />
 
       {canManageEngagements && (
-        <CreateEngagementDialog
-          open={newEngagementOpen}
-          onOpenChange={setNewEngagementOpen}
-          onSubmit={handleNewEngagementSubmit}
-          submitting={createEngagement.isPending}
-          error={createEngagement.error?.message}
-        />
+        <>
+          <CreateEngagementDialog
+            open={newEngagementOpen}
+            onOpenChange={setNewEngagementOpen}
+            onSubmit={handleNewEngagementSubmit}
+            submitting={createEngagement.isPending}
+            error={formError || createEngagement.error?.message}
+          />
+
+          <UnpaidBillsConfirmDialog
+            open={Boolean(confirm)}
+            clientName={confirm?.clientName}
+            bills={confirm?.bills}
+            submitting={createEngagement.isPending}
+            onCancel={() => {
+              setConfirm(null)
+              setNewEngagementOpen(true)
+            }}
+            onConfirm={() => {
+              const values = confirm.values
+              setConfirm(null)
+              submitStandaloneEngagement(values)
+            }}
+          />
+        </>
       )}
 
       {isBillingOfficer && (
