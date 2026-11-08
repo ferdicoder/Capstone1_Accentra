@@ -165,6 +165,9 @@ export function EngagementDocumentReviewTab({
   const selectedStatus = selectedDoc ? reviewStatusMap[selectedDoc.status] ?? selectedDoc.status : null
 
   // The same shape the shared preview dialog reads everywhere else.
+  // The documents endpoint only shows a file inline when asked with
+  // "?inline=true", so that link is passed as `previewUrl`. The download link
+  // stays exactly as it is.
   const previewFile = selectedDoc
     ? {
         id: selectedDoc.id,
@@ -173,6 +176,7 @@ export function EngagementDocumentReviewTab({
         fileType: selectedDoc.fileType ?? null,
         size: selectedDoc.fileSize ?? null,
         downloadUrl: selectedDoc.downloadUrl ?? null,
+        previewUrl: selectedDoc.downloadUrl ? `${selectedDoc.downloadUrl}?inline=true` : null,
       }
     : null
 
