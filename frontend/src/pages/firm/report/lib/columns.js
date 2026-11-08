@@ -3,8 +3,8 @@ import {
   BILLING_TYPE_OPTIONS,
   CLIENT_TYPE_OPTIONS,
   COVERAGE_OPTIONS,
+  ENGAGEMENT_BILLING_OPTIONS,
   PAYMENT_STATUS_LABELS,
-  ROLE_LABELS,
   UNAVAILABLE,
 } from "./constants"
 import { F } from "./fields"
@@ -15,10 +15,14 @@ export const summaryColumns = [
   { label: "Measure", value: (r) => r.label },
   { label: "Value", value: (r) => r.csv ?? r.value },
 ]
-export const infoColumns = [
-  { label: "Field", value: (r) => r.label },
-  { label: "Value", value: (r) => r.value },
-]
+
+// Billing status shown on the Engagement Report. Only Completed engagements
+// can be billed, so the other stages get an explicit label instead of "Unbilled".
+const BILLING_STATUS_LABELS = {
+  ...Object.fromEntries(ENGAGEMENT_BILLING_OPTIONS.map((o) => [o.value, o.label])),
+  not_ready: "Not yet billable",
+  not_billable: "Not billable",
+}
 
 export const engagementColumns = [
   { label: "Engagement ID", value: (r) => r.id },
@@ -27,9 +31,19 @@ export const engagementColumns = [
   { label: "Assigned Firm User", value: (r) => r.leadName },
   { label: "Coverage Type", value: (r) => optionLabel(COVERAGE_OPTIONS, r.coverage) },
   { label: "Engagement Status", value: (r) => stageLabel(r.status) },
+  { label: "Billing Status", value: (r) => BILLING_STATUS_LABELS[r.billing] ?? "" }, // NEW
   { label: "Date Created", value: (r) => dateOrUnavailable(r.createdAt) },
   { label: "Completion Date", value: (r) => dateOrUnavailable(r.completedAt) },
 ]
+
+// Retainer Charge only applies to Retainer clients. Verify the field name
+// against your businesses payload (retainerCharge / retainer_charge).
+const retainerCharge = (c) => {
+  const raw = c.retainerCharge ?? c.retainer_charge
+  if (raw == null || F.client.type(c) !== "retainer") return null
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : null
+}
 
 export const clientListColumns = [
   { label: "Client ID", value: (c) => F.client.id(c) },
@@ -37,19 +51,25 @@ export const clientListColumns = [
   { label: "Email Address", value: (c) => F.client.email(c) },
   { label: "Business Name", value: (c) => F.client.businessName(c) },
   { label: "Client Type", value: (c) => optionLabel(CLIENT_TYPE_OPTIONS, F.client.type(c)) },
+  {
+    label: "Retainer Charge (PHP)", // NEW
+    value: (c) => {
+      const n = retainerCharge(c)
+      return n == null ? "" : n.toFixed(2)
+    },
+    display: (c) => {
+      const n = retainerCharge(c)
+      return n == null ? "—" : formatCurrency(n)
+    },
+  },
+  { label: "Active Engagements", value: (c) => c.activeEngagements ?? 0 }, // NEW
+  { label: "Outstanding Bill", value: (c) => (c.hasOutstanding ? "Yes" : "No") }, // NEW
   { label: "Account Status", value: (c) => labelize(c.status) },
   { label: "Registration Date", value: (c) => dateOrUnavailable(F.client.registeredAt(c)) },
 ]
 
-export const userListColumns = [
-  { label: "User ID", value: (u) => F.user.id(u) },
-  { label: "Full Name", value: (u) => F.user.name(u) },
-  { label: "Email Address", value: (u) => F.user.email(u) },
-  { label: "Firm Role", value: (u) => ROLE_LABELS[u.role] ?? labelize(u.role) },
-  { label: "Account Status", value: (u) => labelize(u.status) },
-  { label: "Date Created", value: (u) => dateOrUnavailable(F.user.createdAt(u)) },
-]
-
+// Billing Report = old Billing Summary + Payment Monitoring merged.
+// Payment fields only apply once a bill is Paid.
 export const billingColumns = [
   { label: "Billing ID", value: (r) => r.id },
   { label: "Client Name", value: (r) => r.clientName },
@@ -58,57 +78,6 @@ export const billingColumns = [
   { label: "Billing Date", value: (r) => dateOrUnavailable(r.date) },
   { label: "Billing Month and Year", value: (r) => r.period },
   { label: "Billing Status", value: (r) => PAYMENT_STATUS_LABELS[r.group] },
-]
-
-export const paymentColumns = [
-  { label: "Billing ID", value: (r) => r.id },
-  { label: "Client Name", value: (r) => r.clientName },
-  { label: "Billing Type", value: (r) => optionLabel(BILLING_TYPE_OPTIONS, r.type) },
-  { label: "Billing Amount (PHP)", value: (r) => r.amount.toFixed(2), display: (r) => formatCurrency(r.amount) },
-  {
-    label: "Payment Method",
-    value: (r) => (r.group === "paid" ? methodLabel(r.method) || UNAVAILABLE : ""),
-  },
-  { label: "Payment Status", value: (r) => PAYMENT_STATUS_LABELS[r.group] },
-  { label: "Billing Date", value: (r) => dateOrUnavailable(r.date) },
-  {
-    label: "Payment Verification Date",
-    value: (r) => (r.group === "paid" ? dateOrUnavailable(r.verifiedAt) : ""),
-  },
-  { label: "Verified By", value: (r) => (r.group === "paid" ? r.verifiedBy || UNAVAILABLE : "") },
-]
-
-// Client Record: engagement history and payment history sections.
-export const clientEngagementColumns = [
-  { label: "Engagement ID", value: (r) => r.id },
-  { label: "Service Name", value: (r) => r.service },
-  { label: "Date Created", value: (r) => dateOrUnavailable(r.createdAt) },
-  { label: "Assigned Firm User", value: (r) => r.leadName },
-  { label: "Coverage Type", value: (r) => optionLabel(COVERAGE_OPTIONS, r.coverage) },
-  { label: "Current Engagement Status", value: (r) => stageLabel(r.status) },
-  { label: "Completion Date", value: (r) => dateOrUnavailable(r.completedAt) },
-]
-export const clientPaymentColumns = [
-  { label: "Billing ID", value: (r) => r.id },
-  { label: "Billing Type", value: (r) => optionLabel(BILLING_TYPE_OPTIONS, r.type) },
-  { label: "Billing Month and Year", value: (r) => r.period },
-  // Saved invoice amount, not the client's current Retainer Charge.
-  { label: "Billing Amount (PHP)", value: (r) => r.amount.toFixed(2), display: (r) => formatCurrency(r.amount) },
-  { label: "Billing Date", value: (r) => dateOrUnavailable(r.date) },
-  { label: "Payment Status", value: (r) => PAYMENT_STATUS_LABELS[r.group] },
-  { label: "Payment Method", value: (r) => (r.group === "paid" ? methodLabel(r.method) || UNAVAILABLE : "") },
-  {
-    label: "Payment Verification Date",
-    value: (r) => (r.group === "paid" ? dateOrUnavailable(r.verifiedAt) : ""),
-  },
-]
-
-// Firm User Record: currently assigned engagements only.
-export const assignedEngagementColumns = [
-  { label: "Engagement ID", value: (r) => r.id },
-  { label: "Client Name", value: (r) => r.clientName },
-  { label: "Service Name", value: (r) => r.service },
-  { label: "Date Assigned", value: (r) => dateOrUnavailable(F.engagement.assignedAt(r.e)) },
-  { label: "Current Engagement Status", value: (r) => stageLabel(r.status) },
-  { label: "Completion Date", value: (r) => dateOrUnavailable(r.completedAt) },
+  { label: "Payment Method", value: (r) => (r.group === "paid" ? methodLabel(r.method) || UNAVAILABLE : "") }, // NEW
+  { label: "Date Paid", value: (r) => (r.group === "paid" ? dateOrUnavailable(r.verifiedAt) : "") }, // NEW
 ]

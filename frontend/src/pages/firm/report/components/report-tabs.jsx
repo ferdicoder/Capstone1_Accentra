@@ -6,7 +6,7 @@ export function ReportTabs({ view, onChange }) {
     <div
       role="tablist"
       aria-label="Report views"
-      className="flex gap-6 overflow-x-auto overflow-y-hidden border-b [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="flex gap-8 overflow-x-auto overflow-y-hidden border-b [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {CATEGORIES.flatMap((category) =>
         category.views.map((item) => {
@@ -20,10 +20,10 @@ export function ReportTabs({ view, onChange }) {
               title={category.label}
               onClick={() => onChange(item.key)}
               className={cn(
-                "-mb-px shrink-0 whitespace-nowrap border-b-2 px-0.5 pb-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600/40",
+                "-mb-px shrink-0 whitespace-nowrap border-b-2 px-0.5 pb-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600/40",
                 active
-                  ? "border-emerald-700 text-emerald-700"
-                  : "border-transparent text-foreground hover:text-emerald-700"
+                  ? "border-emerald-700 font-semibold text-emerald-700"
+                  : "border-transparent font-medium text-muted-foreground hover:text-emerald-700"
               )}
             >
               {item.label}

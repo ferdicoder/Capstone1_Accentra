@@ -7,18 +7,16 @@ import { useFetchEngagements } from "@/hooks/useEngagements"
 import { useFetchBillings } from "@/hooks/useBillings"
 import { stageLabel } from "@/lib/vocab"
 
-import { ALL, CLIENT_TYPE_OPTIONS, ENGAGEMENT_STATUSES, ROLE_LABELS } from "./constants"
+import { ALL, ENGAGEMENT_STATUSES } from "./constants"
 import { clientDisplayName, F, fullName } from "./fields"
 import {
   byDateDesc,
   byText,
-  dateOrUnavailable,
   formatCurrency,
   inRange,
   labelize,
   matchesSearch,
   methodGroup,
-  optionLabel,
   pad,
   paymentGroup,
   uniqueOptions,
@@ -64,6 +62,18 @@ export function useReportData(f) {
     [users]
   )
 
+  // --- Billing status per engagement (NEW) ----------------------------------
+  // A voided bill releases its engagement, so voided bills are ignored here.
+  const billingGroupByEngagement = useMemo(() => {
+    const map = new Map()
+    billings.forEach((b) => {
+      const group = paymentGroup(b.status)
+      if (group === "voided") return
+      F.billing.engagementIds(b).forEach((id) => map.set(id, group))
+    })
+    return map
+  }, [billings])
+
   // --- Row sets (computed once per data change) -----------------------------
   const engagementRows = useMemo(
     () =>
@@ -75,6 +85,13 @@ export function useReportData(f) {
           usersById.get(leadId)?.name ||
           e.assignedLeadName ||
           ""
+        // Only Completed engagements enter billing; "unbilled" here means Ready to Bill.
+        const billing =
+          e.status === "completed"
+            ? billingGroupByEngagement.get(e.id) ?? "unbilled"
+            : e.status === "cancelled"
+              ? "not_billable"
+              : "not_ready"
         return {
           e,
           id: F.engagement.id(e),
@@ -85,11 +102,12 @@ export function useReportData(f) {
           leadName,
           coverage: F.engagement.coverage(e),
           status: e.status,
+          billing,
           createdAt: F.engagement.createdAt(e),
           completedAt: F.engagement.completedAt(e),
         }
       }),
-    [engagements, usersById]
+    [engagements, usersById, billingGroupByEngagement]
   )
 
   const billingRows = useMemo(
@@ -117,24 +135,36 @@ export function useReportData(f) {
           period: year && month ? `${year}-${pad(month)}` : "",
           method: F.billing.method(b),
           verifiedAt: F.billing.verifiedAt(b),
-          verifiedBy: F.billing.verifiedBy(b),
         }
       }),
     [billings, engagementsById, clientsById]
   )
 
+  // Client rows with derived columns for the Client List (NEW).
+  const clientRows = useMemo(() => {
+    const active = new Map()
+    engagementRows.forEach((r) => {
+      if (r.status === "completed" || r.status === "cancelled") return
+      const key = String(r.clientId)
+      active.set(key, (active.get(key) ?? 0) + 1)
+    })
+    // For Verification counts as outstanding until verified (recommended default).
+    const owing = new Set(
+      billingRows
+        .filter((r) => r.group === "unpaid" || r.group === "for_verification")
+        .map((r) => String(r.clientId))
+    )
+    return clients.map((c) => ({
+      ...c,
+      activeEngagements: active.get(String(c.id)) ?? 0,
+      hasOutstanding: owing.has(String(c.id)),
+    }))
+  }, [clients, engagementRows, billingRows])
+
   // --- Filter options taken from real data ----------------------------------
   const clientStatusOptions = useMemo(
     () => uniqueOptions(clients.map((c) => c.status), labelize),
     [clients]
-  )
-  const userRoleOptions = useMemo(
-    () => uniqueOptions(users.map((u) => u.role), (r) => ROLE_LABELS[r] ?? labelize(r)),
-    [users]
-  )
-  const userStatusOptions = useMemo(
-    () => uniqueOptions(users.map((u) => u.status), labelize),
-    [users]
   )
   const engagementStatusOptions = useMemo(() => {
     const extra = [...new Set(engagements.map((e) => e.status).filter(Boolean))].filter(
@@ -156,6 +186,7 @@ export function useReportData(f) {
             inRange(r.createdAt, f.engagements.created) &&
             inRange(r.completedAt, f.engagements.completed) &&
             (f.engagements.status === ALL || r.status === f.engagements.status) &&
+            (f.engagements.billing === ALL || r.billing === f.engagements.billing) &&
             (f.engagements.service === ALL || r.service === f.engagements.service) &&
             (f.engagements.client === ALL || String(r.clientId) === f.engagements.client) &&
             (f.engagements.lead === ALL || String(r.leadId) === f.engagements.lead) &&
@@ -178,7 +209,7 @@ export function useReportData(f) {
 
   const clientResult = useMemo(
     () =>
-      clients
+      clientRows
         .filter(
           (c) =>
             matchesSearch(f.clients.q, F.client.name(c), F.client.businessName(c)) &&
@@ -186,21 +217,7 @@ export function useReportData(f) {
             (f.clients.status === ALL || c.status === f.clients.status)
         )
         .sort(byText((c) => F.client.name(c))),
-    [clients, f.clients]
-  )
-
-  const userResult = useMemo(
-    () =>
-      users
-        .filter(
-          (u) =>
-            matchesSearch(f.users.q, F.user.name(u), F.user.email(u)) &&
-            (f.users.role === ALL || u.role === f.users.role) &&
-            (f.users.status === ALL || u.status === f.users.status) &&
-            inRange(F.user.createdAt(u), f.users.created)
-        )
-        .sort(byText((u) => F.user.name(u))),
-    [users, f.users]
+    [clientRows, f.clients]
   )
 
   const billingResult = useMemo(
@@ -211,6 +228,7 @@ export function useReportData(f) {
             inRange(r.date, f.billing.range) &&
             (f.billing.type === ALL || r.type === f.billing.type) &&
             (f.billing.status === ALL || r.group === f.billing.status) &&
+            (f.billing.method === ALL || methodGroup(r.method) === f.billing.method) &&
             (f.billing.client === ALL || String(r.clientId) === f.billing.client)
         )
         .sort(byDateDesc((r) => r.date)),
@@ -218,161 +236,51 @@ export function useReportData(f) {
   )
   const billingSummary = useMemo(() => {
     const active = billingResult.filter((r) => r.group !== "voided")
-    const sum = (list) => list.reduce((total, r) => total + r.amount, 0)
+    const total = active.reduce((sum, r) => sum + r.amount, 0)
     const count = (group) => billingResult.filter((r) => r.group === group).length
-    const money = (n) => ({ value: formatCurrency(n), csv: n.toFixed(2) })
-    // Billed totals are not revenue; voided invoices are left out of them.
+    // Billed totals are not revenue; voided bills are left out of them.
+    // Unpaid and For Verification are never counted as paid.
     return [
       { label: "Total Billings", value: billingResult.length },
-      { label: "Total Billed Amount (excl. voided)", ...money(sum(active)) },
-      { label: "Service Fee Billed", ...money(sum(active.filter((r) => r.type === "service_fee"))) },
-      { label: "Retainer Fee Billed", ...money(sum(active.filter((r) => r.type === "retainer_fee"))) },
-      { label: "Paid Billings", value: count("paid") },
-      { label: "Unpaid Billings", value: count("unpaid") },
-      { label: "For Verification Billings", value: count("for_verification") },
-      { label: "Voided Billings", value: count("voided") },
+      { label: "Paid", value: count("paid") },
+      { label: "Unpaid", value: count("unpaid") },
+      { label: "For Verification", value: count("for_verification") },
+      { label: "Voided", value: count("voided") },
+      { label: "Total Billed (excl. voided)", value: formatCurrency(total), csv: total.toFixed(2) },
     ]
   }, [billingResult])
-
-  const paymentResult = useMemo(
-    () =>
-      billingRows
-        .filter(
-          (r) =>
-            (f.payments.type === ALL || r.type === f.payments.type) &&
-            (f.payments.status === ALL || r.group === f.payments.status) &&
-            (f.payments.method === ALL || methodGroup(r.method) === f.payments.method) &&
-            (f.payments.client === ALL || String(r.clientId) === f.payments.client) &&
-            inRange(r.verifiedAt, f.payments.verified)
-        )
-        .sort(byDateDesc((r) => r.date)),
-    [billingRows, f.payments]
-  )
-  const paymentSummary = useMemo(() => {
-    const of = (group) => paymentResult.filter((r) => r.group === group)
-    const sum = (list) => list.reduce((total, r) => total + r.amount, 0)
-    const money = (n) => ({ value: formatCurrency(n), csv: n.toFixed(2) })
-    // Unpaid and For Verification are never counted as completed payments.
-    return [
-      { label: "Total Paid Billings", value: of("paid").length },
-      { label: "Total Paid Amount", ...money(sum(of("paid"))) },
-      { label: "Total Unpaid Billings", value: of("unpaid").length },
-      { label: "Total Amount Awaiting Payment", ...money(sum(of("unpaid"))) },
-      { label: "Billings Awaiting Verification", value: of("for_verification").length },
-    ]
-  }, [paymentResult])
-
-  // --- Record views ----------------------------------------------------------
-  const selectedClient =
-    f.clientRecord.client === ALL
-      ? null
-      : clients.find((c) => String(c.id) === f.clientRecord.client) ?? null
-  const clientInfoRows = selectedClient
-    ? [
-        { label: "Client ID", value: F.client.id(selectedClient) },
-        { label: "Client Name", value: F.client.name(selectedClient) },
-        { label: "Email Address", value: F.client.email(selectedClient) },
-        { label: "Business Name", value: F.client.businessName(selectedClient) },
-        { label: "Client Type", value: optionLabel(CLIENT_TYPE_OPTIONS, F.client.type(selectedClient)) },
-        { label: "Account Status", value: labelize(selectedClient.status) },
-        { label: "Registration Date", value: dateOrUnavailable(F.client.registeredAt(selectedClient)) },
-      ]
-    : []
-  const clientEngagementRows = useMemo(
-    () =>
-      selectedClient
-        ? engagementRows
-            .filter((r) => String(r.clientId) === String(selectedClient.id))
-            .sort(byDateDesc((r) => r.createdAt))
-        : [],
-    [engagementRows, selectedClient]
-  )
-  const clientPaymentRows = useMemo(
-    () =>
-      selectedClient
-        ? billingRows
-            .filter((r) => String(r.clientId) === String(selectedClient.id))
-            .sort(byDateDesc((r) => r.date))
-        : [],
-    [billingRows, selectedClient]
-  )
-
-  const selectedUser =
-    f.userRecord.user === ALL
-      ? null
-      : users.find((u) => String(u.id) === f.userRecord.user) ?? null
-  const userInfoRows = selectedUser
-    ? [
-        { label: "User ID", value: F.user.id(selectedUser) },
-        { label: "Full Name", value: F.user.name(selectedUser) },
-        { label: "Email Address", value: F.user.email(selectedUser) },
-        { label: "Firm Role", value: ROLE_LABELS[selectedUser.role] ?? labelize(selectedUser.role) },
-        { label: "Account Status", value: labelize(selectedUser.status) },
-        { label: "Date Created", value: dateOrUnavailable(F.user.createdAt(selectedUser)) },
-      ]
-    : []
-  const assignedRows = useMemo(
-    () =>
-      selectedUser
-        ? engagementRows
-            .filter((r) => String(r.leadId) === String(selectedUser.id))
-            .sort(byDateDesc((r) => r.createdAt))
-        : [],
-    [engagementRows, selectedUser]
-  )
 
   // --- Loading / error per view ---------------------------------------------
   const status = {
     engagements: {
-      loading: engagementsQuery.isLoading || businessesQuery.isLoading || usersQuery.isLoading,
-      error: engagementsQuery.error,
-    },
-    clients: { loading: businessesQuery.isLoading, error: businessesQuery.error },
-    clientRecord: {
-      loading: businessesQuery.isLoading || engagementsQuery.isLoading || billingsQuery.isLoading,
-      error: businessesQuery.error || engagementsQuery.error || billingsQuery.error,
-    },
-    users: { loading: usersQuery.isLoading, error: usersQuery.error },
-    userRecord: {
-      loading: usersQuery.isLoading || engagementsQuery.isLoading || businessesQuery.isLoading,
-      error: usersQuery.error || engagementsQuery.error,
+      loading:
+        engagementsQuery.isLoading ||
+        businessesQuery.isLoading ||
+        usersQuery.isLoading ||
+        billingsQuery.isLoading,
+      error: engagementsQuery.error || billingsQuery.error,
     },
     billing: {
       loading: billingsQuery.isLoading || businessesQuery.isLoading || engagementsQuery.isLoading,
       error: billingsQuery.error,
     },
-    payments: {
-      loading: billingsQuery.isLoading || businessesQuery.isLoading || engagementsQuery.isLoading,
-      error: billingsQuery.error,
+    clients: {
+      loading: businessesQuery.isLoading || engagementsQuery.isLoading || billingsQuery.isLoading,
+      error: businessesQuery.error || engagementsQuery.error || billingsQuery.error,
     },
   }
 
   return {
     status,
-    // dropdown options
     clientOptions,
     userOptions,
     clientStatusOptions,
-    userRoleOptions,
-    userStatusOptions,
     engagementStatusOptions,
     serviceOptions,
-    // filtered results and summaries
     engagementResult,
     engagementSummary,
     clientResult,
-    userResult,
     billingResult,
     billingSummary,
-    paymentResult,
-    paymentSummary,
-    // record views
-    selectedClient,
-    clientInfoRows,
-    clientEngagementRows,
-    clientPaymentRows,
-    selectedUser,
-    userInfoRows,
-    assignedRows,
   }
 }
