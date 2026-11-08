@@ -19,6 +19,14 @@ export const COVERAGE_OPTIONS = [
   { value: "billable", label: "Billable" },
   { value: "retainer_covered", label: "Retainer-covered" },
 ]
+// NEW: derived from engagements.invoice_id + the linked bill's status.
+// A voided bill releases its engagement, so it counts as "unbilled" again.
+export const ENGAGEMENT_BILLING_OPTIONS = [
+  { value: "unbilled", label: "Unbilled" },
+  { value: "unpaid", label: "Unpaid" },
+  { value: "for_verification", label: "For Verification" },
+  { value: "paid", label: "Paid" },
+]
 export const BILLING_TYPE_OPTIONS = [
   { value: "service_fee", label: "Service Fee" },
   { value: "retainer_fee", label: "Retainer Fee" },
@@ -35,33 +43,15 @@ export const PAYMENT_METHOD_OPTIONS = [
   { value: "retainer", label: "Retainer" },
 ]
 
-export const ROLE_LABELS = { admin: "Firm Admin", staff: "Firm Staff", billing_officer: "Billing Officer" }
 export const PAYMENT_STATUS_LABELS = Object.fromEntries(PAYMENT_STATUS_OPTIONS.map((o) => [o.value, o.label]))
 export const METHOD_LABELS = { cash: "Cash", gcash: "GCash", bank_transfer: "Bank Transfer", retainer: "Retainer" }
 
+// 3 operational reports. Kept as CATEGORIES so any other file importing it
+// (and the tab tooltip) keeps working.
 export const CATEGORIES = [
-  { label: "Engagement Reports", views: [{ key: "engagements", label: "Engagement Summary" }] },
-  {
-    label: "Client Reports",
-    views: [
-      { key: "clients", label: "Client List" },
-      { key: "clientRecord", label: "Client Record" },
-    ],
-  },
-  {
-    label: "Firm Reports",
-    views: [
-      { key: "users", label: "Firm User List" },
-      { key: "userRecord", label: "Firm User Record" },
-    ],
-  },
-  {
-    label: "Billing Reports",
-    views: [
-      { key: "billing", label: "Billing Summary" },
-      { key: "payments", label: "Payment Monitoring" },
-    ],
-  },
+  { label: "Engagement Reports", views: [{ key: "engagements", label: "Engagement Report" }] },
+  { label: "Billing Reports", views: [{ key: "billing", label: "Billing Report" }] },
+  { label: "Client Reports", views: [{ key: "clients", label: "Client List" }] },
 ]
 
 export const INITIAL_FILTERS = {
@@ -69,15 +59,18 @@ export const INITIAL_FILTERS = {
     created: EMPTY_RANGE,
     completed: EMPTY_RANGE,
     status: ALL,
+    billing: ALL, // NEW
     service: ALL,
     client: ALL,
     lead: ALL,
     coverage: ALL,
   },
+  billing: {
+    range: EMPTY_RANGE,
+    type: ALL,
+    status: ALL,
+    method: ALL, // NEW (absorbed from Payment Monitoring)
+    client: ALL,
+  },
   clients: { q: "", type: ALL, status: ALL },
-  clientRecord: { client: ALL },
-  users: { q: "", role: ALL, status: ALL, created: EMPTY_RANGE },
-  userRecord: { user: ALL },
-  billing: { range: EMPTY_RANGE, type: ALL, status: ALL, client: ALL },
-  payments: { type: ALL, status: ALL, method: ALL, client: ALL, verified: EMPTY_RANGE },
 }

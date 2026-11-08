@@ -89,7 +89,7 @@ async function getEngagement(engagementId) {
 async function getEngagementTask(engagementTaskId) {
   const { data, error } = await supabaseAdmin
     .from('engagement_tasks')
-    .select('engagement_task_id')
+    .select('engagement_task_id, status')
     .eq('engagement_task_id', engagementTaskId)
     .maybeSingle();
   if (error) throw error;
@@ -296,6 +296,21 @@ export async function uploadEngagementDocument(req, res) {
       .select(submissionSelect)
       .single();
     if (error) throw error;
+
+    // A saved submission means the requirement is now waiting on the firm.
+    // Flip Missing / For Revision → For Review so the client's Documents tab
+    // (which only shows files for locked statuses) and the firm's review list
+    // pick the upload up after a refresh. For Review / Approved uploads are
+    // left alone — the status is already correct (and multi-file batches hit
+    // this path again with the status already flipped by the first file).
+    if (['missing', 'for_revision'].includes(engagementTask.status)) {
+      const { error: statusError } = await supabaseAdmin
+        .from('engagement_tasks')
+        .update({ status: 'for_review' })
+        .eq('engagement_task_id', engagementTaskId)
+        .eq('status', engagementTask.status);
+      if (statusError) throw statusError;
+    }
 
     return res.status(201).json(flattenSubmission(data));
   } catch (err) {

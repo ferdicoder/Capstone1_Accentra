@@ -41,11 +41,12 @@ async function signinUser(email, password){
 /**
  * Number of digits in the recovery code that is emailed to the account owner.
  *
- * Matches the length the app already uses for its OTP step (see
- * components/client/ForgotPasswordModal.jsx) and Supabase Auth's 6-digit
- * email OTP.
+ * Matches the length used by the password recovery flow.
  */
 const PASSWORD_RECOVERY_OTP_LENGTH = 6
+
+/** Digits in the signup confirmation code configured in Supabase Auth. */
+const SIGNUP_OTP_LENGTH = 8
 const PASSWORD_REUSE_MESSAGE = "This password has already been used. Try another."
 
 function getPasswordReuseMessage(error) {
@@ -137,6 +138,10 @@ async function registerClient(formData) {
     email: formData.email,
     password: formData.password,
     options: {
+      // Keep confirmation links in the frontend. Without this, Supabase uses
+      // the project Site URL, which may point at the backend and return JSON
+      // instead of rendering the application.
+      emailRedirectTo: `${window.location.origin}/client/signin`,
       data: {
         first_name: formData.firstName,
         last_name: formData.lastName,
@@ -166,6 +171,19 @@ async function registerClient(formData) {
     return { data: null, error: new Error("No user returned from signUp.") };
   }
 
+  // A signup session means Supabase has email confirmation disabled. The
+  // client signup flow requires confirmation before allowing sign-in, so do
+  // not show an OTP screen that can never receive a code.
+  if (authData.session || authData.user.email_confirmed_at) {
+    await supabase.auth.signOut();
+    return {
+      data: null,
+      error: new Error(
+        "Email confirmation is not enabled. Please enable Confirm email in Supabase Auth settings."
+      ),
+    };
+  }
+
   // Supabase may return an empty identities array for an existing email
   // when email-enumeration protection is enabled. This is not guaranteed
   // to be exposed in every Auth configuration.
@@ -177,6 +195,38 @@ async function registerClient(formData) {
   }
 
   return { data: authData, error: null };
+}
+
+/**
+ * Verifies the 8-digit code emailed at signup and confirms the account.
+ *
+ * Supabase returns a session for the newly confirmed user; it is signed
+ * out immediately so the caller can route the user to the sign-in page
+ * instead of silently entering the portal.
+ *
+ * @param {{ email: string, token: string }} params
+ * @returns {Promise<void>}
+ */
+async function verifySignupOtp({ email, token }) {
+  const { error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: "signup",
+  })
+  if (error) throw error
+  const { error: signOutError } = await supabase.auth.signOut()
+  if (signOutError) throw signOutError
+}
+
+/**
+ * Re-sends the signup confirmation code to the given address.
+ *
+ * @param {{ email: string }} params
+ * @returns {Promise<void>}
+ */
+async function resendSignupOtp({ email }) {
+  const { error } = await supabase.auth.resend({ type: "signup", email })
+  if (error) throw error
 }
 
 /* will be added: after admin UI is done
@@ -234,9 +284,12 @@ export{
   registerClient,
   signinUser,
   PASSWORD_RECOVERY_OTP_LENGTH,
+  SIGNUP_OTP_LENGTH,
   requestPasswordRecovery,
   verifyPasswordRecoveryOtp,
   updateRecoveredPassword,
   changeAuthenticatedPassword,
-  getPasswordReuseMessage
+  getPasswordReuseMessage,
+  verifySignupOtp,
+  resendSignupOtp
 }

@@ -1,5 +1,5 @@
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { LoginForm } from "@/components/shared/LoginForm"
 import { ForgotPasswordModal } from "@/components/client/ForgotPasswordModal"
 import { ArrowLeft } from "lucide-react"
@@ -10,10 +10,24 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
+  // Success notice handed over by the signup flow after email verification.
+  // Captured once; the history state that carried it is cleared below.
+  const [notice] = useState(() => location.state?.notice ?? "")
 
   const slideClass = location.state?.clientAuthSlide
     ? "client-auth-slide-up"
     : ""
+
+  // Drop the handed-over notice from history so navigating back doesn't
+  // replay it, but keep the slide flag so the entry animation isn't cut off.
+  useEffect(() => {
+    if (location.state?.notice) {
+      navigate(location.pathname, {
+        replace: true,
+        state: { clientAuthSlide: true },
+      })
+    }
+  }, [location.pathname, location.state, navigate])
 
   return (
     <>
@@ -42,6 +56,14 @@ export default function LoginPage() {
           <div
             className={`client-auth-card w-full max-w-2xl rounded-xl border border-border bg-white p-5 shadow-[0_20px_50px_rgba(15,71,62,0.14)] sm:p-8 ${slideClass}`}
           >
+            {notice && (
+              <p
+                role="status"
+                className="mb-4 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 ring-1 ring-emerald-500/20 ring-inset"
+              >
+                {notice}
+              </p>
+            )}
             <LoginForm
               portal="client"
               showSignup

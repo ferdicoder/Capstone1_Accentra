@@ -306,10 +306,6 @@ export default function ClientEngagementDetailPage() {
   const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(id)
   const { data: documents = [], isLoading: isDocumentsLoading } = useFetchEngagementDocuments(id)
 
-  // TEMPORARY: check if the documents have a full timestamp (with time).
-  // Look for created_at / createdAt like "2026-11-05T14:32:10Z". Remove after checking.
-  console.log("DOC SAMPLE:", documents[0])
-
   const uploadDocument = useUploadEngagementDocument(id)
   const deleteDocument = useDeleteEngagementDocument(id)
 
