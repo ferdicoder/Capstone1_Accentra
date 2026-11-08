@@ -82,6 +82,7 @@ export function useUpdateEngagementStatus() {
     onSuccess: (updated) => {
       queryClient.setQueryData(queryKeys.engagements, (old = []) => old.map((e) => (e.id === updated.id ? updated : e)))
       queryClient.setQueryData(queryKeys.engagement(updated.id), updated)
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(updated.id) })
     },
   })
 }
@@ -110,7 +111,10 @@ export function useSetTaskCompleted(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: setTaskCompleted,
-    onSuccess: (updatedTask) => patchTaskInCache(queryClient, engagementId, updatedTask),
+    onSuccess: (updatedTask) => {
+      patchTaskInCache(queryClient, engagementId, updatedTask)
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(engagementId) })
+    },
   })
 }
 
@@ -118,7 +122,10 @@ export function useReviewEngagementTask(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: reviewEngagementTask,
-    onSuccess: (updatedTask) => patchTaskInCache(queryClient, engagementId, updatedTask),
+    onSuccess: (updatedTask) => {
+      patchTaskInCache(queryClient, engagementId, updatedTask)
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(engagementId) })
+    },
   })
 }
 

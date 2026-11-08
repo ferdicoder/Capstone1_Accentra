@@ -240,7 +240,9 @@ function formatScheduleDate(value) {
   return date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
 }
 
-// Docless checklist tasks — firm marks done directly.
+// Docless checklist tasks — firm marks done directly. task_completed is
+// logged by the DB trigger (trg_log_engagement_task_completed), so no
+// client-side insert here.
 export async function setTaskCompleted({ taskId, completed }) {
   const { data, error } = await supabase
     .from("engagement_tasks")
@@ -249,10 +251,6 @@ export async function setTaskCompleted({ taskId, completed }) {
     .select(TASK_SELECT)
     .single()
   if (error) throw error
-
-  if (data.status === "approved") {
-    await logEngagementActivity(data.engagement_id, "task_completed", data.title)
-  }
   return mapTaskRow(data)
 }
 
