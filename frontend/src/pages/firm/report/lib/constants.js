@@ -43,7 +43,6 @@ export const PAYMENT_METHOD_OPTIONS = [
   { value: "retainer", label: "Retainer" },
 ]
 
-export const ROLE_LABELS = { admin: "Firm Admin", staff: "Firm Staff", billing_officer: "Billing Officer" }
 export const PAYMENT_STATUS_LABELS = Object.fromEntries(PAYMENT_STATUS_OPTIONS.map((o) => [o.value, o.label]))
 export const METHOD_LABELS = { cash: "Cash", gcash: "GCash", bank_transfer: "Bank Transfer", retainer: "Retainer" }
 
