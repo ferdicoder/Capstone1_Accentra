@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react"
-import { X } from "lucide-react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { PageNotFound } from "@/components/shared/loading/page-skeleton"
+import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { downloadCsv, toCsv } from "@/lib/csv-export"
 import { authStore } from "@/store/authStore"
@@ -83,7 +83,8 @@ function ReportsContent() {
     return () => clearTimeout(timer)
   }, [notice])
 
-  // PDF is preview only: it opens in a viewer on this page and is never saved.
+  // PDF is preview only: it opens in the shared preview dialog on this page
+  // and is never saved. Closing the dialog releases the in-browser copy.
   const closePreview = useCallback(
     () =>
       setPreview((current) => {
@@ -93,14 +94,22 @@ function ReportsContent() {
     []
   )
 
-  useEffect(() => {
-    if (!preview) return
-    const onKey = (e) => {
-      if (e.key === "Escape") closePreview()
-    }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [preview, closePreview])
+  // The generated PDF, in the shape the shared preview dialog reads.
+  // Kept in a memo so the dialog gets the same object between renders.
+  const previewFiles = useMemo(
+    () =>
+      preview
+        ? [
+            {
+              id: `report-${preview.slug}`,
+              name: `${preview.title}.pdf`,
+              mimeType: "application/pdf",
+              downloadUrl: preview.url,
+            },
+          ]
+        : [],
+    [preview]
+  )
 
   const update = (report, patch) =>
     setFilters((current) => ({ ...current, [report]: { ...current[report], ...patch } }))
@@ -411,39 +420,14 @@ function ReportsContent() {
 
       {renderView()}
 
-      {preview && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${preview.title} PDF preview`}
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closePreview()
-          }}
-        >
-          <div className="flex h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-xl">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <div>
-                <h2 className="text-sm font-semibold">{preview.title}</h2>
-                <p className="text-xs text-muted-foreground">PDF preview</p>
-              </div>
-              <button
-                type="button"
-                onClick={closePreview}
-                aria-label="Close preview"
-                className="flex size-8 items-center justify-center rounded-lg border text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/40"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-            <iframe
-              title={`${preview.title} PDF preview`}
-              src={`${preview.url}#toolbar=0&navpanes=0`}
-              className="h-full w-full flex-1 bg-muted/30"
-            />
-          </div>
-        </div>
-      )}
+      {/* The generated PDF opens in the same preview dialog used everywhere else. */}
+      <FilePreviewDialog
+        open={Boolean(preview)}
+        onOpenChange={(open) => !open && closePreview()}
+        files={previewFiles}
+        subtitle="PDF preview"
+        allowDownload={false}
+      />
     </div>
   )
 }

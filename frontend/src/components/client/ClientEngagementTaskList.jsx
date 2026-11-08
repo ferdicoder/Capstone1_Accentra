@@ -4,14 +4,12 @@ import {
   CheckCircle2,
   Clock,
   Download,
-  FileCheck,
   FileText,
   Inbox,
   Info,
   Loader2,
   Lock,
   Upload,
-  UploadCloud,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -23,7 +21,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
-import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
+import {
+  FileDropzone,
+  FilePreviewDialog,
+  SelectedFileList,
+} from "@/components/shared/file-preview-dialog"
 import { formatFileSize, normalizePreviewFile } from "@/lib/file-utils"
 
 // ── Status Helpers ────────────────────────────────────────────────────────────
@@ -73,8 +75,8 @@ const lockedNotes = {
   for_review: "Waiting for your firm to review.",
 }
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
-const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png"]
+// File type and size rules (PDF/JPG/PNG, 10 MB) live in the shared
+// <FileDropzone /> defaults, so every upload in the app uses the same rules.
 
 // The backend takes one file per request, so files picked together are
 // uploaded one after another. Files saved this close together count as the
@@ -247,32 +249,15 @@ function TaskDetailDialog({ open, onOpenChange, task, onPreviewReference }) {
 // ── Upload Files Dialog ────────────────────────────────────────────────────────
 // Step 1: pick the file(s) and click "Attach". Clicking Attach opens the
 // confirmation dialog below. Nothing is sent to the firm until it's confirmed.
+// The picker box and the chosen-file list are the shared components, so this
+// looks the same as every other upload in the app.
 
 function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
   const [files, setFiles] = useState([])
-  const [error, setError] = useState("")
-
-  const handleChange = (e) => {
-    const picked = Array.from(e.target.files ?? [])
-    e.target.value = "" // lets the same file be picked again later
-
-    const accepted = []
-    const rejected = []
-    picked.forEach((file) => {
-      if (!ALLOWED_TYPES.includes(file.type)) rejected.push(`${file.name} (not a PDF, JPG, or PNG)`)
-      else if (file.size > MAX_FILE_SIZE) rejected.push(`${file.name} (over 10MB)`)
-      else accepted.push(file)
-    })
-
-    setError(rejected.length ? `Can't attach: ${rejected.join(", ")}` : "")
-    setFiles(accepted)
-  }
+  const [previewFile, setPreviewFile] = useState(null)
 
   const handleClose = (next) => {
-    if (!next) {
-      setFiles([])
-      setError("")
-    }
+    if (!next) setFiles([])
     onOpenChange(next)
   }
 
@@ -280,7 +265,6 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
     if (files.length === 0 || !canUploadFiles(task)) return
     onFilesChosen?.(task, files)
     setFiles([])
-    setError("")
     onOpenChange(false)
   }
 
@@ -290,73 +274,57 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
   const locked = !canUploadFiles(task)
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Upload Files</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upload Files</DialogTitle>
+          </DialogHeader>
 
-        <div className="flex flex-col gap-3">
-          {locked ? (
-            <p
-              role="alert"
-              className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+          <div className="flex flex-col gap-3">
+            {locked ? (
+              <p
+                role="alert"
+                className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+              >
+                <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                This requirement is no longer open for uploads.
+              </p>
+            ) : (
+              <FileDropzone multiple onSelect={setFiles} />
+            )}
+
+            <SelectedFileList
+              files={files}
+              onRemove={(index) => setFiles((prev) => prev.filter((_, i) => i !== index))}
+              onPreview={(file) => setPreviewFile(file)}
+            />
+          </div>
+
+          <div className="mt-2 flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => handleClose(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+              disabled={locked || files.length === 0}
+              onClick={handleAttach}
             >
-              <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-              This requirement is no longer open for uploads.
-            </p>
-          ) : (
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-4 py-8 text-center transition-colors hover:border-[#02353C]/40 hover:bg-muted/30">
-              <UploadCloud className="size-6 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">Click to choose file(s)</span>
-              <span className="text-xs text-muted-foreground">PDF, JPG, or PNG — up to 10MB each</span>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                className="hidden"
-                onChange={handleChange}
-              />
-            </label>
-          )}
+              Attach
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-          {error && (
-            <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-              {error}
-            </p>
-          )}
-
-          {files.length > 0 && (
-            <ul className="flex flex-col gap-1.5">
-              {files.map((f, i) => (
-                <li
-                  key={`${f.name}-${i}`}
-                  className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-1.5 text-xs text-foreground"
-                >
-                  <FileCheck className="size-3.5 shrink-0 text-emerald-600" />
-                  <span className="min-w-0 flex-1 truncate">{f.name}</span>
-                  <span className="shrink-0 text-muted-foreground">{formatFileSize(f.size)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="mt-2 flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleClose(false)}>
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            className="bg-emerald-600 text-white hover:bg-emerald-700"
-            disabled={locked || files.length === 0}
-            onClick={handleAttach}
-          >
-            Attach
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      <FilePreviewDialog
+        open={Boolean(previewFile)}
+        onOpenChange={(next) => !next && setPreviewFile(null)}
+        files={previewFile ? [previewFile] : []}
+        subtitle="Selected file"
+        allowDownload={false}
+      />
+    </>
   )
 }
 

@@ -1,19 +1,22 @@
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import {
   ArrowLeft,
   CheckCircle2,
   Clock,
   FileText,
-  ImagePlus,
   Loader2,
   Upload,
-  X,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
+import {
+  FileDropzone,
+  FilePreviewDialog,
+  SelectedFileList,
+} from "@/components/shared/file-preview-dialog"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchBilling, useUploadPaymentProof } from "@/hooks/useBillings"
@@ -55,6 +58,11 @@ const paymentStatusStyles = {
 const inputClass =
   "h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
 
+// Proof of payment rules: JPG, PNG, WEBP or PDF, up to 5 MB.
+const PROOF_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf"
+const PROOF_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+const PROOF_MAX_SIZE = 5 * 1024 * 1024
+
 function BackLink() {
   return (
     <Link
@@ -70,7 +78,6 @@ function BackLink() {
 export default function ClientBillingDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const fileInputRef = useRef(null)
 
   const [proofFile, setProofFile] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState("gcash")
@@ -82,6 +89,8 @@ export default function ClientBillingDetailPage() {
   // Drives the red outline and the auto-locate scroll.
   const [proofInvalid, setProofInvalid] = useState(false)
   const [referenceInvalid, setReferenceInvalid] = useState(false)
+  // Which file the shared preview dialog is showing (null = closed).
+  const [previewFile, setPreviewFile] = useState(null)
 
   const user = authStore((state) => state.user)
   const { data: business, isLoading: businessLoading } = useFetchMyBusiness(user?.id)
@@ -114,37 +123,11 @@ export default function ClientBillingDetailPage() {
     setReferenceInvalid(false)
   }
 
-  const handleFileChange = (event) => {
-    const input = event.target
-    const file = input.files?.[0] ?? null
+  // The shared <FileDropzone /> already checked the file type and the 5 MB
+  // limit and shows its own message for a rejected file.
+  const handleFileSelected = ([file]) => {
     clearErrors()
-
-    if (!file) return
-
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "application/pdf",
-    ]
-
-    // Reset the input on a rejected file so picking the same file again
-    // still triggers a change event.
-    if (!allowedTypes.includes(file.type)) {
-      setError("Upload a JPG, PNG, WEBP, or PDF file.")
-      setProofInvalid(true)
-      input.value = ""
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError("The file must be 5 MB or smaller.")
-      setProofInvalid(true)
-      input.value = ""
-      return
-    }
-
-    setProofFile(file)
+    if (file) setProofFile(file)
   }
 
   const handleSubmit = async (event) => {
@@ -189,7 +172,6 @@ export default function ClientBillingDetailPage() {
       // Clear the form so the same proof can't be submitted twice by accident.
       setProofFile(null)
       setReferenceId("")
-      if (fileInputRef.current) fileInputRef.current.value = ""
     } catch (err) {
       setError(err?.message ?? "Unable to submit your payment.")
     } finally {
@@ -226,6 +208,18 @@ export default function ClientBillingDetailPage() {
   const engagementList = invoice.billing_engagements
     ?.map((item) => item.engagement_id)
     .join(", ")
+
+  // The already-submitted proof, in the shape the shared preview dialog reads.
+  // The file type is worked out from the file name when no mime type is saved.
+  const uploadedProofFile = hasUploadedProof
+    ? {
+        id: `payment-proof-${invoice.id}`,
+        name: invoice.payment_proof_name ?? "Payment proof",
+        mimeType: invoice.payment_proof_mime_type ?? null,
+        size: invoice.payment_proof_size ?? null,
+        downloadUrl: invoice.payment_proof_url,
+      }
+    : null
 
   return (
     <div className="flex flex-1 flex-col gap-5 px-2 py-2 sm:px-4 lg:px-6">
@@ -322,26 +316,14 @@ export default function ClientBillingDetailPage() {
           </h2>
 
           {hasUploadedProof && (
-            <div className="mt-4 flex items-center gap-3 rounded-lg border p-3">
-              <FileText className="size-5 shrink-0 text-muted-foreground" />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs text-muted-foreground">
-                  Attached payment proof
-                </p>
-                <a
-                  href={invoice.payment_proof_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block truncate text-sm font-medium text-forest-900 hover:underline"
-                >
-                  {invoice.payment_proof_name ?? "View uploaded document"}
-                </a>
-                {invoice.payment_proof_size && (
-                  <p className="text-xs text-muted-foreground">
-                    {(invoice.payment_proof_size / 1024).toFixed(0)} KB
-                  </p>
-                )}
-              </div>
+            <div className="mt-4 flex flex-col gap-1.5">
+              <p className="text-xs text-muted-foreground">
+                Attached payment proof
+              </p>
+              <SelectedFileList
+                files={[uploadedProofFile]}
+                onPreview={(file) => setPreviewFile(file)}
+              />
             </div>
           )}
 
@@ -456,64 +438,32 @@ export default function ClientBillingDetailPage() {
                     <span className="ml-0.5 text-red-500">*</span>
                   </label>
 
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    disabled={isSubmitting}
-                  />
-
                   {proofFile ? (
-                    <div className="flex items-center gap-3 rounded-lg border p-3">
-                      <FileText className="size-5 shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {proofFile.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {(proofFile.size / 1024).toFixed(0)} KB
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProofFile(null)
-                          if (fileInputRef.current) {
-                            fileInputRef.current.value = ""
-                          }
-                        }}
-                        className="text-muted-foreground hover:text-foreground"
-                        aria-label="Remove uploaded file"
-                        disabled={isSubmitting}
-                      >
-                        <X className="size-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      aria-invalid={proofInvalid}
-                      data-invalid-field={proofInvalid ? "true" : undefined}
-                      className={`flex w-full flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-center transition-colors hover:bg-muted/40 ${
-                        proofInvalid ? "border-red-500 bg-red-50/50" : ""
-                      }`}
+                    <SelectedFileList
+                      files={[proofFile]}
                       disabled={isSubmitting}
+                      onRemove={() => setProofFile(null)}
+                      onPreview={(file) => setPreviewFile(file)}
+                    />
+                  ) : (
+                    <div
+                      aria-invalid={proofInvalid || undefined}
+                      data-invalid-field={proofInvalid ? "true" : undefined}
+                      className={cn(
+                        "rounded-lg",
+                        proofInvalid && "ring-1 ring-red-500"
+                      )}
                     >
-                      <ImagePlus className="size-6 text-muted-foreground" />
-                      <span className="text-sm font-medium">
-                        Upload payment screenshot
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        JPG, PNG, WEBP, or PDF · Max 5 MB
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
-                        <Upload className="size-3.5" />
-                        Choose file
-                      </span>
-                    </button>
+                      <FileDropzone
+                        accept={PROOF_ACCEPT}
+                        allowedTypes={PROOF_ALLOWED_TYPES}
+                        maxSize={PROOF_MAX_SIZE}
+                        typeLabel="JPG, PNG, WEBP, or PDF"
+                        title="Upload payment screenshot"
+                        disabled={isSubmitting}
+                        onSelect={handleFileSelected}
+                      />
+                    </div>
                   )}
                 </div>
 
@@ -550,6 +500,14 @@ export default function ClientBillingDetailPage() {
           )}
         </section>
       </div>
+
+      <FilePreviewDialog
+        open={Boolean(previewFile)}
+        onOpenChange={(open) => !open && setPreviewFile(null)}
+        files={previewFile ? [previewFile] : []}
+        subtitle={`Payment proof for ${invoice.id}`}
+        allowDownload={Boolean(previewFile?.downloadUrl)}
+      />
     </div>
   )
 }

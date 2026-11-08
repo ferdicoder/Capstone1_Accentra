@@ -1,7 +1,8 @@
 import { useRef, useState } from "react"
-import { Pencil, Save, Trash2, Upload } from "lucide-react"
+import { Pencil, Save, Trash2 } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
+import { FileDropzone, FilePreviewDialog } from "@/components/shared/file-preview-dialog"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { cn } from "@/lib/utils"
 import { firmLogoUrl } from "@/services/api/firmSettingsAPI"
@@ -63,6 +64,9 @@ const tabs = [
 // (h-8, rounded-lg, neutral focus ring) used across the User Management module.
 const controlClass = "w-full bg-background"
 
+// Logo rules: PNG, JPG, WebP or SVG, up to 2 MB. Enforced by <FileDropzone />.
+const LOGO_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml"
+const LOGO_ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"]
 const MAX_LOGO_SIZE = 2 * 1024 * 1024
 
 export default function FirmProfilePage() {
@@ -81,9 +85,9 @@ export default function FirmProfilePage() {
   const [logoPreview, setLogoPreview] = useState("")
   const [logoRemoved, setLogoRemoved] = useState(false)
   const [brokenLogoSrc, setBrokenLogoSrc] = useState(null)
+  const [logoPreviewOpen, setLogoPreviewOpen] = useState(false)
 
   const profileFormRef = useRef(null)
-  const logoInputRef = useRef(null)
   const savedProfileRef = useRef(initialProfile)
 
   const { data: settings, isLoading } = useFetchFirmSettings()
@@ -127,27 +131,10 @@ export default function FirmProfilePage() {
     setSaveMessage(null)
   }
 
-  const handleLogoUpload = (event) => {
-    const file = event.target.files?.[0]
-    // Reset so selecting the same file again still triggers a change event.
-    event.target.value = ""
+  // The shared <FileDropzone /> already checked the file type and the 2 MB
+  // limit, and shows its own message for a rejected file.
+  const handleLogoSelected = ([file]) => {
     if (!file) return
-
-    if (!file.type.startsWith("image/")) {
-      setFormErrors((current) => ({
-        ...current,
-        logo: "Please upload an image file (PNG, JPG, WebP or SVG).",
-      }))
-      return
-    }
-
-    if (file.size > MAX_LOGO_SIZE) {
-      setFormErrors((current) => ({
-        ...current,
-        logo: "Logo must be 2 MB or smaller.",
-      }))
-      return
-    }
 
     const reader = new FileReader()
     reader.onload = () => {
@@ -327,6 +314,17 @@ export default function FirmProfilePage() {
   const editingLabel = editingTab === "personal" ? "Personal Information" : "Firm Information"
   const avatarSrc = logoBroken ? "" : logoSrc
 
+  // The current logo, in the shape the shared preview dialog reads.
+  const logoPreviewFile = avatarSrc
+    ? {
+        id: "firm-logo",
+        name: logoFile?.name ?? settings?.logoFileName ?? "Firm logo",
+        mimeType: logoFile?.type ?? settings?.logoMimeType ?? "image/png",
+        size: logoFile?.size ?? null,
+        downloadUrl: avatarSrc,
+      }
+    : null
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-2">
       {isLoading ? (
@@ -455,54 +453,58 @@ export default function FirmProfilePage() {
                   </div>
                 </div>
 
-                <div className="mb-5 flex items-center gap-4">
-                  <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted text-lg font-semibold text-muted-foreground">
-                    {avatarSrc ? (
+                <div className="mb-5 flex items-start gap-4">
+                  {avatarSrc ? (
+                    <button
+                      type="button"
+                      title="Preview logo"
+                      onClick={() => setLogoPreviewOpen(true)}
+                      className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted text-lg font-semibold text-muted-foreground transition-colors hover:border-[#02353C]/40"
+                    >
                       <img
                         src={avatarSrc}
                         alt={`${displayFirmName} logo`}
                         className="size-full object-contain"
                         onError={() => setBrokenLogoSrc(logoSrc)}
                       />
-                    ) : (
-                      firmInitial
-                    )}
-                  </div>
-                  <div className="min-w-0">
+                    </button>
+                  ) : (
+                    <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted text-lg font-semibold text-muted-foreground">
+                      {firmInitial}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">Firm Logo</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       PNG, JPG, WebP or SVG. Max 2 MB.
                     </p>
                     {editingTab === "info" && (
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <input
-                          ref={logoInputRef}
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                          className="hidden"
-                          onChange={handleLogoUpload}
+                      <div className="mt-2 flex flex-col gap-2">
+                        <FileDropzone
+                          accept={LOGO_ACCEPT}
+                          allowedTypes={LOGO_ALLOWED_TYPES}
+                          maxSize={MAX_LOGO_SIZE}
+                          typeLabel="PNG, JPG, WebP, or SVG"
+                          title={
+                            settings?.logoStorageKey || logoPreview
+                              ? "Click to replace logo"
+                              : "Click to upload logo"
+                          }
+                          onSelect={handleLogoSelected}
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5"
-                          onClick={() => logoInputRef.current?.click()}
-                        >
-                          <Upload className="size-3.5" />
-                          {settings?.logoStorageKey || logoPreview ? "Replace Logo" : "Upload Logo"}
-                        </Button>
                         {(settings?.logoStorageKey || logoPreview) && !logoRemoved && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="gap-1.5 text-muted-foreground hover:text-foreground"
-                            onClick={removeLogo}
-                          >
-                            <Trash2 className="size-3.5" />
-                            Remove
-                          </Button>
+                          <div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1.5 text-muted-foreground hover:text-foreground"
+                              onClick={removeLogo}
+                            >
+                              <Trash2 className="size-3.5" />
+                              Remove
+                            </Button>
+                          </div>
                         )}
                       </div>
                     )}
@@ -702,6 +704,14 @@ export default function FirmProfilePage() {
           )}
         </>
       )}
+
+      <FilePreviewDialog
+        open={logoPreviewOpen}
+        onOpenChange={setLogoPreviewOpen}
+        files={logoPreviewFile ? [logoPreviewFile] : []}
+        subtitle="Firm logo"
+        allowDownload={false}
+      />
 
       <Dialog open={confirmationOpen} onOpenChange={(open) => {
         if (!saving) setConfirmationOpen(open)

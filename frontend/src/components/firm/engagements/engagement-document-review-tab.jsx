@@ -1,9 +1,14 @@
-import { useRef, useState } from "react"
-import { AlertCircle, CheckCircle2, Download, ExternalLink, FileText, Inbox, Paperclip, Upload, X } from "lucide-react"
+import { useState } from "react"
+import { AlertCircle, CheckCircle2, Download, Eye, FileText, Inbox, Paperclip } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  FileDropzone,
+  FilePreviewDialog,
+  SelectedFileList,
+} from "@/components/shared/file-preview-dialog"
 import { ReviewStatusBadge } from "./review-status-badge"
 import { formatTimestamp } from "./engagement-variants"
 
@@ -28,6 +33,10 @@ const getInitials = (name) => {
   if (!name) return "AC"
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("")
 }
+
+// Reference documents the reviewer can attach are not limited to PDF/images,
+// so the type check is skipped here. The 10 MB size limit still applies.
+const REFERENCE_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.txt,.zip"
 
 function ReviewQueueItem({ document, isSelected, onSelect }) {
   return (
@@ -108,7 +117,7 @@ export function EngagementDocumentReviewTab({
   const [remarksError, setRemarksError] = useState("")
   const [actionNotice, setActionNotice] = useState("")
   const [referenceFiles, setReferenceFiles] = useState([])
-  const fileInputRef = useRef(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   const handleApprove = () => {
     if (!selectedDoc) return
@@ -132,22 +141,40 @@ export function EngagementDocumentReviewTab({
     setTimeout(() => setActionNotice(""), 3000)
   }
 
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files ?? [])
-    if (files.length === 0) return
+  // Files come from the shared <FileDropzone />, which has already checked
+  // their size. Keep the original File so it can be previewed before sending.
+  const handleFilesSelected = (files) => {
     const newFiles = files.map((file) => {
       const ext = file.name.split(".").pop()?.toUpperCase() ?? ""
-      return { id: `ref-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: file.name, type: ext, size: file.size }
+      return {
+        id: `ref-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: file.name,
+        type: file.type,
+        ext,
+        size: file.size,
+        file,
+      }
     })
     setReferenceFiles((prev) => [...prev, ...newFiles])
-    e.target.value = ""
   }
 
-  const removeReferenceFile = (id) => {
-    setReferenceFiles((prev) => prev.filter((f) => f.id !== id))
+  const removeReferenceFile = (index) => {
+    setReferenceFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
   const selectedStatus = selectedDoc ? reviewStatusMap[selectedDoc.status] ?? selectedDoc.status : null
+
+  // The same shape the shared preview dialog reads everywhere else.
+  const previewFile = selectedDoc
+    ? {
+        id: selectedDoc.id,
+        name: selectedDoc.name,
+        mimeType: selectedDoc.mimeType ?? null,
+        fileType: selectedDoc.fileType ?? null,
+        size: selectedDoc.fileSize ?? null,
+        downloadUrl: selectedDoc.downloadUrl ?? null,
+      }
+    : null
 
   return (
     <div data-slot="engagement-document-review-tab" className={cn("grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_300px]", className)} {...props}>
@@ -200,11 +227,17 @@ export function EngagementDocumentReviewTab({
                     <p className="text-xs font-medium text-foreground">{getFileType(selectedDoc)}</p>
                     <p className="text-xs text-muted-foreground">{formatFileSize(selectedDoc.fileSize)}</p>
                   </div>
-                  <Button asChild variant="outline" size="sm" className="gap-1.5">
-                    <a href={selectedDoc.downloadUrl} target="_blank" rel="noopener noreferrer" title="View document">
-                      <ExternalLink className="size-3.5" />
-                      View
-                    </a>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    title="View document"
+                    disabled={!selectedDoc.downloadUrl}
+                    onClick={() => setPreviewOpen(true)}
+                  >
+                    <Eye className="size-3.5" />
+                    View
                   </Button>
                   <Button asChild variant="outline" size="sm" className="gap-1.5">
                     <a href={selectedDoc.downloadUrl} download={selectedDoc.name} title="Download document">
@@ -276,35 +309,17 @@ export function EngagementDocumentReviewTab({
                 <div className="rounded-lg border border-border bg-muted/30 p-3">
                   <p className="mb-2 text-xs font-medium text-foreground">Attach Reference Documents (optional)</p>
                   <div className="flex flex-col gap-2">
-                    {referenceFiles.map((file) => (
-                      <div key={file.id} className="flex items-center justify-between rounded-md bg-background px-2.5 py-1.5">
-                        <span className="flex items-center gap-1.5 text-xs text-foreground">
-                          <Paperclip className="size-3 text-muted-foreground" />
-                          {file.name}
-                        </span>
-                        <button type="button" onClick={() => removeReferenceFile(file.id)} className="text-muted-foreground hover:text-destructive">
-                          <X className="size-3" />
-                        </button>
-                      </div>
-                    ))}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      className="hidden"
-                      onChange={handleFileSelect}
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.txt,.zip"
+                    <SelectedFileList
+                      files={referenceFiles}
+                      onRemove={removeReferenceFile}
                     />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-7 gap-1.5 text-xs"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className="size-3" />
-                      Upload File
-                    </Button>
+                    <FileDropzone
+                      multiple
+                      accept={REFERENCE_ACCEPT}
+                      allowedTypes={null}
+                      typeLabel="PDF, Word, Excel, CSV, image, TXT, or ZIP"
+                      onSelect={handleFilesSelected}
+                    />
                   </div>
                 </div>
 
@@ -347,6 +362,13 @@ export function EngagementDocumentReviewTab({
           )}
         </div>
       </div>
+
+      <FilePreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        files={previewFile ? [previewFile] : []}
+        subtitle={selectedDoc ? `Submitted by ${selectedDoc.uploadedBy ?? "client"}` : undefined}
+      />
     </div>
   )
 }

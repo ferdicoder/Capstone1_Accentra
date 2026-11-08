@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { FileText, Plus, Upload, X } from "lucide-react"
+import { Plus, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -15,8 +15,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
+  FileDropzone,
+  FilePreviewDialog,
+  SelectedFileList,
+} from "@/components/shared/file-preview-dialog"
+import {
   createTaskId,
-  formatBytes,
   getInvalidFileTypeMessage,
   REFERENCE_DOCUMENT_ACCEPT,
   REFERENCE_DOCUMENT_MIME_TYPES,
@@ -29,8 +33,12 @@ const ATTACHMENT_SKELETON_DELAY_MS = 500
  * `onSelect`/`onRemove`. No upload API — the raw File object is passed up so
  * a parent can handle it later (e.g. Supabase storage).
  *
- * A file outside the supported types is rejected here, so it never reaches
- * the form state and is never included in an upload.
+ * The picker box, the chosen-file row and the preview popup are the shared
+ * components from file-preview-dialog.jsx, so this looks the same as every
+ * other upload in the app.
+ *
+ * A file outside the supported types is rejected by the dropzone, so it never
+ * reaches the form state and is never included in an upload.
  */
 export function ReferenceDocumentUpload({
   file,
@@ -41,10 +49,9 @@ export function ReferenceDocumentUpload({
   error,
   className,
 }) {
-  const inputRef = useRef(null)
   const attachmentTimerRef = useRef(null)
   const [pendingFile, setPendingFile] = useState(null)
-  const [fileTypeError, setFileTypeError] = useState("")
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   useEffect(
     () => () => {
@@ -55,16 +62,9 @@ export function ReferenceDocumentUpload({
     []
   )
 
-  const handleFiles = (fileList) => {
-    const selected = fileList?.[0]
+  const handleFiles = ([selected]) => {
     if (!selected) return
 
-    if (!REFERENCE_DOCUMENT_MIME_TYPES.includes(selected.type)) {
-      setFileTypeError(getInvalidFileTypeMessage(selected.name))
-      return
-    }
-
-    setFileTypeError("")
     const selectedFile = {
       name: selected.name,
       size: selected.size,
@@ -80,7 +80,6 @@ export function ReferenceDocumentUpload({
   }
 
   const handleRemove = () => {
-    setFileTypeError("")
     if (attachmentTimerRef.current) {
       clearTimeout(attachmentTimerRef.current)
       attachmentTimerRef.current = null
@@ -91,18 +90,6 @@ export function ReferenceDocumentUpload({
 
   return (
     <div className={className}>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={REFERENCE_DOCUMENT_ACCEPT}
-        className="hidden"
-        disabled={disabled}
-        onChange={(event) => {
-          handleFiles(event.target.files)
-          event.target.value = "" // allow re-selecting the same file later
-        }}
-      />
-
       {pendingFile || (uploading && file) ? (
         <div
           role="status"
@@ -121,44 +108,32 @@ export function ReferenceDocumentUpload({
           <Skeleton className="size-7 shrink-0 rounded-md" />
         </div>
       ) : !file ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
+        <FileDropzone
+          accept={REFERENCE_DOCUMENT_ACCEPT}
+          allowedTypes={REFERENCE_DOCUMENT_MIME_TYPES}
+          typeLabel="a supported document"
+          title="Click to upload reference document"
           disabled={disabled}
-          onClick={() => inputRef.current?.click()}
-          className="gap-1.5 border-dashed"
-        >
-          <Upload className="size-3.5" />
-          Upload reference document
-        </Button>
+          onSelect={handleFiles}
+        />
       ) : (
-        <div className="flex items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-forest-900/10 text-forest-900 dark:bg-emerald-500/10 dark:text-emerald-300">
-            <FileText className="size-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">{file.name}</p>
-            {file.size != null && (
-              <p className="text-xs text-muted-foreground">{formatBytes(file.size)}</p>
-            )}
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            disabled={disabled}
-            onClick={handleRemove}
-            aria-label="Remove file"
-            className="rounded-md text-muted-foreground hover:text-destructive"
-          >
-            <X className="size-3.5" />
-          </Button>
-        </div>
+        <SelectedFileList
+          files={[file]}
+          disabled={disabled}
+          onRemove={handleRemove}
+          onPreview={() => setPreviewOpen(true)}
+        />
       )}
 
-      {fileTypeError && <p className="mt-1 text-sm text-red-500">{fileTypeError}</p>}
       {error && <p className="mt-1 text-sm text-red-500">Upload a reference document.</p>}
+
+      <FilePreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        files={file ? [file] : []}
+        subtitle="Reference document"
+        allowDownload={false}
+      />
     </div>
   )
 }

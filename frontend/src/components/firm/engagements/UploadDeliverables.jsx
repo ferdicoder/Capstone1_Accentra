@@ -1,5 +1,5 @@
-import { useRef, useState } from "react"
-import { FileText, FileSpreadsheet, FileImage, File, Upload, X, Download, Eye, Trash2 } from "lucide-react"
+import { useState } from "react"
+import { FileText, FileSpreadsheet, FileImage, File, Upload, Download, Eye, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  FileDropzone,
+  FilePreviewDialog,
+  SelectedFileList,
+} from "@/components/shared/file-preview-dialog"
 import { formatDate } from "./engagement-variants"
 
 // ── File icon helpers ─────────────────────────────────────────────────────────
@@ -41,6 +46,18 @@ function resolveFileType(file) {
   return normalized?.toUpperCase()
 }
 
+// The shared preview dialog reads one shape for every file in the app.
+// (fileSize here is a display string like "2.1 MB", so it is not passed as a size.)
+function toPreviewFile(document) {
+  return {
+    id: document.id,
+    name: document.name,
+    mimeType: document.mimeType ?? null,
+    fileType: document.fileType ?? null,
+    downloadUrl: document.downloadUrl ?? null,
+  }
+}
+
 // ── Compact Document Row (for the card) ──────────────────────────────────────
 
 function CompactDocumentRow({ document, onPreview }) {
@@ -62,81 +79,6 @@ function CompactDocumentRow({ document, onPreview }) {
       </div>
       <Eye className="size-3.5 shrink-0 text-muted-foreground" />
     </button>
-  )
-}
-
-function DocumentPreviewDialog({ open, onOpenChange, document }) {
-  if (!document) return null
-
-  const fileType = resolveFileType(document)
-  const previewUrl = document.downloadUrl ? `${document.downloadUrl}?inline=true` : null
-  const isPdf = fileType === "PDF"
-  const isImage = ["PNG", "JPG", "JPEG", "GIF", "WEBP"].includes(fileType)
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="truncate">{document.name}</DialogTitle>
-          <DialogDescription>
-            {document.fileType ?? "Document"} · {document.fileSize ?? "Unknown size"}
-            {document.uploadedDate ? ` · Uploaded ${formatDate(document.uploadedDate)}` : ""}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="rounded-xl border border-border bg-muted/30 p-4">
-          <div className="flex items-center gap-3 rounded-lg bg-background/80 px-3 py-2">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <FileTypeIcon fileType={document} className="size-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">{document.name}</p>
-              <p className="text-xs text-muted-foreground">{document.uploadedBy ?? "Uploaded document"}</p>
-            </div>
-          </div>
-
-          <div className="mt-4 overflow-hidden rounded-lg border border-border bg-background/70">
-            {previewUrl && isPdf && (
-              <iframe
-                src={previewUrl}
-                title={`Preview of ${document.name}`}
-                className="h-[60vh] w-full"
-              />
-            )}
-            {previewUrl && isImage && (
-              <div className="flex max-h-[60vh] items-center justify-center overflow-auto p-2">
-                <img src={previewUrl} alt={document.name} className="max-h-[56vh] max-w-full object-contain" />
-              </div>
-            )}
-            {(!previewUrl || (!isPdf && !isImage)) && (
-              <div className="flex min-h-[200px] flex-col items-center justify-center gap-3 px-6 py-8 text-center">
-                <FileText className="size-5 text-muted-foreground" />
-                <p className="text-sm font-medium text-foreground">
-                  {previewUrl ? "Preview isn't available for this file type" : "File isn't available"}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <DialogFooter className="sm:justify-between">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            className="gap-2"
-            asChild
-          >
-            <a href={document.downloadUrl} download={document.name}>
-              <Download className="size-3.5" />
-              Download
-            </a>
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 
@@ -219,6 +161,8 @@ function toFileRecord(file) {
 
 const MAX_PREVIEW_DOCS = 1
 
+// Deliverables can be any file type, so the type check is skipped.
+// The shared dropzone's default size limit (10 MB) still applies.
 export function UploadDeliverables({
   deliverables = [],
   isUploading = false,
@@ -230,7 +174,6 @@ export function UploadDeliverables({
   onBlockedAction,
   className,
 }) {
-  const inputRef = useRef(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [allDocsOpen, setAllDocsOpen] = useState(false)
   const [previewDoc, setPreviewDoc] = useState(null)
@@ -250,9 +193,8 @@ export function UploadDeliverables({
     setDialogOpen(true)
   }
 
-  const handleFileSelect = (event) => {
-    setSelectedFiles(Array.from(event.target.files ?? []).map(toFileRecord))
-    event.target.value = ""
+  const handleFilesSelected = (files) => {
+    setSelectedFiles(files.map(toFileRecord))
   }
 
   const handleUpload = async () => {
@@ -348,35 +290,22 @@ export function UploadDeliverables({
               Select files to make available for this engagement.
             </DialogDescription>
           </DialogHeader>
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleFileSelect}
-          />
           <div className="flex flex-col gap-3">
-            <Button type="button" variant="outline" className="gap-1.5" onClick={() => inputRef.current?.click()}>
-              <Upload className="size-3.5" />
-              Choose files
-            </Button>
-            {selectedFiles.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {selectedFiles.map((file) => (
-                  <div key={file.id} className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">{file.name}</span>
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => setSelectedFiles((current) => current.filter((item) => item.id !== file.id))}
-                      aria-label={`Remove ${file.name}`}
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <FileDropzone
+              multiple
+              accept=""
+              allowedTypes={null}
+              typeLabel="Any file type"
+              disabled={isUploading}
+              onSelect={handleFilesSelected}
+            />
+            <SelectedFileList
+              files={selectedFiles}
+              disabled={isUploading}
+              onRemove={(index) =>
+                setSelectedFiles((current) => current.filter((_, i) => i !== index))
+              }
+            />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
@@ -387,7 +316,18 @@ export function UploadDeliverables({
         </DialogContent>
       </Dialog>
 
-      <DocumentPreviewDialog open={Boolean(previewDoc)} onOpenChange={(isOpen) => !isOpen && setPreviewDoc(null)} document={previewDoc} />
+      <FilePreviewDialog
+        open={Boolean(previewDoc)}
+        onOpenChange={(isOpen) => !isOpen && setPreviewDoc(null)}
+        files={previewDoc ? [toPreviewFile(previewDoc)] : []}
+        subtitle={
+          previewDoc
+            ? `${previewDoc.uploadedBy ?? "Deliverable"}${
+                previewDoc.uploadedDate ? ` · Uploaded ${formatDate(previewDoc.uploadedDate)}` : ""
+              }`
+            : undefined
+        }
+      />
 
       <Dialog open={Boolean(deleteDoc)} onOpenChange={(open) => !open && setDeleteDoc(null)}>
         <DialogContent className="max-w-md">
