@@ -1,9 +1,4 @@
-<<<<<<< HEAD
 import { useCallback, useEffect, useMemo, useState } from "react"
-=======
-import { useCallback, useEffect, useState } from "react"
-import { Download, X } from "lucide-react"
->>>>>>> 52d71be234f0d907addc282edfc14e26ea8921d7
 
 import { PageNotFound } from "@/components/shared/loading/page-skeleton"
 import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
@@ -73,11 +68,8 @@ function ReportsContent() {
     return () => clearTimeout(timer)
   }, [notice])
 
-<<<<<<< HEAD
   // PDF is preview only: it opens in the shared preview dialog on this page
   // and is never saved. Closing the dialog releases the in-browser copy.
-=======
->>>>>>> 52d71be234f0d907addc282edfc14e26ea8921d7
   const closePreview = useCallback(
     () =>
       setPreview((current) => {
@@ -130,6 +122,13 @@ function ReportsContent() {
       if (current) URL.revokeObjectURL(current.url)
       return { title: label, slug, url, report, rowCount }
     })
+  }
+
+  // Runs when the user clicks Download in the PDF preview.
+  const handlePdfDownload = () => {
+    if (!preview) return
+    logExport(preview.report, "pdf", preview.rowCount)
+    setNotice(`${preview.title} PDF downloaded (${plural(preview.rowCount, "row")}).`)
   }
 
   const shellProps = (key) => ({
@@ -285,62 +284,16 @@ function ReportsContent() {
 
       {renderView()}
 
-<<<<<<< HEAD
-      {/* The generated PDF opens in the same preview dialog used everywhere else. */}
+      {/* The generated PDF opens in the same preview dialog used everywhere else.
+          Its Download button saves the PDF and records the export. */}
       <FilePreviewDialog
         open={Boolean(preview)}
         onOpenChange={(open) => !open && closePreview()}
         files={previewFiles}
         subtitle="PDF preview"
-        allowDownload={false}
+        downloadName={preview ? `accentra-${preview.slug}-${fileStamp()}.pdf` : undefined}
+        onDownload={handlePdfDownload}
       />
-=======
-      {preview && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${preview.title} PDF preview`}
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closePreview()
-          }}
-        >
-          <div className="flex h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-xl">
-            <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-              <div className="mr-auto">
-                <h2 className="text-sm font-semibold">{preview.title}</h2>
-                <p className="text-xs text-muted-foreground">PDF preview</p>
-              </div>
-              <a
-                href={preview.url}
-                download={`accentra-${preview.slug}-${fileStamp()}.pdf`}
-                onClick={() => {
-                  logExport(preview.report, "pdf", preview.rowCount)
-                  setNotice(`${preview.title} PDF downloaded (${plural(preview.rowCount, "row")}).`)
-                }}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-700 px-3 text-xs font-medium text-white transition-colors hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/40"
-              >
-                <Download className="size-3.5" aria-hidden="true" />
-                Download PDF
-              </a>
-              <button
-                type="button"
-                onClick={closePreview}
-                aria-label="Close preview"
-                className="flex size-8 items-center justify-center rounded-lg border text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/40"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-            <iframe
-              title={`${preview.title} PDF preview`}
-              src={`${preview.url}#toolbar=0&navpanes=0`}
-              className="h-full w-full flex-1 bg-muted/30"
-            />
-          </div>
-        </div>
-      )}
->>>>>>> 52d71be234f0d907addc282edfc14e26ea8921d7
     </div>
   )
 }

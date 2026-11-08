@@ -1,12 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import {
-  Download,
-  ExternalLink,
-  FileCheck,
-  FileText,
-  UploadCloud,
-  X,
-} from "lucide-react"
+import { FileCheck, FileText, UploadCloud, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { formatFileSize } from "@/lib/file-utils"
@@ -49,14 +42,6 @@ function resolveKind(file) {
     return "image"
   }
   return "other"
-}
-
-// Server URLs need ?inline=true so the browser shows the file instead of
-// downloading it. Blob URLs (a file still in the browser) must stay untouched.
-function toInlineUrl(url) {
-  if (!url || url.startsWith("blob:") || url.startsWith("data:")) return url
-  if (/[?&]inline=true/.test(url)) return url
-  return `${url}${url.includes("?") ? "&" : "?"}inline=true`
 }
 
 // ── Upload: dropzone ─────────────────────────────────────────────────────────
@@ -199,9 +184,13 @@ export function SelectedFileList({ files = [], onRemove, onPreview, disabled = f
 // ── Preview dialog ───────────────────────────────────────────────────────────
 // Accepts any of these in `files`:
 //   - a normalized document  ({ name, mimeType, size, downloadUrl, file })
-//   - a deliverable          ({ name, fileType, fileSize, downloadUrl })
+//   - a deliverable          ({ name, fileType, downloadUrl, previewUrl })
 //   - a plain browser File   (previewed from the browser, no upload needed)
 //   - a generated blob       ({ name, mimeType: "application/pdf", downloadUrl: blobUrl })
+//
+// The file's link is used exactly as it is. If a file needs a different link
+// to show inline (for example the deliverables endpoint wants "?inline=true"),
+// the caller passes it as `previewUrl`; the dialog never edits a URL itself.
 //
 // The selected file is tracked by key, not index: when the file list is
 // swapped for a different task's, an unknown key simply resolves to the first
@@ -213,6 +202,8 @@ export function FilePreviewDialog({
   taskName,
   subtitle,
   allowDownload = true,
+  downloadName,
+  onDownload,
 }) {
   const [selectedKey, setSelectedKey] = useState(null)
 
@@ -245,7 +236,7 @@ export function FilePreviewDialog({
 
   const kind = resolveKind(selectedFile)
   const fileUrl = selectedFile.downloadUrl ?? objectUrl
-  const previewUrl = toInlineUrl(fileUrl)
+  const previewUrl = selectedFile.previewUrl ?? fileUrl
   const fileName = selectedFile.name ?? selectedFile.file_name ?? "Untitled file"
   const size = formatFileSize(selectedFile.size ?? selectedFile.fileSize)
   const caption = subtitle ?? (taskName ? `Uploaded for "${taskName}"` : "Uploaded file")
@@ -309,18 +300,21 @@ export function FilePreviewDialog({
           )}
         </div>
 
+        {/* Text-only buttons, same everywhere. */}
         {fileUrl && (
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button asChild variant="outline" size="sm" className="gap-1.5">
-              <a href={previewUrl ?? fileUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="size-3.5" />
+            <Button asChild variant="outline" size="sm">
+              <a href={previewUrl} target="_blank" rel="noopener noreferrer">
                 Open in new tab
               </a>
             </Button>
             {allowDownload && (
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <a href={fileUrl} download={fileName}>
-                  <Download className="size-3.5" />
+              <Button asChild variant="outline" size="sm">
+                <a
+                  href={fileUrl}
+                  download={downloadName ?? fileName}
+                  onClick={() => onDownload?.(selectedFile)}
+                >
                   Download
                 </a>
               </Button>
