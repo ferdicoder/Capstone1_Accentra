@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Save, Lock, Check, X, ShieldQuestion, Loader2, FileEdit, TriangleAlert } from "lucide-react"
+import { Save, Lock, Loader2, FileEdit, Pencil } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
@@ -7,48 +7,28 @@ import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validat
 import { cn } from "@/lib/utils"
 import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness, useUpdateMyBusiness, useCreateMyBusiness } from "@/hooks/useBusinesses"
-import { clientBusinessProfileSchema, passwordChangeSchema } from "@/schemas/profileSchema"
+import { clientBusinessProfileSchema } from "@/schemas/profileSchema"
 
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { ForgotPasswordModal } from "@/components/client/ForgotPasswordModal"
 
-const initialSecurity = {
-  currentPassword: "",
-  newPassword: "",
-  confirmPassword: "",
-}
-
-const tabs = [
-  { key: "info", label: "Personal & Business Info" },
-  { key: "security", label: "Security" },
-]
-
-// Shared classes so every input / select on the page matches the shared Input
-// (h-8, rounded-lg, neutral focus ring) used across the User Management module.
+// Shared classes so every input / select matches the shared Input used across
+// the User Management module and the admin Firm Profile page.
 const controlClass = "w-full bg-background"
 const selectClass = cn(
   controlClass,
   "h-8 rounded-lg border border-input px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 )
-// Personal Information fields are read-only — styled visibly disabled so it's
-// clear at a glance these can't be edited from this page.
+// Visibly disabled look used for non-editable fields (same as the admin profile).
 const readOnlyClass = cn(controlClass, "cursor-not-allowed bg-muted/50 text-muted-foreground")
+const readOnlySelectClass = cn(selectClass, "cursor-not-allowed bg-muted/50 text-muted-foreground")
 
-// --- Password requirements (kept local to this page — not a shared component) ---
-
-const passwordRequirements = [
-  { key: "lowercase", label: "At least one lowercase letter", test: (pw) => /[a-z]/.test(pw) },
-  { key: "uppercase", label: "At least one uppercase letter", test: (pw) => /[A-Z]/.test(pw) },
-  { key: "number", label: "At least one number", test: (pw) => /[0-9]/.test(pw) },
-  { key: "minLength", label: "Minimum 8 characters", test: (pw) => pw.length >= 8 },
+const TABS = [
+  { id: "business", label: "Business Information" },
+  { id: "personal", label: "Personal Information" },
 ]
 
-// Field shape matches formData in SignupPage.jsx exactly (minus password/confirmPassword).
-// Address is normalized into houseNo/streetName/barangay/district/city/zipCode —
-// same six fields SignupPage step 2 collects — instead of one free-text string,
-// so what the client edits here maps 1:1 to what was captured at signup.
 const emptyProfile = {
   firstName: "",
   middleName: "",
@@ -68,26 +48,26 @@ const emptyProfile = {
   zipCode: "",
 }
 
-// Only these fields are actually editable/saved from this page — Personal
-// Information is read-only, so it's excluded from the "did anything change"
-// comparison used to gate the Save button / success message.
-const EDITABLE_BUSINESS_FIELDS = [
-  "businessName",
-  "businessType",
-  "tin",
-  "industry",
-  "contactNumber",
-  "houseNo",
-  "streetName",
-  "barangay",
-  "district",
-  "city",
-  "zipCode",
-]
+// Which fields belong to which tab. Used for change detection and for Cancel
+// (so cancelling one tab never touches the other tab's values).
+// Email is intentionally NOT editable: it's the OTP-verified login identity.
+const SECTION_FIELDS = {
+  business: [
+    "businessName",
+    "businessType",
+    "tin",
+    "industry",
+    "contactNumber",
+    "houseNo",
+    "streetName",
+    "barangay",
+    "district",
+    "city",
+    "zipCode",
+  ],
+  personal: ["firstName", "middleName", "lastName", "birthDate"],
+}
 
-// Builds the profile shape above from the logged-in user + their fetched
-// business record, so the form is always synced to whoever is actually
-// signed in rather than a hardcoded sample client.
 function buildProfile(user, business) {
   return {
     firstName: user?.firstName ?? "",
@@ -109,19 +89,14 @@ function buildProfile(user, business) {
   }
 }
 
-// Fields where non-digit characters are stripped as the user types.
-// TIN and Contact Number are handled separately below since they also get
-// auto-formatted.
 const DIGITS_ONLY_FIELDS = new Set(["zipCode"])
+const NAME_FIELDS = new Set(["firstName", "middleName", "lastName"])
+// Letters (incl. accented / ñ), spaces, periods, apostrophes, hyphens.
+const INVALID_NAME_CHAR = /[^\p{L}\s.'-]/u
 
 // --- Philippine mobile number: +63 9XX XXX XXXX --------------------------
-// "+63" is shown as a fixed prefix next to the input, so the field itself only
-// holds the 10-digit national number (starting with 9). Whatever the user
-// types or pastes — "0917...", "63917...", "+63 917 ..." — is reduced to
-// those 10 digits.
 const PH_MOBILE_MAX_DIGITS = 10
 const TOO_MANY_DIGITS_MESSAGE = "Too many digits. A PH mobile number is 10 digits after +63"
-// How long the "too many digits" warning stays once the user stops typing.
 const TOO_MANY_DIGITS_TIMEOUT_MS = 2000
 
 function stripPhPrefix(rawValue) {
@@ -135,7 +110,6 @@ function toNationalMobile(rawValue) {
   return stripPhPrefix(rawValue).slice(0, PH_MOBILE_MAX_DIGITS)
 }
 
-// Formats the 10 national digits as "9XX XXX XXXX", adding spaces as you type.
 function formatPhMobile(national) {
   return [national.slice(0, 3), national.slice(3, 6), national.slice(6, 10)]
     .filter(Boolean)
@@ -153,8 +127,7 @@ function getPhoneWarning(national) {
   return ""
 }
 
-// Formats a raw digit string as XXX-XXX-XXX-XXX (BIR's 12-digit online format),
-// inserting hyphens progressively as the user types rather than all at once.
+// XXX-XXX-XXX-XXX (BIR's 12-digit online format), hyphens inserted as you type.
 function formatTin(digitsOnly) {
   const groups = [
     digitsOnly.slice(0, 3),
@@ -165,12 +138,6 @@ function formatTin(digitsOnly) {
   return groups.filter(Boolean).join("-")
 }
 
-// A complete TIN is either the legacy 9-digit format or the 12-digit online
-// format (9 digits + a 3-digit branch code, usually "000"). Anything shorter
-// than 9 is incomplete/invalid outright; exactly 9 is valid but not yet in
-// the 12-digit shape most online portals require, so that gets its own
-// reminder rather than a flat "invalid" — 10 or 11 digits is a half-finished
-// 12-digit number, so it's treated the same as "too short."
 function getTinWarning(digitsOnly) {
   if (!digitsOnly) return ""
   if (digitsOnly.length < 9) return "Invalid TIN ID. Must be at least 9 digits."
@@ -181,15 +148,79 @@ function getTinWarning(digitsOnly) {
   return ""
 }
 
-function getInitials(firstName, lastName) {
-  const letters = [firstName?.[0], lastName?.[0]].filter(Boolean)
-  return letters.length ? letters.join("").toUpperCase() : "?"
+function getInitial(text) {
+  return text?.trim()?.[0]?.toUpperCase() || "?"
+}
+
+// --- Underline tabs (matches the admin Firm Profile tab bar) ---------------
+function ProfileTabs({ tabs, activeTab, onChange }) {
+  return (
+    <div role="tablist" className="flex gap-6 border-b border-border">
+      {tabs.map((tab) => {
+        const isActive = tab.id === activeTab
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            id={`tab-${tab.id}`}
+            aria-selected={isActive}
+            aria-controls={`panel-${tab.id}`}
+            onClick={() => onChange(tab.id)}
+            className={cn(
+              "-mb-px border-b-2 pb-3 text-sm font-medium transition-colors",
+              isActive
+                ? "border-forest-900 text-forest-900"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// Card header: title + description on the left, Edit button on the right
+// (hidden while editing, like the admin profile).
+function SectionHeader({ title, description, isEditing, onEdit, editLabel = "Edit" }) {
+  return (
+    <div className="mb-5 flex items-start justify-between gap-4">
+      <div>
+        <h2 className="text-sm font-semibold">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      {!isEditing && (
+        <Button type="button" variant="outline" size="sm" onClick={onEdit} className="gap-2">
+          <Pencil className="size-3.5" />
+          {editLabel}
+        </Button>
+      )}
+    </div>
+  )
+}
+
+// Cancel / Save footer shown only while a card is in edit mode.
+function SectionActions({ isSaving, canSave, onCancel }) {
+  return (
+    <div className="mt-6 flex justify-end gap-2">
+      <Button type="button" variant="outline" onClick={onCancel} disabled={isSaving}>
+        Cancel
+      </Button>
+      <Button
+        type="submit"
+        disabled={isSaving || !canSave}
+        className="gap-2 bg-forest-900 text-white hover:opacity-90 disabled:opacity-50"
+      >
+        {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+        {isSaving ? "Saving..." : "Save Changes"}
+      </Button>
+    </div>
+  )
 }
 
 // --- Confirmation modal ---------------------------------------------------
-// Forces the user to double-check before an action proceeds. Same card used
-// for both the Business Information save and the Password change — only the
-// icon, title, description, and confirm label differ per use.
 function ConfirmationModal({
   open,
   icon: Icon,
@@ -217,7 +248,6 @@ function ConfirmationModal({
         aria-describedby="confirm-modal-description"
         className="relative w-full max-w-xs rounded-3xl border border-border bg-card pt-10 pb-6 px-6 text-center shadow-lg"
       >
-        {/* Icon circle, half-overlapping the top edge of the card */}
         <div className="absolute left-1/2 top-0 flex size-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-amber-500 text-white shadow-md">
           <Icon className="size-7" />
         </div>
@@ -254,6 +284,24 @@ function ConfirmationModal({
   )
 }
 
+// TODO(Ced): replace with the real personal-info update. Payload:
+// { firstName, middleName, lastName, birthDate }. Should resolve with the saved values.
+// The UI is fully wired to this, so only this function needs to change.
+async function savePersonalInfo(payload) {
+  await new Promise((resolve) => setTimeout(resolve, 600))
+  return payload
+}
+
+// Lightweight UI-only validation for the Personal tab (no schema needed yet).
+function validatePersonal({ firstName, lastName, birthDate }) {
+  const errors = {}
+  if (!firstName.trim()) errors.firstName = "First name is required."
+  if (!lastName.trim()) errors.lastName = "Last name is required."
+  if (!birthDate) errors.birthDate = "Birthdate is required."
+  else if (new Date(birthDate) > new Date()) errors.birthDate = "Birthdate can't be in the future."
+  return errors
+}
+
 export default function ClientProfilePage() {
   const user = authStore((state) => state.user)
   const authLoading = authStore((state) => state.loading)
@@ -263,43 +311,27 @@ export default function ClientProfilePage() {
   const updateBusiness = useUpdateMyBusiness(user?.id)
   const createBusiness = useCreateMyBusiness(user?.id)
 
-  const [activeTab, setActiveTab] = useState("info")
+  const [activeTab, setActiveTab] = useState("business")
+  // Each tab has its own edit mode, so editing one never unlocks the other.
+  const [editing, setEditing] = useState({ business: false, personal: false })
   const [profile, setProfile] = useState(emptyProfile)
-  const [security, setSecurity] = useState(initialSecurity)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
-  // Per-field errors for the Security tab, so each missing / invalid password
-  // field is highlighted and the page can scroll straight to it.
-  const [securityErrors, setSecurityErrors] = useState({})
-  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
-  // Gates "Are you sure you want to change your information?" — opened by
-  // handleSaveInfo once the business form is valid; the real save only runs
-  // from confirmInfoChange, once the user clicks Confirm.
-  const [isInfoConfirmOpen, setIsInfoConfirmOpen] = useState(false)
-  // Same idea for the password form.
-  const [isPasswordConfirmOpen, setIsPasswordConfirmOpen] = useState(false)
+  // Which section's "Are you sure?" modal is open (null = closed).
+  const [confirmSection, setConfirmSection] = useState(null)
 
-  // Snapshot of the last-saved (or last-loaded) profile, used to detect
-  // whether the user actually changed anything before hitting Save.
   const savedProfileRef = useRef(emptyProfile)
-  const profileFormRef = useRef(null)
-  const securityFormRef = useRef(null)
-
-  // Timer that auto-hides the "too many digits" warning once the user
-  // stops typing.
+  const formRefs = useRef({ business: null, personal: null })
   const tooManyDigitsTimerRef = useRef(null)
 
   const loading = authLoading || businessLoading
 
-  // Clean up a pending timer if the page unmounts.
   useEffect(() => {
     return () => clearTimeout(tooManyDigitsTimerRef.current)
   }, [])
 
-  // Keep the form synced to whoever is actually logged in: re-derive
-  // profile whenever the user or their business record (re)loads, instead
-  // of only ever showing the static sample data it was initialized with.
+  // Keep the form synced to whoever is logged in.
   useEffect(() => {
     if (!loading) {
       const nextProfile = buildProfile(user, business)
@@ -308,16 +340,23 @@ export default function ClientProfilePage() {
     }
   }, [loading, user, business])
 
-  // Personal Information (firstName, middleName, lastName, birthDate, email) is
-  // read-only, so only Business Information fields go through this handler now.
   const updateProfileField = (event) => {
     const { name, value } = event.target
 
+    // --- Personal: names (letters only) ---
+    if (NAME_FIELDS.has(name)) {
+      const hasInvalidChar = INVALID_NAME_CHAR.test(value)
+      const cleanValue = value.replace(new RegExp(INVALID_NAME_CHAR, "gu"), "")
+      setFieldErrors((current) => ({
+        ...current,
+        [name]: hasInvalidChar ? "Letters only." : "",
+      }))
+      setProfile((current) => ({ ...current, [name]: cleanValue }))
+      return
+    }
+
+    // --- Business: TIN ---
     if (name === "tin") {
-      // Letters (or any char besides digits/hyphens) typed or pasted in —
-      // hyphens are allowed through since we insert them ourselves, but
-      // anything else triggers the "Numbers only." message. That check
-      // takes priority; otherwise fall back to the length-based warning.
       const hasInvalidChar = /[^\d-]/.test(value)
       const digitsOnly = value.replace(/\D/g, "").slice(0, 12)
 
@@ -329,17 +368,13 @@ export default function ClientProfilePage() {
       return
     }
 
+    // --- Business: contact number ---
     if (name === "contactNumber") {
-      // Allow the characters a pasted number might contain (+, spaces,
-      // hyphens, parentheses); anything else (letters etc.) is rejected.
       const hasInvalidChar = /[^\d\s+\-()]/.test(value)
       const fullNational = stripPhPrefix(value)
       const national = fullNational.slice(0, PH_MOBILE_MAX_DIGITS)
-
-      // True only when the user tried to type/paste beyond the 10-digit limit.
       const hasTooManyDigits = fullNational.length > PH_MOBILE_MAX_DIGITS
 
-      // Every new keystroke resets the auto-hide timer.
       clearTimeout(tooManyDigitsTimerRef.current)
 
       setFieldErrors((current) => ({
@@ -351,9 +386,6 @@ export default function ClientProfilePage() {
             : getPhoneWarning(national),
       }))
 
-      // The extra digit is dropped, so the field stays at 10 digits and
-      // won't trigger another change on its own. Auto-hide the warning
-      // once the user stops typing.
       if (hasTooManyDigits && !hasInvalidChar) {
         tooManyDigitsTimerRef.current = setTimeout(() => {
           setFieldErrors((current) =>
@@ -368,6 +400,7 @@ export default function ClientProfilePage() {
       return
     }
 
+    // --- Business: digits-only fields (ZIP) ---
     if (DIGITS_ONLY_FIELDS.has(name)) {
       const cleanValue = value.replace(/\D/g, "")
       setFieldErrors((current) => ({
@@ -381,133 +414,140 @@ export default function ClientProfilePage() {
     setProfile((current) => ({ ...current, [name]: value }))
   }
 
-  const updateSecurityField = (event) => {
-    const { name, value } = event.target
-    setSecurity((current) => ({ ...current, [name]: value }))
-    // Typing in a flagged field clears its error right away. Changing the new
-    // password also clears the confirmation mismatch, since it may now match.
-    setSecurityErrors((current) => {
-      if (!current[name] && !(name === "newPassword" && current.confirmPassword)) return current
-      const next = { ...current, [name]: "" }
-      if (name === "newPassword") next.confirmPassword = ""
-      return next
-    })
+  const hasChanges = (section) =>
+    SECTION_FIELDS[section].some((key) => profile[key] !== savedProfileRef.current[key])
+
+  const hasBusinessChanges = hasChanges("business")
+  const hasPersonalChanges = hasChanges("personal")
+
+  const changeTab = (tabId) => {
+    setSaveMessage(null)
+    setActiveTab(tabId)
   }
 
-  const hasProfileChanges = EDITABLE_BUSINESS_FIELDS.some(
-    (key) => profile[key] !== savedProfileRef.current[key]
-  )
+  const startEditing = (section) => {
+    setSaveMessage(null)
+    setEditing((current) => ({ ...current, [section]: true }))
+  }
 
-  // Step 1: validate the business info form, then open the confirmation
-  // modal instead of saving immediately.
-  const handleSaveInfo = (event) => {
+  // Discard edits for ONE section only and return it to read-only.
+  const cancelEditing = (section) => {
+    clearTimeout(tooManyDigitsTimerRef.current)
+    const saved = savedProfileRef.current
+    setProfile((current) => {
+      const next = { ...current }
+      SECTION_FIELDS[section].forEach((key) => {
+        next[key] = saved[key]
+      })
+      return next
+    })
+    setFieldErrors((current) => {
+      const next = { ...current }
+      SECTION_FIELDS[section].forEach((key) => delete next[key])
+      return next
+    })
+    setSaveMessage(null)
+    setEditing((current) => ({ ...current, [section]: false }))
+  }
+
+  // Step 1: validate the section's fields, then open the confirmation modal.
+  const handleSaveSection = (section) => (event) => {
     event.preventDefault()
     setSaveMessage(null)
 
-    // Nothing to persist — don't hit the API or claim success for a no-op.
-    if (!hasProfileChanges) {
+    if (!hasChanges(section)) {
       setSaveMessage({ type: "error", text: "No changes to save yet." })
       return
     }
 
-    const validationErrors = getZodFieldErrors(clientBusinessProfileSchema, {
-      ...profile,
-      contactNumber: profile.contactNumber.replace(/\D/g, ""),
-    })
-    setFieldErrors(validationErrors)
+    const validationErrors =
+      section === "business"
+        ? getZodFieldErrors(clientBusinessProfileSchema, {
+            ...profile,
+            contactNumber: profile.contactNumber.replace(/\D/g, ""),
+          })
+        : validatePersonal(profile)
+
+    setFieldErrors((current) => ({ ...current, ...validationErrors }))
     if (Object.keys(validationErrors).length > 0) {
       setSaveMessage({ type: "error", text: "Please fix the highlighted fields before saving." })
-      scrollToFirstInvalidField(profileFormRef.current)
+      scrollToFirstInvalidField(formRefs.current[section])
       return
     }
 
-    setIsInfoConfirmOpen(true)
+    setConfirmSection(section)
   }
 
-  // Step 2: only runs once the user clicks "Confirm" in the modal. Cancel
-  // just closes the modal — nothing is saved.
-  const confirmInfoChange = async () => {
-    const phoneNational = profile.contactNumber.replace(/\D/g, "")
+  // Step 2: runs only after "Yes" in the modal.
+  const confirmSectionChange = async () => {
+    const section = confirmSection
+    if (!section) return
 
     setIsSaving(true)
     setSaveMessage(null)
     try {
-      const businessPayload = {
-        userId: user?.id,
-        businessName: profile.businessName,
-        businessType: profile.businessType,
-        tin: profile.tin,
-        industry: profile.industry,
-        contactNumber: phoneNational ? `+63${phoneNational}` : "",
-        houseNo: profile.houseNo,
-        streetName: profile.streetName,
-        barangay: profile.barangay,
-        district: profile.district,
-        city: profile.city,
-        zipCode: profile.zipCode,
+      if (section === "business") {
+        const phoneNational = profile.contactNumber.replace(/\D/g, "")
+        const businessPayload = {
+          userId: user?.id,
+          businessName: profile.businessName,
+          businessType: profile.businessType,
+          tin: profile.tin,
+          industry: profile.industry,
+          contactNumber: phoneNational ? `+63${phoneNational}` : "",
+          houseNo: profile.houseNo,
+          streetName: profile.streetName,
+          barangay: profile.barangay,
+          district: profile.district,
+          city: profile.city,
+          zipCode: profile.zipCode,
+        }
+
+        const savedBusiness = businessId
+          ? await updateBusiness.mutateAsync({ ...businessPayload, businessId })
+          : await createBusiness.mutateAsync(businessPayload)
+
+        const updatedProfile = buildProfile(user, savedBusiness)
+        // Only take the business fields from the server response so unsaved
+        // personal edits (if any) aren't overwritten.
+        setProfile((current) => ({
+          ...current,
+          ...Object.fromEntries(SECTION_FIELDS.business.map((key) => [key, updatedProfile[key]])),
+        }))
+        savedProfileRef.current = {
+          ...savedProfileRef.current,
+          ...Object.fromEntries(SECTION_FIELDS.business.map((key) => [key, updatedProfile[key]])),
+        }
+        setSaveMessage({
+          type: "success",
+          text: businessId ? "Business information updated." : "Business added successfully.",
+        })
+      } else {
+        const personalPayload = {
+          firstName: profile.firstName.trim(),
+          middleName: profile.middleName.trim(),
+          lastName: profile.lastName.trim(),
+          birthDate: profile.birthDate,
+        }
+
+        await savePersonalInfo(personalPayload)
+
+        const saved = {
+          firstName: personalPayload.firstName,
+          middleName: personalPayload.middleName,
+          lastName: personalPayload.lastName,
+          birthDate: personalPayload.birthDate,
+        }
+        setProfile((current) => ({ ...current, ...saved }))
+        savedProfileRef.current = { ...savedProfileRef.current, ...saved }
+        setSaveMessage({ type: "success", text: "Personal information updated." })
       }
 
-      // No business row yet (signed up without one) → create instead of update.
-      const savedBusiness = businessId
-        ? await updateBusiness.mutateAsync({ ...businessPayload, businessId })
-        : await createBusiness.mutateAsync(businessPayload)
-
-      const updatedProfile = buildProfile(user, savedBusiness)
-      setProfile(updatedProfile)
-      savedProfileRef.current = updatedProfile
-      setIsInfoConfirmOpen(false)
-      setSaveMessage({
-        type: "success",
-        text: businessId ? "Profile updated successfully." : "Business added successfully.",
-      })
+      setConfirmSection(null)
+      setEditing((current) => ({ ...current, [section]: false }))
     } catch (err) {
       console.error(err)
-      setIsInfoConfirmOpen(false)
-      setSaveMessage({ type: "error", text: "Something went wrong. Please try again." })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  // Step 1: validate the password form, then open the confirmation modal
-  // instead of saving immediately. Every problem is collected at once and
-  // attached to its own field, then the page scrolls to the first one.
-  const handleSavePassword = (event) => {
-    event.preventDefault()
-    setSaveMessage(null)
-
-    const errors = getZodFieldErrors(passwordChangeSchema, security)
-
-    setSecurityErrors(errors)
-
-    if (Object.keys(errors).length > 0) {
-      setSaveMessage({ type: "error", text: "Please fix the highlighted fields." })
-      scrollToFirstInvalidField(securityFormRef.current)
-      return
-    }
-
-    setIsPasswordConfirmOpen(true)
-  }
-
-  // Step 2: only runs once the user clicks "Confirm" in the modal. Cancel
-  // just closes the modal — nothing is saved.
-  const confirmPasswordChange = async () => {
-    setIsSaving(true)
-    setSaveMessage(null)
-    try {
-      // await updateClientPassword(security)
-
-      // TODO: remove once updateClientPassword above is wired up — see note
-      // in confirmInfoChange.
-      await new Promise((resolve) => setTimeout(resolve, 700))
-
-      setSecurity(initialSecurity)
-      setSecurityErrors({})
-      setIsPasswordConfirmOpen(false)
-      setSaveMessage({ type: "success", text: "Password updated successfully." })
-    } catch (err) {
-      console.error(err)
-      setIsPasswordConfirmOpen(false)
+      setConfirmSection(null)
       setSaveMessage({ type: "error", text: "Something went wrong. Please try again." })
     } finally {
       setIsSaving(false)
@@ -520,46 +560,39 @@ export default function ClientProfilePage() {
     hasUnreadNotifications: true,
   })
 
-  const displayName = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || "My Profile"
+  const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(" ")
+  const headerTitle = profile.businessName || fullName || "My Profile"
+  const headerSubtitle = profile.businessName
+    ? fullName
+      ? `Owned by ${fullName}`
+      : ""
+    : "No business on file"
+
+  const noBusinessYet = !businessId && !businessLoading
+
+  // Field styling flips between editable and read-only per tab.
+  const businessField = editing.business ? controlClass : readOnlyClass
+  const businessSelect = editing.business ? selectClass : readOnlySelectClass
+  const personalField = editing.personal ? controlClass : readOnlyClass
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-2">
+    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-2">
       {loading ? (
         <PageSkeleton type="profile" />
       ) : (
         <>
+          {/* Header: avatar + name + subtitle */}
           <div className="flex items-center gap-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-forest-900 text-sm font-semibold text-white">
-              {getInitials(profile.firstName, profile.lastName)}
+              {getInitial(headerTitle)}
             </div>
             <div>
-              <h1 className="text-lg font-semibold leading-tight">{displayName}</h1>
-              <p className="text-sm text-muted-foreground">
-                {profile.businessName || "No business on file"}
-              </p>
+              <h1 className="text-lg font-semibold leading-tight">{headerTitle}</h1>
+              {headerSubtitle && <p className="text-sm text-muted-foreground">{headerSubtitle}</p>}
             </div>
           </div>
 
-          <div className="flex gap-8 border-b">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => {
-                  setActiveTab(tab.key)
-                  setSaveMessage(null)
-                  setSecurityErrors({})
-                }}
-                className={cn(
-                  "-mb-px border-b-2 pb-3 text-sm font-medium transition-colors",
-                  activeTab === tab.key
-                    ? "border-emerald-600 text-emerald-700"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <ProfileTabs tabs={TABS} activeTab={activeTab} onChange={changeTab} />
 
           {saveMessage && (
             <div
@@ -575,501 +608,379 @@ export default function ClientProfilePage() {
             </div>
           )}
 
-          {activeTab === "info" && (
-            <form ref={profileFormRef} onSubmit={handleSaveInfo} className="flex flex-col gap-6">
-              {/* Personal + Business cards sit side by side at equal width on large screens,
-                  so the form fills the same rail as the header instead of trailing off into empty space. */}
-              <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-                {/* Read-only: personal identity fields can't be edited by the client directly. */}
-                <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <div className="mb-5 flex items-center justify-between">
-                    <h2 className="text-sm font-semibold">
-                      Personal Information
-                    </h2>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                      <Lock className="size-3" />
-                      Read-only
+          {/* ---------------- Business Information tab ---------------- */}
+          {activeTab === "business" && (
+            <form
+              ref={(node) => {
+                formRefs.current.business = node
+              }}
+              onSubmit={handleSaveSection("business")}
+              id="panel-business"
+              role="tabpanel"
+              aria-labelledby="tab-business"
+              className="rounded-xl border border-border bg-card p-6 shadow-sm"
+            >
+              <SectionHeader
+                title="Business Information"
+                description="Details of the business your firm provides services for."
+                isEditing={editing.business}
+                onEdit={() => startEditing("business")}
+                editLabel={noBusinessYet ? "Add Business" : "Edit"}
+              />
+
+              {noBusinessYet && (
+                <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-sm text-muted-foreground">
+                  You haven't added a business yet. Click "Add Business", fill this in, and save.
+                </div>
+              )}
+
+              <FieldGroup className="gap-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="businessName">Business Name</FieldLabel>
+                    <Input
+                      id="businessName"
+                      name="businessName"
+                      value={profile.businessName}
+                      onChange={updateProfileField}
+                      disabled={!editing.business}
+                      className={businessField}
+                      aria-invalid={Boolean(fieldErrors.businessName)}
+                    />
+                    {fieldErrors.businessName && (
+                      <FieldDescription className="text-red-600">
+                        {fieldErrors.businessName}
+                      </FieldDescription>
+                    )}
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="businessType">Type of Business</FieldLabel>
+                    <select
+                      id="businessType"
+                      name="businessType"
+                      value={profile.businessType}
+                      onChange={updateProfileField}
+                      disabled={!editing.business}
+                      className={businessSelect}
+                    >
+                      <option value="">Select Type of Business</option>
+                      <option value="sole-proprietorship">Sole Proprietorship</option>
+                      <option value="partnership">Partnership</option>
+                      <option value="corporation">Corporation</option>
+                      <option value="cooperative">Cooperative</option>
+                    </select>
+                  </Field>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="tin">TIN Number</FieldLabel>
+                    <Input
+                      id="tin"
+                      name="tin"
+                      inputMode="numeric"
+                      placeholder="123-456-789-000"
+                      maxLength={15}
+                      value={profile.tin}
+                      onChange={updateProfileField}
+                      disabled={!editing.business}
+                      className={businessField}
+                      aria-invalid={Boolean(fieldErrors.tin)}
+                    />
+                    {(editing.business || fieldErrors.tin) && (
+                      <FieldDescription className={fieldErrors.tin ? "text-red-600" : undefined}>
+                        {fieldErrors.tin || "12 digits, e.g. 123-456-789-000."}
+                      </FieldDescription>
+                    )}
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="industry">Industry</FieldLabel>
+                    <select
+                      id="industry"
+                      name="industry"
+                      value={profile.industry}
+                      onChange={updateProfileField}
+                      disabled={!editing.business}
+                      className={businessSelect}
+                    >
+                      <option value="">Select Industry</option>
+                      <option value="retail">Retail</option>
+                      <option value="manufacturing">Manufacturing</option>
+                      <option value="services">Services</option>
+                      <option value="accounting">Hybrid</option>
+                    </select>
+                  </Field>
+                </div>
+
+                <Field>
+                  <FieldLabel htmlFor="contactNumber">Contact Number</FieldLabel>
+                  <div className="flex">
+                    <span className="inline-flex h-8 shrink-0 items-center rounded-l-lg border border-r-0 border-input bg-muted px-3 text-sm font-medium text-muted-foreground">
+                      +63
                     </span>
+                    {/* No maxLength on purpose: the browser would block the 11th
+                        keystroke before onChange fires, so the "too many digits"
+                        warning could never appear. */}
+                    <Input
+                      id="contactNumber"
+                      name="contactNumber"
+                      type="tel"
+                      inputMode="numeric"
+                      placeholder="9XX XXX XXXX"
+                      value={profile.contactNumber}
+                      onChange={updateProfileField}
+                      disabled={!editing.business}
+                      className={cn(businessField, "rounded-l-none")}
+                      aria-invalid={Boolean(fieldErrors.contactNumber)}
+                    />
                   </div>
-                  <FieldGroup className="gap-5">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="firstName">First Name</FieldLabel>
-                        <Input
-                          id="firstName"
-                          name="firstName"
-                          value={profile.firstName}
-                          readOnly
-                          disabled
-                          className={readOnlyClass}
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="middleName">Middle Name</FieldLabel>
-                        <Input
-                          id="middleName"
-                          name="middleName"
-                          value={profile.middleName}
-                          readOnly
-                          disabled
-                          className={readOnlyClass}
-                        />
-                      </Field>
-                    </div>
+                  {fieldErrors.contactNumber && (
+                    <FieldDescription className="text-red-600">
+                      {fieldErrors.contactNumber}
+                    </FieldDescription>
+                  )}
+                </Field>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="lastName">Last Name</FieldLabel>
-                        <Input
-                          id="lastName"
-                          name="lastName"
-                          value={profile.lastName}
-                          readOnly
-                          disabled
-                          className={readOnlyClass}
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="birthDate">Birthdate</FieldLabel>
-                        <Input
-                          id="birthDate"
-                          name="birthDate"
-                          type="date"
-                          value={profile.birthDate}
-                          readOnly
-                          disabled
-                          className={readOnlyClass}
-                        />
-                      </Field>
-                    </div>
-
-                    <Field>
-                      <FieldLabel htmlFor="email">Email Address</FieldLabel>
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        value={profile.email}
-                        readOnly
-                        disabled
-                        className={readOnlyClass}
-                      />
-                    </Field>
-
-                    <p className="text-xs text-muted-foreground">
-                      To change your personal information, please contact your firm or support.
-                    </p>
-                  </FieldGroup>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="houseNo">House/Bldg./Unit No.</FieldLabel>
+                    <Input
+                      id="houseNo"
+                      name="houseNo"
+                      value={profile.houseNo}
+                      onChange={updateProfileField}
+                      disabled={!editing.business}
+                      className={businessField}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="streetName">Street Name</FieldLabel>
+                    <Input
+                      id="streetName"
+                      name="streetName"
+                      value={profile.streetName}
+                      onChange={updateProfileField}
+                      disabled={!editing.business}
+                      className={businessField}
+                    />
+                  </Field>
                 </div>
 
-                {/* Mirrors SignupPage.jsx step 2 (Info / Firm Information) fields — still editable.
-                    Address is now the same six normalized fields signup collects, instead of
-                    one free-text "address" string. */}
-                <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <h2 className="mb-5 text-sm font-semibold">
-                    Business Information
-                  </h2>
-                  {!businessId && !businessLoading && (
-                    <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-sm text-muted-foreground">
-                      You haven't added a business yet — fill this in and save to add it.
-                    </div>
-                  )}
-                  <FieldGroup className="gap-5">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="businessName">
-                          Business Name
-                        </FieldLabel>
-                        <Input
-                          id="businessName"
-                          name="businessName"
-                          value={profile.businessName}
-                          onChange={updateProfileField}
-                          className={controlClass}
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="businessType">
-                          Type of Business
-                        </FieldLabel>
-                        <select
-                          id="businessType"
-                          name="businessType"
-                          value={profile.businessType}
-                          onChange={updateProfileField}
-                          className={selectClass}
-                        >
-                          <option value="">Select Type of Business</option>
-                          <option value="sole-proprietorship">Sole Proprietorship</option>
-                          <option value="partnership">Partnership</option>
-                          <option value="corporation">Corporation</option>
-                          <option value="cooperative">Cooperative</option>
-                        </select>
-                      </Field>
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="tin">
-                          TIN Number
-                        </FieldLabel>
-                        <Input
-                          id="tin"
-                          name="tin"
-                          inputMode="numeric"
-                          placeholder="123-456-789-000"
-                          maxLength={15}
-                          value={profile.tin}
-                          onChange={updateProfileField}
-                          className={controlClass}
-                          aria-invalid={Boolean(fieldErrors.tin)}
-                        />
-                        <FieldDescription
-                          className={fieldErrors.tin ? "text-red-600" : undefined}
-                        >
-                          {fieldErrors.tin || "12 digits, e.g. 123-456-789-000."}
-                        </FieldDescription>
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="industry">Industry</FieldLabel>
-                        <select
-                          id="industry"
-                          name="industry"
-                          value={profile.industry}
-                          onChange={updateProfileField}
-                          className={selectClass}
-                        >
-                          <option value="">Select Industry</option>
-                          <option value="retail">Retail</option>
-                          <option value="manufacturing">Manufacturing</option>
-                          <option value="services">Services</option>
-                          <option value="accounting">Hybrid</option>
-                        </select>
-                      </Field>
-                    </div>
-
-                    <Field>
-                      <FieldLabel htmlFor="contactNumber">
-                        Contact Number
-                      </FieldLabel>
-                      <div className="flex">
-                        <span className="inline-flex h-8 shrink-0 items-center rounded-l-lg border border-r-0 border-input bg-muted px-3 text-sm font-medium text-muted-foreground">
-                          +63
-                        </span>
-                        {/* No maxLength here on purpose: the browser would block the
-                            11th keystroke before onChange fires, so the "too many
-                            digits" warning could never appear. */}
-                        <Input
-                          id="contactNumber"
-                          name="contactNumber"
-                          type="tel"
-                          inputMode="numeric"
-                          placeholder="9XX XXX XXXX"
-                          value={profile.contactNumber}
-                          onChange={updateProfileField}
-                          className="w-full rounded-l-none bg-background"
-                          aria-invalid={Boolean(fieldErrors.contactNumber)}
-                        />
-                      </div>
-                      {fieldErrors.contactNumber && (
-                        <FieldDescription className="text-red-600">
-                          {fieldErrors.contactNumber}
-                        </FieldDescription>
-                      )}
-                    </Field>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="houseNo">
-                          House/Bldg./Unit No.
-                        </FieldLabel>
-                        <Input
-                          id="houseNo"
-                          name="houseNo"
-                          value={profile.houseNo}
-                          onChange={updateProfileField}
-                          className={controlClass}
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="streetName">
-                          Street Name
-                        </FieldLabel>
-                        <Input
-                          id="streetName"
-                          name="streetName"
-                          value={profile.streetName}
-                          onChange={updateProfileField}
-                          className={controlClass}
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="barangay">
-                          Barangay
-                        </FieldLabel>
-                        <Input
-                          id="barangay"
-                          name="barangay"
-                          value={profile.barangay}
-                          onChange={updateProfileField}
-                          className={controlClass}
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="district">
-                          District
-                        </FieldLabel>
-                        <Input
-                          id="district"
-                          name="district"
-                          value={profile.district}
-                          onChange={updateProfileField}
-                          className={controlClass}
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="city">
-                          City / Municipality
-                        </FieldLabel>
-                        <Input
-                          id="city"
-                          name="city"
-                          value={profile.city}
-                          onChange={updateProfileField}
-                          className={controlClass}
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="zipCode">
-                          ZIP Code
-                        </FieldLabel>
-                        <Input
-                          id="zipCode"
-                          name="zipCode"
-                          inputMode="numeric"
-                          maxLength={4}
-                          value={profile.zipCode}
-                          onChange={updateProfileField}
-                          className={controlClass}
-                          aria-invalid={Boolean(fieldErrors.zipCode)}
-                        />
-                        {fieldErrors.zipCode && (
-                          <FieldDescription className="text-red-600">
-                            {fieldErrors.zipCode}
-                          </FieldDescription>
-                        )}
-                      </Field>
-                    </div>
-                  </FieldGroup>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="barangay">Barangay</FieldLabel>
+                    <Input
+                      id="barangay"
+                      name="barangay"
+                      value={profile.barangay}
+                      onChange={updateProfileField}
+                      disabled={!editing.business}
+                      className={businessField}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="district">District</FieldLabel>
+                    <Input
+                      id="district"
+                      name="district"
+                      value={profile.district}
+                      onChange={updateProfileField}
+                      disabled={!editing.business}
+                      className={businessField}
+                    />
+                  </Field>
                 </div>
-              </div>
 
-              <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  disabled={isSaving || !hasProfileChanges}
-                  className="gap-2 bg-forest-900 text-white hover:opacity-90 disabled:opacity-50"
-                >
-                  {isSaving ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Save className="size-4" />
-                  )}
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </Button>
-              </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="city">City / Municipality</FieldLabel>
+                    <Input
+                      id="city"
+                      name="city"
+                      value={profile.city}
+                      onChange={updateProfileField}
+                      disabled={!editing.business}
+                      className={businessField}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="zipCode">ZIP Code</FieldLabel>
+                    <Input
+                      id="zipCode"
+                      name="zipCode"
+                      inputMode="numeric"
+                      maxLength={4}
+                      value={profile.zipCode}
+                      onChange={updateProfileField}
+                      disabled={!editing.business}
+                      className={businessField}
+                      aria-invalid={Boolean(fieldErrors.zipCode)}
+                    />
+                    {fieldErrors.zipCode && (
+                      <FieldDescription className="text-red-600">
+                        {fieldErrors.zipCode}
+                      </FieldDescription>
+                    )}
+                  </Field>
+                </div>
+              </FieldGroup>
+
+              {editing.business && (
+                <SectionActions
+                  isSaving={isSaving}
+                  canSave={hasBusinessChanges}
+                  onCancel={() => cancelEditing("business")}
+                />
+              )}
             </form>
           )}
 
-          {activeTab === "security" && (
+          {/* ---------------- Personal Information tab ---------------- */}
+          {activeTab === "personal" && (
             <form
-              ref={securityFormRef}
-              onSubmit={handleSavePassword}
-              noValidate
-              className="flex flex-col gap-6"
+              ref={(node) => {
+                formRefs.current.personal = node
+              }}
+              onSubmit={handleSaveSection("personal")}
+              id="panel-personal"
+              role="tabpanel"
+              aria-labelledby="tab-personal"
+              className="rounded-xl border border-border bg-card p-6 shadow-sm"
             >
-              <div className="grid gap-6 lg:grid-cols-2">
-                <div className="rounded-xl border border-border bg-card p-6 shadow-sm lg:col-span-2">
-                  <div className="mb-5 flex items-center justify-between">
-                    <h2 className="text-sm font-semibold">
-                      Change Password
-                    </h2>
-                    <button
-                      type="button"
-                      onClick={() => setIsForgotPasswordOpen(true)}
-                      className="flex items-center gap-1.5 text-sm font-medium text-emerald-700 underline-offset-4 hover:underline"
-                    >
-                      <ShieldQuestion className="size-4" />
-                      Forgot your current password?
-                    </button>
-                  </div>
-                  <FieldGroup className="gap-5">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="currentPassword">
-                          Current Password
-                        </FieldLabel>
-                        <Input
-                          id="currentPassword"
-                          name="currentPassword"
-                          type="password"
-                          value={security.currentPassword}
-                          onChange={updateSecurityField}
-                          className={controlClass}
-                          aria-invalid={Boolean(securityErrors.currentPassword)}
-                        />
-                        {securityErrors.currentPassword && (
-                          <FieldDescription className="text-red-600">
-                            {securityErrors.currentPassword}
-                          </FieldDescription>
-                        )}
-                      </Field>
-                      <div />
-                    </div>
+              <SectionHeader
+                title="Personal Information"
+                description="Your name and birthdate on file with the firm."
+                isEditing={editing.personal}
+                onEdit={() => startEditing("personal")}
+              />
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="newPassword">
-                          New Password
-                        </FieldLabel>
-                        <Input
-                          id="newPassword"
-                          name="newPassword"
-                          type="password"
-                          value={security.newPassword}
-                          onChange={updateSecurityField}
-                          className={controlClass}
-                          aria-invalid={Boolean(securityErrors.newPassword)}
-                        />
-                        {securityErrors.newPassword && (
-                          <FieldDescription className="text-red-600">
-                            {securityErrors.newPassword}
-                          </FieldDescription>
-                        )}
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="confirmPassword">
-                          Confirm New Password
-                        </FieldLabel>
-                        <Input
-                          id="confirmPassword"
-                          name="confirmPassword"
-                          type="password"
-                          value={security.confirmPassword}
-                          onChange={updateSecurityField}
-                          className={controlClass}
-                          aria-invalid={Boolean(securityErrors.confirmPassword)}
-                        />
-                        {securityErrors.confirmPassword && (
-                          <FieldDescription className="text-red-600">
-                            {securityErrors.confirmPassword}
-                          </FieldDescription>
-                        )}
-                      </Field>
-                    </div>
-
-                    {/*
-                      Smooth show/hide: the wrapper is ALWAYS mounted (never
-                      conditionally rendered), so CSS transitions can animate it.
-                      grid-template-rows 0fr -> 1fr animates height smoothly
-                      (a plain max-height transition tends to feel janky/stepped),
-                      combined with an opacity fade for a soft, non-abrupt reveal.
-                    */}
-                    <div
-                      className={cn(
-                        "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
-                        security.newPassword
-                          ? "grid-rows-[1fr] opacity-100"
-                          : "grid-rows-[0fr] opacity-0"
-                      )}
-                    >
-                      <div className="overflow-hidden">
-                        <div className="rounded-lg border border-border bg-muted/30 p-3.5">
-                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/70">
-                            Password must contain:
-                          </p>
-                          <ul className="flex flex-col gap-1.5">
-                            {passwordRequirements.map((req) => {
-                              const passed = req.test(security.newPassword)
-                              return (
-                                <li
-                                  key={req.key}
-                                  className={cn(
-                                    "flex items-center gap-2 text-xs transition-colors duration-200",
-                                    passed ? "text-emerald-700" : "text-red-600"
-                                  )}
-                                >
-                                  {passed ? (
-                                    <Check className="size-3.5 shrink-0" />
-                                  ) : (
-                                    <X className="size-3.5 shrink-0" />
-                                  )}
-                                  {req.label}
-                                </li>
-                              )
-                            })}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  </FieldGroup>
+              <FieldGroup className="gap-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="firstName">First Name</FieldLabel>
+                    <Input
+                      id="firstName"
+                      name="firstName"
+                      value={profile.firstName}
+                      onChange={updateProfileField}
+                      disabled={!editing.personal}
+                      className={personalField}
+                      aria-invalid={Boolean(fieldErrors.firstName)}
+                    />
+                    {fieldErrors.firstName && (
+                      <FieldDescription className="text-red-600">
+                        {fieldErrors.firstName}
+                      </FieldDescription>
+                    )}
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="middleName">Middle Name</FieldLabel>
+                    <Input
+                      id="middleName"
+                      name="middleName"
+                      value={profile.middleName}
+                      onChange={updateProfileField}
+                      disabled={!editing.personal}
+                      className={personalField}
+                      aria-invalid={Boolean(fieldErrors.middleName)}
+                    />
+                    {fieldErrors.middleName && (
+                      <FieldDescription className="text-red-600">
+                        {fieldErrors.middleName}
+                      </FieldDescription>
+                    )}
+                  </Field>
                 </div>
-              </div>
 
-              <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  disabled={isSaving}
-                  className="gap-2 bg-forest-900 text-white hover:opacity-90 disabled:opacity-50"
-                >
-                  {isSaving ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Save className="size-4" />
-                  )}
-                  {isSaving ? "Saving..." : "Update Password"}
-                </Button>
-              </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="lastName">Last Name</FieldLabel>
+                    <Input
+                      id="lastName"
+                      name="lastName"
+                      value={profile.lastName}
+                      onChange={updateProfileField}
+                      disabled={!editing.personal}
+                      className={personalField}
+                      aria-invalid={Boolean(fieldErrors.lastName)}
+                    />
+                    {fieldErrors.lastName && (
+                      <FieldDescription className="text-red-600">
+                        {fieldErrors.lastName}
+                      </FieldDescription>
+                    )}
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="birthDate">Birthdate</FieldLabel>
+                    <Input
+                      id="birthDate"
+                      name="birthDate"
+                      type="date"
+                      value={profile.birthDate}
+                      onChange={updateProfileField}
+                      disabled={!editing.personal}
+                      className={personalField}
+                      aria-invalid={Boolean(fieldErrors.birthDate)}
+                    />
+                    {fieldErrors.birthDate && (
+                      <FieldDescription className="text-red-600">
+                        {fieldErrors.birthDate}
+                      </FieldDescription>
+                    )}
+                  </Field>
+                </div>
+
+                {/* Email stays locked: it's the OTP-verified login identity. */}
+                <Field>
+                  <FieldLabel htmlFor="email" className="flex items-center gap-1.5">
+                    Email Address
+                    <Lock className="size-3 text-muted-foreground" aria-hidden="true" />
+                  </FieldLabel>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={profile.email}
+                    readOnly
+                    disabled
+                    className={readOnlyClass}
+                  />
+                  <FieldDescription>
+                    Your email is verified and can't be changed here. Contact your firm or support
+                    if it needs to be updated.
+                  </FieldDescription>
+                </Field>
+              </FieldGroup>
+
+              {editing.personal && (
+                <SectionActions
+                  isSaving={isSaving}
+                  canSave={hasPersonalChanges}
+                  onCancel={() => cancelEditing("personal")}
+                />
+              )}
             </form>
           )}
         </>
       )}
 
-      <ForgotPasswordModal
-        open={isForgotPasswordOpen}
-        onClose={() => setIsForgotPasswordOpen(false)}
-      />
-
       <ConfirmationModal
-        open={isInfoConfirmOpen}
+        open={confirmSection !== null}
         icon={FileEdit}
-        title={businessId ? "Change Information?" : "Add Business?"}
+        title={
+          confirmSection === "business" && !businessId ? "Add Business?" : "Change Information?"
+        }
         description={
-          businessId
-            ? "Are you sure you want to change your information?"
-            : "Add this business to your account?"
+          confirmSection === "business"
+            ? businessId
+              ? "Are you sure you want to change your business information?"
+              : "Add this business to your account?"
+            : "Are you sure you want to change your personal information?"
         }
         confirmLabel="Yes"
         isConfirming={isSaving}
-        onCancel={() => setIsInfoConfirmOpen(false)}
-        onConfirm={confirmInfoChange}
-      />
-
-      <ConfirmationModal
-        open={isPasswordConfirmOpen}
-        icon={TriangleAlert}
-        title="Change Password?"
-        description="Are you sure you want to change your password?"
-        confirmLabel="Yes"
-        isConfirming={isSaving}
-        onCancel={() => setIsPasswordConfirmOpen(false)}
-        onConfirm={confirmPasswordChange}
+        onCancel={() => setConfirmSection(null)}
+        onConfirm={confirmSectionChange}
       />
     </div>
   )

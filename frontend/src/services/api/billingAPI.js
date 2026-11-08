@@ -7,24 +7,26 @@ const BILLING_SELECT = `
   billing_engagements(billing_id, engagement_id, amount, service_name),
   payments(
     payment_id, billing_id, amount, payment_method, reference_id,
-    payment_documents(payment_doc_id, file_name, mime_type, file_size, created_at)
+    payment_proofs(file_id, files(file_name, mime_type, file_size, created_at))
   )
 `
 
+// payment_proofs is a junction row — file metadata lives in the embedded
+// `files` record (which also carries created_at).
 function getPaymentCreatedAt(payment) {
   return Math.max(
-    ...(payment.payment_documents ?? []).map((document) =>
-      new Date(document.created_at ?? 0).getTime()
+    ...(payment.payment_proofs ?? []).map((proof) =>
+      new Date(proof.files?.created_at ?? 0).getTime()
     ),
     0
   )
 }
 
 function getLatestPaymentDocument(payment) {
-  return [...(payment?.payment_documents ?? [])]
+  return [...(payment?.payment_proofs ?? [])]
     .sort((first, second) =>
-      new Date(second.created_at ?? 0) - new Date(first.created_at ?? 0)
-    )[0] ?? null
+      new Date(second.files?.created_at ?? 0) - new Date(first.files?.created_at ?? 0)
+    )[0]?.files ?? null
 }
 
 function mapBilling(row) {
@@ -43,7 +45,7 @@ function mapBilling(row) {
     engagement_id: links[0]?.engagement_id ?? null,
     engagement_ids: links.map((link) => link.engagement_id),
     payment_method: payment?.payment_method ?? null,
-    payment_proof_url: payment?.payment_documents?.length
+    payment_proof_url: payment?.payment_proofs?.length
       ? `${apiBaseUrl}/payments/${payment.payment_id}/proof`
       : null,
     payment_proof_name: getLatestPaymentDocument(payment)?.file_name ?? null,

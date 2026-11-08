@@ -1,452 +1,742 @@
-import { useState } from "react"
-import { X, Loader2, ShieldCheck } from "lucide-react"
+
+import { Fragment, useCallback, useEffect, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { ArrowLeft, Check, Eye, EyeOff, Loader2, ShieldCheck, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { DialogFooter } from "@/components/ui/dialog"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { getZodFieldErrors } from "@/lib/form-validation"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group"
+
+import { authStore } from "@/store/authStore"
+import { supabase } from "@/config/supabase"
+import { passwordRequirements } from "@/lib/passwordRequirements"
+import {
+  PASSWORD_RECOVERY_OTP_LENGTH,
+  requestPasswordRecovery,
+  updateRecoveredPassword,
+  verifyPasswordRecoveryOtp,
+  getPasswordReuseMessage,
+} from "@/services/authService"
 import {
   emailRecoverySchema,
   otpSchema,
-  phoneRecoverySchema,
   resetPasswordSchema,
 } from "@/schemas/loginSchema"
+import { getZodFieldErrors } from "@/lib/form-validation"
 
-// import { requestPasswordResetOtp, verifyPasswordResetOtp, resetPassword } from "@/services/authService"
+const OTP_LENGTH = PASSWORD_RECOVERY_OTP_LENGTH
 
-const passwordRequirements = [
-  { key: "lowercase", label: "At least one lowercase letter", test: (pw) => /[a-z]/.test(pw) },
-  { key: "uppercase", label: "At least one uppercase letter", test: (pw) => /[A-Z]/.test(pw) },
-  { key: "number", label: "At least one number", test: (pw) => /[0-9]/.test(pw) },
-  { key: "minLength", label: "Minimum 8 characters", test: (pw) => pw.length >= 8 },
-]
-
-// Philippine mobile numbers: 11 digits total (e.g. 09123456789), shown with
-// a fixed +63 prefix so the user only ever types the local 11-digit number.
-const PH_PHONE_LENGTH = 11
-
-const OTP_LENGTH = 6
-
-const RESET_STEPS = {
-  CHOOSE_METHOD: "choose-method",
-  VERIFY_OTP: "verify-otp",
-  NEW_PASSWORD: "new-password",
+const RECOVERY_STEPS = {
+  EMAIL: "email",
+  OTP: "otp",
+  PASSWORD: "password",
   SUCCESS: "success",
 }
 
-const initialResetState = {
-  step: RESET_STEPS.CHOOSE_METHOD,
-  method: "email", // "email" | "phone"
-  contact: "",
-  otp: "",
-  resetToken: "",
-  newPassword: "",
-  confirmPassword: "",
-  error: "",
-  isSubmitting: false,
-}
+const STEP_ORDER = [
+  RECOVERY_STEPS.EMAIL,
+  RECOVERY_STEPS.OTP,
+  RECOVERY_STEPS.PASSWORD,
+]
 
-/**
- * Self-contained forgot-password flow: choose email/phone -> enter OTP ->
- * set new password -> success. Used from ClientProfilePage's Security tab
- * (and can be reused anywhere else — e.g. ClientLoginForm — by importing
- * this same component).
- */
-export function ForgotPasswordModal({ open, onClose }) {
-  const [reset, setReset] = useState(initialResetState)
+const STEP_LABELS = ["Email", "Code", "Password"]
+const controlClass = "w-full bg-background"
 
-  if (!open) return null
+function OtpCodeInput({
+  value,
+  onChange,
+  length,
+  disabled = false,
+  invalid = false,
+  describedBy,
+}) {
+  const inputRefs = useRef([])
 
-  const updateReset = (patch) => setReset((current) => ({ ...current, ...patch }))
-
-  const handleClose = () => {
-    setReset(initialResetState)
-    onClose()
+  const focusAt = (index) => {
+    inputRefs.current[index]?.focus()
   }
 
-  // Switching between Email/Phone clears both the contact field AND any
-  // leftover error from the previous method — otherwise a stale error
-  // (e.g. "Enter a valid mobile number") stays frozen on screen even
-  // after the person has moved to a different tab entirely.
-  const handleSelectMethod = (method) => {
-    updateReset({ method, contact: "", error: "" })
+  const spreadInto = (digits, startIndex) => {
+    const next = [...value]
+    let cursor = startIndex
+
+    for (const digit of digits) {
+      if (cursor >= length) break
+      next[cursor] = digit
+      cursor += 1
+    }
+
+    onChange(next)
+    focusAt(Math.min(cursor, length - 1))
   }
 
-  // Email: no sanitization needed, validated on submit.
-  // Phone: strip anything that isn't a digit as the user types (letters
-  // can't appear at all), and hard-cap at 11 digits — same pattern as
-  // SignupPage.jsx's contactNumber/zipCode sanitization.
-  // Either way, typing again clears any previous error so it doesn't
-  // linger once the person starts correcting their input.
-  const handleContactChange = (event) => {
-    const rawValue = event.target.value
-    if (reset.method === "phone") {
-      const digitsOnly = rawValue.replace(/\D/g, "").slice(0, PH_PHONE_LENGTH)
-      updateReset({ contact: digitsOnly, error: "" })
+  const handleChange = (index, event) => {
+    const typed = (event.target.value ?? "").replace(/\D/g, "")
+
+    if (!typed) {
+      const next = [...value]
+      next[index] = ""
+      onChange(next)
       return
     }
-    updateReset({ contact: rawValue, error: "" })
+
+    if (value[index] && typed.length > 1) {
+      const next = [...value]
+      next[index] = typed[typed.length - 1]
+      onChange(next)
+      focusAt(Math.min(index + 1, length - 1))
+      return
+    }
+
+    spreadInto(typed, index)
   }
 
-  const handleSendOtp = async (event) => {
+  const handleKeyDown = (index, event) => {
+    if (event.key === "Backspace") {
+      if (value[index]) return
+
+      event.preventDefault()
+      const previous = Math.max(0, index - 1)
+      const next = [...value]
+      next[previous] = ""
+      onChange(next)
+      focusAt(previous)
+      return
+    }
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault()
+      focusAt(Math.max(0, index - 1))
+      return
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault()
+      focusAt(Math.min(length - 1, index + 1))
+    }
+  }
+
+  const handlePaste = (index, event) => {
     event.preventDefault()
-    updateReset({ error: "" })
-
-    const contact = reset.contact.trim()
-    const contactSchema = reset.method === "email" ? emailRecoverySchema : phoneRecoverySchema
-    const contactValues = reset.method === "email" ? { email: contact } : { contact }
-    const contactErrors = getZodFieldErrors(contactSchema, contactValues)
-    if (Object.keys(contactErrors).length > 0) {
-      updateReset({
-        error: reset.method === "email"
-          ? contactErrors.email === "Email is required."
-            ? "Enter your email address."
-            : "Enter a valid email address, e.g. example@gmail.com."
-          : contactErrors.contact,
-      })
-      return
-    }
-
-    updateReset({ isSubmitting: true })
-    try {
-      // Send the full +63-prefixed number to the backend, e.g. "+639123456789".
-      // const result = await requestPasswordResetOtp({
-      //   method: reset.method,
-      //   contact: reset.method === "phone" ? `+63${contact}` : contact,
-      // })
-      // if (result.error) {
-      //   updateReset({ error: result.error, isSubmitting: false })
-      //   return
-      // }
-      updateReset({ isSubmitting: false, step: RESET_STEPS.VERIFY_OTP })
-    } catch (err) {
-      console.error(err)
-      updateReset({ error: "Failed to send code. Please try again.", isSubmitting: false })
-    }
-  }
-
-  const handleVerifyOtp = async (event) => {
-    event.preventDefault()
-    updateReset({ error: "" })
-
-    const otpErrors = getZodFieldErrors(otpSchema, { code: reset.otp.trim() })
-    if (Object.keys(otpErrors).length > 0) {
-      updateReset({ error: `Enter the ${OTP_LENGTH}-digit code.` })
-      return
-    }
-
-    updateReset({ isSubmitting: true })
-    try {
-      // const result = await verifyPasswordResetOtp({ method: reset.method, contact: reset.contact.trim(), otp: reset.otp.trim() })
-      // if (result.error) {
-      //   updateReset({ error: result.error, isSubmitting: false })
-      //   return
-      // }
-      // updateReset({ resetToken: result.resetToken, isSubmitting: false, step: RESET_STEPS.NEW_PASSWORD })
-      updateReset({ isSubmitting: false, step: RESET_STEPS.NEW_PASSWORD })
-    } catch (err) {
-      console.error(err)
-      updateReset({ error: "Invalid or expired code.", isSubmitting: false })
-    }
-  }
-
-  const handleResendOtp = async () => {
-    updateReset({ error: "", isSubmitting: true })
-    try {
-      // const result = await requestPasswordResetOtp({ method: reset.method, contact: reset.contact.trim() })
-      // if (result.error) {
-      //   updateReset({ error: result.error, isSubmitting: false })
-      //   return
-      // }
-      updateReset({ isSubmitting: false })
-    } catch (err) {
-      console.error(err)
-      updateReset({ error: "Failed to resend code.", isSubmitting: false })
-    }
-  }
-
-  const handleResetPassword = async (event) => {
-    event.preventDefault()
-    updateReset({ error: "" })
-
-    const passwordErrors = getZodFieldErrors(resetPasswordSchema, {
-      newPassword: reset.newPassword,
-      confirmPassword: reset.confirmPassword,
-    })
-    if (Object.keys(passwordErrors).length > 0) {
-      updateReset({
-        error: passwordErrors.newPassword
-          ? "Your password doesn't meet all requirements below."
-          : passwordErrors.confirmPassword,
-      })
-      return
-    }
-
-    updateReset({ isSubmitting: true })
-    try {
-      // const result = await resetPassword({ resetToken: reset.resetToken, newPassword: reset.newPassword })
-      // if (result.error) {
-      //   updateReset({ error: result.error, isSubmitting: false })
-      //   return
-      // }
-      updateReset({ isSubmitting: false, step: RESET_STEPS.SUCCESS })
-    } catch (err) {
-      console.error(err)
-      updateReset({ error: "Failed to reset password. Please try again.", isSubmitting: false })
-    }
+    const pasted = (event.clipboardData?.getData("text") ?? "").replace(/\D/g, "")
+    if (pasted) spreadInto(pasted, index)
   }
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
-      onClick={handleClose}
+      role="group"
+      aria-label={`${length}-digit verification code`}
+      aria-describedby={describedBy}
+      className="flex w-full min-w-0 gap-2 overflow-visible px-1 py-1"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl ring-1 ring-black/5"
-      >
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold">Reset your password</h2>
-          </div>
-          <button
-            onClick={handleClose}
-            className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+      {value.map((digit, index) => (
+        <Input
+          key={index}
+          ref={(element) => {
+            inputRefs.current[index] = element
+          }}
+          value={digit}
+          onChange={(event) => handleChange(index, event)}
+          onKeyDown={(event) => handleKeyDown(index, event)}
+          onPaste={(event) => handlePaste(index, event)}
+          type="text"
+          inputMode="numeric"
+          autoComplete={index === 0 ? "one-time-code" : "off"}
+          aria-label={`Digit ${index + 1}`}
+          aria-invalid={invalid || undefined}
+          disabled={disabled}
+          className="h-11 min-w-0 flex-1 px-0 text-center text-lg font-semibold tabular-nums sm:text-xl"
+        />
+      ))}
+    </div>
+  )
+}
 
-        {reset.error && (
-          <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-            <svg className="size-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                clipRule="evenodd"
-              />
-            </svg>
-            {reset.error}
-          </p>
-        )}
+export function ForgotPasswordModal({ onClose, floating = false }) {
+  const navigate = useNavigate()
 
-        {/* Step 1: choose email or phone */}
-        {reset.step === RESET_STEPS.CHOOSE_METHOD && (
-          <form onSubmit={handleSendOtp} className="flex flex-col gap-5">
-            <FieldGroup className="gap-2">
-              <FieldLabel>Send code via</FieldLabel>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleSelectMethod("email")}
-                  className={cn(
-                    "rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
-                    reset.method === "email"
-                      ? "border-emerald-600 bg-emerald-50 text-emerald-700"
-                      : "border-input text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  Email
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectMethod("phone")}
-                  className={cn(
-                    "rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
-                    reset.method === "phone"
-                      ? "border-emerald-600 bg-emerald-50 text-emerald-700"
-                      : "border-input text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  Phone number
-                </button>
-              </div>
-            </FieldGroup>
+  const [step, setStep] = useState(RECOVERY_STEPS.EMAIL)
+  const [email, setEmail] = useState("")
+  const [code, setCode] = useState(() => Array(OTP_LENGTH).fill(""))
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [errors, setErrors] = useState({})
+  const [formError, setFormError] = useState("")
+  const [notice, setNotice] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-            <Field>
-              <FieldLabel htmlFor="resetContact">
-                {reset.method === "email" ? "Email address" : "Mobile number"}
-              </FieldLabel>
+  const stepIndex = STEP_ORDER.indexOf(step)
 
-              {reset.method === "phone" ? (
-                <div className="flex items-stretch overflow-hidden rounded-lg border border-input bg-background focus-within:ring-3 focus-within:ring-ring/50">
-                  <span className="flex select-none items-center border-r border-input bg-muted px-3 text-sm font-medium text-muted-foreground">
-                    +63
+  const resetState = useCallback(() => {
+    setStep(RECOVERY_STEPS.EMAIL)
+    setEmail("")
+    setCode(Array(OTP_LENGTH).fill(""))
+    setPassword("")
+    setConfirmPassword("")
+    setShowPassword(false)
+    setErrors({})
+    setFormError("")
+    setNotice("")
+    setIsSubmitting(false)
+  }, [])
+
+  const handleClose = useCallback(() => {
+    resetState()
+    onClose?.()
+  }, [onClose, resetState])
+
+  useEffect(() => {
+    if (!floating) return undefined
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") handleClose()
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [floating, handleClose])
+
+  const goBackToSignIn = () => {
+    handleClose()
+    navigate("/client/signin")
+  }
+
+  const handleRequestCode = async (event) => {
+    event.preventDefault()
+
+    const trimmedEmail = email.trim()
+    const validationErrors = getZodFieldErrors(emailRecoverySchema, {
+      email: trimmedEmail,
+    })
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors({
+        email:
+          validationErrors.email === "Email is required."
+            ? "Enter your email address."
+            : "Enter a valid email address.",
+      })
+      return
+    }
+
+    setErrors({})
+    setFormError("")
+    setNotice("")
+    setIsSubmitting(true)
+
+    try {
+      await requestPasswordRecovery({
+        email: trimmedEmail,
+        redirectTo: `${window.location.origin}/client/signin`,
+      })
+
+      setEmail(trimmedEmail)
+      setStep(RECOVERY_STEPS.OTP)
+      setNotice(
+        `If an account exists for ${trimmedEmail}, we've sent a ${OTP_LENGTH}-digit code to it.`
+      )
+    } catch (err) {
+      console.error("Client password recovery request failed:", err?.message)
+      setFormError(
+        "We couldn't start the recovery process right now. Please try again in a moment."
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleResendCode = async () => {
+    setFormError("")
+    setNotice("")
+    setIsSubmitting(true)
+
+    try {
+      await requestPasswordRecovery({
+        email,
+        redirectTo: `${window.location.origin}/client/signin`,
+      })
+
+      setNotice(`If an account exists for ${email}, we've sent a new code to it.`)
+    } catch (err) {
+      console.error("Client password recovery resend failed:", err?.message)
+      setFormError("We couldn't resend the code right now. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleVerifyCode = async (event) => {
+    event.preventDefault()
+
+    const token = code.join("")
+    const validationErrors = getZodFieldErrors(otpSchema, { code: token })
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors({ code: `Enter all ${OTP_LENGTH} digits of the code.` })
+      return
+    }
+
+    setErrors({})
+    setFormError("")
+    setIsSubmitting(true)
+
+    try {
+      await verifyPasswordRecoveryOtp({ email, token })
+      setStep(RECOVERY_STEPS.PASSWORD)
+      setNotice("")
+    } catch (err) {
+      console.error("Client password recovery verification failed:", err?.message)
+      setErrors({ code: "That code isn't valid or has expired. Check it and try again." })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleUpdatePassword = async (event) => {
+    event.preventDefault()
+
+    const validationErrors = getZodFieldErrors(resetPasswordSchema, {
+      newPassword: password,
+      confirmPassword,
+    })
+
+    const nextErrors = {
+      ...(validationErrors.newPassword
+        ? {
+            password: validationErrors.newPassword.replace(
+              "Please enter a new password.",
+              "Enter a new password."
+            ),
+          }
+        : {}),
+      ...(validationErrors.confirmPassword
+        ? {
+            confirmPassword: validationErrors.confirmPassword.replace(
+              "Please confirm your new password.",
+              "Re-enter your new password."
+            ),
+          }
+        : {}),
+    }
+
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
+
+    setFormError("")
+    setIsSubmitting(true)
+
+    try {
+      await updateRecoveredPassword({ password })
+
+      await supabase.auth.signOut()
+      authStore.getState().clearAuth()
+
+      setStep(RECOVERY_STEPS.SUCCESS)
+    } catch (err) {
+      console.error("Client password update failed:", err?.message)
+
+      const reuseMessage = getPasswordReuseMessage(err)
+
+      setErrors((current) => ({
+        ...current,
+        password: reuseMessage ?? undefined,
+      }))
+
+      setFormError(
+        reuseMessage ?? "We couldn't update your password. Please try again."
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const passwordChecks = passwordRequirements.map((requirement) => ({
+    ...requirement,
+    met: requirement.test(password),
+  }))
+
+  const title = {
+    [RECOVERY_STEPS.EMAIL]: "Reset your password",
+    [RECOVERY_STEPS.OTP]: "Enter your verification code",
+    [RECOVERY_STEPS.PASSWORD]: "Choose a new password",
+    [RECOVERY_STEPS.SUCCESS]: "Your password has been reset",
+  }[step]
+
+  const description = {
+    [RECOVERY_STEPS.EMAIL]:
+      "Enter the email address registered to your client account and we'll send you a verification code.",
+    [RECOVERY_STEPS.OTP]: `Enter the ${OTP_LENGTH}-digit code we emailed to ${email}.`,
+    [RECOVERY_STEPS.PASSWORD]:
+      "Your new password must meet the requirements listed below.",
+    [RECOVERY_STEPS.SUCCESS]:
+      "You can now sign in to Accentra with your new password.",
+  }[step]
+
+  const recoveryContent = (
+    <div className="flex min-h-0 flex-1 flex-col gap-5">
+      {step !== RECOVERY_STEPS.SUCCESS && (
+        <div className="border-b border-border pb-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Step {stepIndex + 1} of {STEP_ORDER.length}
+            </span>
+
+            <div className="flex flex-1 items-center justify-end gap-2">
+              {STEP_ORDER.map((orderStep, index) => (
+                <Fragment key={orderStep}>
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors",
+                      index < stepIndex && "border-forest-900 bg-forest-900 text-white",
+                      index === stepIndex && "border-forest-900 text-forest-900",
+                      index > stepIndex && "border-border text-muted-foreground"
+                    )}
+                  >
+                    {index < stepIndex ? <Check className="size-3.5" /> : index + 1}
                   </span>
-                  <Input
-                    id="resetContact"
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={PH_PHONE_LENGTH}
-                    placeholder="9123456789"
-                    value={reset.contact}
-                    onChange={handleContactChange}
-                    disabled={reset.isSubmitting}
-                    className="rounded-none border-0 focus-visible:ring-0"
-                  />
-                </div>
-              ) : (
-                <Input
-                  id="resetContact"
-                  type="email"
-                  placeholder="m@example.com"
-                  value={reset.contact}
-                  onChange={handleContactChange}
-                  disabled={reset.isSubmitting}
-                />
-              )}
 
-              {reset.method === "phone" && (
-                <FieldDescription>
-                  Enter your number.
-                </FieldDescription>
-              )}
-            </Field>
+                  {index < STEP_ORDER.length - 1 && (
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "h-px flex-1 transition-colors",
+                        index < stepIndex ? "bg-forest-900" : "bg-border"
+                      )}
+                    />
+                  )}
+                </Fragment>
+              ))}
+            </div>
+          </div>
 
-            <Button
-              type="submit"
-              disabled={reset.isSubmitting}
-              className="h-12 w-full rounded-2xl bg-linear-to-r from-[#0F3443] to-[#10B981] text-white hover:opacity-90 disabled:opacity-70"
-            >
-              {reset.isSubmitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="size-5 animate-spin" />
-                  Sending code...
-                </span>
-              ) : (
-                "Send code"
-              )}
-            </Button>
-          </form>
-        )}
+          <p className="sr-only">
+            Step {stepIndex + 1} of {STEP_ORDER.length}: {STEP_LABELS[stepIndex]}
+          </p>
+        </div>
+      )}
 
-        {/* Step 2: enter OTP */}
-        {reset.step === RESET_STEPS.VERIFY_OTP && (
-          <form onSubmit={handleVerifyOtp} className="flex flex-col gap-5">
-            <Field>
-              <FieldLabel htmlFor="resetOtp">Verification code</FieldLabel>
+      <div className="flex flex-col items-center text-center">
+        <h1 id="recovery-title" className="text-2xl font-bold">
+          {title}
+        </h1>
+        <p className="text-xs text-balance text-muted-foreground">
+          {description}
+        </p>
+      </div>
+
+      {step === RECOVERY_STEPS.EMAIL && (
+        <form onSubmit={handleRequestCode} noValidate className="flex min-w-0 flex-1 flex-col gap-5">
+          <FieldGroup className="flex-1">
+            <Field data-invalid={Boolean(errors.email) || undefined}>
+              <FieldLabel htmlFor="recovery-email">Email address</FieldLabel>
               <Input
-                id="resetOtp"
-                inputMode="numeric"
-                maxLength={OTP_LENGTH}
-                placeholder="••••••"
-                value={reset.otp}
-                onChange={(e) => updateReset({ otp: e.target.value.replace(/\D/g, ""), error: "" })}
-                disabled={reset.isSubmitting}
-                className="text-center text-lg tracking-[0.5em]"
+                id="recovery-email"
+                name="email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="example@gmail.com"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value)
+                  if (errors.email) setErrors((current) => ({ ...current, email: undefined }))
+                  if (formError) setFormError("")
+                }}
+                disabled={isSubmitting}
+                aria-invalid={Boolean(errors.email) || undefined}
+                className={cn(controlClass, errors.email && "border-destructive")}
               />
+              <FieldError>{errors.email}</FieldError>
               <FieldDescription>
-                Sent to {reset.method === "phone" && reset.contact ? `+63${reset.contact}` : reset.contact || (reset.method === "email" ? "your email" : "your phone")}.{" "}
-                <button
-                  type="button"
-                  onClick={handleResendOtp}
-                  disabled={reset.isSubmitting}
-                  className="font-medium text-emerald-700 underline underline-offset-4 hover:text-emerald-800"
-                >
-                  Resend code
-                </button>
+                Use the email address associated with your client account.
               </FieldDescription>
             </Field>
+          </FieldGroup>
 
-            <Button
-              type="submit"
-              disabled={reset.isSubmitting}
-              className="h-12 w-full rounded-2xl bg-linear-to-r from-[#0F3443] to-[#10B981] text-white hover:opacity-90 disabled:opacity-70"
-            >
-              {reset.isSubmitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="size-5 animate-spin" />
-                  Verifying...
-                </span>
-              ) : (
-                "Verify code"
-              )}
-            </Button>
-          </form>
-        )}
-
-        {/* Step 3: set new password */}
-        {reset.step === RESET_STEPS.NEW_PASSWORD && (
-          <form onSubmit={handleResetPassword} className="flex flex-col gap-5">
-            <Field>
-              <FieldLabel htmlFor="resetNewPassword">New Password</FieldLabel>
-              <Input
-                id="resetNewPassword"
-                type="password"
-                value={reset.newPassword}
-                onChange={(e) => updateReset({ newPassword: e.target.value, error: "" })}
-                disabled={reset.isSubmitting}
-              />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="resetConfirmPassword">Confirm New Password</FieldLabel>
-              <Input
-                id="resetConfirmPassword"
-                type="password"
-                value={reset.confirmPassword}
-                onChange={(e) => updateReset({ confirmPassword: e.target.value, error: "" })}
-                disabled={reset.isSubmitting}
-              />
-            </Field>
-
-            <div>
-              <p className="mb-1.5 text-center text-sm font-bold">PASSWORD MUST CONTAIN:</p>
-              <ul className="flex flex-col gap-1">
-                {passwordRequirements.map((req) => {
-                  const met = req.test(reset.newPassword)
-                  return (
-                    <li
-                      key={req.key}
-                      className={cn(
-                        "flex items-center gap-2 text-sm",
-                        met ? "text-emerald-600" : "text-red-600"
-                      )}
-                    >
-                      <span className="w-4 shrink-0 text-center font-bold">{met ? "✔" : "✖"}</span>
-                      {req.label}
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={reset.isSubmitting}
-              className="h-12 w-full rounded-2xl bg-linear-to-r from-[#0F3443] to-[#10B981] text-white hover:opacity-90 disabled:opacity-70"
-            >
-              {reset.isSubmitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="size-5 animate-spin" />
-                  Updating password...
-                </span>
-              ) : (
-                "Reset password"
-              )}
-            </Button>
-          </form>
-        )}
-
-        {/* Step 4: success */}
-        {reset.step === RESET_STEPS.SUCCESS && (
-          <div className="flex flex-col items-center gap-4 py-2 text-center">
-            <div className="flex size-14 items-center justify-center rounded-full bg-emerald-50">
-              <ShieldCheck className="size-7 text-emerald-600" />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Your password has been reset. You can now log in with your new password.
+          {formError && (
+            <p role="alert" className="text-sm text-destructive">
+              {formError}
             </p>
-            <Button
-              onClick={handleClose}
-              className="h-12 w-full rounded-2xl bg-linear-to-r from-[#0F3443] to-[#10B981] text-white hover:opacity-90"
-            >
-              Done
+          )}
+
+          <DialogFooter className="mt-auto flex-row justify-end gap-2">
+            <Button type="button" variant="outline" disabled={isSubmitting} onClick={handleClose}>
+              Cancel
             </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-forest-900 text-white hover:opacity-90"
+            >
+              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+              {isSubmitting ? "Sending…" : "Send code"}
+            </Button>
+          </DialogFooter>
+        </form>
+      )}
+
+      {step === RECOVERY_STEPS.OTP && (
+        <form onSubmit={handleVerifyCode} className="flex min-w-0 flex-1 flex-col gap-5">
+          {notice && (
+            <p
+              role="status"
+              className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 ring-1 ring-emerald-500/20 ring-inset"
+            >
+              {notice}
+            </p>
+          )}
+
+          <FieldGroup>
+            <Field data-invalid={Boolean(errors.code) || undefined}>
+              <FieldLabel id="recovery-code-label">Verification code</FieldLabel>
+              <OtpCodeInput
+                value={code}
+                onChange={(next) => {
+                  setCode(next)
+                  if (errors.code) setErrors((current) => ({ ...current, code: undefined }))
+                  if (formError) setFormError("")
+                }}
+                length={OTP_LENGTH}
+                disabled={isSubmitting}
+                invalid={Boolean(errors.code)}
+                describedBy="recovery-code-hint"
+              />
+              <FieldDescription id="recovery-code-hint">
+                {OTP_LENGTH} digits, numbers only.
+              </FieldDescription>
+              <FieldError>{errors.code}</FieldError>
+            </Field>
+          </FieldGroup>
+
+          {formError && (
+            <p role="alert" className="text-sm text-destructive">
+              {formError}
+            </p>
+          )}
+
+          <DialogFooter className="mt-0 flex-row items-center justify-between gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isSubmitting}
+              onClick={() => {
+                setStep(RECOVERY_STEPS.EMAIL)
+                setErrors({})
+                setFormError("")
+                setNotice("")
+              }}
+              className="gap-1.5 text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" />
+              Back
+            </Button>
+
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" disabled={isSubmitting} onClick={handleResendCode}>
+                Resend code
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-forest-900 text-white hover:opacity-90"
+              >
+                {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+                {isSubmitting ? "Verifying…" : "Verify code"}
+              </Button>
+            </div>
+          </DialogFooter>
+        </form>
+      )}
+
+      {step === RECOVERY_STEPS.PASSWORD && (
+        <form onSubmit={handleUpdatePassword} className="flex min-w-0 flex-1 flex-col gap-5">
+          <FieldGroup>
+            <Field data-invalid={Boolean(errors.password) || undefined}>
+              <FieldLabel htmlFor="recovery-new-password">New password</FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  id="recovery-new-password"
+                  name="newPassword"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value)
+                    if (errors.password) setErrors((current) => ({ ...current, password: undefined }))
+                    if (formError) setFormError("")
+                  }}
+                  disabled={isSubmitting}
+                  aria-invalid={Boolean(errors.password) || undefined}
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    type="button"
+                    size="icon-xs"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldError>{errors.password}</FieldError>
+            </Field>
+
+            <Field data-invalid={Boolean(errors.confirmPassword) || undefined}>
+              <FieldLabel htmlFor="recovery-confirm-password">Confirm new password</FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  id="recovery-confirm-password"
+                  name="confirmPassword"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(event) => {
+                    setConfirmPassword(event.target.value)
+                    if (errors.confirmPassword) setErrors((current) => ({ ...current, confirmPassword: undefined }))
+                    if (formError) setFormError("")
+                  }}
+                  disabled={isSubmitting}
+                  aria-invalid={Boolean(errors.confirmPassword) || undefined}
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    type="button"
+                    size="icon-xs"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldError>{errors.confirmPassword}</FieldError>
+            </Field>
+          </FieldGroup>
+
+          <div className="rounded-lg bg-muted/40 p-3.5">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/70">
+              Password must contain:
+            </p>
+            <ul className="flex flex-col gap-1.5">
+              {passwordChecks.map((check) => (
+                <li
+                  key={check.key}
+                  className={cn(
+                    "flex items-center gap-2 text-xs transition-colors",
+                    check.met ? "text-emerald-700" : "text-muted-foreground"
+                  )}
+                >
+                  {check.met ? (
+                    <Check className="size-3.5 shrink-0" />
+                  ) : (
+                    <X className="size-3.5 shrink-0" />
+                  )}
+                  {check.label}
+                </li>
+              ))}
+            </ul>
           </div>
-        )}
-      </div>
+
+          {formError && (
+            <p role="alert" className="text-sm text-destructive">
+              {formError}
+            </p>
+          )}
+
+          <DialogFooter className="mt-0 flex-row items-center justify-between gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isSubmitting}
+              onClick={() => {
+                setStep(RECOVERY_STEPS.OTP)
+                setErrors({})
+                setFormError("")
+              }}
+              className="gap-1.5 text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" />
+              Back
+            </Button>
+
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-forest-900 text-white hover:opacity-90"
+            >
+              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+              {isSubmitting ? "Updating…" : "Update password"}
+            </Button>
+          </DialogFooter>
+        </form>
+      )}
+
+      {step === RECOVERY_STEPS.SUCCESS && (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+          <div className="flex size-14 items-center justify-center rounded-full bg-emerald-50">
+            <ShieldCheck className="size-7 text-emerald-600" />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Your password has been reset. You can now sign in with your new password.
+          </p>
+          <Button
+            type="button"
+            onClick={goBackToSignIn}
+            className="w-full bg-forest-900 text-white hover:opacity-90"
+          >
+            Back to sign in
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+
+  const form = (
+    <div
+      data-slot="client-forgot-password-inline"
+      className="mx-auto flex min-h-[min(26rem,calc(100svh-8rem))] w-full max-w-sm flex-col"
+    >
+      {recoveryContent}
+    </div>
+  )
+
+  if (!floating) return form
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <button
+        type="button"
+        aria-label="Close password recovery"
+        tabIndex={-1}
+        onClick={handleClose}
+        className="absolute inset-0 cursor-default bg-black/40 backdrop-blur-sm"
+      />
+
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="recovery-title"
+      className="relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-xl bg-white p-8 text-foreground shadow-2xl"
+    >
+      {form}
+    </div>
     </div>
   )
 }

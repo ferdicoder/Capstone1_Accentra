@@ -2,17 +2,28 @@ import { supabase } from "@/config/supabase"
 import { apiBaseUrl } from "@/config/api"
 
 // Latest firm-provided guide file attached to an engagement task. Stored like
-// template_documents (file metadata only — bytes live in B2).
+// template_task_documents (junction row linking to the shared `files` table —
+// file metadata lives there, bytes in B2).
 function mapReferenceDocument(documents) {
-  const document = Array.isArray(documents) ? documents.at(-1) : documents
+  const list = Array.isArray(documents) ? documents : [documents]
+  // Junction rows have no created_at of their own — newest file wins.
+  const document = list
+    .filter(Boolean)
+    .sort(
+      (first, second) =>
+        new Date(second.files?.created_at ?? second.created_at ?? 0).getTime() -
+        new Date(first.files?.created_at ?? first.created_at ?? 0).getTime()
+    )[0]
   if (!document) return null
 
+  const file = document.files ?? document
+  const fileId = document.file_id ?? file.file_id ?? file.doc_id
   return {
-    id: document.doc_id,
-    name: document.file_name ?? "Reference document",
-    size: document.file_size,
-    type: document.mime_type,
-    downloadUrl: `${apiBaseUrl}/documents/reference/${document.doc_id}/download`,
+    id: fileId,
+    name: file.file_name ?? "Reference document",
+    size: file.file_size,
+    type: file.mime_type,
+    downloadUrl: `${apiBaseUrl}/documents/reference/${fileId}/download`,
   }
 }
 
@@ -27,7 +38,7 @@ function mapTaskRow(t) {
     completed: t.status === "approved",
     remark: t.remark,
     deadline: t.due_date,
-    referenceDocument: mapReferenceDocument(t.engagement_task_documents),
+    referenceDocument: mapReferenceDocument(t.engagement_task_references),
   }
 }
 
@@ -92,12 +103,12 @@ const ENGAGEMENT_BASE_SELECT = `
 const ENGAGEMENT_SELECT = `${ENGAGEMENT_BASE_SELECT},
   engagement_tasks(
     engagement_task_id, title, has_reference, is_required, status, remark, due_date,
-    engagement_task_documents(doc_id, file_name, mime_type, file_size, created_at)
+    engagement_task_references(file_id, files(file_name, mime_type, file_size, created_at))
   )
 `
 // Single-task selects (create/update/review) keep the reference-file embed so
 // cache patches don't wipe task.referenceDocument.
-const TASK_SELECT = `*, engagement_task_documents(doc_id, file_name, mime_type, file_size, created_at)`
+const TASK_SELECT = `*, engagement_task_references(file_id, files(file_name, mime_type, file_size, created_at))`
 
 async function logEngagementActivity(engagementId, type, message) {
   const { data: { user } } = await supabase.auth.getUser()

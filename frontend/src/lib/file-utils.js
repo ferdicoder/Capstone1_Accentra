@@ -3,7 +3,7 @@
 
 // One shape for every file shown in a preview dialog. A file can arrive as:
 //   - a mapped API doc ({ id, name, mimeType, size, downloadUrl })
-//   - a raw row from an endpoint ({ doc_id, file_name, mime_type, file_size })
+//   - a raw row from an endpoint ({ file_id, file_name, mime_type, file_size })
 //   - a task reference/guide doc ({ id, name, type, size, downloadUrl })
 //   - a browser File that was just picked and has no download link yet
 // Pass the original File as the second argument in the last case, so it can
@@ -12,7 +12,7 @@ export function normalizePreviewFile(source, file = null) {
   const raw = source ?? {}
   const downloadUrl = raw.downloadUrl ?? null
   return {
-    id: raw.id ?? raw.doc_id ?? null,
+    id: raw.id ?? raw.file_id ?? raw.doc_id ?? null,
     name: raw.name ?? raw.file_name ?? raw.fileName ?? file?.name ?? "Untitled file",
     mimeType: raw.mimeType ?? raw.mime_type ?? raw.fileType ?? raw.type ?? file?.type ?? null,
     size: raw.size ?? raw.fileSize ?? raw.file_size ?? file?.size ?? null,

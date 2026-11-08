@@ -196,7 +196,7 @@ export function useDeleteEngagementDeliverable(engagementId) {
 }
 
 // Reference files live on the task itself, so the engagement detail (which
-// embeds engagement_task_documents) is what needs refetching.
+// embeds engagement_task_references) is what needs refetching.
 export function useUploadEngagementTaskReference(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({

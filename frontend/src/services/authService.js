@@ -31,11 +31,9 @@ async function signinUser(email, password){
     if (!role) {
       throw new Error("Invalid Credentials, your account maybe deactivated or not registered. ")
     }
-    console.log("Login Successful"); 
     return { data, role }; 
 
     }catch(err){
-      console.error(err); 
       throw err;
     }
 }

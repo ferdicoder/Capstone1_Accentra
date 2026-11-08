@@ -29,7 +29,6 @@ import {
   latestSubmission,
 } from "@/components/client/ClientEngagementTaskList"
 import { ClientEngagementDeliverables } from "@/components/client/ClientEngagementDeliverables"
-import { authStore } from "@/store/authStore"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
 import {
   useFetchEngagement,
@@ -298,7 +297,6 @@ function DocumentFileActions({ doc, large = false }) {
 
 export default function ClientEngagementDetailPage() {
   const { id } = useParams()
-  const user = authStore((state) => state.user)
   const [activeTab, setActiveTab] = useState("overview")
   const [documentSearch, setDocumentSearch] = useState("")
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -377,7 +375,6 @@ export default function ClientEngagementDetailPage() {
     files.map((file) => uploadDocument.mutateAsync({
       engagementTaskId: task.id,
       file,
-      uploadedBy: user?.id,
     }))
   )
 

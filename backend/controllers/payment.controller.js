@@ -17,6 +17,7 @@ export async function submitPayment(req, res) {
   let payment;
   let b2Result;
   let storageKey;
+  let fileId;
 
   try {
     const { data: billing, error: billingError } = await supabaseAdmin
@@ -46,16 +47,27 @@ export async function submitPayment(req, res) {
     storageKey = `payments/${billingId}/${payment.payment_id}-${Date.now()}-${req.file.originalname}`;
     b2Result = await uploadFile(req.file.buffer, storageKey, req.file.mimetype);
 
-    const { error: documentError } = await supabaseAdmin
-      .from('payment_documents')
+    // Two-step insert: `files` metadata first, then the payment_proofs link.
+    const { data: file, error: fileError } = await supabaseAdmin
+      .from('files')
       .insert({
-        payment_id: payment.payment_id,
         file_name: req.file.originalname,
         mime_type: req.file.mimetype,
         storage_key: storageKey,
         b2_file_id: b2Result.fileId,
         file_size: req.file.size,
         uploaded_by: uploadedBy || null,
+      })
+      .select()
+      .single();
+    if (fileError) throw fileError;
+    fileId = file.file_id;
+
+    const { error: documentError } = await supabaseAdmin
+      .from('payment_proofs')
+      .insert({
+        file_id: fileId,
+        payment_id: payment.payment_id,
       });
 
     if (documentError) throw documentError;
@@ -79,6 +91,15 @@ export async function submitPayment(req, res) {
   } catch (err) {
     console.error('Payment submission failed:', err);
 
+    // Drop the `files` row first — it cascades to payment_proofs (and the
+    // payment row below cascades to it too if the proof link was written).
+    if (fileId) {
+      const { error: fileDeleteError } = await supabaseAdmin
+        .from('files')
+        .delete()
+        .eq('file_id', fileId);
+      if (fileDeleteError) console.error('files cleanup failed:', fileDeleteError);
+    }
     if (b2Result && storageKey) {
       try {
         await deleteFileVersion(storageKey, b2Result.fileId);
@@ -102,21 +123,25 @@ export async function downloadPaymentProof(req, res) {
   const { paymentId } = req.params;
 
   try {
-    const { data: document, error } = await supabaseAdmin
-      .from('payment_documents')
-      .select('file_name, mime_type, storage_key')
-      .eq('payment_id', paymentId)
-      .order('created_at', { ascending: false })
-      .maybeSingle();
+    const { data: proofs, error } = await supabaseAdmin
+      .from('payment_proofs')
+      .select('file_id, payment_id, files(file_name, mime_type, storage_key, created_at)')
+      .eq('payment_id', paymentId);
 
     if (error) throw error;
-    if (!document) {
+    // Newest proof wins — the junction table has no created_at of its own.
+    const latest = [...(proofs ?? [])].sort(
+      (first, second) =>
+        new Date(second.files?.created_at ?? 0).getTime() -
+        new Date(first.files?.created_at ?? 0).getTime()
+    )[0];
+    if (!latest?.files) {
       return res.status(404).json({ error: 'Payment proof not found' });
     }
 
-    const fileBuffer = await downloadFile(document.storage_key);
-    res.setHeader('Content-Type', document.mime_type || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(document.file_name)}"`);
+    const fileBuffer = await downloadFile(latest.files.storage_key);
+    res.setHeader('Content-Type', latest.files.mime_type || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(latest.files.file_name)}"`);
     return res.send(Buffer.from(fileBuffer));
   } catch (err) {
     console.error('Payment proof download failed:', err);
