@@ -1,14 +1,22 @@
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { OtpCodeInput } from "@/components/ui/otp-code-input";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Check, X, Eye, EyeOff } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { TermsDialog } from "@/components/terms-dialog";
 
-import { registerClient } from "../../services/authService";
+import {
+  registerClient,
+  verifySignupOtp,
+  resendSignupOtp,
+  SIGNUP_OTP_LENGTH,
+} from "../../services/authService";
+import { signupOtpSchema } from "@/schemas/loginSchema";
+import { getZodFieldErrors } from "@/lib/form-validation";
 import { accountSchema, businessSchema, passwordRequirements } from "/src/schemas/signupSchema";
 import { sanitizeValue, formatTin, formatContactNumber } from "/src/lib/signup-utils";
 
@@ -19,6 +27,9 @@ const MONTHS = [
 const DAYS = Array.from({ length: 31 }, (_, index) => index + 1);
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 83 }, (_, index) => CURRENT_YEAR - 18 - index);
+
+/** Seconds the signup "Resend code" button stays disabled after a send. */
+const RESEND_COOLDOWN_SECONDS = 60;
 
 const initialFormState = {
   firstName: "", lastName: "", middleName: "", extensionName: "",
@@ -124,17 +135,33 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState(() => Array(SIGNUP_OTP_LENGTH).fill(""));
+  const [otpError, setOtpError] = useState("");
+  const [otpFormError, setOtpFormError] = useState("");
+  const [otpNotice, setOtpNotice] = useState("");
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const slideClass = location.state?.clientAuthSlide
     ? "client-auth-slide-up"
     : "";
 
+  const cooldownActive = resendCooldown > 0;
+  useEffect(() => {
+    if (!cooldownActive) return undefined;
+    const timer = setInterval(() => {
+      setResendCooldown((current) => (current <= 1 ? 0 : current - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownActive]);
+
   const errorFor = (name) => errors[name] || "";
   const displayedTin = formatTin(formData.tin, !isTinFocused);
   const displayedContact = formatContactNumber(formData.contactNumber, !isContactFocused);
 
   const updateField = (event) => {
+    if (currentStep === 3) return;
     const { name, value } = event.target;
     const cleanValue = sanitizeValue(name, value);
     const nextData = { ...formData, [name]: cleanValue };
@@ -177,7 +204,16 @@ export default function SignupPage() {
       );
       if (!result?.data?.user) throw new Error("Registration could not be completed. Please try again.");
 
-      navigate("/client/signin", { state: { clientAuthSlide: true } });
+      const submittedEmail = registrationData.email.trim();
+      setPendingEmail(submittedEmail);
+      setOtpCode(Array(SIGNUP_OTP_LENGTH).fill(""));
+      setOtpError("");
+      setOtpFormError("");
+      setOtpNotice(
+        `We sent a ${SIGNUP_OTP_LENGTH}-digit code to ${submittedEmail}. Enter it below to verify your email address.`
+      );
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+      setCurrentStep(3);
     } catch (error) {
       console.error("Client registration failed:", error);
       setSubmitError(error.message || "Something went wrong during registration.");
@@ -188,6 +224,12 @@ export default function SignupPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (currentStep === 3) {
+      await verifyOtpCode();
+      return;
+    }
+
     setSubmitError("");
 
     const schema = currentStep === 1 ? accountSchema : businessSchema;
@@ -210,7 +252,69 @@ export default function SignupPage() {
       return;
     }
 
+    // signUp already ran for this address (user stepped back from the OTP
+    // screen) — return to the code entry instead of calling it again, which
+    // would trip the existing-email check.
+    const trimmedEmail = formData.email.trim();
+    if (pendingEmail && trimmedEmail === pendingEmail) {
+      setCurrentStep(3);
+      return;
+    }
+
     await submitRegistration();
+  };
+
+  const verifyOtpCode = async () => {
+    const token = otpCode.join("");
+    const validationErrors = getZodFieldErrors(signupOtpSchema, { code: token });
+    if (Object.keys(validationErrors).length > 0) {
+      setOtpError(`Enter all ${SIGNUP_OTP_LENGTH} digits of the code.`);
+      return;
+    }
+
+    setOtpError("");
+    setOtpFormError("");
+    setIsSubmitting(true);
+
+    try {
+      await verifySignupOtp({ email: pendingEmail, token });
+      navigate("/client/signin", {
+        state: {
+          clientAuthSlide: true,
+          notice: "Email verified. You can sign in now.",
+        },
+      });
+    } catch (error) {
+      console.error("Client signup verification failed:", error);
+      setOtpError("That code isn't valid or has expired. Check it and try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpError("");
+    setOtpFormError("");
+    setIsSubmitting(true);
+
+    try {
+      await resendSignupOtp({ email: pendingEmail });
+      setOtpNotice(
+        `We've sent a new ${SIGNUP_OTP_LENGTH}-digit code to ${pendingEmail}.`
+      );
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    } catch (error) {
+      console.error("Client signup resend failed:", error);
+      setOtpFormError("We couldn't resend the code right now. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOtpBack = () => {
+    setOtpError("");
+    setOtpFormError("");
+    setCurrentStep(2);
   };
 
 
@@ -220,7 +324,7 @@ export default function SignupPage() {
     setCurrentStep(1);
   };
 
-  const steps = ["Personal Information", "Business Registration"];
+  const steps = ["Personal Information", "Business Registration", "Email Verification"];
 
   return (
     <>
@@ -449,7 +553,7 @@ export default function SignupPage() {
                   Continue
                 </Button>
               </>
-            ) : (
+            ) : currentStep === 2 ? (
               <>
                 <div className="flex flex-col items-center gap-1 text-center">
                   <h1 className="text-2xl font-bold">Business Registration</h1>
@@ -647,6 +751,79 @@ export default function SignupPage() {
                   disabled={isSubmitting || !formData.birRegistrationStatus}
                 >
                   {isSubmitting ? "Submitting..." : "Submit"}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-col items-center gap-1 text-center">
+                <h1 className="text-2xl font-bold">Verify your email</h1>
+                <p className="text-sm text-muted-foreground">
+                  Enter the {SIGNUP_OTP_LENGTH}-digit code we sent to{" "}
+                  <span className="font-medium text-foreground">{pendingEmail}</span>.
+                </p>
+              </div>
+
+              {otpNotice && (
+                <p
+                  role="status"
+                  className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 ring-1 ring-emerald-500/20 ring-inset"
+                >
+                  {otpNotice}
+                </p>
+              )}
+
+              <Field data-invalid={Boolean(otpError) || undefined}>
+                <FieldLabel id="signup-code-label">Verification code</FieldLabel>
+                <OtpCodeInput
+                  value={otpCode}
+                  onChange={(next) => {
+                    setOtpCode(next);
+                    if (otpError) setOtpError("");
+                    if (otpFormError) setOtpFormError("");
+                  }}
+                  length={SIGNUP_OTP_LENGTH}
+                  disabled={isSubmitting}
+                  invalid={Boolean(otpError)}
+                  describedBy="signup-code-hint"
+                />
+                <FieldDescription id="signup-code-hint">
+                  {SIGNUP_OTP_LENGTH} digits, numbers only.
+                </FieldDescription>
+                <FieldError>{otpError}</FieldError>
+              </Field>
+
+              {otpFormError && (
+                <p role="alert" className="text-sm text-destructive">
+                  {otpFormError}
+                </p>
+              )}
+
+              <div className="flex gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleOtpBack}
+                  disabled={isSubmitting}
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleResendOtp}
+                  disabled={isSubmitting || resendCooldown > 0}
+                >
+                  {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : "Resend code"}
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Verifying..." : "Verify code"}
                 </Button>
               </div>
             </>

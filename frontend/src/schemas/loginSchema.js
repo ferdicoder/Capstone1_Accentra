@@ -21,6 +21,10 @@ export const otpSchema = z.object({
   code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code."),
 })
 
+export const signupOtpSchema = z.object({
+  code: z.string().regex(/^\d{8}$/, "Enter the 8-digit code."),
+})
+
 const passwordRequirements = [
   (value) => /[a-z]/.test(value),
   (value) => /[A-Z]/.test(value),
