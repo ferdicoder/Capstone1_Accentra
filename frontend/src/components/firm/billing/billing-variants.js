@@ -32,6 +32,7 @@ const billingStatusAliases = {
   "revision requested": "for resubmission",
   unpaid: "pending",
   issued: "pending",
+  canceled: "cancelled",
 }
 
 export const normalizeBillingStatus = (status) => {

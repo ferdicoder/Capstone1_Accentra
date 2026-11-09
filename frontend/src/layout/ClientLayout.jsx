@@ -10,23 +10,7 @@ import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchMyServiceRequests } from "@/hooks/useServiceRequests"
 import { useFetchBusinessBillings } from "@/hooks/useBillings"
-
-const OUTSTANDING_BILLING_STATUSES = [
-  "unpaid",
-  "pending",
-  "overdue",
-  "for verification",
-  "for resubmission",
-  "issued",
-  "under verification",
-]
-
-const hasOutstandingBilling = (billings) =>
-  billings.some((billing) =>
-    OUTSTANDING_BILLING_STATUSES.includes(
-      String(billing.status ?? "").trim().toLowerCase()
-    )
-  )
+import { isOutstandingBill } from "@/lib/outstanding-bill"
 
 export function ClientLayout() {
   const navigate = useNavigate()
@@ -53,7 +37,7 @@ export function ClientLayout() {
     refetch: refetchBillings,
   } = useFetchBusinessBillings(businessId)
   const isNonRetainer = business?.clientType !== "retainer"
-  const hasUnpaidBills = hasOutstandingBilling(billings)
+  const hasUnpaidBills = billings.some(isOutstandingBill)
 
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false)
   const openNewRequest = useCallback(() => setIsNewRequestOpen(true), [])
