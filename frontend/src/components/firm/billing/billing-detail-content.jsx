@@ -248,15 +248,6 @@ export function BillingDetailContent({
               )}
             </Field>
 
-            <Field label="Reference ID">
-              {billing.payment_reference ? (
-                billing.payment_reference
-              ) : (
-                <span className="font-normal text-muted-foreground">
-                  Not yet verified
-                </span>
-              )}
-            </Field>
           </dl>
 
           {billing.remark && (

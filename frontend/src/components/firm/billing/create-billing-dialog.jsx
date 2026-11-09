@@ -522,7 +522,6 @@ export function CreateBillingDialog({
         : {},
       due_date: dueDate,
       payment_method: null,
-      payment_reference: '',
       payment_proof_url: '',
     });
   };

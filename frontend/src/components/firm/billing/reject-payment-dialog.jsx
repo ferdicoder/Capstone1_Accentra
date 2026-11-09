@@ -22,7 +22,7 @@ const REJECTION_REMARKS_MAX_LENGTH = 1000
  * unresolved/pending state (spec section 9: never a persistent
  * billing status to "paid").
  */
-export function RejectPaymentDialog({ billing, open, onOpenChange, onConfirm, submitting = false }) {
+export function RejectPaymentDialog({ open, onOpenChange, onConfirm, submitting = false }) {
   const [step, setStep] = useState("confirm")
   const [remarks, setRemarks] = useState("")
   const [remarksError, setRemarksError] = useState("")
@@ -67,13 +67,6 @@ export function RejectPaymentDialog({ billing, open, onOpenChange, onConfirm, su
                 Confirm to continue to the remarks form.
               </DialogDescription>
             </DialogHeader>
-
-            <div className="rounded-lg border border-border bg-muted/40 p-3.5 text-sm">
-              <p className="text-xs font-medium text-muted-foreground">Payment Reference</p>
-              <p className="mt-0.5 font-medium break-all text-foreground">
-                {billing?.payment_reference ?? "—"}
-              </p>
-            </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" disabled={submitting} onClick={closeDialog}>

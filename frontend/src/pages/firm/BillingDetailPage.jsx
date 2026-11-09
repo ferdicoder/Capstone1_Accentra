@@ -19,8 +19,6 @@ import { BillingStatusBadge } from "@/components/firm/billing/billing-status-bad
 import { VerifyPaymentDialog } from "@/components/firm/billing/verify-payment-dialog"
 import {
   billingDisplayId,
-  billingStatusLabels,
-  isFinalBillingStatus,
 } from "@/components/firm/billing/billing-variants"
 import { useFetchBilling, useUpdateBillingStatus, useUpdatePaymentStatus } from "@/hooks/useBillings"
 import { useFetchEngagements } from "@/hooks/useEngagements"
@@ -157,19 +155,15 @@ export default function BillingDetailPage() {
     )
   }
 
-  const handleConfirmVerification = (paymentMethod, referenceId) => {
+  const handleConfirmVerification = (paymentMethod) => {
     if (!billing || !paymentMethod) return
-
-    if (paymentMethod !== "cash" && !referenceId) {
-      return
-    }
 
     const paymentId = billing.payment_id ?? billing.payments?.[0]?.payment_id
     if (!paymentId) {
       setVerifyOpen(false)
       return showNotice("No payment has been submitted for this billing yet.")
     }
-    updatePayment.mutate({ paymentId, billingId: billing.id, status: "verified", referenceId }, {
+    updatePayment.mutate({ paymentId, billingId: billing.id, status: "verified" }, {
       onSuccess: () => { setNotice(`${billingDisplayId(billing)} payment verified`); setVerifyOpen(false); setTimeout(() => setNotice(""), 3000) },
       onError: (err) => showNotice(err.message),
     })

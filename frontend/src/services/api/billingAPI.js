@@ -7,7 +7,7 @@ const BILLING_SELECT = `
   billing_month, billing_year,
   billing_engagements(billing_id, engagement_id, amount, service_name, is_active),
   payments(
-    payment_id, billing_id, amount, payment_method, reference_id,
+    payment_id, billing_id, amount, payment_method,
     payment_proofs(file_id, files(file_name, mime_type, file_size, created_at))
   )
 `
@@ -54,7 +54,6 @@ function mapBilling(row) {
       : null,
     payment_proof_name: getLatestPaymentDocument(payment)?.file_name ?? null,
     payment_proof_size: getLatestPaymentDocument(payment)?.file_size ?? null,
-    payment_reference: payment?.reference_id ?? null,
     payment_id: payment?.payment_id ?? null,
     billing_month: row.billing_month ?? null,
     billing_year: row.billing_year ?? null,
@@ -189,24 +188,16 @@ export async function updateBillingStatus({ id, status, remark }) {
   return mapBilling(data)
 }
 
-export async function createPayment({ billingId, amount, paymentMethod, referenceId = null }) {
+export async function createPayment({ billingId, amount, paymentMethod }) {
   const { data, error } = await supabase
     .from("payments")
     .insert({
       billing_id: billingId, amount, payment_method: paymentMethod,
-      reference_id: referenceId,
     })
     .select()
     .single()
 
   if (error) throw error
-  if (referenceId?.trim()) {
-    const { error: billingError } = await supabase
-      .from("billings")
-      .update({ status: "for verification", remark: null })
-      .eq("billing_id", billingId)
-    if (billingError) throw billingError
-  }
   return data
 }
 
@@ -227,18 +218,8 @@ export async function uploadPaymentProof(file, billingId, paymentMethod, uploade
   return response.json()
 }
 
-export async function updatePaymentStatus({ paymentId, billingId, status, referenceId, remark }) {
-  let data = null
-  if (referenceId != null) {
-    const { data: payment, error } = await supabase
-      .from("payments")
-      .update({ reference_id: referenceId })
-      .eq("payment_id", paymentId)
-      .select()
-      .single()
-    if (error) throw error
-    data = payment
-  }
+export async function updatePaymentStatus({ paymentId, billingId, status, remark }) {
+  const data = paymentId ? { payment_id: paymentId } : null
 
   if (billingId && status) {
     const nextStatus = {

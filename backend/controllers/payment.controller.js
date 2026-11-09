@@ -5,7 +5,7 @@ const PAYMENT_METHODS = new Set(['gcash', 'bank_transfer']);
 
 export async function submitPayment(req, res) {
   const { billingId } = req.params;
-  const { paymentMethod, uploadedBy, referenceId } = req.body ?? {};
+  const { paymentMethod, uploadedBy } = req.body ?? {};
 
   if (!req.file) {
     return res.status(400).json({ error: 'No payment proof file was provided' });
@@ -37,7 +37,6 @@ export async function submitPayment(req, res) {
         billing_id: billingId,
         amount: billing.total_amount,
         payment_method: paymentMethod,
-        reference_id: referenceId?.trim() || null,
       })
       .select()
       .single();
@@ -72,8 +71,7 @@ export async function submitPayment(req, res) {
 
     if (documentError) throw documentError;
 
-    // A submitted proof always moves the billing into review — the firm reads
-    // the reference from the proof itself during verification.
+    // A submitted proof always moves the billing into review.
     const { error: billingUpdateError } = await supabaseAdmin
       .from('billings')
       .update({ status: 'for verification', remark: null })

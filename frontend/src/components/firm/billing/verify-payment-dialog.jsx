@@ -2,7 +2,6 @@ import { useState } from "react"
 import { Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { RejectPaymentDialog } from "./reject-payment-dialog"
 import {
   Dialog,
@@ -25,16 +24,11 @@ export function VerifyPaymentDialog({
     billing?.payment_method ?? ""
   )
 
-  const [referenceId, setReferenceId] = useState(
-    billing?.payment_reference ?? ""
-  )
-
   const [rejectOpen, setRejectOpen] = useState(false)
 
   const handleOpenChange = (nextOpen) => {
     if (!nextOpen) {
       setPaymentMethod(billing?.payment_method ?? "")
-      setReferenceId(billing?.payment_reference ?? "")
       setRejectOpen(false)
     }
     onOpenChange?.(nextOpen)
@@ -42,33 +36,18 @@ export function VerifyPaymentDialog({
 
   const isCash = paymentMethod === "cash"
   const hasPaymentProof = Boolean(billing?.payment_proof_url)
-  const trimmedReferenceId = referenceId.trim()
-  const isValidReferenceId = /^\d{4}$/.test(trimmedReferenceId)
-
-  /*
-   * Cash:
-   * - No payment proof required
-   * - No reference ID required
-   *
-   * Electronic payment:
-   * - Payment proof required
-   * - Reference ID required
-   */
   const canConfirm =
     Boolean(paymentMethod) &&
     (
       isCash ||
-      (
-        hasPaymentProof &&
-        isValidReferenceId
-      )
+      hasPaymentProof
     ) &&
     !submitting
 
   const handleConfirm = () => {
     if (!canConfirm) return
 
-    onConfirm?.(paymentMethod, trimmedReferenceId)
+    onConfirm?.(paymentMethod)
   }
 
   const handleReject = () => {
@@ -151,44 +130,13 @@ export function VerifyPaymentDialog({
               )}
             </div>
 
-            {/* Reference ID */}
-            {!isCash && (
-              <div className="flex flex-col gap-2">
-                <label
-                  htmlFor="payment-reference-id"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Last 4 digits of Reference ID
-                </label>
-
-                <Input
-                  id="payment-reference-id"
-                  value={referenceId}
-                  onChange={(event) => {
-                    const value = event.target.value.replace(/\D/g, "").slice(0, 4)
-                    setReferenceId(value)
-                  }}
-                  placeholder="Enter 4-digit reference ID"
-                  inputMode="numeric"
-                  maxLength={4}
-                  disabled={submitting}
-                  autoComplete="off"
-                />
-
-                <p className="text-xs text-muted-foreground">
-                  Required for GCash, Bank, and Maya payments.
-                </p>
-              </div>
-            )}
-
             {/* Cash Notice */}
             {isCash && (
               <div className="rounded-lg border border-border bg-muted/40 p-3.5 text-sm">
                 <p className="font-medium text-foreground">Cash payment</p>
 
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Cash payments do not require payment proof or a
-                  reference ID.
+                  Cash payments do not require payment proof.
                 </p>
               </div>
             )}
@@ -205,9 +153,6 @@ export function VerifyPaymentDialog({
                     {hasPaymentProof ? "✓" : "•"} Payment proof
                   </li>
 
-                  <li>
-                    {trimmedReferenceId ? "✓" : "•"} Reference ID
-                  </li>
                 </ul>
 
                 {!hasPaymentProof && (
@@ -216,11 +161,6 @@ export function VerifyPaymentDialog({
                   </p>
                 )}
 
-                {hasPaymentProof && !trimmedReferenceId && (
-                  <p className="mt-2 text-xs text-destructive">
-                    Reference ID is required before this payment can be verified.
-                  </p>
-                )}
               </div>
             )}
           </div>

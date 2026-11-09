@@ -320,7 +320,6 @@ export default function ClientDetailPage() {
                     <th className="px-3 py-2 font-semibold">Payment Date</th>
                     <th className="px-3 py-2 font-semibold">Amount</th>
                     <th className="px-3 py-2 font-semibold">Payment Method</th>
-                    <th className="px-3 py-2 font-semibold">Reference ID</th>
                     <th className="px-3 py-2 font-semibold">Payment Status</th>
                   </tr>
                 </thead>
@@ -353,7 +352,6 @@ export default function ClientDetailPage() {
                           payment?.payment_method ??
                           "—"}
                       </td>
-                      <td className="px-3 py-3">{payment?.reference_id ?? "—"}</td>
                       <td className="px-3 py-3">
                         {billing.status ? (
                           <BillingStatusBadge status={billing.status} />

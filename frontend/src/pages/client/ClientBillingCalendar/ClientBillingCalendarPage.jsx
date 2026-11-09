@@ -78,7 +78,7 @@ const isTrackedStatus = (status) =>
   PAID_STATUSES.includes(status) || UNPAID_STATUSES.includes(status)
 
 const getPendingPayment = (billing) =>
-  billing.payments?.find((payment) => payment.reference_id) ?? null
+  billing.payments?.[0] ?? null
 
 function buildEvents({ billings, engagements, today }) {
   const engagementById = new Map(
