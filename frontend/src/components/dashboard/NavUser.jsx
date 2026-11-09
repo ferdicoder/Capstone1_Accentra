@@ -1,10 +1,9 @@
 import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   ChevronsUpDown,
   LogOut,
-  Settings,
 } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -14,9 +13,7 @@ import { authStore } from "@/store/authStore"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -26,18 +23,14 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 
-export function NavUser({ user, settingsHref = "#" }) {
+export function NavUser({ user }) {
   const { isMobile } = useSidebar()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const role = authStore((state) => state.role)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
 
-  // Admin has Settings as a permanent sidebar item, so it only appears
-  // in this dropdown for the other roles.
-  const showSettings = role !== "admin"
-
+  const role = authStore((state) => state.role)
   // Clients sign in on their own page; admin, staff and billing officers use the firm page.
   const signInPath = role === "client" ? "/client/signin" : "/firm/signin"
 
@@ -98,22 +91,6 @@ export function NavUser({ user, settingsHref = "#" }) {
               align="end"
               sideOffset={4}
             >
-              {showSettings && (
-                <>
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem asChild>
-                      <Link to={settingsHref}>
-                        <span className="flex items-center gap-2">
-                          <Settings className="size-4" />
-                          Settings
-                        </span>
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-
               <DropdownMenuItem onClick={() => setLogoutOpen(true)}>
                 <LogOut />
                 Logout

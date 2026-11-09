@@ -30,6 +30,7 @@ export const firmUserNav = [
   { title: "Engagements", url: "/firm/engagements", icon: Briefcase, items: [] },
   // Staff has no access to Teams (firm user management), so only Clients is listed.
   { title: "Clients", url: "/firm/clients", icon: Contact, items: [] },
+  { title: "Settings", url: "/firm/profile", icon: Settings, items: [] },
 ]
 
 export const clientNav = [
@@ -39,6 +40,7 @@ export const clientNav = [
   { title: "Billing", url: "/client/billing", icon: Receipt, items: [] },
   // NEW: Calendar button, links to the Client calendar page
   { title: "Calendar", url: "/client/calendar", icon: CalendarDays, items: [] },
+  { title: "Settings", url: "/client/profile", icon: Settings, items: [] },
 ]
 
 export const billingOfficerNav = [
@@ -46,6 +48,7 @@ export const billingOfficerNav = [
   { title: "Engagements", url: "/billing-officer/engagements", icon: Briefcase,       items: [] },
   { title: "Billing",     url: "/billing-officer/billing",     icon: Receipt,         items: [] },
   { title: "Clients",     url: "/billing-officer/clients",     icon: Contact,         items: [] },
+  { title: "Settings",   url: "/billing-officer/profile",     icon: Settings,        items: [] },
 ]
 
 export const roleConfig = {
@@ -53,24 +56,20 @@ export const roleConfig = {
     label: "Firm Admin",
     nav: firmAdminNav,
     team: { name: "Accentra", plan: "Firm Admin" },
-    profileUrl: "/admin/profile",
   },
   staff: {
     label: "Firm Staff",
     nav: firmUserNav,
     team: { name: "Accentra", plan: "Firm Staff" },
-    profileUrl: "/firm/profile",
   },
   billing_officer: {
     label: "Billing Officer",
     nav: billingOfficerNav,
     team: { name: "Accentra", plan: "Billing Officer" },
-    profileUrl: "/billing-officer/profile",
   },
   client: {
     label: "Client",
     nav: clientNav,
     team: { name: "Accentra", plan: "Client Portal" },
-    profileUrl: "/client/profile",
   },
 }

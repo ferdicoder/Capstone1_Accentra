@@ -17,6 +17,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
+import { NavLinkItem } from "@/components/dashboard/NavLinkItem"
 
 function isNavItemActive(pathname, url) {
   return pathname === url || pathname.startsWith(`${url}/`)
@@ -88,22 +89,12 @@ export function NavMain({ items = [] }) {
             return <NavGroup key={item.title} item={item} pathname={pathname} />
           }
 
-          const isActive = isNavItemActive(pathname, item.url)
-
           return (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton
-                asChild
-                tooltip={item.title}
-                isActive={isActive}
-                className="gap-4"
-              >
-                <NavLink to={item.url} className="flex w-full items-center gap-4">
-                  {item.icon && <item.icon className="size-4 shrink-0" />}
-                  <span className="truncate">{item.title}</span>
-                </NavLink>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            <NavLinkItem
+              key={item.title}
+              item={item}
+              isActive={isNavItemActive(pathname, item.url)}
+            />
           )
         })}
       </SidebarMenu>

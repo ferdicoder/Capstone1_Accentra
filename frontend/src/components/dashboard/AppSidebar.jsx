@@ -82,7 +82,7 @@ export function AppSidebar({  user, ...props }) {
         <NavMain label={config.label} items={config.nav} />
       </SidebarContent>
       <SidebarFooter className="border-t border-white/10 p-3  group-data-[collapsible=icon]:p-2 ">
-        <NavUser user={sidebarUser} settingsHref={config.profileUrl} />
+        <NavUser user={sidebarUser} />
       </SidebarFooter >
       <SidebarRail />
     </Sidebar>
