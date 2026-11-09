@@ -15,35 +15,31 @@ function InvoiceTypeBadge({ type }) {
   )
 }
 
-function getBillingForDisplay({
-  billing,
-  engagements,
-  clients,
-}) {
-  const engagement = engagements.find(
-    (item) => item.id === billing.engagement_id
-  )
-  const client = billing.invoice_type === "retainer_fee"
-    ? clients.find((item) => item.id === billing.business_id)
-    : engagement?.client
-  const businessName = billing.invoice_type === "retainer_fee"
-    ? client?.businessName
-    : engagement?.business?.businessName
+function getBillingForDisplay({ billing, engagements, clients }) {
+  const client = clients.find((item) => item.id === billing.business_id)
 
-  if (!client && !businessName) {
-    return {
-      title: "Unknown business",
-      subtitle: null,
-    }
+  const engagementIds = billing.engagement_ids?.length
+    ? billing.engagement_ids
+    : billing.engagement_id
+      ? [billing.engagement_id]
+      : []
+  const engagement = engagements.find((item) => engagementIds.includes(item.id))
+
+  const person = client ?? engagement?.client
+  const businessName =
+    client?.businessName || engagement?.business?.businessName
+
+  if (!person && !businessName) {
+    return { title: "Unknown business", subtitle: null }
   }
 
-  const clientName = client
-    ? `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim()
+  const personName = person
+    ? `${person.firstName ?? ""} ${person.lastName ?? ""}`.trim()
     : ""
 
   return {
     title: businessName || "Unnamed business",
-    subtitle: clientName || null,
+    subtitle: personName || null,
   }
 }
 

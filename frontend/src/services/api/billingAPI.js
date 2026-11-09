@@ -31,7 +31,8 @@ function getLatestPaymentDocument(payment) {
 }
 
 function mapBilling(row) {
-  const links = (row.billing_engagements ?? []).filter((link) => link.is_active !== false)
+  const allLinks = row.billing_engagements ?? []
+  const activeLinks = allLinks.filter((link) => link.is_active !== false)
   const payments = row.payments ?? []
   const payment = [...payments].sort(
     (first, second) => getPaymentCreatedAt(second) - getPaymentCreatedAt(first)
@@ -43,8 +44,9 @@ function mapBilling(row) {
     remark: row.remark ?? null,
     invoice_type: row.billing_type,
     amount: Number(row.total_amount ?? 0),
-    engagement_id: links[0]?.engagement_id ?? null,
-    engagement_ids: links.map((link) => link.engagement_id),
+    engagement_id: allLinks[0]?.engagement_id ?? null,
+    engagement_ids: allLinks.map((link) => link.engagement_id),
+    active_engagement_ids: activeLinks.map((link) => link.engagement_id),
     payment_method: payment?.payment_method ?? null,
     payment_proof_url: payment?.payment_proofs?.length
       ? `${apiBaseUrl}/payments/${payment.payment_id}/proof`
