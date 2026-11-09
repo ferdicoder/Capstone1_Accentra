@@ -30,7 +30,6 @@ import {
   useReviewEngagementTask,
   useCreateEngagementTask,
   useUpdateEngagementTask,
-  useUpdateEngagementTaskDeadline,
   useFetchEngagementActivity,
   useFetchEngagementDocuments,
   useFetchEngagementDeliverables,
@@ -83,7 +82,6 @@ export default function EngagementDetailsPage() {
 
   const createTask = useCreateEngagementTask(id)
   const updateTask = useUpdateEngagementTask(id)
-  const updateDeadline = useUpdateEngagementTaskDeadline(id)
   const uploadTaskReference = useUploadEngagementTaskReference(id)
   const deleteTaskReference = useDeleteEngagementTaskReference(id)
   const updateEngagementDetails = useUpdateEngagementDetails()
@@ -113,6 +111,11 @@ export default function EngagementDetailsPage() {
   const isTerminalEngagement =
     engagement.status === "completed" || engagement.status === "cancelled"
   const canCancelEngagement = hasCancelPermission && !isTerminalEngagement
+  // Red only while the engagement is still open and past its due date.
+  const isOverdue =
+    !isTerminalEngagement &&
+    Boolean(engagement.targetEndDate) &&
+    String(engagement.targetEndDate).slice(0, 10) < new Date().toLocaleDateString("en-CA")
 
   const showNotice = (message, isError = false) => {
     setNotice(message)
@@ -241,10 +244,6 @@ export default function EngagementDetailsPage() {
     return updated
   }
 
-  const handleDeadlineChange = (taskId, dueDate) => {
-    updateDeadline.mutate({ taskId, dueDate })
-  }
-
   // Resolves true on success so the dialog leaves edit mode; false lets it
   // stay open with the mutation's error shown.
   const handleSaveEngagementDetails = async ({
@@ -331,7 +330,7 @@ export default function EngagementDetailsPage() {
               <EngagementStatusBadge status={engagement.status} />
             </div>
             <p className="text-sm text-muted-foreground">
-              Due <span className="font-semibold text-red-600">{formatDate(engagement.targetEndDate)}</span>
+              Due <span className={cn("font-semibold", isOverdue ? "text-red-600" : "text-foreground")}>{formatDate(engagement.targetEndDate)}</span>
             </p>
           </div>
 
@@ -458,7 +457,6 @@ export default function EngagementDetailsPage() {
               onTaskReview={handleTaskReview}
               onTaskCreate={handleTaskCreate}
               onTaskUpdate={handleTaskUpdate}
-              onDeadlineChange={handleDeadlineChange}
             />
           </div>
 
@@ -488,7 +486,7 @@ export default function EngagementDetailsPage() {
         {activeTab === "documents" && (
           canViewDocuments ? (
             <EngagementDocumentReviewTab
-              engagement={engagement}
+              engagementStatus={engagement.status}
               documents={reviewableDocuments}
               history={reviewHistory}
               onReview={handleDocumentReview}

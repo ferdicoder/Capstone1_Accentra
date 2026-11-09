@@ -259,6 +259,7 @@ export function EngagementDocumentReviewTab({
   onReview,
   className,
   preselectedDocName,
+  preselectedDocId, // open on this document (e.g. from a task's "Review Document")
   engagementStatus, // optional: "completed" | "cancelled" | ... (shows an info note only)
   ...props
 }) {
@@ -270,6 +271,8 @@ export function EngagementDocumentReviewTab({
   }))
 
   const [selectedId, setSelectedId] = useState(() => {
+    const byId = preselectedDocId && providedDocuments.find((d) => d.id === preselectedDocId)
+    if (byId) return byId.id
     const byName = preselectedDocName && providedDocuments.find((d) => d.name === preselectedDocName)
     if (byName) return byName.id
     const firstPending = providedDocuments.find((d) => needsReview(d))

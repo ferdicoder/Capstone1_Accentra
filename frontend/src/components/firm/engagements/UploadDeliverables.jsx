@@ -214,7 +214,7 @@ export function UploadDeliverables({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-3">
           <h3 className="text-sm font-semibold text-foreground">
-            {hasDocuments ? "Deliverables" : "Upload Deliverables"}
+            {hasDocuments || disabled ? "Deliverables" : "Upload Deliverables"}
           </h3>
           <div className="flex items-center gap-3">
             {hasDocuments && (
@@ -226,28 +226,26 @@ export function UploadDeliverables({
                 See All
               </button>
             )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className={cn(
-                "size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground",
-                disabled && "opacity-50"
-              )}
-              onClick={openUploadDialog}
-              aria-disabled={disabled}
-              title={disabled ? "Completed or cancelled engagements cannot accept deliverables" : "Upload deliverables"}
-              aria-label="Upload deliverables"
-            >
-              <Upload className="size-4" />
-            </Button>
+            {!disabled && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
+                onClick={openUploadDialog}
+                title="Upload deliverables"
+                aria-label="Upload deliverables"
+              >
+                <Upload className="size-4" />
+              </Button>
+            )}
           </div>
         </div>
 
         {/* Content */}
         {!hasDocuments && !isUploading ? (
           /* Empty state */
-          <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+          <div className={cn("flex flex-col items-center justify-center gap-2 px-6 text-center", disabled ? "py-4" : "py-10")}>
             <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
               <FileText className="size-4" />
             </div>
