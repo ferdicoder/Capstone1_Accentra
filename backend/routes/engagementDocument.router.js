@@ -10,6 +10,7 @@ import {
   uploadEngagementTaskReference,
   downloadEngagementTaskReference,
   deleteEngagementTaskReference,
+  copyTemplateReferencesToEngagement,
 } from '../controllers/engagementDocument.controller.js';
 import { multerUpload } from '../middlewares/multerUpload.js';
 import { authUser } from '../middlewares/authUser.js';
@@ -34,6 +35,14 @@ engagementDocumentRouter
     authUser,
     requireRole('admin', 'staff'),
     deleteEngagementDeliverable
+  )
+  // Fills a freshly created engagement's task guides from the service
+  // template — the create_engagement RPCs copy task rows but not files.
+  .post(
+    '/engagement/:engagementId/template-references',
+    authUser,
+    requireRole('admin', 'staff'),
+    copyTemplateReferencesToEngagement
   )
   // Firm-provided reference files for engagement tasks — registered before the
   // generic /:docId routes so "reference" never gets treated as a doc id.

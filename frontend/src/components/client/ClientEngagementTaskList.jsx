@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  Eye,
   FileText,
   Inbox,
   Info,
@@ -525,6 +526,15 @@ function TaskRow({
             >
               <FileText className="size-3.5 shrink-0" />
               <span className="truncate">Guide: {task.referenceDocument.name}</span>
+            </button>
+            <button
+              type="button"
+              title="Preview guide file"
+              aria-label={`Preview guide for ${task.name}`}
+              onClick={onPreviewReference}
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Eye className="size-3.5" />
             </button>
             <a
               href={task.referenceDocument.downloadUrl}

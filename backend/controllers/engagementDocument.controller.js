@@ -473,3 +473,142 @@ export async function deleteEngagementTaskReference(req, res) {
     return res.status(500).json({ error: 'Could not delete reference document' });
   }
 }
+
+// Task titles are copied verbatim by the create_engagement RPCs, so a
+// normalized comparison pairs engagement tasks back to their template tasks.
+function normalizeTaskTitle(title) {
+  return String(title ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+// The create_engagement / create_standalone_engagement RPCs copy task rows
+// (including has_reference) from the service template but cannot touch B2, so
+// the guide files are copied in here afterwards: template doc → new B2 object
+// under engagement-references/… → new `files` row → engagement_task_references.
+// A full copy (rather than sharing the template's file_id) keeps service
+// delete/update and engagement-reference delete lifecycles independent.
+// Idempotent: tasks that already have a reference are skipped.
+export async function copyTemplateReferencesToEngagement(req, res) {
+  const { engagementId } = req.params;
+
+  let engagement;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('engagements')
+      .select('engagement_id, service_id')
+      .eq('engagement_id', engagementId)
+      .maybeSingle();
+    if (error) throw error;
+    engagement = data;
+  } catch (err) {
+    console.error('Engagement lookup failed:', err);
+    return res.status(500).json({ error: 'Could not verify engagement' });
+  }
+  if (!engagement) return res.status(404).json({ error: 'Engagement not found' });
+  if (!engagement.service_id) return res.json({ copied: 0, skipped: 0, failed: [] });
+
+  try {
+    const { data: templateTasks, error: templateError } = await supabaseAdmin
+      .from('template_tasks')
+      .select(
+        `template_id, title,
+         template_task_documents(file_id, files(file_name, mime_type, storage_key, file_size, created_at))`
+      )
+      .eq('service_id', engagement.service_id);
+    if (templateError) throw templateError;
+
+    const { data: engagementTasks, error: tasksError } = await supabaseAdmin
+      .from('engagement_tasks')
+      .select('engagement_task_id, title, has_reference')
+      .eq('engagement_id', engagementId);
+    if (tasksError) throw tasksError;
+
+    // One doc per template task (the newest, matching what the service UI
+    // shows), then pair engagement tasks back to them by title.
+    const templateDocs = (templateTasks ?? []).flatMap((task) => {
+      const doc = latestFileFirst(task.template_task_documents)[0];
+      if (!doc?.files) return [];
+      return [{ templateTaskId: task.template_id, title: task.title, file: doc.files }];
+    });
+
+    const referenceTasks = (engagementTasks ?? []).filter((task) => task.has_reference);
+    const taskIds = (engagementTasks ?? []).map((task) => task.engagement_task_id);
+    const { data: existingRefs, error: refsError } = taskIds.length
+      ? await supabaseAdmin
+          .from('engagement_task_references')
+          .select('engagement_task_id')
+          .in('engagement_task_id', taskIds)
+      : { data: [] };
+    if (refsError) throw refsError;
+    const existingTaskIds = new Set((existingRefs ?? []).map((ref) => ref.engagement_task_id));
+
+    const needsCopy = referenceTasks.filter((task) => !existingTaskIds.has(task.engagement_task_id));
+
+    const docsByTitle = new Map();
+    for (const doc of templateDocs) {
+      const key = normalizeTaskTitle(doc.title);
+      if (!docsByTitle.has(key)) docsByTitle.set(key, []);
+      docsByTitle.get(key).push(doc);
+    }
+
+    const usedTemplateIds = new Set();
+    const pairs = [];
+    for (const task of needsCopy) {
+      const queue = docsByTitle.get(normalizeTaskTitle(task.title)) ?? [];
+      const doc = queue.find((candidate) => !usedTemplateIds.has(candidate.templateTaskId));
+      if (doc) {
+        usedTemplateIds.add(doc.templateTaskId);
+        pairs.push([task, doc]);
+      }
+    }
+    // Positional fallback for titles that no longer match exactly.
+    const unmatched = needsCopy.filter((task) => !pairs.some(([paired]) => paired === task));
+    const spareDocs = templateDocs.filter((doc) => !usedTemplateIds.has(doc.templateTaskId));
+    unmatched.forEach((task, index) => {
+      if (spareDocs[index]) pairs.push([task, spareDocs[index]]);
+    });
+
+    const summary = {
+      copied: 0,
+      skipped: referenceTasks.length - pairs.length,
+      failed: [],
+    };
+
+    // Sequential on purpose: a handful of small files, and it keeps B2/DB
+    // rollback logic simple per task.
+    for (const [task, doc] of pairs) {
+      const storageKey = `engagement-references/${task.engagement_task_id}/${Date.now()}-${doc.file.file_name}`;
+      let b2Result;
+      let fileId;
+      try {
+        const buffer = await downloadFile(doc.file.storage_key);
+        b2Result = await uploadFile(buffer, storageKey, doc.file.mime_type);
+
+        const file = await insertFileRow({
+          fileName: doc.file.file_name,
+          mimeType: doc.file.mime_type,
+          storageKey,
+          b2FileId: b2Result.fileId,
+          fileSize: doc.file.file_size ?? buffer.length,
+          uploadedBy: req.user?.id,
+        });
+        fileId = file.file_id;
+
+        const { error } = await supabaseAdmin
+          .from('engagement_task_references')
+          .insert({ file_id: fileId, engagement_task_id: task.engagement_task_id });
+        if (error) throw error;
+
+        summary.copied += 1;
+      } catch (err) {
+        console.error(`Template reference copy failed for task "${task.title}":`, err);
+        await rollbackUpload({ fileId, storageKey, b2FileId: b2Result?.fileId });
+        summary.failed.push(task.title);
+      }
+    }
+
+    return res.json(summary);
+  } catch (err) {
+    console.error('Template reference copy failed:', err);
+    return res.status(500).json({ error: 'Could not copy template reference documents' });
+  }
+}

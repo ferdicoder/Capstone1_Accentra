@@ -1,5 +1,6 @@
 import { supabase } from "@/config/supabase"
 import { apiBaseUrl } from "@/config/api"
+import { copyTemplateReferences } from "./documentAPI"
 
 // Latest firm-provided guide file attached to an engagement task. Stored like
 // template_task_documents (junction row linking to the shared `files` table —
@@ -158,6 +159,7 @@ export async function createEngagementFromRequest({ serviceRequestId, assignedSt
     p_fee: fee,
   })
   if (error) throw error
+  await fillTemplateReferences(engagementId)
   return getEngagement(engagementId)
 }
 
@@ -178,7 +180,20 @@ export async function createStandaloneEngagement({
     p_fee: fee,
   })
   if (error) throw error
+  await fillTemplateReferences(engagementId)
   return getEngagement(engagementId)
+}
+
+// The create_* RPCs copy task rows from the service template but not their
+// reference files — copy those in before fetching so the returned engagement
+// already carries them. Best-effort: a copy failure never fails an engagement
+// that already exists (staff can re-upload the guide manually).
+async function fillTemplateReferences(engagementId) {
+  try {
+    await copyTemplateReferences(engagementId)
+  } catch (err) {
+    console.error("Template reference documents could not be copied:", err)
+  }
 }
 
 export async function updateEngagementStatus({ id, status }) {

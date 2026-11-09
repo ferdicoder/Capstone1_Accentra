@@ -449,7 +449,7 @@ function TaskDetailDialog({
 
 // ── Task Row ──────────────────────────────────────────────────────────────────
 
-function TaskRow({ task, fileCount, isTerminal, onOpen }) {
+function TaskRow({ task, fileCount, isTerminal, onOpen, onPreviewReference }) {
   const overdue =
     Boolean(task.deadline) && isTaskDeadlineInPast(task.deadline) && task.status !== "approved" && !isTerminal
 
@@ -458,6 +458,13 @@ function TaskRow({ task, fileCount, isTerminal, onOpen }) {
       event.preventDefault()
       onOpen()
     }
+  }
+
+  // Previewing the guide must not also open the task detail dialog (the row
+  // itself is clickable).
+  const handlePreviewReference = (event) => {
+    event.stopPropagation()
+    onPreviewReference?.()
   }
 
   return (
@@ -476,10 +483,17 @@ function TaskRow({ task, fileCount, isTerminal, onOpen }) {
             {task.required && <span className="ml-1 text-xs font-semibold text-red-500">*</span>}
           </span>
           {task.referenceDocument && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <button
+              type="button"
+              title="Preview guide file"
+              aria-label={`Preview guide for ${task.name}`}
+              onClick={handlePreviewReference}
+              className="inline-flex items-center gap-1 rounded-md border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
               <FileText className="size-3" />
               Guide
-            </span>
+              <Eye className="size-3" />
+            </button>
           )}
           {fileCount > 0 && (
             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
@@ -710,6 +724,7 @@ export function TaskList({
                   fileCount={task.hasReferenceDocument ? (documentsByTask[task.id]?.length ?? 0) : 0}
                   isTerminal={isTerminalEngagement}
                   onOpen={() => setDetailTaskId(task.id)}
+                  onPreviewReference={() => openReferencePreview(task)}
                 />
               ))}
             </tbody>
