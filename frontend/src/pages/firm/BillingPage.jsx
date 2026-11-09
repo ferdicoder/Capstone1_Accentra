@@ -10,7 +10,7 @@ import { BillingSummaryCards } from "@/components/firm/billing/billing-summary-c
 import { buildBillingSummaryItems } from "@/components/firm/billing/billing-utils"
 import { CreateBillingDialog } from "@/components/firm/billing/create-billing-dialog"
 import { VerifyPaymentDialog } from "@/components/firm/billing/verify-payment-dialog"
-import { isVerifiable } from "@/components/firm/billing/billing-variants"
+import { billingDisplayId, isVerifiable } from "@/components/firm/billing/billing-variants"
 import { useFetchBillings, useCreateBilling, useUpdatePaymentStatus } from "@/hooks/useBillings"
 import { useFetchEngagements } from "@/hooks/useEngagements"
 import { useFetchBusinesses } from "@/hooks/useBusinesses"
@@ -104,7 +104,11 @@ export default function BillingPage() {
         queryWords.every((word) => name.includes(word))
       )
 
-      return billing.id?.toLowerCase().includes(query) || matchesClientName
+      return (
+        billing.billingCode?.toLowerCase().includes(query) ||
+        billing.id?.toLowerCase().includes(query) ||
+        matchesClientName
+      )
     })
   }, [
     billings,
@@ -123,7 +127,7 @@ export default function BillingPage() {
 
   const handleCreate = (values) => {
     createBilling.mutate({ ...values, engagements }, {
-      onSuccess: (record) => { setCreateOpen(false); showNotice(`${record.id} created`) },
+      onSuccess: (record) => { setCreateOpen(false); showNotice(`${billingDisplayId(record)} created`) },
       onError: (err) => showNotice(err.message),
     })
   }
@@ -137,7 +141,7 @@ export default function BillingPage() {
     const paymentId = verifying.payment_id ?? verifying.payments?.[0]?.payment_id
     if (!paymentId) return showNotice("No payment was found for this billing.")
     updatePayment.mutate({ paymentId, billingId: verifying.id, status: "verified" }, {
-      onSuccess: () => { showNotice(`${verifying.id} payment verified`); setVerifying(null) },
+      onSuccess: () => { showNotice(`${billingDisplayId(verifying)} payment verified`); setVerifying(null) },
       onError: (err) => showNotice(err.message),
     })
   }
@@ -156,7 +160,7 @@ export default function BillingPage() {
       {
         onSuccess: () => {
           setVerifying(null)
-          showNotice(`${verifying.id} payment rejected. Reason: ${remarks}`)
+          showNotice(`${billingDisplayId(verifying)} payment rejected. Reason: ${remarks}`)
         },
         onError: (err) => showNotice(err.message),
       }

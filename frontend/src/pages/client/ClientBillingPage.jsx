@@ -28,7 +28,7 @@ import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchBusinessBillings } from "@/hooks/useBillings"
 import { NoBusinessBanner } from "@/components/client/NoBusinessBanner"
 import { authStore } from "@/store/authStore"
-import { billingStatusLabels } from "@/components/firm/billing/billing-variants"
+import { billingDisplayId, billingStatusLabels } from "@/components/firm/billing/billing-variants"
 import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
 
 const statusFilters = [
@@ -83,7 +83,7 @@ export default function ClientBillingPage() {
   const filteredInvoices = invoices.filter((invoice) => {
     const query = search.trim().toLowerCase()
     const matchesFilter = !activeFilter || invoice.status === activeFilter
-    const matchesSearch = [invoice.id, invoice.engagement_id, invoice.billing_type]
+    const matchesSearch = [invoice.billingCode, invoice.id, invoice.engagement_id, invoice.billing_type]
       .filter(Boolean).some((value) => String(value).toLowerCase().includes(query))
     return matchesFilter && matchesSearch
   })
@@ -257,7 +257,7 @@ export default function ClientBillingPage() {
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">
-                    {invoice.id}
+                    {billingDisplayId(invoice)}
                   </p>
                   <p className="mt-1 truncate text-xs text-muted-foreground">
                     {invoice.billing_type}

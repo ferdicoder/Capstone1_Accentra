@@ -23,6 +23,7 @@ import { useFetchMyEngagements } from "@/hooks/useEngagements"
 import { useFetchBusinessBillings } from "@/hooks/useBillings"
 import { authStore } from "@/store/authStore"
 import { classifyInvoice, getDueDate } from "@/lib/billing-status"
+import { billingDisplayId } from "@/components/firm/billing/billing-variants"
 import { billingTypeLabel, isEngagementActive, stageLabel, stageTone } from "@/lib/vocab"
 import {
   describeDueDate,
@@ -366,7 +367,7 @@ export default function ClientDashboard() {
                   <ListRowLink
                     key={invoice.id}
                     to={`/client/billing/${invoice.id}`}
-                    title={type ? billingTypeLabel(type) : invoice.id}
+                    title={type ? billingTypeLabel(type) : billingDisplayId(invoice)}
                     subtitle={
                       kind === "review"
                         ? "Payment proof submitted"

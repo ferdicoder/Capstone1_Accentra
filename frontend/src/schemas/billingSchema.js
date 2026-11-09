@@ -25,7 +25,6 @@ export const paymentInformationSchema = z
 
 export const clientPaymentProofSchema = z.object({
   paymentMethod: z.enum(["gcash", "bank_transfer"]),
-  referenceId: requiredText("Enter your payment reference."),
   proofFile: z
     .custom((file) => typeof File !== "undefined" && file instanceof File, "Upload your proof of payment.")
     .refine(

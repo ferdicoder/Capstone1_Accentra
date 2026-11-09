@@ -19,6 +19,7 @@ import { ClientEngagementHistory } from "@/components/firm/clients/client-engage
 import { FirmUserStatusDialog } from "@/components/firm/users/firm-user-status-dialog"
 import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
 import {
+  billingDisplayId,
   formatPeso,
   invoiceTypeLabels,
   paymentMethodLabels,
@@ -319,7 +320,6 @@ export default function ClientDetailPage() {
                     <th className="px-3 py-2 font-semibold">Payment Date</th>
                     <th className="px-3 py-2 font-semibold">Amount</th>
                     <th className="px-3 py-2 font-semibold">Payment Method</th>
-                    <th className="px-3 py-2 font-semibold">Reference ID</th>
                     <th className="px-3 py-2 font-semibold">Payment Status</th>
                   </tr>
                 </thead>
@@ -337,7 +337,7 @@ export default function ClientDetailPage() {
                       className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-muted/40"
                       onClick={() => navigate(`${basePath}/billing/${billing.id}`)}
                     >
-                      <td className="px-3 py-3 font-medium text-foreground">{billing.id}</td>
+                      <td className="px-3 py-3 font-medium text-foreground">{billingDisplayId(billing)}</td>
                       <td className="px-3 py-3">
                         {invoiceTypeLabels[billing.invoice_type] ?? billing.invoice_type}
                       </td>
@@ -352,7 +352,6 @@ export default function ClientDetailPage() {
                           payment?.payment_method ??
                           "—"}
                       </td>
-                      <td className="px-3 py-3">{payment?.reference_id ?? "—"}</td>
                       <td className="px-3 py-3">
                         {billing.status ? (
                           <BillingStatusBadge status={billing.status} />

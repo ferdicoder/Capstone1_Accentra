@@ -26,6 +26,7 @@ import { useFetchBusinesses } from "@/hooks/useBusinesses"
 import { VerifyPaymentDialog } from "@/components/firm/billing/verify-payment-dialog"
 import { RejectPaymentDialog } from "@/components/firm/billing/reject-payment-dialog"
 import {
+  billingDisplayId,
   formatPeso,
   invoiceTypeLabels,
 } from "@/components/firm/billing/billing-variants"
@@ -90,7 +91,7 @@ const isTrackedStatus = (billing) =>
   !CLOSED_STATUSES.includes(billing.status)
 
 const getPendingPayment = (billing) =>
-  billing.payments?.find((payment) => payment.reference_id) ?? null
+  billing.payments?.[0] ?? null
 
 // A bill is "under review" only when a payment was actually submitted.
 // NOT when status === "pending", because "pending" also means "unpaid".
@@ -143,10 +144,10 @@ function buildEvents({ billings, engagements, clients, today }) {
       title = `Service Fee — ${serviceName}`
     }
 
-    const reference = billing.payment_reference || billing.id
     const serviceGroup = isRetainer
       ? "Retainer fees"
       : (serviceName ?? "Other services")
+    const reference = billingDisplayId(billing)
     const paidDate = isPaid
       ? parseDate(billing.paid_at ?? billing.payment_date)
       : null
@@ -483,11 +484,9 @@ export default function BillingOfficerCalendarPage() {
     setTimeout(() => setNotice(""), 3000)
   }
 
-  // VerifyPaymentDialog's onConfirm signature: (paymentMethod, referenceId).
-  const handleConfirmVerification = (paymentMethod, referenceId) => {
+  const handleConfirmVerification = (paymentMethod) => {
     const billing = verifyingEvent?.billing
     if (!billing || !paymentMethod) return
-    if (paymentMethod !== "cash" && !referenceId) return
 
     const payment = getPendingPayment(billing)
     if (!payment) {
@@ -500,13 +499,12 @@ export default function BillingOfficerCalendarPage() {
         paymentId: payment.payment_id,
         billingId: billing.id,
         status: "verified",
-        referenceId,
       },
       {
         onSuccess: () => {
           setVerifyingEvent(null)
           setSelectedEvent(null)
-          showNotice(`${billing.id} payment verified`)
+          showNotice(`${billingDisplayId(billing)} payment verified`)
           refetch?.()
         },
         onError: (err) => showNotice(err.message),
@@ -537,7 +535,7 @@ export default function BillingOfficerCalendarPage() {
         onSuccess: () => {
           setRejectingEvent(null)
           setSelectedEvent(null)
-          showNotice(`${billing.id} payment rejected. Reason: ${remarks}`)
+          showNotice(`${billingDisplayId(billing)} payment rejected. Reason: ${remarks}`)
           refetch?.()
         },
         onError: (err) => showNotice(err.message),

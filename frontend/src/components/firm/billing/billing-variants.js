@@ -32,6 +32,7 @@ const billingStatusAliases = {
   "revision requested": "for resubmission",
   unpaid: "pending",
   issued: "pending",
+  canceled: "cancelled",
 }
 
 export const normalizeBillingStatus = (status) => {
@@ -108,3 +109,7 @@ export const formatPeso = (amount) => {
 /** A payment can only be verified when it is awaiting review and has a reference. */
 export const isVerifiable = (billing) =>
   billing?.status === "for verification"
+
+/** Human-facing billing identifier: BILL-YYYY-NNNNNN, UUID fallback for old rows. */
+export const billingDisplayId = (billing) =>
+  billing?.billingCode ?? billing?.id ?? "—"

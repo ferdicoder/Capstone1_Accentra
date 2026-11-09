@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { billingTypeLabel } from "@/lib/vocab"
+import { billingDisplayId } from "@/components/firm/billing/billing-variants"
 import { describeDueDate, formatCurrency, parseDate, useToday } from "@/lib/date-utils"
 
 // Shown when a firm user creates an engagement for a client who has unpaid
@@ -54,7 +55,7 @@ export function UnpaidBillsConfirmDialog({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
                     {billingTypeLabel(bill.invoice_type ?? bill.billing_type)}{" "}
-                    <span className="text-muted-foreground">· {bill.id}</span>
+                    <span className="text-muted-foreground">· {billingDisplayId(bill)}</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {due ? describeDueDate(due, today) : "No due date set"}

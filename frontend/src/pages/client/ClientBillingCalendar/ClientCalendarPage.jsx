@@ -54,7 +54,7 @@ const UPLOAD_TASK_STATUSES = ["missing", "for_revision"]
 const CLOSED_ENGAGEMENT_STATUSES = ["completed", "cancelled"]
 
 const getPendingPayment = (billing) =>
-  billing.payments?.find((payment) => payment.reference_id) ?? null
+  billing.payments?.[0] ?? null
 
 function buildEvents({ billings, engagements, today }) {
   const events = []

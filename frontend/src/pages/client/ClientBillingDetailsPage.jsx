@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
+import { billingDisplayId } from "@/components/firm/billing/billing-variants"
 import {
   FileDropzone,
   FilePreviewDialog,
@@ -81,14 +82,12 @@ export default function ClientBillingDetailPage() {
 
   const [proofFile, setProofFile] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState("gcash")
-  const [referenceId, setReferenceId] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   // True when the proof of payment is the field that is missing / invalid.
   // Drives the red outline and the auto-locate scroll.
   const [proofInvalid, setProofInvalid] = useState(false)
-  const [referenceInvalid, setReferenceInvalid] = useState(false)
   // Which file the shared preview dialog is showing (null = closed).
   const [previewFile, setPreviewFile] = useState(null)
 
@@ -107,7 +106,7 @@ export default function ClientBillingDetailPage() {
   const typeLabel = billingTypeLabel(invoice?.billing_type ?? invoice?.invoice_type)
 
   usePageMeta({
-    title: invoice?.id ?? "Billing Details",
+    title: invoice ? billingDisplayId(invoice) : "Billing Details",
     breadcrumbs: [
       { label: "Home", href: "/client/dashboard" },
       { label: "My Billing", href: "/client/billing" },
@@ -120,7 +119,6 @@ export default function ClientBillingDetailPage() {
   const clearErrors = () => {
     setError("")
     setProofInvalid(false)
-    setReferenceInvalid(false)
   }
 
   // The shared <FileDropzone /> already checked the file type and the 5 MB
@@ -139,20 +137,16 @@ export default function ClientBillingDetailPage() {
 
     if (!canSubmitPayment) return
 
-    const cleanReference = referenceId.trim()
     const validationErrors = getZodFieldErrors(clientPaymentProofSchema, {
       paymentMethod,
-      referenceId: cleanReference,
       proofFile,
     })
     if (Object.keys(validationErrors).length > 0) {
       setError(
         validationErrors.proofFile ??
-          validationErrors.referenceId ??
           validationErrors.paymentMethod
       )
       setProofInvalid(Boolean(validationErrors.proofFile))
-      setReferenceInvalid(Boolean(validationErrors.referenceId))
       scrollToFirstInvalidField(form)
       return
     }
@@ -166,12 +160,10 @@ export default function ClientBillingDetailPage() {
         billingId: invoice.id,
         paymentMethod,
         uploadedBy: user?.id,
-        referenceId: cleanReference,
       })
       setSuccess("Payment submitted for verification.")
       // Clear the form so the same proof can't be submitted twice by accident.
       setProofFile(null)
-      setReferenceId("")
     } catch (err) {
       setError(err?.message ?? "Unable to submit your payment.")
     } finally {
@@ -231,7 +223,7 @@ export default function ClientBillingDetailPage() {
             Invoice Details
           </p>
           <h1 className="mt-1 text-xl font-semibold">
-            {invoice.id}
+            {billingDisplayId(invoice)}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {typeLabel}
@@ -411,27 +403,6 @@ export default function ClientBillingDetailPage() {
                 </div>
 
                 {/* data-invalid-field is what scrollToFirstInvalidField looks for. */}
-                <div className="space-y-1.5 rounded-lg">
-                  <label htmlFor="client-payment-reference" className="text-sm font-medium">
-                    Payment Reference
-                    <span className="ml-0.5 text-red-500">*</span>
-                  </label>
-                  <input
-                    id="client-payment-reference"
-                    value={referenceId}
-                    onChange={(event) => {
-                      setReferenceId(event.target.value)
-                      if (referenceInvalid) setReferenceInvalid(false)
-                    }}
-                    aria-invalid={referenceInvalid || undefined}
-                    data-invalid-field={referenceInvalid ? "true" : undefined}
-                    placeholder="Enter your payment reference"
-                    disabled={isSubmitting}
-                    className={cn(inputClass, referenceInvalid && "border-red-500")}
-                    required
-                  />
-                </div>
-
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">
                     Proof of Payment
@@ -505,7 +476,7 @@ export default function ClientBillingDetailPage() {
         open={Boolean(previewFile)}
         onOpenChange={(open) => !open && setPreviewFile(null)}
         files={previewFile ? [previewFile] : []}
-        subtitle={`Payment proof for ${invoice.id}`}
+        subtitle={`Payment proof for ${billingDisplayId(invoice)}`}
         allowDownload={Boolean(previewFile?.downloadUrl)}
       />
     </div>
