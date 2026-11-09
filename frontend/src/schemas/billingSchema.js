@@ -35,17 +35,33 @@ export const clientPaymentProofSchema = z.object({
     .refine((file) => Boolean(file) && file.size <= 5 * 1024 * 1024, "The file must be 5 MB or smaller."),
 })
 
-export const billingSchema = z.object({
-  clientId: requiredText("Select a client."),
-  invoiceType: z.enum(["service_fee", "retainer_fee"], {
-    error: "Select an invoice type.",
-  }),
-  amount: z.number().finite().positive("Amount must be greater than zero."),
-  dueDate: z.string().date("Enter a valid due date."),
-  engagementIds: z.array(z.string()).optional(),
-  billingMonth: z.number().int().min(1).max(12).optional(),
-  billingYear: z.number().int().min(1).optional(),
-})
+export const billingSchema = z
+  .object({
+    clientId: requiredText("Select a client."),
+    invoiceType: z.enum(["service_fee", "retainer_fee"], {
+      error: "Select an invoice type.",
+    }),
+    amount: z.number().finite().positive("Amount must be greater than zero."),
+    dueDate: z.string().date("Enter a valid due date."),
+    engagementIds: z.array(z.string()).optional(),
+    billingMonth: z.number().int().min(1).max(12).optional(),
+    billingYear: z.number().int().min(1).optional(),
+  })
+  .superRefine((values, context) => {
+    // Retainer Fee: billing period is required, engagements are optional.
+    if (values.invoiceType === "retainer_fee") {
+      if (!values.billingMonth) {
+        context.addIssue({ code: "custom", path: ["billingMonth"], message: "Select a billing month." })
+      }
+      if (!values.billingYear) {
+        context.addIssue({ code: "custom", path: ["billingYear"], message: "Select a billing year." })
+      }
+    }
+    // Service Fee: at least one engagement is required.
+    if (values.invoiceType === "service_fee" && !values.engagementIds?.length) {
+      context.addIssue({ code: "custom", path: ["engagementIds"], message: "Select at least one engagement." })
+    }
+  })
 
 export const rejectionRemarksSchema = z.object({
   remarks: requiredText("Please enter a reason for rejection.").max(
@@ -53,4 +69,3 @@ export const rejectionRemarksSchema = z.object({
     "Remarks must be 1000 characters or fewer."
   ),
 })
-  

@@ -4,6 +4,7 @@ import { normalizeBillingStatus } from "@/components/firm/billing/billing-varian
 
 const BILLING_SELECT = `
   billing_id, business_id, billing_type, total_amount, status, remark, due_date,
+  billing_month, billing_year,
   billing_engagements(billing_id, engagement_id, amount, service_name),
   payments(
     payment_id, billing_id, amount, payment_method, reference_id,
@@ -52,8 +53,8 @@ function mapBilling(row) {
     payment_proof_size: getLatestPaymentDocument(payment)?.file_size ?? null,
     payment_reference: payment?.reference_id ?? null,
     payment_id: payment?.payment_id ?? null,
-    billing_month: null,
-    billing_year: null,
+    billing_month: row.billing_month ?? null,
+    billing_year: row.billing_year ?? null,
   }
 }
 
@@ -89,9 +90,31 @@ export async function getBusinessBillings(businessId) {
   return (data ?? []).map(mapBilling)
 }
 
-export async function createBilling({ invoice_type, amount, due_date, client_id, engagement_ids = [], engagement_amounts = {}, engagements = [] }) {
-  if (engagement_ids.length === 0) {
-    throw new Error("At least one engagement is required to create billing.")
+export async function createBilling({
+  invoice_type,
+  amount,
+  due_date,
+  client_id,
+  billing_month = null,
+  billing_year = null,
+  engagement_ids = [],
+  engagement_amounts = {},
+  engagements = [],
+}) {
+  const isRetainer = invoice_type === "retainer_fee"
+  const isServiceFee = invoice_type === "service_fee"
+
+  if (!isRetainer && !isServiceFee) {
+    throw new Error("Invalid billing type.")
+  }
+
+  // Service Fee needs engagements; Retainer Fee does not (they are only
+  // for traceability and never change the amount).
+  if (isServiceFee && engagement_ids.length === 0) {
+    throw new Error("At least one engagement is required for a service fee billing.")
+  }
+  if (isRetainer && (!client_id || !billing_month || !billing_year)) {
+    throw new Error("Retainer fee billing requires a client and a billing period.")
   }
 
   const selectedEngagements = engagement_ids.map((engagementId) =>
@@ -101,43 +124,54 @@ export async function createBilling({ invoice_type, amount, due_date, client_id,
     throw new Error("Billing can only be created for completed engagements.")
   }
 
-  const businessId = engagements.find((engagement) =>
-    engagement_ids.includes(engagement.id)
-  )?.business?.id || client_id
+  const businessId = isRetainer
+    ? client_id
+    : selectedEngagements[0]?.business?.id || client_id
 
   if (!businessId) throw new Error("A business is required to create billing.")
 
-  const { data: billing, error } = await supabase.from("billings")
+  const { data: billing, error } = await supabase
+    .from("billings")
     .insert({
       business_id: businessId,
       billing_type: invoice_type,
       total_amount: amount,
       due_date,
       status: "pending",
+      billing_month: isRetainer ? Number(billing_month) : null,
+      billing_year: isRetainer ? Number(billing_year) : null,
     })
-    .select("billing_id").single()
+    .select("billing_id")
+    .single()
 
-  if (error) throw error
+  if (error) {
+    // 23505 = unique violation from uniq_retainer_per_month
+    if (error.code === "23505") {
+      throw new Error("A retainer fee billing already exists for this client and period.")
+    }
+    throw error
+  }
 
-  const rows = engagement_ids.map((engagementId) => {
-    const engagement = engagements.find((item) => item.id === engagementId)
-    return {
+  // Only link engagements when there are some (retainer bills may have none).
+  if (engagement_ids.length > 0) {
+    const rows = engagement_ids.map((engagementId, index) => ({
       billing_id: billing.billing_id,
       engagement_id: engagementId,
-      amount: Number(engagement_amounts[engagementId] ?? amount),
-      service_name: engagement?.serviceName ?? null,
-    }
-  })
-  if (rows.length) {
+      // Retainer: the bill amount is fixed, so don't give lines a value.
+      amount: isRetainer
+        ? 0
+        : Number(engagement_amounts[engagementId] ?? amount),
+      service_name: selectedEngagements[index]?.serviceName ?? null,
+    }))
     const { error: linkError } = await supabase.from("billing_engagements").insert(rows)
     if (linkError) {
       await supabase.from("billings").delete().eq("billing_id", billing.billing_id)
       throw new Error(`Billing created but engagement links failed; the billing was rolled back. ${linkError.message}`)
     }
   }
+
   return getBilling(billing.billing_id)
 }
-
 export async function updateBillingStatus({ id, status, remark }) {
   const update = { status }
   if (remark !== undefined) update.remark = remark
