@@ -15,25 +15,31 @@ import {
 } from "./service-request-variants"
 
 const defaultServiceRequestColumns = [
-  {
-    key: "client",
-    label: "Client",
-    render: (request) => (
+{
+  key: "client",
+  label: "Client",
+  render: (request) => {
+    const clientName = request?.client ? getClientFullName(request.client) : null
+    const businessName = request?.business?.businessName
+    const primaryName = clientName || businessName // fallback if client record is missing
+
+    return (
       <div className="flex items-center gap-3">
-        <ServiceRequestAvatar name={request?.business?.businessName} />
+        <ServiceRequestAvatar name={primaryName} />
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">
-            {request?.business?.businessName}
+            {primaryName}
           </p>
-          {request?.client && (
+          {clientName && businessName && (
             <p className="truncate text-xs text-muted-foreground">
-              {getClientFullName(request.client)}
+              {businessName}
             </p>
           )}
         </div>
       </div>
-    ),
+    )
   },
+},
   {
     key: "requestNumber",
     label: "Request No.",

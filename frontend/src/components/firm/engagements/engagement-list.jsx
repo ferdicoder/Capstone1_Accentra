@@ -22,27 +22,33 @@ const defaultEngagementColumns = [
       </span>
     ),
   },
-  {
-    key: "client",
-    label: "Client",
-    render: (engagement) => (
+ {
+  key: "client",
+  label: "Client",
+  render: (engagement) => {
+    const clientName = engagement?.client ? getClientFullName(engagement.client) : null
+    const businessName = engagement?.business?.businessName
+    const primaryName = clientName || businessName // fallback if client record is missing
+
+    return (
       <div className="flex items-center gap-3">
         <Avatar className="size-8 shrink-0">
-          <AvatarFallback className="text-xs">{getInitials(engagement?.business?.businessName)}</AvatarFallback>
+          <AvatarFallback className="text-xs">{getInitials(primaryName)}</AvatarFallback>
         </Avatar>
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">
-            {engagement?.business?.businessName}
+            {primaryName}
           </p>
-          {engagement?.client && (
+          {clientName && businessName && (
             <p className="truncate text-xs text-muted-foreground">
-              {getClientFullName(engagement.client)}
+              {businessName}
             </p>
           )}
         </div>
       </div>
-    ),
+    )
   },
+},
   {
     key: "serviceName",
     label: "Service",
