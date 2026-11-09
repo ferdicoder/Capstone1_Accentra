@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  Eye,
   FileText,
   Inbox,
   Info,
@@ -76,7 +77,10 @@ const lockedNotes = {
 }
 
 // File type rules (PDF/JPG/PNG) live in the shared <FileDropzone /> defaults.
-// The picker below passes maxSize={null}, so there is no size limit here.
+// Size rule: each file can be up to 15 MB. The shared <FileDropzone /> checks
+// it and shows a red warning under the box for any file that is too big.
+const MAX_FILE_SIZE = 15 * 1024 * 1024
+const MAX_FILE_SIZE_LABEL = "15 MB"
 
 // The backend takes one file per request, so files picked together are
 // uploaded one after another. Files saved this close together count as the
@@ -291,7 +295,9 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
                 This requirement is no longer open for uploads.
               </p>
             ) : (
-              <FileDropzone multiple maxSize={null} onSelect={setFiles} />
+              // Files over 15 MB are rejected here and a red warning shows
+              // under the box. Only the accepted files reach setFiles.
+              <FileDropzone multiple maxSize={MAX_FILE_SIZE} onSelect={setFiles} />
             )}
 
             <SelectedFileList
@@ -525,6 +531,15 @@ function TaskRow({
             >
               <FileText className="size-3.5 shrink-0" />
               <span className="truncate">Guide: {task.referenceDocument.name}</span>
+            </button>
+            <button
+              type="button"
+              title="Preview guide file"
+              aria-label={`Preview guide for ${task.name}`}
+              onClick={onPreviewReference}
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Eye className="size-3.5" />
             </button>
             <a
               href={task.referenceDocument.downloadUrl}
@@ -827,7 +842,7 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
             <span className="font-medium text-foreground">For Revision</span>. Requirements that are{" "}
             <span className="font-medium text-foreground">For Review</span> or{" "}
             <span className="font-medium text-foreground">Approved</span> are locked, so you can&rsquo;t
-            upload or replace files for them.
+            upload or replace files for them. Each file can be up to {MAX_FILE_SIZE_LABEL}.
           </p>
         </div>
       )}

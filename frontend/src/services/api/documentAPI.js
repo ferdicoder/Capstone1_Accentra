@@ -166,6 +166,24 @@ async function deleteEngagementTaskReferenceDocument(docId) {
   }
 }
 
+// Copies the service template's reference documents onto a freshly created
+// engagement's tasks — the create_engagement RPCs copy task rows but not files.
+async function copyTemplateReferences(engagementId) {
+  const token = await getAccessToken()
+  const response = await fetch(
+    `${apiBaseUrl}/documents/engagement/${engagementId}/template-references`,
+    {
+      method: "POST",
+      headers: authHeaders(token),
+    }
+  )
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.error || "Template reference copy failed")
+  }
+  return response.json()
+}
+
 export {
   uploadTemplateDocument,
   getEngagementDocuments,
@@ -176,4 +194,5 @@ export {
   deleteEngagementDeliverable,
   uploadEngagementTaskReferenceDocument,
   deleteEngagementTaskReferenceDocument,
+  copyTemplateReferences,
 }
