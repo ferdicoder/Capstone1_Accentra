@@ -9,7 +9,6 @@ import { BillingEngagementHistory } from "./billing-engagement-history"
 import {
   formatPeso,
   invoiceTypeLabels,
-  isVerifiable,
   paymentMethodLabels,
 } from "./billing-variants"
 
@@ -106,7 +105,6 @@ export function BillingDetailContent({
     )
   }
 
-  const verifiable = isVerifiable(billing)
   const isRetainerFee = billing.invoice_type === "retainer_fee"
 
   // Retainer bills carry the client directly; service fee bills take it
@@ -123,7 +121,10 @@ export function BillingDetailContent({
   const dueHint = getDueHint(billing)
   const paymentStatus = paymentStatusDisplay[billing.status]
 
-  const canVerify = Boolean(verifiable && onVerifyPayment)
+  // Verify is available at any stage except once the bill is paid or cancelled.
+  const canVerify = Boolean(
+    onVerifyPayment && !["paid", "cancelled"].includes(billing.status)
+  )
   const canCancelBill = Boolean(canCancel && onCancel)
   const hasActions = canVerify || canCancelBill
 

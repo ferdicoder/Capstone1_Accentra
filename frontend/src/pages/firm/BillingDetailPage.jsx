@@ -160,7 +160,10 @@ export default function BillingDetailPage() {
     }
 
     const paymentId = billing.payment_id ?? billing.payments?.[0]?.payment_id
-    if (!paymentId) return
+    if (!paymentId) {
+      setVerifyOpen(false)
+      return showNotice("No payment has been submitted for this billing yet.")
+    }
     updatePayment.mutate({ paymentId, billingId: billing.id, status: "verified", referenceId }, {
       onSuccess: () => { setNotice(`${billing.id} payment verified`); setVerifyOpen(false); setTimeout(() => setNotice(""), 3000) },
       onError: (err) => showNotice(err.message),
@@ -171,7 +174,10 @@ export default function BillingDetailPage() {
     if (!billing) return
 
     const paymentId = billing.payment_id ?? billing.payments?.[0]?.payment_id
-    if (!paymentId) return
+    if (!paymentId) {
+      setVerifyOpen(false)
+      return showNotice("No payment has been submitted for this billing yet.")
+    }
     updatePayment.mutate({ paymentId, billingId: billing.id, status: "rejected", remark: remarks }, {
       onSuccess: () => { setVerifyOpen(false); showNotice(`${billing.id} payment rejected. Reason: ${remarks}`) },
       onError: (err) => showNotice(err.message),
