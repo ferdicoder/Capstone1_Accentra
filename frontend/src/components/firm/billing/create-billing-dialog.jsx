@@ -39,6 +39,8 @@ const MONTHS = [
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = [CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1];
 
+const INACTIVE_BILLING_STATUSES = new Set(['cancelled', 'canceled', 'void', 'voided']);
+
 function isEngagementRetainerCovered(engagement) {
   return (
     Boolean(engagement?.isRetainerCovered) ||
@@ -47,9 +49,12 @@ function isEngagementRetainerCovered(engagement) {
   );
 }
 
-// Voided bills no longer count as existing bills.
 function isActiveBilling(billing) {
-  return billing.status !== 'voided';
+  const status = String(billing?.status ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+  return !INACTIVE_BILLING_STATUSES.has(status);
 }
 
 function getEngagementClientId(engagement) {

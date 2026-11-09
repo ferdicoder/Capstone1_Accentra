@@ -5,7 +5,7 @@ import { normalizeBillingStatus } from "@/components/firm/billing/billing-varian
 const BILLING_SELECT = `
   billing_id, business_id, billing_type, total_amount, status, remark, due_date,
   billing_month, billing_year,
-  billing_engagements(billing_id, engagement_id, amount, service_name),
+  billing_engagements(billing_id, engagement_id, amount, service_name, is_active),
   payments(
     payment_id, billing_id, amount, payment_method, reference_id,
     payment_proofs(file_id, files(file_name, mime_type, file_size, created_at))
@@ -31,7 +31,7 @@ function getLatestPaymentDocument(payment) {
 }
 
 function mapBilling(row) {
-  const links = row.billing_engagements ?? []
+  const links = (row.billing_engagements ?? []).filter((link) => link.is_active !== false)
   const payments = row.payments ?? []
   const payment = [...payments].sort(
     (first, second) => getPaymentCreatedAt(second) - getPaymentCreatedAt(first)
