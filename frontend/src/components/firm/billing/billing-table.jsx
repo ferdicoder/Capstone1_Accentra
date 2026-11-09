@@ -5,7 +5,7 @@ import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-foot
 import { Skeleton } from "@/components/ui/skeleton"
 import { BillingStatusBadge } from "./billing-status-badge"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
-import { formatPeso, invoiceTypeLabels } from "./billing-variants"
+import { billingDisplayId, formatPeso, invoiceTypeLabels } from "./billing-variants"
 
 function InvoiceTypeBadge({ type }) {
   return (
@@ -199,7 +199,7 @@ export function BillingTable({
                   >
                     {/* BILL ID */}
                     <td className="px-4 py-3 align-middle font-medium text-foreground">
-                      {billing.id}
+                      {billingDisplayId(billing)}
                     </td>
 
                     {/* BILLING FOR */}

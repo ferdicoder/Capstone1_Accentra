@@ -72,13 +72,13 @@ export async function submitPayment(req, res) {
 
     if (documentError) throw documentError;
 
-    if (referenceId?.trim()) {
-      const { error: billingUpdateError } = await supabaseAdmin
-        .from('billings')
-        .update({ status: 'for verification', remark: null })
-        .eq('billing_id', billingId);
-      if (billingUpdateError) throw billingUpdateError;
-    }
+    // A submitted proof always moves the billing into review — the firm reads
+    // the reference from the proof itself during verification.
+    const { error: billingUpdateError } = await supabaseAdmin
+      .from('billings')
+      .update({ status: 'for verification', remark: null })
+      .eq('billing_id', billingId);
+    if (billingUpdateError) throw billingUpdateError;
 
     const { data: updatedPayment, error: updateError } = await supabaseAdmin
       .from('payments')

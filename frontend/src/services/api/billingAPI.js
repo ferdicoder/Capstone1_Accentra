@@ -3,7 +3,7 @@ import { apiBaseUrl } from "@/config/api"
 import { normalizeBillingStatus } from "@/components/firm/billing/billing-variants"
 
 const BILLING_SELECT = `
-  billing_id, business_id, billing_type, total_amount, status, remark, due_date,
+  billing_id, billing_code, business_id, billing_type, total_amount, status, remark, due_date,
   billing_month, billing_year,
   billing_engagements(billing_id, engagement_id, amount, service_name, is_active),
   payments(
@@ -40,6 +40,7 @@ function mapBilling(row) {
   return {
     ...row,
     id: row.billing_id,
+    billingCode: row.billing_code ?? null,
     status: normalizeBillingStatus(row.status),
     remark: row.remark ?? null,
     invoice_type: row.billing_type,
@@ -209,11 +210,10 @@ export async function createPayment({ billingId, amount, paymentMethod, referenc
   return data
 }
 
-export async function uploadPaymentProof(file, billingId, paymentMethod, uploadedBy, referenceId) {
+export async function uploadPaymentProof(file, billingId, paymentMethod, uploadedBy) {
   const formData = new FormData()
   formData.append("document", file)
   formData.append("paymentMethod", paymentMethod)
-  if (referenceId?.trim()) formData.append("referenceId", referenceId.trim())
   if (uploadedBy) formData.append("uploadedBy", uploadedBy)
 
   const response = await fetch(

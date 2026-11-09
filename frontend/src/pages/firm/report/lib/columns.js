@@ -71,7 +71,7 @@ export const clientListColumns = [
 // Billing Report = old Billing Summary + Payment Monitoring merged.
 // Payment fields only apply once a bill is Paid.
 export const billingColumns = [
-  { label: "Billing ID", value: (r) => r.id },
+  { label: "Billing ID", value: (r) => r.billingCode ?? r.id },
   { label: "Client Name", value: (r) => r.clientName },
   { label: "Billing Type", value: (r) => optionLabel(BILLING_TYPE_OPTIONS, r.type) },
   { label: "Billing Amount (PHP)", value: (r) => r.amount.toFixed(2), display: (r) => formatCurrency(r.amount) },

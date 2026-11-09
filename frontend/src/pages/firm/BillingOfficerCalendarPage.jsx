@@ -26,6 +26,7 @@ import { useFetchBusinesses } from "@/hooks/useBusinesses"
 import { VerifyPaymentDialog } from "@/components/firm/billing/verify-payment-dialog"
 import { RejectPaymentDialog } from "@/components/firm/billing/reject-payment-dialog"
 import {
+  billingDisplayId,
   formatPeso,
   invoiceTypeLabels,
 } from "@/components/firm/billing/billing-variants"
@@ -143,7 +144,7 @@ function buildEvents({ billings, engagements, clients, today }) {
       title = `Service Fee — ${serviceName}`
     }
 
-    const reference = billing.payment_reference || billing.id
+    const reference = billing.payment_reference || billingDisplayId(billing)
     const serviceGroup = isRetainer
       ? "Retainer fees"
       : (serviceName ?? "Other services")
@@ -506,7 +507,7 @@ export default function BillingOfficerCalendarPage() {
         onSuccess: () => {
           setVerifyingEvent(null)
           setSelectedEvent(null)
-          showNotice(`${billing.id} payment verified`)
+          showNotice(`${billingDisplayId(billing)} payment verified`)
           refetch?.()
         },
         onError: (err) => showNotice(err.message),
@@ -537,7 +538,7 @@ export default function BillingOfficerCalendarPage() {
         onSuccess: () => {
           setRejectingEvent(null)
           setSelectedEvent(null)
-          showNotice(`${billing.id} payment rejected. Reason: ${remarks}`)
+          showNotice(`${billingDisplayId(billing)} payment rejected. Reason: ${remarks}`)
           refetch?.()
         },
         onError: (err) => showNotice(err.message),

@@ -17,6 +17,11 @@ import { usePageMeta } from "@/hooks/usePageMeta"
 import { BillingDetailContent } from "@/components/firm/billing/billing-detail-content"
 import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
 import { VerifyPaymentDialog } from "@/components/firm/billing/verify-payment-dialog"
+import {
+  billingDisplayId,
+  billingStatusLabels,
+  isFinalBillingStatus,
+} from "@/components/firm/billing/billing-variants"
 import { useFetchBilling, useUpdateBillingStatus, useUpdatePaymentStatus } from "@/hooks/useBillings"
 import { useFetchEngagements } from "@/hooks/useEngagements"
 import { useFetchBusinesses } from "@/hooks/useBusinesses"
@@ -117,7 +122,7 @@ export default function BillingDetailPage() {
   const canCancel = Boolean(billing) && !["paid", "cancelled"].includes(billing.status)
 
   usePageMeta({
-    title: billing?.id ?? "Billing Details",
+    title: billing ? billingDisplayId(billing) : "Billing Details",
     breadcrumbs: [
       {
         label: "Billing",
@@ -165,7 +170,7 @@ export default function BillingDetailPage() {
       return showNotice("No payment has been submitted for this billing yet.")
     }
     updatePayment.mutate({ paymentId, billingId: billing.id, status: "verified", referenceId }, {
-      onSuccess: () => { setNotice(`${billing.id} payment verified`); setVerifyOpen(false); setTimeout(() => setNotice(""), 3000) },
+      onSuccess: () => { setNotice(`${billingDisplayId(billing)} payment verified`); setVerifyOpen(false); setTimeout(() => setNotice(""), 3000) },
       onError: (err) => showNotice(err.message),
     })
   }
@@ -179,7 +184,7 @@ export default function BillingDetailPage() {
       return showNotice("No payment has been submitted for this billing yet.")
     }
     updatePayment.mutate({ paymentId, billingId: billing.id, status: "rejected", remark: remarks }, {
-      onSuccess: () => { setVerifyOpen(false); showNotice(`${billing.id} payment rejected. Reason: ${remarks}`) },
+      onSuccess: () => { setVerifyOpen(false); showNotice(`${billingDisplayId(billing)} payment rejected. Reason: ${remarks}`) },
       onError: (err) => showNotice(err.message),
     })
   }
@@ -257,7 +262,7 @@ export default function BillingDetailPage() {
           </div>
 
           <p className="text-sm text-muted-foreground">
-            {billing.id}
+            {billingDisplayId(billing)}
           </p>
         </div>
 

@@ -109,7 +109,7 @@ function buildEvents({ billings, engagements, today }) {
       title = `Service Fee — ${serviceName}`
     }
 
-    const reference = billing.invoice_number ?? `Invoice #${billing.id}`
+    const reference = billing.billingCode ?? `Invoice #${billing.id}`
     const group = isRetainer ? RETAINER_GROUP : (serviceName ?? "Other services")
     const paidDate = isPaid
       ? parseDate(billing.paid_at ?? billing.payment_date)

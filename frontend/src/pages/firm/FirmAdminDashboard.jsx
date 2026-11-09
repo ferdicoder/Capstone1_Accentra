@@ -13,7 +13,7 @@ import {
 } from "@/components/shared/dashboard"
 // Reused as-is from the Engagements page.
 import { CreateBillingDialog } from "@/components/firm/billing/create-billing-dialog"
-import { isVerifiable } from "@/components/firm/billing/billing-variants"
+import { billingDisplayId, isVerifiable } from "@/components/firm/billing/billing-variants"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchServiceRequests } from "@/hooks/useServiceRequests"
 import { useFetchEngagements } from "@/hooks/useEngagements"
@@ -302,7 +302,7 @@ export default function FirmAdminDashboard() {
       {
         onSuccess: (record) => {
           setBillDialogOpen(false)
-          setNotice(`${record.id} created`)
+          setNotice(`${billingDisplayId(record)} created`)
           setTimeout(() => setNotice(""), 5000)
         },
       }

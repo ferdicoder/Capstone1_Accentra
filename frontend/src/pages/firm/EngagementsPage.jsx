@@ -9,6 +9,7 @@ import { EngagementList } from "@/components/firm/engagements/engagement-list"
 import { CreateEngagementDialog } from "@/components/firm/service-requests/create-engagement-dialog"
 import { UnpaidBillsConfirmDialog } from "@/components/firm/engagements/unpaid-bills-confirm-dialog"
 import { CreateBillingDialog } from "@/components/firm/billing/create-billing-dialog"
+import { billingDisplayId } from "@/components/firm/billing/billing-variants"
 import {
   dateSortOptions,
   getEngagementDisplayStatus,
@@ -181,7 +182,7 @@ export default function EngagementsPage() {
       {
         onSuccess: (record) => {
           setCreateBillingFor(null)
-          navigate(`${basePath}/billing`, { state: { notice: `${record.id} created` } })
+          navigate(`${basePath}/billing`, { state: { notice: `${billingDisplayId(record)} created` } })
         },
       }
     )

@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { billingDisplayId } from "./billing-variants"
 
 /**
  * Confirmation dialog before cancelling a billing record.
@@ -26,7 +27,7 @@ export function CancelBillingDialog({ billing, open, onOpenChange, onConfirm, su
 
         <div className="rounded-lg border border-border bg-muted/40 p-3.5 text-sm">
           <p className="text-xs font-medium text-muted-foreground">Billing ID</p>
-          <p className="mt-0.5 font-medium text-foreground">{billing?.id ?? "—"}</p>
+          <p className="mt-0.5 font-medium text-foreground">{billingDisplayId(billing)}</p>
         </div>
 
         <DialogFooter className="flex-row justify-end gap-2">
