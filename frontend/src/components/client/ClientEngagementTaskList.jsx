@@ -75,8 +75,8 @@ const lockedNotes = {
   for_review: "Waiting for your firm to review.",
 }
 
-// File type and size rules (PDF/JPG/PNG, 10 MB) live in the shared
-// <FileDropzone /> defaults, so every upload in the app uses the same rules.
+// File type rules (PDF/JPG/PNG) live in the shared <FileDropzone /> defaults.
+// The picker below passes maxSize={null}, so there is no size limit here.
 
 // The backend takes one file per request, so files picked together are
 // uploaded one after another. Files saved this close together count as the
@@ -291,7 +291,7 @@ function TaskFilePickerDialog({ open, onOpenChange, task, onFilesChosen }) {
                 This requirement is no longer open for uploads.
               </p>
             ) : (
-              <FileDropzone multiple onSelect={setFiles} />
+              <FileDropzone multiple maxSize={null} onSelect={setFiles} />
             )}
 
             <SelectedFileList
@@ -471,7 +471,8 @@ function AttachConfirmDialog({
 //                                   not shown.
 //   • For Review / Approved       → locked. No upload, no resubmit. The latest
 //                                   submission is view-only, with a note
-//                                   explaining why.
+//                                   explaining why. The submitted files can
+//                                   still be previewed and downloaded.
 
 function TaskRow({
   task,
@@ -495,6 +496,10 @@ function TaskRow({
       <span className="truncate underline-offset-2 hover:underline">{summarizeFiles(uploadedFiles)}</span>
     </button>
   )
+
+  // Just the file chip. Clicking it opens the preview, which has the
+  // Download button.
+  const uploadedControls = uploadedChip
 
   return (
     <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-muted/30">
@@ -550,7 +555,7 @@ function TaskRow({
       <td className="w-[280px] py-2.5 pr-6">
         {canUpload ? (
           <div className="flex flex-wrap items-center gap-1.5">
-            {uploadedChip}
+            {uploadedControls}
             <button
               type="button"
               onClick={onOpenUpload}
@@ -562,7 +567,7 @@ function TaskRow({
           </div>
         ) : lockedNotes[task.status] || hasUploaded ? (
           <div className="flex flex-col items-start gap-1">
-            {uploadedChip}
+            {uploadedControls}
             <LockedNote status={task.status} />
           </div>
         ) : (

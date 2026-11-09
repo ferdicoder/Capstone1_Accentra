@@ -28,6 +28,42 @@ const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "svg"]
 
 const fileKey = (file, index) => String(file.id ?? `${file.name}-${index}`)
 
+// Saves a file to the user's Downloads folder. A server file is fetched and
+// saved from the browser, which works even when the file lives on another
+// address (the plain "download" attribute is ignored in that case). If the
+// fetch is blocked, the file is opened in a new tab instead.
+// Accepts a normalized document, a deliverable, or a plain browser File.
+export async function saveFile(file) {
+  const name = file?.name ?? file?.file_name ?? "download"
+  let blobUrl = null
+
+  try {
+    if (file?.downloadUrl) {
+      const response = await fetch(file.downloadUrl, { credentials: "include" })
+      if (!response.ok) throw new Error(`Download failed (${response.status})`)
+      blobUrl = URL.createObjectURL(await response.blob())
+    } else if (file?.file) {
+      blobUrl = URL.createObjectURL(file.file)
+    } else if (typeof File !== "undefined" && file instanceof File) {
+      blobUrl = URL.createObjectURL(file)
+    } else {
+      return
+    }
+  } catch (error) {
+    console.error("Download failed, opening the file instead:", error)
+    if (file?.downloadUrl) window.open(file.downloadUrl, "_blank", "noopener,noreferrer")
+    return
+  }
+
+  const link = window.document.createElement("a")
+  link.href = blobUrl
+  link.download = name
+  window.document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
+}
+
 // Works with a browser File, a normalized document, or a raw server row.
 function getExtension(file) {
   const name = file?.name ?? file?.file_name ?? file?.fileName ?? ""
@@ -68,9 +104,15 @@ export function FileDropzone({
   const [error, setError] = useState("")
   const inputRef = useRef(null)
 
-  const maxSizeLabel = `${Math.round(maxSize / (1024 * 1024))}MB`
+  // Pass maxSize={null} for no size limit at all.
+  const hasLimit = typeof maxSize === "number" && Number.isFinite(maxSize)
+  const maxSizeLabel = hasLimit ? `${Math.round(maxSize / (1024 * 1024))}MB` : ""
   const resolvedTitle = title ?? (multiple ? "Click to choose file(s)" : "Click to choose a file")
-  const resolvedHint = hint ?? `${typeLabel} — up to ${maxSizeLabel}${multiple ? " each" : ""}`
+  const resolvedHint =
+    hint ??
+    (hasLimit
+      ? `${typeLabel} — up to ${maxSizeLabel}${multiple ? " each" : ""}`
+      : typeLabel)
 
   const handleChange = (event) => {
     const picked = Array.from(event.target.files ?? [])
@@ -82,7 +124,7 @@ export function FileDropzone({
     picked.forEach((file) => {
       if (allowedTypes && !allowedTypes.includes(file.type)) {
         rejected.push(`${file.name} (not a ${typeLabel} file)`)
-      } else if (file.size > maxSize) {
+      } else if (hasLimit && file.size > maxSize) {
         rejected.push(`${file.name} (over ${maxSizeLabel})`)
       } else {
         accepted.push(file)
@@ -206,6 +248,9 @@ export function FilePreviewDialog({
   onDownload,
 }) {
   const [selectedKey, setSelectedKey] = useState(null)
+  // The link that failed to load as an image, so a broken file shows a
+  // message instead of an empty box.
+  const [failedUrl, setFailedUrl] = useState(null)
 
   const activeIndex = Math.max(
     files.findIndex((file, index) => fileKey(file, index) === selectedKey),
@@ -274,10 +319,11 @@ export function FilePreviewDialog({
         )}
 
         <div className="flex max-h-[80vh] min-h-[320px] items-center justify-center overflow-auto rounded-lg border border-border bg-muted/30">
-          {kind === "image" && previewUrl ? (
+          {kind === "image" && previewUrl && failedUrl !== previewUrl ? (
             <img
               src={previewUrl}
               alt={fileName}
+              onError={() => setFailedUrl(previewUrl)}
               className="max-h-[80vh] w-auto max-w-full object-contain"
             />
           ) : kind === "pdf" && previewUrl ? (
@@ -292,9 +338,11 @@ export function FilePreviewDialog({
                 <FileText className="size-5 text-muted-foreground" />
               </div>
               <p className="text-sm text-muted-foreground">
-                {fileUrl
-                  ? "No inline preview available for this file type."
-                  : "This file isn't available."}
+                {!fileUrl
+                  ? "This file isn't available."
+                  : failedUrl === previewUrl
+                    ? "We couldn't load this file. Try Open in new tab or Download."
+                    : "No inline preview available for this file type."}
               </p>
             </div>
           )}
@@ -313,7 +361,16 @@ export function FilePreviewDialog({
                 <a
                   href={fileUrl}
                   download={downloadName ?? fileName}
-                  onClick={() => onDownload?.(selectedFile)}
+                  onClick={(event) => {
+                    // Save it from the browser so it lands in the Downloads folder.
+                    event.preventDefault()
+                    saveFile({
+                      name: downloadName ?? fileName,
+                      downloadUrl: selectedFile.downloadUrl ?? null,
+                      file: localFile,
+                    })
+                    onDownload?.(selectedFile)
+                  }}
                 >
                   Download
                 </a>
