@@ -16,12 +16,7 @@ import {
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { BillingDetailContent } from "@/components/firm/billing/billing-detail-content"
 import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
-import { BillingStatusDropdown } from "@/components/firm/billing/billing-status-dropdown"
 import { VerifyPaymentDialog } from "@/components/firm/billing/verify-payment-dialog"
-import {
-  billingStatusLabels,
-  isFinalBillingStatus,
-} from "@/components/firm/billing/billing-variants"
 import { useFetchBilling, useUpdateBillingStatus, useUpdatePaymentStatus } from "@/hooks/useBillings"
 import { useFetchEngagements } from "@/hooks/useEngagements"
 import { useFetchBusinesses } from "@/hooks/useBusinesses"
@@ -54,26 +49,30 @@ function BillingDetailSkeleton({ backHref }) {
         <Skeleton className="h-9 w-36" />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        {[0, 1].map((card) => (
-          <div
-            key={card}
-            className="rounded-xl border border-border bg-card p-5 shadow-sm"
-          >
-            <Skeleton className="mb-5 h-4 w-40" />
-            <div className="flex flex-col gap-4">
-              {[0, 1, 2, 3].map((row) => (
-                <div
-                  key={row}
-                  className="flex items-center justify-between gap-4"
-                >
-                  <Skeleton className="h-4 w-28" />
-                  <Skeleton className="h-4 w-32" />
-                </div>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+          <div className="flex flex-col gap-4 p-5 sm:p-6">
+            <Skeleton className="h-9 w-40" />
+            <div className="grid gap-5 sm:grid-cols-2">
+              {[0, 1, 2].map((field) => (
+                <Skeleton key={field} className="h-10 w-full" />
               ))}
             </div>
           </div>
-        ))}
+          {[0, 1].map((section) => (
+            <div key={section} className="flex flex-col gap-4 p-5 sm:p-6">
+              <Skeleton className="h-4 w-32" />
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-40 w-full" />
+        </div>
       </div>
     </>
   )
@@ -96,7 +95,7 @@ export default function BillingDetailPage() {
   const updatePayment = useUpdatePaymentStatus()
 
   const [verifyOpen, setVerifyOpen] = useState(false)
-  const [pendingStatus, setPendingStatus] = useState("")
+  const [cancelOpen, setCancelOpen] = useState(false)
   const [notice, setNotice] = useState("")
 
   const engagementIds =
@@ -114,6 +113,9 @@ export default function BillingDetailPage() {
       ? clients.find((item) => item.id === billing.business_id) ?? null
       : null
 
+  // A bill can be cancelled at any stage except once it is paid (or already cancelled).
+  const canCancel = Boolean(billing) && !["paid", "cancelled"].includes(billing.status)
+
   usePageMeta({
     title: billing?.id ?? "Billing Details",
     breadcrumbs: [
@@ -129,27 +131,22 @@ export default function BillingDetailPage() {
     setTimeout(() => setNotice(""), 3000)
   }
 
-  const handleStatusChange = (status) => {
-    if (!billing || isFinalBillingStatus(billing.status) || billing.status === status) return
-    setPendingStatus(status)
-  }
-
-  const handleConfirmStatusChange = () => {
-    if (!billing || !pendingStatus || isFinalBillingStatus(billing.status)) {
-      setPendingStatus("")
+  const handleConfirmCancel = () => {
+    if (!billing || !canCancel) {
+      setCancelOpen(false)
       return
     }
 
     updateStatus.mutate(
-      { id: billing.id, status: pendingStatus },
+      { id: billing.id, status: "cancelled" },
       {
         onSuccess: () => {
-          setPendingStatus("")
-          showNotice(`Status updated to "${billingStatusLabels[pendingStatus] ?? pendingStatus}"`)
+          setCancelOpen(false)
+          showNotice(`${billing.id} cancelled`)
         },
         onError: (err) => {
-          setPendingStatus("")
-          showNotice(err?.message ?? "Failed to update billing status.")
+          setCancelOpen(false)
+          showNotice(err?.message ?? "Failed to cancel billing.")
         },
       }
     )
@@ -258,17 +255,6 @@ export default function BillingDetailPage() {
           </p>
         </div>
 
-        <div className="flex flex-col items-end gap-1">
-          <BillingStatusDropdown
-            billing={billing}
-            onStatusChange={handleStatusChange}
-          />
-          {isFinalBillingStatus(billing.status) && (
-            <p className="text-xs text-muted-foreground">
-              Paid or cancelled billing statuses cannot be changed.
-            </p>
-          )}
-        </div>
       </div>
 
       <BillingDetailContent
@@ -276,6 +262,8 @@ export default function BillingDetailPage() {
         engagements={engagements}
         client={client}
         onVerifyPayment={() => setVerifyOpen(true)}
+        canCancel={canCancel}
+        onCancel={() => setCancelOpen(true)}
       />
 
       <VerifyPaymentDialog
@@ -287,39 +275,32 @@ export default function BillingDetailPage() {
         submitting={updatePayment.isPending}
       />
 
-      <Dialog
-        open={Boolean(pendingStatus)}
-        onOpenChange={(open) => !open && setPendingStatus("")}
-      >
-        <DialogContent data-slot="billing-status-confirmation">
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent data-slot="billing-cancel-confirmation">
           <DialogHeader>
-            <DialogTitle>Confirm billing status change</DialogTitle>
+            <DialogTitle>Cancel this bill?</DialogTitle>
             <DialogDescription>
-              Change this billing status from{" "}
-              <span className="font-medium text-foreground">
-                {billingStatusLabels[billing.status] ?? billing.status}
-              </span>{" "}
-              to{" "}
-              <span className="font-medium text-foreground">
-                {billingStatusLabels[pendingStatus] ?? pendingStatus}
-              </span>
-              ?
+              This will cancel{" "}
+              <span className="font-medium text-foreground">{billing.id}</span>.
+              Any linked engagements will be released for rebilling. This
+              cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row justify-end gap-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setPendingStatus("")}
+              onClick={() => setCancelOpen(false)}
             >
-              Cancel
+              Keep Bill
             </Button>
             <Button
               type="button"
-              className="bg-forest-900 text-white hover:opacity-90"
-              onClick={handleConfirmStatusChange}
+              variant="destructive"
+              disabled={updateStatus.isPending}
+              onClick={handleConfirmCancel}
             >
-              Okay
+              Cancel Bill
             </Button>
           </DialogFooter>
         </DialogContent>
