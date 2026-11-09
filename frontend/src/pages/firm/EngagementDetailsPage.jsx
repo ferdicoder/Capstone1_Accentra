@@ -21,7 +21,10 @@ import { UploadDeliverables } from "@/components/firm/engagements/UploadDelivera
 import { CancelEngagementDialog } from "@/components/firm/engagements/cancel-engagement-dialog"
 import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
 import { ActivityLogItem } from "@/components/firm/engagements/ActivityLogItem"
-import { EngagementDocumentReviewTab } from "@/components/firm/engagements/engagement-document-review-tab"
+import {
+  EngagementDocumentsTab,
+  getVisibleDocuments,
+} from "@/components/shared/EngagementsDocumentsTab"
 import { canViewEngagementDocuments, engagementStatusOptions } from "@/lib/workflow-stages"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
 import {
@@ -69,7 +72,7 @@ export default function EngagementDetailsPage() {
     Boolean(engagement) &&
     canManageEngagements &&
     canViewEngagementDocuments(engagement?.status)
-  const { data: documents = [] } = useFetchEngagementDocuments(
+  const { data: documents = [], isLoading: isDocumentsLoading } = useFetchEngagementDocuments(
     canViewDocuments ? id : null
   )
   const { data: deliverables = [] } = useFetchEngagementDeliverables(
@@ -116,6 +119,9 @@ export default function EngagementDetailsPage() {
     !isTerminalEngagement &&
     Boolean(engagement.targetEndDate) &&
     String(engagement.targetEndDate).slice(0, 10) < new Date().toLocaleDateString("en-CA")
+
+  // Same visibility rule as the client Documents tab.
+  const visibleDocuments = getVisibleDocuments(documents, engagement.tasks ?? [])
 
   const showNotice = (message, isError = false) => {
     setNotice(message)
@@ -278,23 +284,6 @@ export default function EngagementDetailsPage() {
     }
   })
 
-  const reviewHistory = activity.map((entry) => ({
-    id: entry.id,
-    userName: entry.actorName,
-    action: entry.type === "task_approved" ? "approved" : entry.type === "task_revision_requested" ? "revision_requested" : "submitted",
-    comment: entry.message,
-    timestamp: entry.createdAt,
-  }))
-
-  const handleDocumentReview = (document, status, remark) => {
-    const taskId = document.taskId ?? document.engagementTaskId
-    if (!taskId) return
-    reviewTask.mutate(
-      { taskId, status, remark },
-      { onSuccess: () => showNotice(status === "approved" ? "Document approved" : "Revision requested") }
-    )
-  }
-
   const billing = engagement.billing ?? engagement.billingRecord ?? engagement.billing_record
   const billingId =
     (typeof billing === "string" ? billing : billing?.id ?? billing?.billingId ?? billing?.billing_id) ??
@@ -396,7 +385,7 @@ export default function EngagementDetailsPage() {
             Documents
             {canViewDocuments && (
               <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                {reviewableDocuments.length}
+                {visibleDocuments.length}
               </span>
             )}
           </button>
@@ -485,11 +474,11 @@ export default function EngagementDetailsPage() {
 
         {activeTab === "documents" && (
           canViewDocuments ? (
-            <EngagementDocumentReviewTab
-              engagementStatus={engagement.status}
-              documents={reviewableDocuments}
-              history={reviewHistory}
-              onReview={handleDocumentReview}
+            <EngagementDocumentsTab
+              documents={visibleDocuments}
+              tasks={engagement.tasks ?? []}
+              isLoading={isDocumentsLoading}
+              audience="firm"
             />
           ) : (
             <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
