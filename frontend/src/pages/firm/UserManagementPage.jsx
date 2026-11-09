@@ -14,8 +14,6 @@ import {
   useFetchFirmRoles,
 } from "@/hooks/useUsers"
 
-
-
 const buildDisplayName = ({ firstName, middleName, lastName, extension, name }) => {
   if (name) return name
 
@@ -52,7 +50,6 @@ export default function UserManagementPage() {
     () => roles.map((role) => ({ value: role.role_id, label: role.role_name })),
     [roles]
   )
-
 
   // for searching
   const filteredUsers = useMemo(() => {
@@ -95,11 +92,12 @@ export default function UserManagementPage() {
   const createError = createStaff.error
     ? "We couldn't create this account. The email address may already be registered, or the password may not meet the account requirements."
     : ""
+
   usePageMeta({
-    title: "Firm Users",
+    title: "Teams",
     breadcrumbs: [
       { label: "Firm Admin", href: "/admin/dashboard" },
-      { label: "User Management", href: "/admin/users" },
+      { label: "Teams", href: "/admin/users" },
     ],
   })
 
@@ -109,57 +107,56 @@ export default function UserManagementPage() {
         <PageSkeleton type="users" />
       ) : (
         <>
-      <div className="flex flex-wrap items-center gap-3 py-1">
-        <p className="text-sm text-muted-foreground">
-          Manage your firm's users and their access to the platform.
-        </p>
-        {notice && (
-          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
-            {notice}
-          </span>
-        )}
-        {error && (
-          <span className="text-xs text-destructive">Failed to load users</span>
-        )}
-      </div>
+          <div className="flex flex-wrap items-center gap-3 py-1">
+            <p className="text-sm text-muted-foreground">
+              Manage your firm's team members and their access to the platform.
+            </p>
+            {notice && (
+              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
+                {notice}
+              </span>
+            )}
+            {error && (
+              <span className="text-xs text-destructive">Failed to load users</span>
+            )}
+          </div>
 
-      <FirmUsersToolbar
-        searchValue={search}
-        onSearchChange={(value) => {
-          setSearch(value)
-          setPage(1)
-        }}
-        roleFilter={roleFilter}
-        onRoleFilterChange={(value) => {
-          setRoleFilter(value)
-          setPage(1)
-        }}
-        roleOptions={roleOptions}
-        onAddUser={openCreateDialog}
-        resultCount={`${filteredUsers.length} of ${users.length} users`}
-      />
+          <FirmUsersToolbar
+            searchValue={search}
+            onSearchChange={(value) => {
+              setSearch(value)
+              setPage(1)
+            }}
+            roleFilter={roleFilter}
+            onRoleFilterChange={(value) => {
+              setRoleFilter(value)
+              setPage(1)
+            }}
+            roleOptions={roleOptions}
+            onAddUser={openCreateDialog}
+            resultCount={`${filteredUsers.length} of ${users.length} users`}
+          />
 
-      <FirmUserTable
-        users={filteredUsers}
-        loading={isLoading}
-        emptyMessage="No users match your filters."
-        emptyDescription="Try clearing the search or filters."
-        onRowClick={(user) => navigate(`/admin/users/${user.id}`)}
-        page={currentPage}
-        onPageChange={setPage}
-      />
+          <FirmUserTable
+            users={filteredUsers}
+            loading={isLoading}
+            emptyMessage="No users match your filters."
+            emptyDescription="Try clearing the search or filters."
+            onRowClick={(user) => navigate(`/admin/users/${user.id}`)}
+            page={currentPage}
+            onPageChange={setPage}
+          />
 
-      <FirmUserCreateDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onSubmit={handleCreate}
-        roleOptions={roleOptions}
-        rolesLoading={rolesLoading}
-        submitting={createStaff.isPending}
-        existingEmails={existingEmails}
-        error={createError}
-      />
-
+          <FirmUserCreateDialog
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            onSubmit={handleCreate}
+            roleOptions={roleOptions}
+            rolesLoading={rolesLoading}
+            submitting={createStaff.isPending}
+            existingEmails={existingEmails}
+            error={createError}
+          />
         </>
       )}
     </>

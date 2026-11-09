@@ -1,4 +1,6 @@
-import { Link } from "react-router-dom"
+import { useState } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   ChevronsUpDown,
   LogOut,
@@ -6,13 +8,14 @@ import {
 } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { LogoutConfirmDialog } from "@/components/dashboard/logout-confirm-dialog"
 import { supabase } from "@/config/supabase"
+import { authStore } from "@/store/authStore"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -25,22 +28,44 @@ import {
 
 export function NavUser({ user, settingsHref = "#" }) {
   const { isMobile } = useSidebar()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const role = authStore((state) => state.role)
+  const [logoutOpen, setLogoutOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
 
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut()
+  // Admin has Settings as a permanent sidebar item, so it only appears
+  // in this dropdown for the other roles.
+  const showSettings = role !== "admin"
 
-    if (error) {
+  // Clients sign in on their own page; admin, staff and billing officers use the firm page.
+  const signInPath = role === "client" ? "/client/signin" : "/firm/signin"
+
+  const confirmLogout = async () => {
+    if (loggingOut) return // prevents duplicate logout requests
+    setLoggingOut(true)
+
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+
+      queryClient.clear()
+      setLogoutOpen(false)
+      navigate(signInPath, { replace: true })
+    } catch (error) {
       console.error("Logout failed:", error)
+      setLoggingOut(false)
     }
   }
 
   if (!user) return null
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger
+    <>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <DropdownMenu>
+            <DropdownMenuTrigger
               render={
                 <SidebarMenuButton
                   size="lg"
@@ -65,51 +90,46 @@ export function NavUser({ user, settingsHref = "#" }) {
               </div>
 
               <ChevronsUpDown className="ml-auto size-4 shrink-0 group-data-[collapsible=icon]:hidden" />
-          </DropdownMenuTrigger>
-                <DropdownMenuContent
-                    className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-                    side={isMobile ? "bottom" : "right"}
-                    align="end"
-                    sideOffset={4}
-                  >
-                    <DropdownMenuGroup>
-                      <DropdownMenuLabel className="p-0 font-normal">
-                        <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                          <Avatar className="h-8 w-8 rounded-lg">
-                            <AvatarImage src= {user.avatar} alt={user.name} />
-                            <AvatarFallback className="rounded-lg">
-                              {user.name?.slice(0, 2)?.toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
+            </DropdownMenuTrigger>
 
-                          <div className="grid flex-1 text-left text-sm leading-tight">
-                            <span className="truncate font-semibold">{user.name}</span>
-                            <span className="truncate text-xs">{user.email}</span>
-                          </div>
-                        </div>
-                      </DropdownMenuLabel>
-
-                      <DropdownMenuSeparator />
-
-                      <DropdownMenuItem asChild>
-                        <Link to={settingsHref}>
-                          <span className="flex items-center gap-2">
-                            <Settings className="size-4" />
-                            Settings
-                          </span>
-                        </Link>
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-
-                    <DropdownMenuSeparator />
-
-                    <DropdownMenuItem onClick={handleLogout}>
-                      <LogOut />
-                      Log out
+            <DropdownMenuContent
+              className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+              side={isMobile ? "bottom" : "right"}
+              align="end"
+              sideOffset={4}
+            >
+              {showSettings && (
+                <>
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem asChild>
+                      <Link to={settingsHref}>
+                        <span className="flex items-center gap-2">
+                          <Settings className="size-4" />
+                          Settings
+                        </span>
+                      </Link>
                     </DropdownMenuItem>
-                  </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+
+              <DropdownMenuItem onClick={() => setLogoutOpen(true)}>
+                <LogOut />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarMenuItem>
+      </SidebarMenu>
+
+      {/* Sibling of the dropdown, so it stays mounted after the menu closes. */}
+      <LogoutConfirmDialog
+        open={logoutOpen}
+        onOpenChange={setLogoutOpen}
+        onConfirm={confirmLogout}
+        submitting={loggingOut}
+      />
+    </>
   )
 }

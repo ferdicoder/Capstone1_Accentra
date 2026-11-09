@@ -139,144 +139,144 @@ function StaffSettings({ profile, role }) {
         className="flex flex-col gap-6"
       >
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-            <div className="mb-5 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-sm font-semibold">Personal Information</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Your contact details for the firm.
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {editing ? (
-                  <>
-                    <Button type="button" variant="outline" onClick={cancelEditing}>
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      className="gap-2 bg-forest-900 text-white hover:opacity-90"
-                    >
-                      <Save className="size-4" />
-                      Save Changes
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => {
-                      setSaveMessage(null)
-                      setEditing(true)
-                    }}
-                  >
-                    <Pencil className="size-4" />
-                    Edit
-                  </Button>
-                )}
-              </div>
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-semibold">Personal Information</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Your contact details for the firm.
+              </p>
             </div>
-            <FieldGroup className="gap-5">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor="staff-first-name">First Name</FieldLabel>
-                    <Input
-                      id="staff-first-name"
-                      name="firstName"
-                      value={personalInfo.firstName}
-                      onChange={updatePersonalInfo}
-                      disabled={!editing}
-                      aria-invalid={Boolean(personalInfoErrors.firstName) || undefined}
-                      data-invalid-field={personalInfoErrors.firstName ? "true" : undefined}
-                      className={controlClass}
-                    />
-                    {personalInfoErrors.firstName && (
-                      <FieldError>{personalInfoErrors.firstName}</FieldError>
-                    )}
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="staff-middle-name">Middle Name</FieldLabel>
-                    <Input
-                      id="staff-middle-name"
-                      name="middleName"
-                      value={personalInfo.middleName}
-                      onChange={updatePersonalInfo}
-                      disabled={!editing}
-                      aria-invalid={Boolean(personalInfoErrors.middleName) || undefined}
-                      data-invalid-field={personalInfoErrors.middleName ? "true" : undefined}
-                      className={controlClass}
-                    />
-                    {personalInfoErrors.middleName && (
-                      <FieldError>{personalInfoErrors.middleName}</FieldError>
-                    )}
-                  </Field>
-                </div>
-                <Field>
-                  <FieldLabel htmlFor="staff-last-name">Last Name</FieldLabel>
-                  <Input
-                    id="staff-last-name"
-                    name="lastName"
-                    value={personalInfo.lastName}
-                    onChange={updatePersonalInfo}
-                    disabled={!editing}
-                    aria-invalid={Boolean(personalInfoErrors.lastName) || undefined}
-                    data-invalid-field={personalInfoErrors.lastName ? "true" : undefined}
-                    className={controlClass}
-                  />
-                  {personalInfoErrors.lastName && (
-                    <FieldError>{personalInfoErrors.lastName}</FieldError>
-                  )}
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="staff-email">Email Address</FieldLabel>
-                  <Input
-                    id="staff-email"
-                    type="email"
-                    value={profile.email}
-                    readOnly
-                    disabled
-                    className={readOnlyClass}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="staff-contact-number">Contact Number</FieldLabel>
-                  <Input
-                    id="staff-contact-number"
-                    name="contactNumber"
-                    type="tel"
-                    inputMode="tel"
-                    value={personalInfo.contactNumber}
-                    onChange={updatePersonalInfo}
-                    disabled={!editing}
-                    aria-invalid={Boolean(personalInfoErrors.contactNumber) || undefined}
-                    data-invalid-field={personalInfoErrors.contactNumber ? "true" : undefined}
-                    className={controlClass}
-                  />
-                  {personalInfoErrors.contactNumber && (
-                    <FieldError>{personalInfoErrors.contactNumber}</FieldError>
-                  )}
-                </Field>
-              </FieldGroup>
+            <div className="flex shrink-0 items-center gap-2">
+              {editing ? (
+                <>
+                  <Button type="button" variant="outline" onClick={cancelEditing}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="gap-2 bg-forest-900 text-white hover:opacity-90"
+                  >
+                    <Save className="size-4" />
+                    Save Changes
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => {
+                    setSaveMessage(null)
+                    setEditing(true)
+                  }}
+                >
+                  <Pencil className="size-4" />
+                  Edit
+                </Button>
+              )}
+            </div>
+          </div>
+          <FieldGroup className="gap-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="staff-first-name">First Name</FieldLabel>
+                <Input
+                  id="staff-first-name"
+                  name="firstName"
+                  value={personalInfo.firstName}
+                  onChange={updatePersonalInfo}
+                  disabled={!editing}
+                  aria-invalid={Boolean(personalInfoErrors.firstName) || undefined}
+                  data-invalid-field={personalInfoErrors.firstName ? "true" : undefined}
+                  className={controlClass}
+                />
+                {personalInfoErrors.firstName && (
+                  <FieldError>{personalInfoErrors.firstName}</FieldError>
+                )}
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="staff-middle-name">Middle Name</FieldLabel>
+                <Input
+                  id="staff-middle-name"
+                  name="middleName"
+                  value={personalInfo.middleName}
+                  onChange={updatePersonalInfo}
+                  disabled={!editing}
+                  aria-invalid={Boolean(personalInfoErrors.middleName) || undefined}
+                  data-invalid-field={personalInfoErrors.middleName ? "true" : undefined}
+                  className={controlClass}
+                />
+                {personalInfoErrors.middleName && (
+                  <FieldError>{personalInfoErrors.middleName}</FieldError>
+                )}
+              </Field>
+            </div>
+            <Field>
+              <FieldLabel htmlFor="staff-last-name">Last Name</FieldLabel>
+              <Input
+                id="staff-last-name"
+                name="lastName"
+                value={personalInfo.lastName}
+                onChange={updatePersonalInfo}
+                disabled={!editing}
+                aria-invalid={Boolean(personalInfoErrors.lastName) || undefined}
+                data-invalid-field={personalInfoErrors.lastName ? "true" : undefined}
+                className={controlClass}
+              />
+              {personalInfoErrors.lastName && (
+                <FieldError>{personalInfoErrors.lastName}</FieldError>
+              )}
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="staff-email">Email Address</FieldLabel>
+              <Input
+                id="staff-email"
+                type="email"
+                value={profile.email}
+                readOnly
+                disabled
+                className={readOnlyClass}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="staff-contact-number">Contact Number</FieldLabel>
+              <Input
+                id="staff-contact-number"
+                name="contactNumber"
+                type="tel"
+                inputMode="tel"
+                value={personalInfo.contactNumber}
+                onChange={updatePersonalInfo}
+                disabled={!editing}
+                aria-invalid={Boolean(personalInfoErrors.contactNumber) || undefined}
+                data-invalid-field={personalInfoErrors.contactNumber ? "true" : undefined}
+                className={controlClass}
+              />
+              {personalInfoErrors.contactNumber && (
+                <FieldError>{personalInfoErrors.contactNumber}</FieldError>
+              )}
+            </Field>
+          </FieldGroup>
 
-              <div className="mt-6 border-t border-border pt-5">
-                <h2 className="mb-5 text-sm font-semibold">Account Information</h2>
-                <FieldGroup className="gap-5">
+          <div className="mt-6 border-t border-border pt-5">
+            <h2 className="mb-5 text-sm font-semibold">Account Information</h2>
+            <FieldGroup className="gap-5">
+              <Field>
+                <FieldLabel>Role</FieldLabel>
+                <div className="flex h-8 items-center">
+                  <FirmUserRoleBadge role={role} />
+                </div>
+              </Field>
+              {profile.status && (
                 <Field>
-                  <FieldLabel>Role</FieldLabel>
+                  <FieldLabel>Status</FieldLabel>
                   <div className="flex h-8 items-center">
-                    <FirmUserRoleBadge role={role} />
+                    <FirmUserStatusBadge status={profile.status} />
                   </div>
                 </Field>
-                {profile.status && (
-                  <Field>
-                    <FieldLabel>Status</FieldLabel>
-                    <div className="flex h-8 items-center">
-                      <FirmUserStatusBadge status={profile.status} />
-                    </div>
-                  </Field>
-                )}
-                </FieldGroup>
-              </div>
+              )}
+            </FieldGroup>
+          </div>
         </div>
       </form>
 
@@ -316,7 +316,7 @@ function StaffSettings({ profile, role }) {
 }
 
 /**
- * With an :id this shows that staff member (reached from User Management),
+ * With an :id this shows that staff member (reached from Teams),
  * without one it shows the signed-in firm staff member's settings.
  */
 export default function StaffProfilePage() {
@@ -363,7 +363,7 @@ export default function StaffProfilePage() {
           label: "Dashboard",
           href: authRole === "billing_officer" ? "/billing-officer/dashboard" : "/firm/dashboard",
         }]
-      : [{ label: "User Management", href: "/admin/users" }],
+      : [{ label: "Teams", href: "/admin/users" }],
     hasUnreadNotifications: true,
   })
 

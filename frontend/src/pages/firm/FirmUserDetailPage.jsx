@@ -68,7 +68,7 @@ export default function FirmUserDetailPage() {
 
   usePageMeta({
     title: user?.name || "Firm User Details",
-    breadcrumbs: [{ label: "User Management", href: "/admin/users" }],
+    breadcrumbs: [{ label: "Teams", href: "/admin/users" }],
   })
 
   const backButton = (
@@ -98,7 +98,7 @@ export default function FirmUserDetailPage() {
               ? "The firm user could not be loaded. Please try again."
               : "The requested firm user could not be found."
           }
-          actionLabel="Back to User Management"
+          actionLabel="Back to Teams"
           actionHref="/admin/users"
         />
       </>
@@ -191,43 +191,43 @@ export default function FirmUserDetailPage() {
             {user.status === "deactivated" ? "Reactivate" : "Deactivate"}
           </Button>
 
-        {editing ? (
-          <div className="flex items-center gap-2">
+          {editing ? (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedRole(user.role)
+                  setEditing(false)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="bg-forest-900 text-white hover:opacity-90"
+                disabled={!selectedRole || selectedRole === user.role}
+                onClick={() => setConfirmationOpen(true)}
+              >
+                Save Changes
+              </Button>
+            </div>
+          ) : (
             <Button
               type="button"
-              variant="outline"
               size="sm"
+              className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
               onClick={() => {
                 setSelectedRole(user.role)
-                setEditing(false)
+                setEditing(true)
               }}
             >
-              Cancel
+              <Pencil className="size-4" />
+              Edit Role
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="bg-forest-900 text-white hover:opacity-90"
-              disabled={!selectedRole || selectedRole === user.role}
-              onClick={() => setConfirmationOpen(true)}
-            >
-              Save Changes
-            </Button>
-          </div>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
-            onClick={() => {
-              setSelectedRole(user.role)
-              setEditing(true)
-            }}
-          >
-            <Pencil className="size-4" />
-            Edit Role
-          </Button>
-        )}
+          )}
         </div>
       </div>
 

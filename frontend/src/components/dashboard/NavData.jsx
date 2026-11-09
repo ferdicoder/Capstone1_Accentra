@@ -4,11 +4,11 @@ import {
   Briefcase,
   Users,
   Contact,
-  FolderCog,
   ClipboardList,
   Receipt,
   CalendarDays,
   FileText,
+  Settings,
 } from "lucide-react"
 
 export const firmAdminNav = [
@@ -18,28 +18,18 @@ export const firmAdminNav = [
   { title: "Engagements", url: "/admin/engagements", icon: Briefcase, items: [] },
   { title: "Billing", url: "/admin/billing", icon: Receipt, items: [] },
   { title: "Reports", url: "/admin/reports", icon: FileText, items: [] },
-  {
-    title: "User Management",
-    url: "/admin/users",
-    icon: FolderCog,
-    items: [
-      { title: "Firm User", url: "/admin/users", icon: Users },
-      { title: "Client", url: "/admin/clients", icon: Contact },
-    ],
-  },
+  { title: "Teams", url: "/admin/users", icon: Users, items: [] },
+  { title: "Clients", url: "/admin/clients", icon: Contact, items: [] },
+  // Permanent item. Points at the existing admin profile route; change it if Settings has its own page.
+  { title: "Settings", url: "/admin/profile", icon: Settings, items: [] },
 ]
 
 export const firmUserNav = [
   { title: "Dashboard", url: "/firm/dashboard", icon: LayoutDashboard, items: [] },
   { title: "Services", url: "/firm/services", icon: ClipboardList, items: [] },
   { title: "Engagements", url: "/firm/engagements", icon: Briefcase, items: [] },
-  {
-    title: "User Management",
-    url: "/firm/clients",
-    icon: FolderCog,
-    // Staff has no access to Firm User management, so only Client is listed.
-    items: [{ title: "Client", url: "/firm/clients", icon: Contact }],
-  },
+  // Staff has no access to Teams (firm user management), so only Clients is listed.
+  { title: "Clients", url: "/firm/clients", icon: Contact, items: [] },
 ]
 
 export const clientNav = [
