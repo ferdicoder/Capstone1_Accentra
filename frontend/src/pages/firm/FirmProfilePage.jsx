@@ -12,6 +12,8 @@ import {
   useUpdateFirmSettings,
   useUploadFirmLogo,
 } from "@/hooks/useFirmSettings"
+import { useFetchMyProfile, useUpdateMyProfile } from "@/hooks/useMyProfile"
+import { authStore } from "@/store/authStore"
 
 import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -32,21 +34,6 @@ import {
   scrollToFirstInvalidField,
 } from "@/lib/form-validation"
 import { adminPersonalInfoSchema, firmSettingsSchema } from "@/schemas/profileSchema"
-
-const currentUser = {
-  name: "Carlo Reyes",
-  email: "carlo@reyesassociates.ph",
-  avatar: "",
-}
-
-// Personal Information tab is still local-only (mock); the Firm Information
-// tab mirrors the public.firm_settings singleton.
-const initialProfile = {
-  firstName: "Carlo",
-  lastName: "Reyes",
-  workEmail: "carlo@reyesassociates.ph",
-  contactNumber: "+63 917 001 0001",
-}
 
 const emptyFirmDraft = {
   firmName: "",
@@ -71,16 +58,16 @@ const MAX_LOGO_SIZE = 2 * 1024 * 1024
 
 export default function FirmProfilePage() {
   const [activeTab, setActiveTab] = useState("info")
-  const [profile, setProfile] = useState(initialProfile)
   const [formErrors, setFormErrors] = useState({})
   const [editingTab, setEditingTab] = useState(null)
   const [confirmationOpen, setConfirmationOpen] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
   const [saving, setSaving] = useState(false)
 
-  // Null while not editing: firmValues then falls back to the saved row, so
-  // the form always mirrors firm_settings without a sync effect.
+  // Null while not editing: firmValues / personalValues then fall back to the
+  // saved rows, so the forms always mirror the database without a sync effect.
   const [firmDraft, setFirmDraft] = useState(null)
+  const [personalDraft, setPersonalDraft] = useState(null)
   const [logoFile, setLogoFile] = useState(null)
   const [logoPreview, setLogoPreview] = useState("")
   const [logoRemoved, setLogoRemoved] = useState(false)
@@ -88,14 +75,18 @@ export default function FirmProfilePage() {
   const [logoPreviewOpen, setLogoPreviewOpen] = useState(false)
 
   const profileFormRef = useRef(null)
-  const savedProfileRef = useRef(initialProfile)
+
+  const userId = authStore((state) => state.user?.id)
 
   const { data: settings, isLoading } = useFetchFirmSettings()
+  const { data: myProfile, isLoading: profileLoading } = useFetchMyProfile(userId)
   const updateSettings = useUpdateFirmSettings()
+  const updateMyProfile = useUpdateMyProfile()
   const uploadLogo = useUploadFirmLogo()
   const deleteLogo = useDeleteFirmLogoFile()
 
   const editing = editingTab === "info"
+  const editingPersonal = editingTab === "personal"
   const firmValues = editing && firmDraft
     ? firmDraft
     : {
@@ -104,6 +95,16 @@ export default function FirmProfilePage() {
         about: settings?.about ?? "",
         termsAndConditions: settings?.termsAndConditions ?? "",
       }
+  const personalValues = editingPersonal && personalDraft
+    ? personalDraft
+    : {
+        firstName: myProfile?.firstName ?? "",
+        lastName: myProfile?.lastName ?? "",
+        workEmail: myProfile?.email ?? "",
+        contactNumber: myProfile?.contactNumber ?? "",
+      }
+  const adminName =
+    [myProfile?.firstName, myProfile?.lastName].filter(Boolean).join(" ") || "Firm Admin"
   const displayFirmName = editing
     ? firmValues.firmName
     : settings?.firmName || "Your Firm"
@@ -120,8 +121,9 @@ export default function FirmProfilePage() {
       : ["firstName", "lastName"].includes(name)
         ? sanitizeNameInput(value)
         : value
-    setProfile((current) => ({ ...current, [name]: nextValue }))
+    setPersonalDraft((current) => ({ ...current, [name]: nextValue }))
     setFormErrors((current) => ({ ...current, [name]: undefined }))
+    setSaveMessage(null)
   }
 
   const updateFirmField = (event) => {
@@ -187,10 +189,10 @@ export default function FirmProfilePage() {
           termsAndConditions: firmDraft.termsAndConditions,
         }
       : {
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          workEmail: profile.workEmail,
-          contactNumber: profile.contactNumber,
+          firstName: personalDraft.firstName,
+          lastName: personalDraft.lastName,
+          workEmail: personalDraft.workEmail,
+          contactNumber: personalDraft.contactNumber,
         }
     const errors = getZodFieldErrors(schema, values)
     setFormErrors(errors)
@@ -217,7 +219,7 @@ export default function FirmProfilePage() {
       }
       resetLogoState()
     } else if (editingTab === "personal") {
-      setProfile(savedProfileRef.current)
+      setPersonalDraft(null)
     }
     setEditingTab(null)
     setConfirmationOpen(false)
@@ -228,13 +230,29 @@ export default function FirmProfilePage() {
 
   const confirmChanges = async () => {
     if (editingTab === "personal") {
-      savedProfileRef.current = { ...profile }
-      setSaveMessage({
-        type: "success",
-        text: "Information updated successfully for this session.",
-      })
-      setEditingTab(null)
-      setConfirmationOpen(false)
+      try {
+        setSaving(true)
+        // Work email is read-only here: only name and contact number are saved.
+        await updateMyProfile.mutateAsync({
+          userId,
+          firstName: personalDraft.firstName.trim(),
+          lastName: personalDraft.lastName.trim(),
+          contactNumber: personalDraft.contactNumber.trim(),
+        })
+        setSaveMessage({ type: "success", text: "Personal information updated." })
+        setPersonalDraft(null)
+        setEditingTab(null)
+        setConfirmationOpen(false)
+      } catch (error) {
+        console.error("Saving personal info failed:", error)
+        setSaveMessage({
+          type: "error",
+          text: error?.message || "Could not save your information. Please try again.",
+        })
+        setConfirmationOpen(false)
+      } finally {
+        setSaving(false)
+      }
       return
     }
 
@@ -327,7 +345,7 @@ export default function FirmProfilePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-2">
-      {isLoading ? (
+      {isLoading || profileLoading ? (
         <PageSkeleton type="profile" />
       ) : (
         <>
@@ -349,7 +367,7 @@ export default function FirmProfilePage() {
                 {displayFirmName}
               </h1>
               <p className="text-sm text-muted-foreground">
-                Managed by {currentUser.name}
+                Managed by {adminName}
               </p>
             </div>
           </div>
@@ -605,15 +623,17 @@ export default function FirmProfilePage() {
                           type="button"
                           variant="outline"
                           onClick={cancelEditing}
+                          disabled={saving}
                         >
                           Cancel
                         </Button>
                         <Button
                           type="submit"
+                          disabled={saving}
                           className="gap-2 bg-forest-900 text-white hover:opacity-90"
                         >
                           <Save className="size-4" />
-                          Save Changes
+                          {saving ? "Saving..." : "Save Changes"}
                         </Button>
                       </>
                     ) : (
@@ -621,7 +641,14 @@ export default function FirmProfilePage() {
                         type="button"
                         variant="outline"
                         className="gap-2"
+                        disabled={!myProfile}
                         onClick={() => {
+                          setPersonalDraft({
+                            firstName: myProfile.firstName,
+                            lastName: myProfile.lastName,
+                            workEmail: myProfile.email,
+                            contactNumber: myProfile.contactNumber,
+                          })
                           setSaveMessage(null)
                           setEditingTab("personal")
                         }}
@@ -640,9 +667,9 @@ export default function FirmProfilePage() {
                       <Input
                         id="firstName"
                         name="firstName"
-                        value={profile.firstName}
+                        value={personalValues.firstName}
                         onChange={updateProfileField}
-                        disabled={editingTab !== "personal"}
+                        disabled={!editingPersonal}
                         aria-invalid={Boolean(formErrors.firstName) || undefined}
                         data-invalid-field={formErrors.firstName ? "true" : undefined}
                         className={controlClass}
@@ -656,9 +683,9 @@ export default function FirmProfilePage() {
                       <Input
                         id="lastName"
                         name="lastName"
-                        value={profile.lastName}
+                        value={personalValues.lastName}
                         onChange={updateProfileField}
-                        disabled={editingTab !== "personal"}
+                        disabled={!editingPersonal}
                         aria-invalid={Boolean(formErrors.lastName) || undefined}
                         data-invalid-field={formErrors.lastName ? "true" : undefined}
                         className={controlClass}
@@ -674,11 +701,14 @@ export default function FirmProfilePage() {
                       id="workEmail"
                       name="workEmail"
                       type="email"
-                      value={profile.workEmail}
-                      onChange={updateProfileField}
-                      disabled={editingTab !== "personal"}
+                      value={personalValues.workEmail}
+                      readOnly
+                      disabled
                       className={controlClass}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Used for sign-in and can't be changed here.
+                    </p>
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="contactNumber">Contact Number</FieldLabel>
@@ -687,9 +717,9 @@ export default function FirmProfilePage() {
                       name="contactNumber"
                       type="tel"
                       inputMode="tel"
-                      value={profile.contactNumber}
+                      value={personalValues.contactNumber}
                       onChange={updateProfileField}
-                      disabled={editingTab !== "personal"}
+                      disabled={!editingPersonal}
                       aria-invalid={Boolean(formErrors.contactNumber) || undefined}
                       data-invalid-field={formErrors.contactNumber ? "true" : undefined}
                       className={controlClass}
@@ -720,8 +750,9 @@ export default function FirmProfilePage() {
           <DialogHeader>
             <DialogTitle>Confirm changes</DialogTitle>
             <DialogDescription>
-              Save your changes to {editingLabel}? This updates the firm's
-              public settings.
+              {editingTab === "personal"
+                ? "Save your changes to Personal Information? This updates your own account details."
+                : `Save your changes to ${editingLabel}? This updates the firm's public settings.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row justify-end gap-2">
