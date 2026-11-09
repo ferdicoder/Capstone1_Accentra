@@ -214,11 +214,13 @@ export default function EngagementDetailsPage() {
     })
     showNotice(`Task "${fields.title}" added`)
 
-    if (referenceFile?.file) {
+    // `referenceFile` is already the raw File (TaskList unwraps the picker's
+    // { file } wrapper before calling up), so a truthy check is enough.
+    if (referenceFile) {
       try {
         await uploadTaskReference.mutateAsync({
           engagementTaskId: created.id,
-          file: referenceFile.file,
+          file: referenceFile,
         })
       } catch {
         showNotice(
@@ -238,10 +240,10 @@ export default function EngagementDetailsPage() {
       if (removeReferenceDocId) {
         await deleteTaskReference.mutateAsync(removeReferenceDocId)
       }
-      if (referenceFile?.file) {
+      if (referenceFile) {
         await uploadTaskReference.mutateAsync({
           engagementTaskId: taskId,
-          file: referenceFile.file,
+          file: referenceFile,
         })
       }
     } catch {
