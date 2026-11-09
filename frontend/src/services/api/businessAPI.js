@@ -16,7 +16,8 @@ function mapBusinessRow(row) {
     businessName: row.name ?? "",
     businessType: row.business_type ?? "",
     // Raw stored classification: 'retainer' | 'non-retainer' | null
-    // (null = signed up without a business, not yet classified by the firm).
+    // (null only on legacy rows created before signups always set
+    // 'non-retainer'; the firm classifies them via Edit Client).
     type: row.type ?? null,
     clientType: row.type === "retainer" ? "retainer" : "non_retainer",
     retainerFee: row.retainer_fee != null ? Number(row.retainer_fee) : null,

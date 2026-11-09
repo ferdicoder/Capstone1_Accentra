@@ -148,9 +148,9 @@ async function registerClient(formData) {
         middle_name: formData.middleName,
         birth_date: toISODateString(formData.birthDate),
         contact_no: formData.contactNumber,
-        // The DB trigger always creates a businesses row; this flag only
-        // marks it as unclassified (type = NULL) when the client signed up
-        // without a business. Registered signups get type = 'non-retainer'.
+        // Every client gets a businesses row with type = 'non-retainer'
+        // regardless of this flag; has_business = false only leaves the
+        // row's business fields empty (kept in metadata for reference).
         has_business: formData.birRegistrationStatus !== "none",
         business_name: formData.businessName,
         business_type: formData.businessType,

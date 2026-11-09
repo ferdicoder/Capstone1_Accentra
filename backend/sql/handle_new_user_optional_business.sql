@@ -4,14 +4,13 @@
 -- Business rule: every CLIENT gets a businesses row at signup so service
 -- requests / engagements can reference business_id immediately. Firm users
 -- (admin/staff/billing_officer) never get one. The frontend sends
--- `has_business` in raw_user_meta_data:
---   true  -> row created with full data from the signup form,
---            type = 'non-retainer' (mirrors the column DEFAULT)
---   false -> row created EMPTY (business fields are "") with type = NULL,
---            i.e. unclassified; the firm classifies them later via
---            Edit Client, and the client can fill the business in from
---            their profile page
--- Absent flag defaults to true so existing signup paths keep working.
+-- `has_business` in raw_user_meta_data, but it no longer affects `type`:
+--   true  -> row created with full data from the signup form
+--   false -> row created EMPTY (business fields are "") — the client can
+--            fill the business in from their profile page later
+-- Either way type = 'non-retainer' (mirrors the column DEFAULT); the firm
+-- reclassifies via Edit Client when appropriate. The flag is kept in
+-- metadata for reference/debugging only.
 --
 -- No table DDL change is required: businesses.type is already nullable.
 
@@ -43,8 +42,9 @@ begin
 
   -- Clients only: every client gets a businesses row so service requests /
   -- engagements can reference business_id immediately. Firm users
-  -- (admin/staff/billing_officer) never get one. has_business = false only
-  -- marks the row as unclassified (type = NULL) — it never skips the insert.
+  -- (admin/staff/billing_officer) never get one. has_business = false never
+  -- skips the insert and no longer affects type — businessless signups just
+  -- leave the business fields empty.
   if assigned_role = 'client' then
     insert into public.businesses (
       owner_id, name, business_type, tin_no, industry, contact_no,
@@ -63,10 +63,7 @@ begin
       new.raw_user_meta_data ->> 'district',
       new.raw_user_meta_data ->> 'city',
       new.raw_user_meta_data ->> 'zip_code',
-      case when coalesce(new.raw_user_meta_data ->> 'has_business', 'true') = 'false'
-           then null
-           else 'non-retainer'::public.client_type   -- mirrors the column DEFAULT
-      end
+      'non-retainer'::public.client_type   -- mirrors the column DEFAULT; businessless signups too
     ) on conflict (owner_id) do nothing;
   end if;
 
