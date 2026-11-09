@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, Pencil, Save } from "lucide-react"
+import { ArrowLeft, Loader2, Pencil, Save } from "lucide-react"
 
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { useFetchUsers } from "@/hooks/useUsers"
+import { useFetchMyProfile, useUpdateMyProfile } from "@/hooks/useMyProfile"
 import { authStore } from "@/store/authStore"
 import {
   getZodFieldErrors,
@@ -42,7 +43,15 @@ const getInitials = (name) => {
   return initials || "AC"
 }
 
+const buildFullName = (info) =>
+  [info.firstName, info.middleName, info.lastName].filter(Boolean).join(" ")
+
 function StaffSettings({ profile, role }) {
+  const authUser = authStore((state) => state.user)
+  const setAuth = authStore((state) => state.setAuth)
+  const updateProfile = useUpdateMyProfile()
+  const saving = updateProfile.isPending
+
   const [editing, setEditing] = useState(false)
   const [confirmationOpen, setConfirmationOpen] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
@@ -56,14 +65,11 @@ function StaffSettings({ profile, role }) {
   })
   const savedInfo = useRef(personalInfo)
 
-  const displayName =
-    [personalInfo.firstName, personalInfo.middleName, personalInfo.lastName]
-      .filter(Boolean)
-      .join(" ") || profile.name || "Staff Settings"
+  const displayName = buildFullName(personalInfo) || profile.name || "Staff Settings"
 
   const handleSavePersonalInfo = (event) => {
     event.preventDefault()
-    if (!editing) return
+    if (!editing || saving) return
 
     const errors = getZodFieldErrors(profilePersonalInfoSchema, personalInfo)
     setPersonalInfoErrors(errors)
@@ -96,14 +102,41 @@ function StaffSettings({ profile, role }) {
     setSaveMessage(null)
   }
 
-  const confirmChanges = () => {
-    savedInfo.current = { ...personalInfo }
-    setEditing(false)
-    setConfirmationOpen(false)
-    setSaveMessage({
-      type: "success",
-      text: "Personal information updated for this session.",
-    })
+  const confirmChanges = async () => {
+    const payload = {
+      userId: profile.id,
+      firstName: personalInfo.firstName.trim(),
+      middleName: personalInfo.middleName.trim(),
+      lastName: personalInfo.lastName.trim(),
+      contactNumber: personalInfo.contactNumber.trim(),
+    }
+
+    try {
+      const updated = await updateProfile.mutateAsync(payload)
+      const next = {
+        firstName: updated?.firstName ?? payload.firstName,
+        middleName: updated?.middleName ?? payload.middleName,
+        lastName: updated?.lastName ?? payload.lastName,
+        contactNumber: updated?.contactNumber ?? payload.contactNumber,
+      }
+
+      savedInfo.current = next
+      setPersonalInfo(next)
+
+      // Keep the header / sidebar name in sync. `name` must be set explicitly
+      // because authStore.normalizeUser prefers an existing user.name.
+      setAuth({ ...authUser, ...next, name: buildFullName(next) }, role)
+
+      setEditing(false)
+      setConfirmationOpen(false)
+      setSaveMessage({ type: "success", text: "Personal information updated." })
+    } catch (error) {
+      setConfirmationOpen(false)
+      setSaveMessage({
+        type: "error",
+        text: error?.message || "Could not save your changes. Please try again.",
+      })
+    }
   }
 
   return (
@@ -149,11 +182,17 @@ function StaffSettings({ profile, role }) {
             <div className="flex shrink-0 items-center gap-2">
               {editing ? (
                 <>
-                  <Button type="button" variant="outline" onClick={cancelEditing}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={cancelEditing}
+                    disabled={saving}
+                  >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
+                    disabled={saving}
                     className="gap-2 bg-forest-900 text-white hover:opacity-90"
                   >
                     <Save className="size-4" />
@@ -185,7 +224,7 @@ function StaffSettings({ profile, role }) {
                   name="firstName"
                   value={personalInfo.firstName}
                   onChange={updatePersonalInfo}
-                  disabled={!editing}
+                  disabled={!editing || saving}
                   aria-invalid={Boolean(personalInfoErrors.firstName) || undefined}
                   data-invalid-field={personalInfoErrors.firstName ? "true" : undefined}
                   className={controlClass}
@@ -201,7 +240,7 @@ function StaffSettings({ profile, role }) {
                   name="middleName"
                   value={personalInfo.middleName}
                   onChange={updatePersonalInfo}
-                  disabled={!editing}
+                  disabled={!editing || saving}
                   aria-invalid={Boolean(personalInfoErrors.middleName) || undefined}
                   data-invalid-field={personalInfoErrors.middleName ? "true" : undefined}
                   className={controlClass}
@@ -218,7 +257,7 @@ function StaffSettings({ profile, role }) {
                 name="lastName"
                 value={personalInfo.lastName}
                 onChange={updatePersonalInfo}
-                disabled={!editing}
+                disabled={!editing || saving}
                 aria-invalid={Boolean(personalInfoErrors.lastName) || undefined}
                 data-invalid-field={personalInfoErrors.lastName ? "true" : undefined}
                 className={controlClass}
@@ -247,7 +286,7 @@ function StaffSettings({ profile, role }) {
                 inputMode="tel"
                 value={personalInfo.contactNumber}
                 onChange={updatePersonalInfo}
-                disabled={!editing}
+                disabled={!editing || saving}
                 aria-invalid={Boolean(personalInfoErrors.contactNumber) || undefined}
                 data-invalid-field={personalInfoErrors.contactNumber ? "true" : undefined}
                 className={controlClass}
@@ -283,20 +322,21 @@ function StaffSettings({ profile, role }) {
       <Dialog
         open={confirmationOpen}
         onOpenChange={(open) => {
-          if (!open) setConfirmationOpen(false)
+          if (!open && !saving) setConfirmationOpen(false)
         }}
       >
         <DialogContent data-slot="staff-settings-save-confirmation">
           <DialogHeader>
             <DialogTitle>Confirm changes</DialogTitle>
             <DialogDescription>
-              Save your changes to Personal Information? These changes apply to this session only.
+              Save your changes to Personal Information?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row justify-end gap-2">
             <Button
               type="button"
               variant="outline"
+              disabled={saving}
               onClick={() => setConfirmationOpen(false)}
             >
               Cancel
@@ -304,9 +344,11 @@ function StaffSettings({ profile, role }) {
             <Button
               type="button"
               onClick={confirmChanges}
-              className="bg-forest-900 text-white hover:opacity-90"
+              disabled={saving}
+              className="gap-2 bg-forest-900 text-white hover:opacity-90"
             >
-              Confirm and Save
+              {saving && <Loader2 className="size-4 animate-spin" />}
+              {saving ? "Saving..." : "Confirm and Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -325,6 +367,9 @@ export default function StaffProfilePage() {
   const authUser = authStore((state) => state.user)
   const authRole = authStore((state) => state.role)
   const { data: users = [], isLoading: usersLoading } = useFetchUsers()
+  const { data: myProfile, isLoading: myProfileLoading } = useFetchMyProfile(
+    isOwnProfile ? authUser?.id : undefined
+  )
   const staffUser = useMemo(
     () => (isOwnProfile ? null : users.find((user) => user.id === id) ?? null),
     [isOwnProfile, users, id]
@@ -332,19 +377,26 @@ export default function StaffProfilePage() {
 
   const profile = useMemo(() => {
     if (isOwnProfile) {
+      // Server row wins; auth metadata is only a fallback if the row is missing.
+      const source = myProfile ?? {}
+      const firstName = source.firstName ?? authUser?.firstName ?? ""
+      const middleName = source.middleName ?? authUser?.middleName ?? ""
+      const lastName = source.lastName ?? authUser?.lastName ?? ""
       return {
-        firstName: authUser?.firstName ?? "",
-        middleName: authUser?.middleName ?? "",
-        lastName: authUser?.lastName ?? "",
-        name: authUser?.name ?? "",
-        email: authUser?.email ?? "",
-        contactNumber: authUser?.contactNumber ?? "",
+        id: authUser?.id ?? "",
+        firstName,
+        middleName,
+        lastName,
+        name: buildFullName({ firstName, middleName, lastName }) || authUser?.name || "",
+        email: source.email ?? authUser?.email ?? "",
+        contactNumber: source.contactNumber ?? authUser?.contactNumber ?? "",
         role: authRole ?? "",
         status: "",
       }
     }
 
     return {
+      id: staffUser?.id ?? "",
       firstName: staffUser?.firstName ?? "",
       middleName: staffUser?.middleName ?? "",
       lastName: staffUser?.lastName ?? "",
@@ -354,7 +406,7 @@ export default function StaffProfilePage() {
       role: staffUser?.role ?? "",
       status: staffUser?.status ?? "",
     }
-  }, [isOwnProfile, authUser, authRole, staffUser])
+  }, [isOwnProfile, authUser, authRole, staffUser, myProfile])
 
   usePageMeta({
     title: isOwnProfile ? "My Settings" : "Staff Profile",
@@ -368,7 +420,11 @@ export default function StaffProfilePage() {
   })
 
   if (isOwnProfile) {
-    return <StaffSettings profile={profile} role={authRole} />
+    // Wait for the fetch so the form initializes from the saved row.
+    if (myProfileLoading) {
+      return <PageSkeleton type="profile" />
+    }
+    return <StaffSettings key={profile.id} profile={profile} role={authRole} />
   }
 
   if (usersLoading || !staffUser) {
