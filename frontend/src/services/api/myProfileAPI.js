@@ -1,7 +1,8 @@
 import { supabase } from "@/config/supabase"
 
-// NOTE: requires a middle_name column on public.users.
-const PROFILE_SELECT = "user_id, first_name, middle_name, last_name, email, contact_no"
+// Table columns: first_name, middle_name, last_name, birthdate, email, contact_no.
+const PROFILE_SELECT =
+  "user_id, first_name, middle_name, last_name, birthdate, email, contact_no"
 
 function mapProfileRow(row) {
   if (!row) return null
@@ -10,6 +11,7 @@ function mapProfileRow(row) {
     firstName: row.first_name ?? "",
     middleName: row.middle_name ?? "",
     lastName: row.last_name ?? "",
+    birthDate: row.birthdate ?? "",
     email: row.email ?? "",
     contactNumber: row.contact_no ?? "",
   }
@@ -27,11 +29,12 @@ export async function getMyProfile(userId) {
   return mapProfileRow(data)
 }
 
-// Self-edit only: name and contact number. Email and role are not touched here.
-// .single() makes a blocked update (missing RLS policy) throw instead of
-// silently returning nothing.
-// middleName is optional so the Admin page (which has no middle name field)
-// keeps working: when it is undefined the column is left untouched.
+// Self-edit only: name and contact number. Email, birthdate and role are not
+// touched here. .single() makes a blocked update (missing RLS policy) throw
+// instead of silently returning nothing.
+// middleName / contactNumber are optional so each page only writes what it
+// owns: the Admin page has no middle name field, and the Client page keeps its
+// contact number in the business tab.
 export async function updateMyProfile({
   userId,
   firstName,
@@ -42,9 +45,9 @@ export async function updateMyProfile({
   const changes = {
     first_name: firstName,
     last_name: lastName,
-    contact_no: contactNumber || null,
   }
   if (middleName !== undefined) changes.middle_name = middleName || null
+  if (contactNumber !== undefined) changes.contact_no = contactNumber || null
 
   const { data, error } = await supabase
     .from("users")

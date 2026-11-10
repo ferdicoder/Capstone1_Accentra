@@ -17,10 +17,9 @@ export function useUpdateMyProfile() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: updateMyProfile,
+    networkMode: "always",
     onSuccess: (updatedProfile, variables) => {
-      // Use the row the server returned so the cache is never stale.
       qc.setQueryData(myProfileKey(variables.userId), updatedProfile)
-      // Keep the Teams list in sync for the Admin view.
       qc.invalidateQueries({ queryKey: queryKeys.users })
     },
   })
