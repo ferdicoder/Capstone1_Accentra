@@ -1,14 +1,10 @@
 const requireRole = (...allowedRoles) => (req, res, next) => {
-  const role = req.userRole ?? req.user?.app_metadata?.role;
-
-  if (!allowedRoles.includes(role)) {
+  if (!req.userRole || !allowedRoles.includes(req.userRole)) {
     return res.status(403).json({
       status: "fail",
       message: "You do not have permission to perform this action",
     });
   }
-
   next();
 };
-
 export { requireRole };

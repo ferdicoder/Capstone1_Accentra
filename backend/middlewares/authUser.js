@@ -1,7 +1,6 @@
 import { supabaseAdmin } from "../config/supabaseAdmin.js";
 
 const authUser = async (req, res, next) => {
-  
   const authHeader = req.headers.authorization;
 
   if (!authHeader?.startsWith("Bearer ")) {
@@ -12,7 +11,7 @@ const authUser = async (req, res, next) => {
   }
 
   try {
-    const token = authHeader.split(" ")[1]; 
+    const token = authHeader.split(" ")[1];
     const { data, error } = await supabaseAdmin.auth.getUser(token);
 
     if (error || !data?.user) {
@@ -22,18 +21,42 @@ const authUser = async (req, res, next) => {
       });
     }
 
-    req.user = data.user;
-    const { data: roleData, error: roleError } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", data.user.id)
-      .maybeSingle();
+    const [
+      { data: roleData, error: roleError },
+      { data: profile, error: profileError },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", data.user.id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("users")
+        .select("status")
+        .eq("user_id", data.user.id)
+        .maybeSingle(),
+    ]);
 
-    if (roleError) {
-      return next(roleError);
+    if (roleError || profileError) {
+      return next(roleError || profileError);
     }
 
-    req.userRole = roleData?.role ?? data.user.app_metadata?.role;
+    if (!roleData?.role) {
+      return res.status(403).json({
+        status: "fail",
+        message: "No role assigned",
+      });
+    }
+
+    if (profile?.status === "deactivated") {
+      return res.status(403).json({
+        status: "fail",
+        message: "Account is deactivated",
+      });
+    }
+
+    req.user = data.user;
+    req.userRole = roleData.role;
     next();
   } catch (error) {
     next(error);

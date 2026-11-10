@@ -6,7 +6,6 @@ import { requireRole } from "../middlewares/requireRole.js";
 const userRouter = Router(); 
 
 userRouter
-  .post('/create', createStaff)
-  .patch('/:userId/role', authUser, requireRole("admin"), updateUserRole);
-
+  .post("/create", authUser, requireRole("admin"), createStaff)
+  .patch("/:userId/role", authUser, requireRole("admin"), updateUserRole);
 export { userRouter }

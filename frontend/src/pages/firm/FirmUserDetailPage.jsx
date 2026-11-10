@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { useQueryClient } from "@tanstack/react-query"
 import { ArrowLeft, Ban, CheckCircle2, ChevronDown, Pencil } from "lucide-react"
 
 import { FirmUserAvatar } from "@/components/firm/users/firm-user-avatar"
@@ -25,10 +24,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { authStore } from "@/store/authStore"
-import { useFetchUsers, useToggleUserStatus } from "@/hooks/useUsers"
-import { queryKeys } from "@/config/queryKeys"
+import {
+  useFetchUsers,
+  useToggleUserStatus,
+  useFetchFirmRoles,
+  useUpdateUserRole,
+} from "@/hooks/useUsers"
 
-const roleOptions = [
+const fallbackRoleOptions = [
   { value: "admin", label: "Admin" },
   { value: "staff", label: "Staff" },
   { value: "billing_officer", label: "Billing Officer" },
@@ -55,16 +58,26 @@ function DetailRow({ label, value, editing = false }) {
 
 export default function FirmUserDetailPage() {
   const { id } = useParams()
-  const queryClient = useQueryClient()
   const authUser = authStore((state) => state.user)
   const { data: users = [], isLoading, error } = useFetchUsers()
+  const { data: roles = [] } = useFetchFirmRoles()
   const toggleStatus = useToggleUserStatus()
+  const updateRole = useUpdateUserRole()
   const user = useMemo(() => users.find((item) => String(item.id) === id) ?? null, [users, id])
   const [editing, setEditing] = useState(false)
   const [selectedRole, setSelectedRole] = useState("")
   const [confirmationOpen, setConfirmationOpen] = useState(false)
   const [statusTarget, setStatusTarget] = useState(null)
   const [statusNotice, setStatusNotice] = useState("")
+  const [roleError, setRoleError] = useState("")
+
+  const roleOptions = useMemo(
+    () =>
+      roles.length
+        ? roles.map((r) => ({ value: r.role_id, label: r.role_name }))
+        : fallbackRoleOptions,
+    [roles]
+  )
 
   usePageMeta({
     title: user?.name || "Firm User Details",
@@ -106,6 +119,13 @@ export default function FirmUserDetailPage() {
   }
 
   const roleLabel = roleOptions.find((option) => option.value === user.role)?.label ?? user.role
+  const selectedRoleLabel =
+    roleOptions.find((option) => option.value === selectedRole)?.label ?? selectedRole
+
+  const activeAdmins = users.filter(
+    (item) => item.role === "admin" && item.status !== "deactivated"
+  )
+
   const statusValidationError = (() => {
     if (!statusTarget) return ""
     if (statusTarget.action === "reactivate") {
@@ -116,29 +136,52 @@ export default function FirmUserDetailPage() {
     if (String(user.id) === String(authUser?.id)) {
       return "You cannot deactivate the account you are signed in with."
     }
-    const activeAdmins = users.filter(
-      (item) => item.role === "admin" && item.status !== "deactivated"
-    )
     if (user.role === "admin" && activeAdmins.length <= 1) {
       return "This is the only active firm administrator, so it cannot be deactivated."
     }
     return ""
   })()
 
-  const confirmRoleChange = () => {
-    queryClient.setQueryData(queryKeys.users, (currentUsers = []) =>
-      currentUsers.map((currentUser) =>
-        currentUser.id === user.id ? { ...currentUser, role: selectedRole } : currentUser
-      )
-    )
+  const roleValidationError = (() => {
+    if (!editing || !selectedRole || selectedRole === user.role) return ""
+    if (String(user.id) === String(authUser?.id)) {
+      return "You cannot change the role of the account you are signed in with."
+    }
+    if (user.role === "admin" && activeAdmins.length <= 1) {
+      return "This is the only active firm administrator, so its role cannot be changed."
+    }
+    return ""
+  })()
+
+  const cancelRoleEdit = () => {
+    setSelectedRole(user.role)
+    setRoleError("")
     setEditing(false)
     setConfirmationOpen(false)
   }
 
+  const confirmRoleChange = () => {
+    if (roleValidationError) return
+    setRoleError("")
+    updateRole.mutate(
+      { id: user.id, role: selectedRole },
+      {
+        onSuccess: () => {
+          setStatusNotice(`${user.name}'s role updated to ${selectedRoleLabel}`)
+          setEditing(false)
+          setConfirmationOpen(false)
+        },
+        onError: (err) => {
+          console.error("Firm user role update failed:", err?.message)
+          setRoleError(err?.message || "We couldn't update this role. Please try again.")
+        },
+      }
+    )
+  }
+
   const confirmStatusChange = () => {
     if (!statusTarget || statusValidationError) return
-    const nextStatus =
-      statusTarget.action === "deactivate" ? "deactivated" : "active"
+    const nextStatus = statusTarget.action === "deactivate" ? "deactivated" : "active"
     toggleStatus.mutate(
       { id: user.id, status: nextStatus },
       {
@@ -168,6 +211,11 @@ export default function FirmUserDetailPage() {
               {statusNotice}
             </p>
           )}
+          {roleValidationError && (
+            <p role="alert" className="text-xs text-destructive">
+              {roleValidationError}
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -193,23 +241,20 @@ export default function FirmUserDetailPage() {
 
           {editing ? (
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSelectedRole(user.role)
-                  setEditing(false)
-                }}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={cancelRoleEdit}>
                 Cancel
               </Button>
               <Button
                 type="button"
                 size="sm"
                 className="bg-forest-900 text-white hover:opacity-90"
-                disabled={!selectedRole || selectedRole === user.role}
-                onClick={() => setConfirmationOpen(true)}
+                disabled={
+                  !selectedRole || selectedRole === user.role || Boolean(roleValidationError)
+                }
+                onClick={() => {
+                  setRoleError("")
+                  setConfirmationOpen(true)
+                }}
               >
                 Save Changes
               </Button>
@@ -221,6 +266,7 @@ export default function FirmUserDetailPage() {
               className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
               onClick={() => {
                 setSelectedRole(user.role)
+                setStatusNotice("")
                 setEditing(true)
               }}
             >
@@ -279,7 +325,7 @@ export default function FirmUserDetailPage() {
                           />
                         }
                       >
-                        {roleOptions.find((option) => option.value === selectedRole)?.label ?? "Select role"}
+                        {selectedRoleLabel || "Select role"}
                         <ChevronDown className="size-4 opacity-60" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="min-w-40">
@@ -304,37 +350,42 @@ export default function FirmUserDetailPage() {
         </div>
       </section>
 
-      <Dialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
+      <Dialog
+        open={confirmationOpen}
+        onOpenChange={(open) => {
+          if (!updateRole.isPending) setConfirmationOpen(open)
+        }}
+      >
         <DialogContent data-slot="firm-user-role-confirmation">
           <DialogHeader>
             <DialogTitle>Confirm role change</DialogTitle>
             <DialogDescription>
               Change this user&apos;s role from{" "}
-              <span className="font-medium text-foreground">{user.role}</span> to{" "}
-              <span className="font-medium text-foreground">
-                {roleOptions.find((option) => option.value === selectedRole)?.label ?? selectedRole}
-              </span>
-              ? This change is only applied in the current session and will not persist after a refresh.
+              <span className="font-medium text-foreground">{roleLabel}</span> to{" "}
+              <span className="font-medium text-foreground">{selectedRoleLabel}</span>?
             </DialogDescription>
           </DialogHeader>
+          {roleError && (
+            <p role="alert" className="text-sm text-destructive">
+              {roleError}
+            </p>
+          )}
           <DialogFooter className="flex-row justify-end gap-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                setSelectedRole(user.role)
-                setEditing(false)
-                setConfirmationOpen(false)
-              }}
+              disabled={updateRole.isPending}
+              onClick={cancelRoleEdit}
             >
               Cancel
             </Button>
             <Button
               type="button"
               className="bg-forest-900 text-white hover:opacity-90"
+              disabled={updateRole.isPending}
               onClick={confirmRoleChange}
             >
-              Okay
+              {updateRole.isPending ? "Saving…" : "Confirm"}
             </Button>
           </DialogFooter>
         </DialogContent>
