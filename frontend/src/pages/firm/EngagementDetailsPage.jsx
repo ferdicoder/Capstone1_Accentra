@@ -129,14 +129,10 @@ export default function EngagementDetailsPage() {
     setTimeout(() => setNotice(""), 3000)
   }
 
-  const documentTasks = (engagement.tasks ?? []).filter(
-    (task) => task.hasReferenceDocument
+  const requiredTasks = (engagement.tasks ?? []).filter((task) => task.required)
+  const canSetForValidation = requiredTasks.every((task) =>
+    ["for_review", "in_review", "submitted", "resubmitted", "approved"].includes(task.status)
   )
-  const canSetForValidation =
-    documentTasks.length > 0 &&
-    documentTasks.every((task) =>
-      ["for_review", "in_review", "submitted", "resubmitted"].includes(task.status)
-    )
 
   const reviewableTaskIds = new Set(
     (engagement.tasks ?? [])
@@ -163,7 +159,7 @@ export default function EngagementDetailsPage() {
 
   const handleStageChange = (stageKey) => {
     if (stageKey === "for_validation" && !canSetForValidation) {
-      showNotice("All engagement documents must be For Review before moving to For Validation.")
+      showNotice("All required tasks must be submitted before moving to For Validation.")
       return
     }
 

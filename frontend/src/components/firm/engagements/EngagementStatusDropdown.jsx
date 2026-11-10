@@ -120,7 +120,7 @@ export function EngagementStatusDropdown({
           ))}
           {!canSetForValidation && currentStatus === "document_collection" && (
             <DropdownMenuItem disabled className="whitespace-normal text-xs">
-              All engagement documents must be For Review before moving to For Validation.
+              All required tasks must be submitted before moving to For Validation.
             </DropdownMenuItem>
           )}
           {onCancel && (
