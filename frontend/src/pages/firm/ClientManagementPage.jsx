@@ -9,9 +9,13 @@ import { FirmUserTable } from "@/components/firm/users/firm-user-table"
 import { FirmUserAvatar } from "@/components/firm/users/firm-user-avatar"
 import { FirmUserStatusBadge } from "@/components/firm/users/firm-user-status-badge"
 import { ClientTypeBadge } from "@/components/firm/clients/client-type-badge"
-import { clientStatusFilterOptions } from "@/components/firm/clients/client-variants"
+import { clientStatusFilterOptions, clientTypeOptions, DEFAULT_CLIENT_TYPE, } from "@/components/firm/clients/client-variants"
 import { clientStore } from "@/components/firm/clients/client-store"
 
+const retainerTypeFilterOptions = [
+  { label: "Retainer", value: "retainer" },
+  { label: "Non-retainer", value: "non-retainer" },
+]
 const clientColumns = [
   {
     key: "client",
@@ -72,6 +76,7 @@ export default function ClientManagementPage() {
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
+  const [retainerFilter, setRetainerFilter] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
 
   const clients = useMemo(
@@ -91,16 +96,25 @@ export default function ClientManagementPage() {
 
   const filteredClients = useMemo(() => {
     const query = search.trim().toLowerCase()
+
     return clients.filter((client) => {
       const matchesSearch =
         !query ||
         [client.name, client.businessName, client.email].some((field) =>
           field?.toLowerCase().includes(query)
         )
-      const matchesStatus = !statusFilter || client.status === statusFilter
-      return matchesSearch && matchesStatus
+
+      const matchesStatus =
+        !statusFilter || client.status === statusFilter
+
+      const clientType = client.clientType ?? DEFAULT_CLIENT_TYPE
+
+      const matchesRetainer =
+        !retainerFilter || clientType === retainerFilter
+
+      return matchesSearch && matchesStatus && matchesRetainer
     })
-  }, [clients, search, statusFilter])
+  }, [clients, search, statusFilter, retainerFilter])
 
   const openDetails = (client) => navigate(`${basePath}/clients/${client.id}`)
 
@@ -139,6 +153,16 @@ export default function ClientManagementPage() {
         filterHeading="Filter by status"
         allOptionLabel="All statuses"
         resultCount={`${filteredClients.length} of ${clients.length} clients`}
+        
+        typeFilter={retainerFilter}
+        onTypeFilterChange={(value) => {
+  setRetainerFilter(value)
+  setCurrentPage(1)
+        }}
+        typeOptions={clientTypeOptions}
+        typeFilterLabel="Retainer Type"
+        typeFilterHeading="Filter by retainer type"
+        allTypeOptionLabel="All types"
       />
 
       <FirmUserTable
