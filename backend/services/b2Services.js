@@ -1,6 +1,6 @@
 import axios from 'axios';
 import crypto from 'crypto';
-import { authorizeB2, b2HttpsAgent } from '../config/b2Client.js';
+import { authorizeB2, b2HttpsAgent, b2RequestTimeout } from '../config/b2Client.js';
 
 async function getUploadUrl() {
   const { apiUrl, authorizationToken } = await authorizeB2();
@@ -10,7 +10,7 @@ async function getUploadUrl() {
     {
       headers: { Authorization: authorizationToken },
       httpsAgent: b2HttpsAgent,
-      timeout: 15000,
+      timeout: b2RequestTimeout(),
     }
   );
   return res.data; // { uploadUrl, authorizationToken }
@@ -28,7 +28,7 @@ async function uploadFile(fileBuffer, fileName, contentType) {
       'X-Bz-Content-Sha1': sha1,
     },
     httpsAgent: b2HttpsAgent,
-    timeout: 15000,
+    timeout: b2RequestTimeout(),
     maxBodyLength: Infinity,
   });
 
@@ -40,7 +40,7 @@ async function deleteFileVersion(fileName, fileId) {
   const res = await axios.post(
     `${apiUrl}/b2api/v3/b2_delete_file_version`,
     { fileName, fileId },
-    { headers: { Authorization: authorizationToken }, httpsAgent: b2HttpsAgent, timeout: 15000 }
+    { headers: { Authorization: authorizationToken }, httpsAgent: b2HttpsAgent, timeout: b2RequestTimeout() }
   );
   return res.data;
 }
@@ -53,7 +53,7 @@ async function deleteFileByName(fileName) {
   const listRes = await axios.post(
     `${apiUrl}/b2api/v3/b2_list_file_versions`,
     { fileName, maxFileCount: 1 },
-    { headers: { Authorization: authorizationToken }, httpsAgent: b2HttpsAgent, timeout: 15000 }
+    { headers: { Authorization: authorizationToken }, httpsAgent: b2HttpsAgent, timeout: b2RequestTimeout() }
   );
   const entry = listRes.data?.files?.[0];
   if (!entry) return null;
@@ -68,7 +68,7 @@ async function downloadFile(fileName) {
       headers: { Authorization: authorizationToken },
       responseType: 'arraybuffer',
       httpsAgent: b2HttpsAgent,
-      timeout: 15000,
+      timeout: b2RequestTimeout(),
     }
   );
   return res.data;

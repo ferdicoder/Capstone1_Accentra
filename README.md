@@ -231,6 +231,10 @@ B2_BUCKET_ID=
 B2_BUCKET_NAME=
 ```
 
+B2 requests use a 60-second timeout by default and retry transient authorization
+network failures. Set `B2_REQUEST_TIMEOUT_MS` in the backend environment to
+override the timeout when the deployment has slower outbound connectivity.
+
 `SUPABASE_SECRET_KEY`, `B2_APPLICATION_KEY`, and the other B2 credentials are server secrets and must only be used by the backend.
 
 ### Frontend environment variables

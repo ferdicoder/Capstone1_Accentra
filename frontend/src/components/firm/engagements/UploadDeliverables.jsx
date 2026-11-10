@@ -165,8 +165,20 @@ function toFileRecord(file) {
 
 const MAX_PREVIEW_DOCS = 1
 
-// Deliverables can be any file type, so the type check is skipped.
-// The shared dropzone's default size limit (10 MB) still applies.
+// Mirrors the backend's multer allowlist (backend/config/allowedFileTypes.js)
+// so unsupported types are rejected client-side instead of by a server 400.
+const DELIVERABLE_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]
+const DELIVERABLE_ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+const DELIVERABLE_TYPE_LABEL = "PDF, JPG, PNG, WEBP, DOC, or DOCX"
+// Backend multer cap is 15 MB (the shared dropzone default is 10).
+const DELIVERABLE_MAX_SIZE = 15 * 1024 * 1024
 export function UploadDeliverables({
   deliverables = [],
   isUploading = false,
@@ -203,7 +215,12 @@ export function UploadDeliverables({
 
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return
-    await onUpload?.(selectedFiles.map((item) => item.file))
+    try {
+      await onUpload?.(selectedFiles.map((item) => item.file))
+    } catch {
+      // The parent surfaces the error notice; keep the dialog open for retry.
+      return
+    }
     setSelectedFiles([])
     setDialogOpen(false)
   }
@@ -295,9 +312,10 @@ export function UploadDeliverables({
           <div className="flex flex-col gap-3">
             <FileDropzone
               multiple
-              accept=""
-              allowedTypes={null}
-              typeLabel="Any file type"
+              accept={DELIVERABLE_ACCEPT}
+              allowedTypes={DELIVERABLE_TYPES}
+              maxSize={DELIVERABLE_MAX_SIZE}
+              typeLabel={DELIVERABLE_TYPE_LABEL}
               disabled={isUploading}
               onSelect={handleFilesSelected}
             />

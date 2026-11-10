@@ -79,11 +79,34 @@ async function deleteLinkedFile({ junctionTable, fileId, storageKey, b2FileId })
 async function getEngagement(engagementId) {
   const { data, error } = await supabaseAdmin
     .from('engagements')
-    .select('engagement_id')
+    .select('engagement_id, assigned_staff, status')
     .eq('engagement_id', engagementId)
     .maybeSingle();
   if (error) throw error;
   return data;
+}
+
+// Deliverables are managed by the admin or the staff member assigned to the
+// engagement — never by other staff. Mirrors the frontend's gating.
+function canManageDeliverables(engagement, req) {
+  if (req.userRole === 'admin') return true;
+  return req.userRole === 'staff' && engagement.assigned_staff === req.user?.id;
+}
+
+// Shared guards for the deliverable upload/delete endpoints. Returns an error
+// response, or null when the caller may proceed.
+function deliverableGuard(engagement, req, res) {
+  if (engagement.status !== 'in_progress') {
+    return res
+      .status(409)
+      .json({ error: 'Deliverables can only be managed while the engagement is In Progress' });
+  }
+  if (!canManageDeliverables(engagement, req)) {
+    return res
+      .status(403)
+      .json({ error: 'Only the admin or the assigned staff can manage deliverables' });
+  }
+  return null;
 }
 
 async function getEngagementTask(engagementTaskId) {
@@ -140,6 +163,9 @@ export async function uploadEngagementDeliverable(req, res) {
     return res.status(500).json({ error: 'Could not verify engagement' });
   }
   if (!engagement) return res.status(404).json({ error: 'Engagement not found' });
+
+  const guard = deliverableGuard(engagement, req, res);
+  if (guard) return guard;
 
   const storageKey = `deliverables/${engagementId}/${Date.now()}-${req.file.originalname}`;
   let b2Result;
@@ -209,11 +235,17 @@ export async function deleteEngagementDeliverable(req, res) {
   try {
     const { data: doc, error } = await supabaseAdmin
       .from('engagement_deliverables')
-      .select('file_id, files(storage_key, b2_file_id)')
+      .select('file_id, engagement_id, files(storage_key, b2_file_id)')
       .eq('file_id', deliverableId)
       .maybeSingle();
     if (error) throw error;
     if (!doc?.files) return res.status(404).json({ error: 'Deliverable not found' });
+
+    const engagement = await getEngagement(doc.engagement_id);
+    if (!engagement) return res.status(404).json({ error: 'Engagement not found' });
+
+    const guard = deliverableGuard(engagement, req, res);
+    if (guard) return guard;
 
     await deleteLinkedFile({
       junctionTable: 'engagement_deliverables',

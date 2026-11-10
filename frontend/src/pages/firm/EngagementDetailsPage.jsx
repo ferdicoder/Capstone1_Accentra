@@ -56,6 +56,7 @@ export default function EngagementDetailsPage() {
       ? "/firm"
       : "/admin"
   const role = authStore((state) => state.role)
+  const userId = authStore((state) => state.user?.id)
   const canManageEngagements = can(role, "manage_engagements")
   const hasCancelPermission = can(role, "cancel_engagement")
   // const sectionLabel = basePath === "/firm" ? "Firm Staff" : "Firm Admin"
@@ -114,6 +115,19 @@ export default function EngagementDetailsPage() {
   const isTerminalEngagement =
     engagement.status === "completed" || engagement.status === "cancelled"
   const canCancelEngagement = hasCancelPermission && !isTerminalEngagement
+
+  // Manual stage changes and deliverable management are limited to admins and
+  // the staff member assigned to this engagement — everyone else is view-only.
+  const isInProgress = engagement.status === "in_progress"
+  const isAssignedStaff =
+    role === "staff" && Boolean(userId) && engagement.assignedStaffId === userId
+  const canChangeStage = role === "admin" || isAssignedStaff
+  const canManageDeliverables = isInProgress && canChangeStage
+  // The deliverables card stays hidden until the engagement reaches In
+  // Progress, then remains visible afterward.
+  const showDeliverables = ["in_progress", "completed", "cancelled"].includes(
+    engagement.status
+  )
   // Red only while the engagement is still open and past its due date.
   const isOverdue =
     !isTerminalEngagement &&
@@ -160,6 +174,8 @@ export default function EngagementDetailsPage() {
   )
 
   const handleStageChange = (stageKey) => {
+    if (!canChangeStage) return
+
     if (stageKey === "for_validation" && !canSetForValidation) {
       showNotice("All required tasks must be submitted before moving to For Validation.")
       return
@@ -355,7 +371,7 @@ export default function EngagementDetailsPage() {
               </Button>
             )}
 
-            {canManageEngagements && (
+            {canManageEngagements && canChangeStage && (
               <EngagementStatusDropdown
                 engagement={engagement}
                 onStatusChange={(_, status) => handleStageChange(status)}
@@ -423,36 +439,41 @@ export default function EngagementDetailsPage() {
         {/* ── Main content ──────────────────────────────────────────────── */}
         {activeTab === "overview" && canManageEngagements && <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-w-0 flex-col gap-5">
-            <UploadDeliverables
-              deliverables={deliverables}
-              isUploading={uploadDeliverable.isPending}
-              isDeleting={deleteDeliverable.isPending}
-              canDelete={role === "admin" || role === "staff"}
-              disabled={isTerminalEngagement}
-              onBlockedAction={() => setTerminalActionDialogOpen(true)}
-              onDelete={async (deliverableId) => {
-                try {
-                  await deleteDeliverable.mutateAsync(deliverableId)
-                  showNotice("Deliverable deleted")
-                  return true
-                } catch (deleteError) {
-                  showNotice(deleteError?.message || "Could not delete deliverable", true)
-                  return false
-                }
-              }}
-              onUpload={async (files) => {
-                if (isTerminalEngagement) {
-                  setTerminalActionDialogOpen(true)
-                  return
-                }
-                await Promise.all(
-                  files.map((file) =>
-                    uploadDeliverable.mutateAsync({ engagementId: id, file })
-                  )
-                )
-                showNotice("Deliverables uploaded")
-              }}
-            />
+            {showDeliverables && (
+              <UploadDeliverables
+                deliverables={deliverables}
+                isUploading={uploadDeliverable.isPending}
+                isDeleting={deleteDeliverable.isPending}
+                canDelete={canManageDeliverables}
+                disabled={!canManageDeliverables}
+                onBlockedAction={() => setTerminalActionDialogOpen(true)}
+                onDelete={async (deliverableId) => {
+                  try {
+                    await deleteDeliverable.mutateAsync(deliverableId)
+                    showNotice("Deliverable deleted")
+                    return true
+                  } catch (deleteError) {
+                    showNotice(deleteError?.message || "Could not delete deliverable", true)
+                    return false
+                  }
+                }}
+                onUpload={async (files) => {
+                  if (!canManageDeliverables) return
+                  try {
+                    await Promise.all(
+                      files.map((file) =>
+                        uploadDeliverable.mutateAsync({ engagementId: id, file })
+                      )
+                    )
+                    showNotice("Deliverables uploaded")
+                  } catch (uploadError) {
+                    showNotice(uploadError?.message || "Could not upload deliverable", true)
+                    // Rethrow so the upload dialog stays open for a retry.
+                    throw uploadError
+                  }
+                }}
+              />
+            )}
             <TaskList
               engagement={engagement}
               documents={reviewDocuments}
