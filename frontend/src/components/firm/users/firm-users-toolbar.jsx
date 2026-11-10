@@ -41,6 +41,12 @@ export function FirmUsersToolbar({
   roleFilter = "",
   onRoleFilterChange,
   roleOptions = defaultRoleFilterOptions,
+  typeFilter = "",
+  onTypeFilterChange,
+  typeOptions = [],
+  typeFilterLabel = "Type",
+  typeFilterHeading = "Filter by type",
+  allTypeOptionLabel = "All types",
   filterLabel = "Role",
   filterHeading = "Filter by role",
   allOptionLabel = "All roles",
@@ -52,6 +58,7 @@ export function FirmUsersToolbar({
   ...props
 }) {
   const activeRole = roleOptions.find((option) => option.value === roleFilter)
+  const activeType = typeOptions.find((option) => option.value === typeFilter)
 
   return (
     <div
@@ -76,6 +83,62 @@ export function FirmUsersToolbar({
       )}
 
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+        {typeOptions.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "gap-1.5",
+                    activeType &&
+                      "border-forest-900/40 text-forest-900 dark:border-emerald-500/40 dark:text-emerald-300"
+                  )}
+                />
+              }
+            >
+              <Filter className="size-3.5" />
+              {activeType ? activeType.label : typeFilterLabel}
+              <ChevronDown className="size-3.5 opacity-60" />
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end" className="min-w-40">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>
+                  {typeFilterHeading}
+                </DropdownMenuLabel>
+
+                <DropdownMenuItem
+                  onClick={() => onTypeFilterChange?.("")}
+                  className={cn(!typeFilter && "font-medium")}
+                >
+                  <span className="flex w-4 shrink-0 justify-center">
+                    {!typeFilter && <Check className="size-4" />}
+                  </span>
+                  {allTypeOptionLabel}
+               </DropdownMenuItem>
+
+                {typeOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => onTypeFilterChange?.(option.value)}
+                    className={cn(
+                      option.value === typeFilter && "font-medium"
+                    )}
+                  >
+                    <span className="flex w-4 shrink-0 justify-center">
+                      {option.value === typeFilter && (
+                        <Check className="size-4" />
+                      )}
+                    </span>
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         {roleOptions.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger
