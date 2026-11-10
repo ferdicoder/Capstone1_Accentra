@@ -7,8 +7,13 @@ import {
   updateUserRole,
   updateUserStatus,
   createStaff,
-  fetchFirmRoles
+  fetchFirmRoles,
+  changeOwnPassword,
 } from "@/services/api/userAPI"
+
+export function useChangeOwnPassword() {
+  return useMutation({ mutationFn: changeOwnPassword })
+}
 
 export function useFetchUsers() {
   return useQuery({

@@ -125,7 +125,11 @@ function StaffSettings({ profile, role }) {
 
       // Keep the header / sidebar name in sync. `name` must be set explicitly
       // because authStore.normalizeUser prefers an existing user.name.
-      setAuth({ ...authUser, ...next, name: buildFullName(next) }, role)
+     setAuth(
+        { ...authUser, ...next, name: buildFullName(next) },
+        role,
+        authStore.getState().status
+      )
 
       setEditing(false)
       setConfirmationOpen(false)

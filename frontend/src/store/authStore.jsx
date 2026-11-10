@@ -23,7 +23,10 @@ function normalizeUser(user) {
 export const authStore = create((set) => ({
   user: null,
   role: null,
+  status: null,
   loading: true,
-  setAuth: (user, role) => set({ user: normalizeUser(user), role, loading: false }),
-  clearAuth: () => set({ user: null, role: null, loading: false }),
-}));
+  setAuth: (user, role, status = null) =>
+    set({ user: normalizeUser(user), role, status, loading: false }),
+  setStatus: (status) => set({ status }),
+  clearAuth: () => set({ user: null, role: null, status: null, loading: false }),
+}))

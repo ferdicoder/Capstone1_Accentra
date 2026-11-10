@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../config/supabaseAdmin.js";
 import { toISODateString } from "../utils/formatDate.js";
+import { createClient } from "@supabase/supabase-js";
 
 const FIRM_ROLES = ["admin", "staff", "billing_officer"];
 
@@ -57,6 +58,18 @@ async function createStaff(req, res) {
     if (userRoleError) {
       await supabaseAdmin.auth.admin.deleteUser(data.user.id);
       throw userRoleError;
+    }
+
+    // NEW: firm accounts start as "inactive" (pending first login).
+    const { data: statusRows, error: statusError } = await supabaseAdmin
+      .from("users")
+      .update({ status: "inactive" })
+      .eq("user_id", data.user.id)
+      .select("user_id");
+
+    if (statusError || !statusRows?.length) {
+      await supabaseAdmin.auth.admin.deleteUser(data.user.id);
+      throw statusError || new Error("Could not set initial account status.");
     }
 
     const { error: auditError } = await supabaseAdmin.from("audit_logs").insert({
@@ -154,4 +167,78 @@ async function updateUserRole(req, res) {
   }
 }
 
-export { createStaff, updateUserRole };
+// GET /auth/me
+async function getMe(req, res) {
+  return res.status(200).json({
+    id: req.user.id,
+    email: req.user.email,
+    role: req.userRole,
+    status: req.userStatus,
+  });
+}
+
+// PATCH /auth/password
+async function changeOwnPassword(req, res) {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!FIRM_ROLES.includes(req.userRole)) {
+    return res.status(403).json({ message: "Not allowed." });
+  }
+  if (!currentPassword || !newPassword || newPassword.length < 8) {
+    return res.status(400).json({
+      message: "Current password and a new password of at least 8 characters are required.",
+    });
+  }
+  if (currentPassword === newPassword) {
+    return res.status(400).json({
+      message: "New password must be different from the current password.",
+    });
+  }
+
+  try {
+    // Throwaway client so the admin client's session is never touched.
+    const verifier = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { error: verifyError } = await verifier.auth.signInWithPassword({
+      email: req.user.email,
+      password: currentPassword,
+    });
+    if (verifyError) {
+      return res.status(401).json({ message: "Current password is incorrect." });
+    }
+
+    const { error: pwError } = await supabaseAdmin.auth.admin.updateUserById(req.user.id, {
+      password: newPassword,
+    });
+    if (pwError) {
+      return res
+        .status(pwError.code === "weak_password" ? 400 : 500)
+        .json({ message: pwError.message });
+    }
+
+    // Flip status only after the password actually changed.
+    const { error: statusError } = await supabaseAdmin
+      .from("users")
+      .update({ status: "active" })
+      .eq("user_id", req.user.id)
+      .eq("status", "inactive");
+    if (statusError) throw statusError;
+
+    const { error: auditError } = await supabaseAdmin.from("audit_logs").insert({
+      actor_id: req.user.id,
+      action: "password_changed",
+      entity_type: "user",
+      entity_id: req.user.id,
+      details: { first_login: req.userStatus === "inactive" },
+    });
+    if (auditError) console.error("audit log failed:", auditError.message);
+
+    return res.status(200).json({ message: "Password updated.", status: "active" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: err.message });
+  }
+}
+
+export { createStaff, updateUserRole, getMe, changeOwnPassword };

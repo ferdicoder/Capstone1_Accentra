@@ -37,6 +37,7 @@ import BillingDetailPage from "@/pages/firm/BillingDetailPage";
 import BillingOfficerDashboard from "@/pages/firm/BillingOfficerDashboard";
 import ReportsPage from "@/pages/firm/report/ReportsPage"; // ADDED (file: src/pages/firm/report/ReportsPage.jsx)
 import LandingPage from "@/pages/LandingPage";
+import SetPasswordPage from "@/pages/firm/SetPasswordPage";
 
 export const router = createBrowserRouter([
   {
@@ -53,6 +54,10 @@ export const router = createBrowserRouter([
       { path: "/client/signin", element: <LoginPage /> },
       { path: "/firm/signin", element: <FirmLoginPage /> },
     ],
+  },
+    {
+    element: <ProtectedRoutes allow={["admin", "staff", "billing_officer"]} allowInactive />,
+    children: [{ path: "/set-password", element: <SetPasswordPage /> }],
   },
   {
     path: "/client",

@@ -37,7 +37,7 @@ async function setUserRole(user, persist = true) {
     return null;
   }
 
-  if (persist) authStore.getState().setAuth(user, roleData.role);
+  if (persist) authStore.getState().setAuth(user, roleData.role, userData?.status ?? "active");
   return roleData.role;
 }
 
@@ -168,6 +168,7 @@ async function createStaff(user) {
       firstName: user.firstName,
       middleName: user.middleName,
       lastName: user.lastName,
+      extension: user.extension,
       contactNumber: user.contactNumber,
       birthdate: user.birthdate,
     }),
@@ -190,6 +191,17 @@ async function fetchFirmRoles() {
   return data
 }
 
+async function changeOwnPassword({ currentPassword, newPassword }) {
+  const response = await fetch(`${apiBaseUrl}/staffs/password`, {
+    method: "PATCH",
+    headers: await authHeaders(),
+    body: JSON.stringify({ currentPassword, newPassword }),
+  })
+
+  if (!response.ok) throw await parseError(response, "Password update failed")
+  return response.json()
+}
+
 export {
   setUserRole,
   getUsers,
@@ -199,4 +211,5 @@ export {
   updateClientStatus,
   createStaff,
   fetchFirmRoles,
+  changeOwnPassword,
 }
