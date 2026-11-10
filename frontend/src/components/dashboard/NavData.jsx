@@ -8,7 +8,7 @@ import {
   Receipt,
   CalendarDays,
   FileText,
-  Settings,
+  UserRoundCog,
 } from "lucide-react"
 
 export const firmAdminNav = [
@@ -21,7 +21,7 @@ export const firmAdminNav = [
   { title: "Teams", url: "/admin/users", icon: Users, items: [] },
   { title: "Clients", url: "/admin/clients", icon: Contact, items: [] },
   // Permanent item. Points at the existing admin profile route; change it if Settings has its own page.
-  { title: "Settings", url: "/admin/profile", icon: Settings, items: [] },
+  { title: "Account", url: "/admin/profile", icon: UserRoundCog, items: [] },
 ]
 
 export const firmUserNav = [
@@ -30,7 +30,7 @@ export const firmUserNav = [
   { title: "Engagements", url: "/firm/engagements", icon: Briefcase, items: [] },
   // Staff has no access to Teams (firm user management), so only Clients is listed.
   { title: "Clients", url: "/firm/clients", icon: Contact, items: [] },
-  { title: "Settings", url: "/firm/profile", icon: Settings, items: [] },
+  { title: "Account", url: "/firm/profile", icon: UserRoundCog, items: [] },
 ]
 
 export const clientNav = [
@@ -40,7 +40,7 @@ export const clientNav = [
   { title: "Billing", url: "/client/billing", icon: Receipt, items: [] },
   // NEW: Calendar button, links to the Client calendar page
   { title: "Calendar", url: "/client/calendar", icon: CalendarDays, items: [] },
-  { title: "Settings", url: "/client/profile", icon: Settings, items: [] },
+  { title: "Account", url: "/firm/profile", icon: UserRoundCog, items: [] },
 ]
 
 export const billingOfficerNav = [
@@ -48,7 +48,7 @@ export const billingOfficerNav = [
   { title: "Engagements", url: "/billing-officer/engagements", icon: Briefcase,       items: [] },
   { title: "Billing",     url: "/billing-officer/billing",     icon: Receipt,         items: [] },
   { title: "Clients",     url: "/billing-officer/clients",     icon: Contact,         items: [] },
-  { title: "Settings",   url: "/billing-officer/profile",     icon: Settings,        items: [] },
+  { title: "Account",     url: "/billing-officer/profile",     icon: UserRoundCog,    items: [] },
 ]
 
 export const roleConfig = {
