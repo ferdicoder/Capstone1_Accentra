@@ -679,7 +679,7 @@ export function TaskList({
 
   const detailCanReview =
     Boolean(detailTask) &&
-    detailTask.hasReferenceDocument &&
+    ["document_collection", "for_validation"].includes(engagement?.status) &&
     (detailTask.status === "for_review" || detailTask.status === "for_revision")
 
   return (

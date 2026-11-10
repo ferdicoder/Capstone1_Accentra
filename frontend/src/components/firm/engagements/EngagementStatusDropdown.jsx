@@ -26,6 +26,8 @@ export function EngagementStatusDropdown({
   onCancel,
   onViewDetails,
   canSetForValidation = true,
+  canSetInProgress = true,
+  canComplete = true,
   compact = false,
 }) {
   const [pendingStatus, setPendingStatus] = useState(null)
@@ -47,14 +49,18 @@ export function EngagementStatusDropdown({
 
   const isStatusDisabled = (status) =>
     status !== nextStatus ||
-    (status === "for_validation" && !canSetForValidation)
+    (status === "for_validation" && !canSetForValidation) ||
+    (status === "in_progress" && !canSetInProgress) ||
+    (status === "completed" && !canComplete)
 
   const selectStatus = (status) => {
     if (status === "cancelled") {
       onCancel?.(engagement)
     } else if (
       status === nextStatus &&
-      (status !== "for_validation" || canSetForValidation)
+      (status !== "for_validation" || canSetForValidation) &&
+      (status !== "in_progress" || canSetInProgress) &&
+      (status !== "completed" || canComplete)
     ) {
       setPendingStatus(status)
     }
@@ -63,7 +69,9 @@ export function EngagementStatusDropdown({
   const confirmStatusChange = () => {
     if (
       pendingStatus === nextStatus &&
-      (pendingStatus !== "for_validation" || canSetForValidation)
+      (pendingStatus !== "for_validation" || canSetForValidation) &&
+      (pendingStatus !== "in_progress" || canSetInProgress) &&
+      (pendingStatus !== "completed" || canComplete)
     ) {
       onStatusChange?.(engagement, pendingStatus)
     }
@@ -121,6 +129,16 @@ export function EngagementStatusDropdown({
           {!canSetForValidation && currentStatus === "document_collection" && (
             <DropdownMenuItem disabled className="whitespace-normal text-xs">
               All required tasks must be submitted before moving to For Validation.
+            </DropdownMenuItem>
+          )}
+          {!canSetInProgress && currentStatus === "for_validation" && (
+            <DropdownMenuItem disabled className="whitespace-normal text-xs">
+              All required tasks must be approved before moving to In Progress.
+            </DropdownMenuItem>
+          )}
+          {!canComplete && currentStatus === "in_progress" && (
+            <DropdownMenuItem disabled className="whitespace-normal text-xs">
+              All required tasks must be approved and none pending review before completing the engagement.
             </DropdownMenuItem>
           )}
           {onCancel && (

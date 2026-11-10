@@ -26,7 +26,7 @@ import {
   getVisibleDocuments,
 } from "@/components/shared/EngagementsDocumentsTab"
 import { canViewEngagementDocuments, engagementStatusOptions } from "@/lib/workflow-stages"
-import { formatDate } from "@/components/firm/engagements/engagement-variants"
+import { formatDate, canCompleteEngagement } from "@/components/firm/engagements/engagement-variants"
 import {
   useFetchEngagement,
   useUpdateEngagementStatus,
@@ -133,6 +133,8 @@ export default function EngagementDetailsPage() {
   const canSetForValidation = requiredTasks.every((task) =>
     ["for_review", "in_review", "submitted", "resubmitted", "approved"].includes(task.status)
   )
+  const canSetInProgress = requiredTasks.every((task) => task.status === "approved")
+  const canComplete = canCompleteEngagement(engagement.tasks ?? [])
 
   const reviewableTaskIds = new Set(
     (engagement.tasks ?? [])
@@ -160,6 +162,18 @@ export default function EngagementDetailsPage() {
   const handleStageChange = (stageKey) => {
     if (stageKey === "for_validation" && !canSetForValidation) {
       showNotice("All required tasks must be submitted before moving to For Validation.")
+      return
+    }
+
+    if (stageKey === "in_progress" && !canSetInProgress) {
+      showNotice("All required tasks must be approved before moving to In Progress.")
+      return
+    }
+
+    if (stageKey === "completed" && !canComplete) {
+      showNotice(
+        "All required tasks must be approved and none pending review before completing the engagement."
+      )
       return
     }
 
@@ -347,6 +361,8 @@ export default function EngagementDetailsPage() {
                 onStatusChange={(_, status) => handleStageChange(status)}
                 onCancel={canCancelEngagement ? () => setCancelDialogOpen(true) : undefined}
                 canSetForValidation={canSetForValidation}
+                canSetInProgress={canSetInProgress}
+                canComplete={canComplete}
               />
             )}
           </div>
