@@ -99,6 +99,7 @@ export default function FirmProfilePage() {
     ? personalDraft
     : {
         firstName: myProfile?.firstName ?? "",
+        middleName: myProfile?.middleName ?? "",
         lastName: myProfile?.lastName ?? "",
         workEmail: myProfile?.email ?? "",
         contactNumber: myProfile?.contactNumber ?? "",
@@ -118,7 +119,7 @@ export default function FirmProfilePage() {
     const { name, value } = event.target
     const nextValue = name === "contactNumber"
       ? sanitizePhoneInput(value)
-      : ["firstName", "lastName"].includes(name)
+      : ["firstName","middleName","lastName"].includes(name)
         ? sanitizeNameInput(value)
         : value
     setPersonalDraft((current) => ({ ...current, [name]: nextValue }))
@@ -190,6 +191,7 @@ export default function FirmProfilePage() {
         }
       : {
           firstName: personalDraft.firstName,
+          middleName: personalDraft.middleName,
           lastName: personalDraft.lastName,
           workEmail: personalDraft.workEmail,
           contactNumber: personalDraft.contactNumber,
@@ -236,6 +238,7 @@ export default function FirmProfilePage() {
         await updateMyProfile.mutateAsync({
           userId,
           firstName: personalDraft.firstName.trim(),
+          middleName: personalDraft.middleName.trim(),
           lastName: personalDraft.lastName.trim(),
           contactNumber: personalDraft.contactNumber.trim(),
         })
@@ -645,6 +648,7 @@ export default function FirmProfilePage() {
                         onClick={() => {
                           setPersonalDraft({
                             firstName: myProfile.firstName,
+                            middleName: myProfile.middleName,
                             lastName: myProfile.lastName,
                             workEmail: myProfile.email,
                             contactNumber: myProfile.contactNumber,
@@ -661,7 +665,7 @@ export default function FirmProfilePage() {
                 </div>
 
                 <FieldGroup className="gap-5">
-                  <div className="grid gap-4 sm:grid-cols-2">
+                 <div className="grid gap-4 sm:grid-cols-2">
                     <Field>
                       <FieldLabel htmlFor="firstName">First Name</FieldLabel>
                       <Input
@@ -674,10 +678,25 @@ export default function FirmProfilePage() {
                         data-invalid-field={formErrors.firstName ? "true" : undefined}
                         className={controlClass}
                       />
-                      {formErrors.firstName && (
-                        <FieldError>{formErrors.firstName}</FieldError>
-                      )}
+                      {formErrors.firstName && <FieldError>{formErrors.firstName}</FieldError>}
                     </Field>
+                    <Field>
+                      <FieldLabel htmlFor="middleName">Middle Name</FieldLabel>
+                      <Input
+                        id="middleName"
+                        name="middleName"
+                        value={personalValues.middleName}
+                        onChange={updateProfileField}
+                        disabled={!editingPersonal}
+                        aria-invalid={Boolean(formErrors.middleName) || undefined}
+                        data-invalid-field={formErrors.middleName ? "true" : undefined}
+                        className={controlClass}
+                      />
+                      {formErrors.middleName && <FieldError>{formErrors.middleName}</FieldError>}
+                    </Field>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <Field>
                       <FieldLabel htmlFor="lastName">Last Name</FieldLabel>
                       <Input
@@ -690,44 +709,26 @@ export default function FirmProfilePage() {
                         data-invalid-field={formErrors.lastName ? "true" : undefined}
                         className={controlClass}
                       />
-                      {formErrors.lastName && (
-                        <FieldError>{formErrors.lastName}</FieldError>
-                      )}
+                      {formErrors.lastName && <FieldError>{formErrors.lastName}</FieldError>}
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="contactNumber">Contact Number</FieldLabel>
+                      <Input
+                        id="contactNumber"
+                        name="contactNumber"
+                        type="tel"
+                        inputMode="tel"
+                        value={personalValues.contactNumber}
+                        onChange={updateProfileField}
+                        disabled={!editingPersonal}
+                        aria-invalid={Boolean(formErrors.contactNumber) || undefined}
+                        data-invalid-field={formErrors.contactNumber ? "true" : undefined}
+                        className={controlClass}
+                      />
+                      {formErrors.contactNumber && <FieldError>{formErrors.contactNumber}</FieldError>}
                     </Field>
                   </div>
-                  <Field>
-                    <FieldLabel htmlFor="workEmail">Work Email</FieldLabel>
-                    <Input
-                      id="workEmail"
-                      name="workEmail"
-                      type="email"
-                      value={personalValues.workEmail}
-                      readOnly
-                      disabled
-                      className={controlClass}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Used for sign-in and can't be changed here.
-                    </p>
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="contactNumber">Contact Number</FieldLabel>
-                    <Input
-                      id="contactNumber"
-                      name="contactNumber"
-                      type="tel"
-                      inputMode="tel"
-                      value={personalValues.contactNumber}
-                      onChange={updateProfileField}
-                      disabled={!editingPersonal}
-                      aria-invalid={Boolean(formErrors.contactNumber) || undefined}
-                      data-invalid-field={formErrors.contactNumber ? "true" : undefined}
-                      className={controlClass}
-                    />
-                    {formErrors.contactNumber && (
-                      <FieldError>{formErrors.contactNumber}</FieldError>
-                    )}
-                  </Field>
+                  
                 </FieldGroup>
               </div>
             </form>

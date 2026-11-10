@@ -97,6 +97,7 @@ export const firmSettingsSchema = z.object({
 
 export const adminPersonalInfoSchema = z.object({
   firstName: personName("Use letters only for the first name.", "First name is required."),
+  middleName: personName("Use letters only for the middle name."),
   lastName: personName("Use letters only for the last name.", "Last name is required."),
   workEmail: emailSchema,
   contactNumber: optionalPhoneSchema,
