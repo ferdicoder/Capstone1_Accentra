@@ -7,7 +7,8 @@ import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validat
 import { cn } from "@/lib/utils"
 import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness, useUpdateMyBusiness, useCreateMyBusiness } from "@/hooks/useBusinesses"
-import { clientBusinessProfileSchema } from "@/schemas/profileSchema"
+import { useFetchMyProfile, useUpdateMyProfile } from "@/hooks/useMyProfile" // adjust to your hook file's path
+import { clientBusinessProfileSchema, clientPersonalInfoSchema } from "@/schemas/profileSchema"
 
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -65,28 +66,8 @@ const SECTION_FIELDS = {
     "city",
     "zipCode",
   ],
-  personal: ["firstName", "middleName", "lastName", "birthDate"],
-}
-
-function buildProfile(user, business) {
-  return {
-    firstName: user?.firstName ?? "",
-    middleName: user?.middleName ?? "",
-    lastName: user?.lastName ?? "",
-    birthDate: user?.birthDate ?? "",
-    email: user?.email ?? "",
-    businessName: business?.businessName ?? business?.name ?? "",
-    businessType: business?.businessType ?? "",
-    tin: business?.tin ?? business?.tinNo ?? "",
-    industry: business?.industry ?? "",
-    contactNumber: formatPhMobile(toNationalMobile(business?.contactNumber ?? business?.contactNo)),
-    houseNo: business?.houseNo ?? "",
-    streetName: business?.streetName ?? "",
-    barangay: business?.barangay ?? "",
-    district: business?.district ?? "",
-    city: business?.city ?? "",
-    zipCode: business?.zipCode ?? "",
-  }
+  // birthDate and email are display-only, so they are not in this list.
+  personal: ["firstName", "middleName", "lastName"],
 }
 
 const DIGITS_ONLY_FIELDS = new Set(["zipCode"])
@@ -150,6 +131,31 @@ function getTinWarning(digitsOnly) {
 
 function getInitial(text) {
   return text?.trim()?.[0]?.toUpperCase() || "?"
+}
+
+// personal = row from public.users (useFetchMyProfile), falls back to the auth
+// store user while it loads or if the row is missing.
+// business = row from the businesses table (or null).
+function buildProfile(user, personal, business) {
+  const source = personal ?? user
+  return {
+    firstName: source?.firstName ?? "",
+    middleName: source?.middleName ?? "",
+    lastName: source?.lastName ?? "",
+    birthDate: source?.birthDate ?? "",
+    email: personal?.email || user?.email || "",
+    businessName: business?.businessName ?? business?.name ?? "",
+    businessType: business?.businessType ?? "",
+    tin: business?.tin ?? business?.tinNo ?? "",
+    industry: business?.industry ?? "",
+    contactNumber: formatPhMobile(toNationalMobile(business?.contactNumber ?? business?.contactNo)),
+    houseNo: business?.houseNo ?? "",
+    streetName: business?.streetName ?? "",
+    barangay: business?.barangay ?? "",
+    district: business?.district ?? "",
+    city: business?.city ?? "",
+    zipCode: business?.zipCode ?? "",
+  }
 }
 
 // --- Underline tabs (matches the admin Firm Profile tab bar) ---------------
@@ -284,24 +290,6 @@ function ConfirmationModal({
   )
 }
 
-// TODO(Ced): replace with the real personal-info update. Payload:
-// { firstName, middleName, lastName, birthDate }. Should resolve with the saved values.
-// The UI is fully wired to this, so only this function needs to change.
-async function savePersonalInfo(payload) {
-  await new Promise((resolve) => setTimeout(resolve, 600))
-  return payload
-}
-
-// Lightweight UI-only validation for the Personal tab (no schema needed yet).
-function validatePersonal({ firstName, lastName, birthDate }) {
-  const errors = {}
-  if (!firstName.trim()) errors.firstName = "First name is required."
-  if (!lastName.trim()) errors.lastName = "Last name is required."
-  if (!birthDate) errors.birthDate = "Birthdate is required."
-  else if (new Date(birthDate) > new Date()) errors.birthDate = "Birthdate can't be in the future."
-  return errors
-}
-
 export default function ClientProfilePage() {
   const user = authStore((state) => state.user)
   const authLoading = authStore((state) => state.loading)
@@ -310,6 +298,10 @@ export default function ClientProfilePage() {
   const businessId = business?.id
   const updateBusiness = useUpdateMyBusiness(user?.id)
   const createBusiness = useCreateMyBusiness(user?.id)
+
+  // Personal info: fetched from / saved to public.users.
+  const { data: personalInfo, isLoading: personalLoading } = useFetchMyProfile(user?.id)
+  const updateMyProfile = useUpdateMyProfile()
 
   const [activeTab, setActiveTab] = useState("business")
   // Each tab has its own edit mode, so editing one never unlocks the other.
@@ -325,7 +317,7 @@ export default function ClientProfilePage() {
   const formRefs = useRef({ business: null, personal: null })
   const tooManyDigitsTimerRef = useRef(null)
 
-  const loading = authLoading || businessLoading
+  const loading = authLoading || businessLoading || personalLoading
 
   useEffect(() => {
     return () => clearTimeout(tooManyDigitsTimerRef.current)
@@ -334,11 +326,11 @@ export default function ClientProfilePage() {
   // Keep the form synced to whoever is logged in.
   useEffect(() => {
     if (!loading) {
-      const nextProfile = buildProfile(user, business)
+      const nextProfile = buildProfile(user, personalInfo, business)
       setProfile(nextProfile)
       savedProfileRef.current = nextProfile
     }
-  }, [loading, user, business])
+  }, [loading, user, personalInfo, business])
 
   const updateProfileField = (event) => {
     const { name, value } = event.target
@@ -466,7 +458,7 @@ export default function ClientProfilePage() {
             ...profile,
             contactNumber: profile.contactNumber.replace(/\D/g, ""),
           })
-        : validatePersonal(profile)
+        : getZodFieldErrors(clientPersonalInfoSchema, profile)
 
     setFieldErrors((current) => ({ ...current, ...validationErrors }))
     if (Object.keys(validationErrors).length > 0) {
@@ -482,6 +474,14 @@ export default function ClientProfilePage() {
   const confirmSectionChange = async () => {
     const section = confirmSection
     if (!section) return
+    if (!navigator.onLine) {
+      setConfirmSection(null)
+      setSaveMessage({
+        type: "error",
+        text: "You're offline. Check your connection and try again.",
+      })
+      return
+    }
 
     setIsSaving(true)
     setSaveMessage(null)
@@ -507,7 +507,9 @@ export default function ClientProfilePage() {
           ? await updateBusiness.mutateAsync({ ...businessPayload, businessId })
           : await createBusiness.mutateAsync(businessPayload)
 
-        const updatedProfile = buildProfile(user, savedBusiness)
+        // Pass personalInfo so the signature matches; only the business fields
+        // are taken from the result below.
+        const updatedProfile = buildProfile(user, personalInfo, savedBusiness)
         // Only take the business fields from the server response so unsaved
         // personal edits (if any) aren't overwritten.
         setProfile((current) => ({
@@ -523,20 +525,17 @@ export default function ClientProfilePage() {
           text: businessId ? "Business information updated." : "Business added successfully.",
         })
       } else {
-        const personalPayload = {
+        const savedRow = await updateMyProfile.mutateAsync({
+          userId: user?.id,
           firstName: profile.firstName.trim(),
           middleName: profile.middleName.trim(),
           lastName: profile.lastName.trim(),
-          birthDate: profile.birthDate,
-        }
-
-        await savePersonalInfo(personalPayload)
+        })
 
         const saved = {
-          firstName: personalPayload.firstName,
-          middleName: personalPayload.middleName,
-          lastName: personalPayload.lastName,
-          birthDate: personalPayload.birthDate,
+          firstName: savedRow.firstName,
+          middleName: savedRow.middleName,
+          lastName: savedRow.lastName,
         }
         setProfile((current) => ({ ...current, ...saved }))
         savedProfileRef.current = { ...savedProfileRef.current, ...saved }
@@ -849,7 +848,7 @@ export default function ClientProfilePage() {
             >
               <SectionHeader
                 title="Personal Information"
-                description="Your name and birthdate on file with the firm."
+                description="Your name on file with the firm. Birthdate and email are locked."
                 isEditing={editing.personal}
                 onEdit={() => startEditing("personal")}
               />
@@ -911,22 +910,19 @@ export default function ClientProfilePage() {
                     )}
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="birthDate">Birthdate</FieldLabel>
+                    <FieldLabel htmlFor="birthDate" className="flex items-center gap-1.5">
+                      Birthdate
+                      <Lock className="size-3 text-muted-foreground" aria-hidden="true" />
+                    </FieldLabel>
                     <Input
                       id="birthDate"
                       name="birthDate"
                       type="date"
                       value={profile.birthDate}
-                      onChange={updateProfileField}
-                      disabled={!editing.personal}
-                      className={personalField}
-                      aria-invalid={Boolean(fieldErrors.birthDate)}
+                      readOnly
+                      disabled
+                      className={readOnlyClass}
                     />
-                    {fieldErrors.birthDate && (
-                      <FieldDescription className="text-red-600">
-                        {fieldErrors.birthDate}
-                      </FieldDescription>
-                    )}
                   </Field>
                 </div>
 

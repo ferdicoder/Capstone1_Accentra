@@ -14,11 +14,10 @@ export async function signinToPortal(portal, email, password) {
     throw new Error("Invalid credentials please try again.")
   }
 
-  authStore.getState().setAuth(result.data.user, result.role)
+  // Loads role AND status into the store (persist = true)
+  await setUserRole(result.data.user)
   return result
 }
-
-
 async function signinUser(email, password){
   try{
       const { data, error } = await supabase.auth.signInWithPassword({

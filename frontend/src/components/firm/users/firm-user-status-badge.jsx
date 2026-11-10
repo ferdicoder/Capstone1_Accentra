@@ -3,13 +3,13 @@ import { statusBadgeStyles, statusDotStyles } from "./firm-user-variants"
 
 const defaultStatusLabels = {
   active: "Active",
-  inactive: "Inactive",
+  inactive: "Pending first login",
   deactivated: "Deactivated",
 }
 
 /**
  * Presentational pill that renders a user's account status with a colored dot.
- * Status is derived from system activity — never manually assigned.
+ * Status is stored in the database:active, inactive(pending first login), or deactivated. 
  *
  * @param {string} status - Raw status value, e.g. "active" or "deactivated".
  * @param {Object} statusLabels - Optional { value: label } overrides for display text.

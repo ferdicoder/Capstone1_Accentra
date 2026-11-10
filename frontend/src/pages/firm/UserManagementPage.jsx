@@ -25,19 +25,20 @@ export default function UserManagementPage() {
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogKey, setDialogKey] = useState(0)
   const [page, setPage] = useState(1)
   const [notice, setNotice] = useState("")
-  const [loading, setLoading] = useState(true)
-
-  // Simulated load so the shared skeleton system has something to show.
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500)
-    return () => clearTimeout(timer)
-  }, [])
 
   const { data: users = [], isLoading, error } = useFetchUsers()
   const { data: roles = [], isLoading: rolesLoading } = useFetchFirmRoles()
   const createStaff = useCreateStaff()
+
+  // Clear the success notice after a few seconds.
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(""), 4000)
+    return () => clearTimeout(timer)
+  }, [notice])
 
   // Emails already taken, so the Add User form can refuse a duplicate.
   const existingEmails = useMemo(
@@ -51,22 +52,16 @@ export default function UserManagementPage() {
     [roles]
   )
 
-  // for searching
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase()
-    const matchingUsers = users.filter((user) => {
+    return users.filter((user) => {
       const displayName = buildDisplayName(user).toLowerCase()
       const matchesSearch =
         !query || displayName.includes(query) || (user.email ?? "").toLowerCase().includes(query)
       const matchesRole = !roleFilter || user.role === roleFilter
       return matchesSearch && matchesRole
     })
-    return matchingUsers
-  }, [
-    users,
-    search,
-    roleFilter,
-  ])
+  }, [users, search, roleFilter])
 
   // The list is paginated, 8 firm users per page.
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
@@ -78,19 +73,21 @@ export default function UserManagementPage() {
         setDialogOpen(false)
         setNotice(`${values.firstName} ${values.lastName} added`)
       },
+      onError(err) {
+        console.error("Firm user creation failed:", err?.message)
+      },
     })
   }
 
   const openCreateDialog = () => {
-    // Clear a previous attempt's error so it can't linger on a fresh form.
+    // Fresh form and no leftover error on every open.
     createStaff.reset()
+    setDialogKey((key) => key + 1)
     setDialogOpen(true)
   }
 
-  // The API wrapper reports every failure as "Staff creation failed", so the
-  // most common causes are spelled out here instead.
   const createError = createStaff.error
-    ? "We couldn't create this account. The email address may already be registered, or the password may not meet the account requirements."
+    ? createStaff.error.message || "We couldn't create this account. Please try again."
     : ""
 
   usePageMeta({
@@ -103,7 +100,7 @@ export default function UserManagementPage() {
 
   return (
     <>
-      {loading || isLoading ? (
+      {isLoading ? (
         <PageSkeleton type="users" />
       ) : (
         <>
@@ -148,6 +145,7 @@ export default function UserManagementPage() {
           />
 
           <FirmUserCreateDialog
+            key={dialogKey}
             open={dialogOpen}
             onOpenChange={setDialogOpen}
             onSubmit={handleCreate}

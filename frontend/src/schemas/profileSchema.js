@@ -80,6 +80,12 @@ export const clientBusinessProfileSchema = z.object({
   zipCode: z.string().refine((value) => /^\d*$/.test(value), "ZIP code must contain digits only."),
 })
 
+export const clientPersonalInfoSchema = z.object({
+  firstName: personName("Use letters only for the first name.", "First name is required."),
+  middleName: personName("Use letters only for the middle name."),
+  lastName: personName("Use letters only for the last name.", "Last name is required."),
+})
+
 // Mirrors the public.firm_settings singleton: about / terms default to ''
 // in the table, so they are optional here; contact_email is NOT NULL.
 export const firmSettingsSchema = z.object({
@@ -91,6 +97,7 @@ export const firmSettingsSchema = z.object({
 
 export const adminPersonalInfoSchema = z.object({
   firstName: personName("Use letters only for the first name.", "First name is required."),
+  middleName: personName("Use letters only for the middle name."),
   lastName: personName("Use letters only for the last name.", "Last name is required."),
   workEmail: emailSchema,
   contactNumber: optionalPhoneSchema,
