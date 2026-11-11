@@ -1,12 +1,13 @@
 import { supabase } from "@/config/supabase"; 
 import { apiBaseUrl } from "@/config/api"
+import { normalizeServiceCategory } from "@/lib/service-categories"
 
 function mapServiceRow(row) {
   const tasks = Array.isArray(row.template_tasks) ? row.template_tasks : []
   return {
     id: row.service_id,
     name: row.service_name ?? "",
-    category: row.category ?? "",
+    category: normalizeServiceCategory(row.category),
     description: row.description ?? "",
     basePrice: row.price ?? 0,
     estimatedTime: row.estimated_time ?? "",
@@ -96,12 +97,34 @@ async function getServices() {
   return attachUsage((data ?? []).map(mapServiceRow))
 }
 
+async function getServiceTemplateTasks(serviceId) {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession()
+  if (sessionError) throw sessionError
+
+  const response = await fetch(
+    `${apiBaseUrl}/services/${encodeURIComponent(serviceId)}/template-tasks`,
+    {
+      headers: session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {},
+    }
+  )
+  const tasks = await response.json()
+  if (!response.ok) {
+    throw new Error(tasks.message || tasks.error || "Could not load template tasks")
+  }
+  return tasks
+}
+
 async function updateService(service) {
   const { data: serviceId, error } = await supabase.rpc('update_service_with_template_tasks', {
     p_service_id: service.id,
     p_price: service.basePrice,
     p_service_name: service.name,
-    p_category: service.category,
+    p_category: normalizeServiceCategory(service.category),
     p_description: service.description,
     p_estimated_time: service.estimatedTime,
     p_is_recurring: service.isRecurring ?? false,
@@ -194,7 +217,7 @@ async function createService(service) {
     body: JSON.stringify({
       price: service.basePrice,
       serviceName: service.name,
-      category: service.category,
+      category: normalizeServiceCategory(service.category),
       description: service.description,
       estimatedTime: service.estimatedTime,
       isRecurring: service.isRecurring ?? false,
@@ -218,6 +241,7 @@ async function createService(service) {
 
 export { 
   getServices, 
+  getServiceTemplateTasks,
   updateService, 
   updateServiceStatus, 
   createService, 

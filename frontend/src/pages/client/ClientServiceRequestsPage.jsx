@@ -23,6 +23,7 @@ import { authStore } from "@/store/authStore"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchMyServiceRequests } from "@/hooks/useServiceRequests"
 import { useFetchMyEngagements } from "@/hooks/useEngagements"
+import { getCategoryLabel } from "@/lib/service-categories"
 
 const statusMeta = {
   pending: {
@@ -84,6 +85,20 @@ function matchesTab(status, tab) {
     default:
       return true
   }
+}
+// What the client asked for (category), plus the exact service once the firm
+// has assigned one at approval. `serviceName` is empty until then.
+function RequestedService({ request, className }) {
+  return (
+    <div className={cn("min-w-0", className)}>
+      <p className="truncate font-medium">{getCategoryLabel(request.category)}</p>
+      {request.serviceName && (
+        <p className="truncate text-xs font-normal text-muted-foreground">
+          {request.serviceName}
+        </p>
+      )}
+    </div>
+  )
 }
 
 const formatDate = (isoString) =>
@@ -332,7 +347,7 @@ function RequestCard({ request, path, navigate, openRemark }) {
         <StatusBadge status={request.status} />
       </div>
 
-      <p className="text-sm font-medium">{request.serviceName}</p>
+      <RequestedService request={request} className="text-sm" />
       <p className="text-xs text-muted-foreground">Requested {formatDate(request.createdAt)}</p>
 
       {isDeclined ? (
@@ -403,7 +418,7 @@ export default function ClientServiceRequestsPage() {
     return requests.filter((r) => {
       if (!matchesTab(r.status, activeTab)) return false
       if (!query) return true
-      return [r.requestNumber, r.serviceName, r.category].some((field) =>
+      return [r.requestNumber, getCategoryLabel(r?.category)].some((field) =>
         field?.toLowerCase().includes(query)
       )
     })
@@ -602,7 +617,7 @@ export default function ClientServiceRequestsPage() {
                         <p className="truncate font-medium">{r.requestNumber}</p>
                       </td>
                       <td className="px-4 py-4 align-middle font-medium">
-                        <span className="line-clamp-2">{r.serviceName}</span>
+                        <RequestedService request={r} />
                       </td>
                       <td className="px-4 py-4 text-center align-middle">
                         <div className="flex flex-col items-center gap-1">

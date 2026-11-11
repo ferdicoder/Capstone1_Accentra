@@ -2,7 +2,8 @@
 -- Fixes: (1) duplicated p_is_recurring param (missing comma, did not compile),
 -- (2) adds p_is_retainer_covered to match frontend/src/services/api/serviceAPI.js,
 -- (3) deletes template_task_documents of dropped tasks before deleting the tasks
--- so removing a task cannot hit an FK violation.
+-- so removing a task cannot hit an FK violation, and casts p_category to the
+-- service_category enum when persisting it.
 -- Do NOT revoke execute from authenticated — the frontend calls this RPC directly.
 
 CREATE OR REPLACE FUNCTION update_service_with_template_tasks(
@@ -30,7 +31,7 @@ BEGIN
     UPDATE services
     SET price = p_price,
         service_name = p_service_name,
-        category = p_category,
+        category = p_category::public.service_category,
         description = p_description,
         estimated_time = p_estimated_time,
         is_recurring = p_is_recurring,

@@ -46,17 +46,19 @@
 --   * If the live create RPCs are SECURITY INVOKER, they also insert
 --     engagement_tasks — that table has no RLS file yet (follow-up); see
 --     section 8.
+--   * The request-approval RPC definition and its service_id argument are
+--     maintained separately in create_engagement_from_service_request.sql.
 
 -- ============================================================
 -- 0) Discovery — run first, review output before applying.
 -- ============================================================
 
--- 0a. Current policies on engagements (and engagement_tasks, which an
---     invoker RPC would also write).
+-- 0a. Current policies on the tables touched by request approval
+--     (an invoker RPC needs policies for every write it performs).
 SELECT schemaname, tablename, policyname, cmd, roles, qual, with_check
 FROM pg_policies
 WHERE schemaname = 'public'
-  AND tablename IN ('engagements', 'engagement_tasks')
+  AND tablename IN ('engagements', 'engagement_tasks', 'service_requests')
 ORDER BY tablename, policyname;
 
 -- 0b. Live engagements columns vs the intended DDL.
@@ -90,6 +92,9 @@ ORDER BY grantee, privilege_type;
 --     below is load-bearing. prosecdef = true  => SECURITY DEFINER
 --     (bypasses RLS; policy is belt-and-suspenders).
 --     prosecdef = false => SECURITY INVOKER (policy MUST allow the caller).
+--     The approval form sends p_service_id; deploy a create_engagement
+--     definition that accepts it, rather than relying on a request's
+--     service_id (new requests may not have one yet).
 --     Also run \df+ create_engagement and \df+ create_standalone_engagement
 --     in psql for the full definitions.
 SELECT p.proname,
@@ -525,13 +530,12 @@ COMMIT;
 --   assigned UPDATE rule, now with is_active_user(), plus SELECT/INSERT/
 --   DELETE policies, column grants, and the guard trigger. Stop applying
 --   the old file.
--- * CREATE RPCs (discovery 0e): if create_engagement or
---   create_standalone_engagement is SECURITY INVOKER, the INSERT policy
---   above authorizes the engagement row — but the historical
---   create_standalone_engagement also INSERTs engagement_tasks, which has
---   no RLS file yet. Verify with \df+; if invoker and engagement_tasks
---   has RLS enabled, either give engagement_tasks an INSERT policy
---   (follow-up file) or ALTER the RPC to SECURITY DEFINER.
+-- * Request approval: apply create_engagement_from_service_request.sql.
+--   Its SECURITY DEFINER function validates the caller, accepts the
+--   selected p_service_id, and atomically inserts engagements/tasks while
+--   updating service_requests. This avoids relying on browser RLS policies
+--   for those writes. The standalone RPC is separate; if it remains
+--   SECURITY INVOKER, its engagement_tasks writes need their own RLS policy.
 -- * Client calendar pages (ClientCalendarPage.jsx:219,
 --   ClientBillingCalendarPage.jsx:400) call the unfiltered
 --   getEngagements() — under this policy they now return only the

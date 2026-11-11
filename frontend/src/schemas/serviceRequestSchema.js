@@ -1,10 +1,13 @@
 import { z } from "zod"
+import { SERVICE_CATEGORIES } from "@/lib/service-categories"
 
 const requiredText = (message) => z.string().trim().min(1, message)
 
 export const serviceRequestSchema = z.object({
-  serviceId: requiredText("Please select a service."),
-  description: z.string(),
+  category: requiredText("Please select a service category.").refine(
+    (value) => SERVICE_CATEGORIES.includes(value),
+    "Please select a service category."
+  ),
 })
 
 export const rejectionRemarksSchema = z.object({

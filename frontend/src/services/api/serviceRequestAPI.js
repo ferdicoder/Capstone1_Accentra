@@ -1,6 +1,8 @@
 import { supabase } from '@/config/supabase'; 
+import { normalizeServiceCategory } from "@/lib/service-categories"
 
-// wiht joins
+// with joins. `category` now lives on the request itself; `services` is only
+// filled in once the admin picks a template (service_id is nullable).
 const SERVICE_REQUEST_SELECT = `
   service_request_id,
   description,
@@ -8,6 +10,7 @@ const SERVICE_REQUEST_SELECT = `
   request_code,
   created_at,
   business_id,
+  category,
   service_id,
   rejection_reason,
   rejected_at,
@@ -26,15 +29,15 @@ function mapServiceRequestRow(row) {
   return {
     id: row.service_request_id,
     requestNumber: row.request_code,
+    // What the client asked for (enum value, e.g. "tax_filing").
+    category: normalizeServiceCategory(row.category),
+    // Only set after the admin assigns a template; empty before that.
+    serviceId: row.service_id ?? null,
     serviceName: row.services?.service_name ?? "",
-    category: row.services?.category ?? "",
-    estimatedTime: row.services?.estimated_time ?? "",
-    revenue: row.services?.price ?? null,
     submittedDate: row.created_at ? row.created_at.slice(0, 10) : null, // "YYYY-MM-DD" for formatSubmittedDate
     createdAt: row.created_at, // full timestamp kept for sorting elsewhere
     notes: row.description ?? "",
     status: row.status,
-    serviceId: row.service_id,
     rejectionReason: row.rejection_reason ?? null,
     rejectedAt: row.rejected_at ?? null,
     client: owner
@@ -90,7 +93,7 @@ export async function createServiceRequest(request) {
     .from("service_requests")
     .insert({
       business_id: request.businessId,
-      service_id: request.serviceId,
+      category: normalizeServiceCategory(request.category),
       description: request.description,
     })
     .select(SERVICE_REQUEST_SELECT)

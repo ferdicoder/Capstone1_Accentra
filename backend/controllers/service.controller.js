@@ -1,6 +1,59 @@
 import { supabaseAdmin } from "../config/supabaseAdmin.js";
 import { deleteFileByName, deleteFileVersion } from "../services/b2Services.js";
 
+async function getServiceTemplateTasks(req, res) {
+  const { serviceId } = req.params;
+
+  try {
+    const { data: service, error } = await supabaseAdmin
+      .from("services")
+      .select(`
+        service_id,
+        template_tasks(
+          template_id, title, has_reference, is_required,
+          template_task_documents(file_id, files(file_id, file_name, mime_type, file_size, created_at))
+        )
+      `)
+      .eq("service_id", serviceId)
+      .order("template_id", { foreignTable: "template_tasks" })
+      .maybeSingle();
+    if (error) throw error;
+    if (!service) return res.status(404).json({ message: "Service not found." });
+
+    const tasks = (service.template_tasks ?? []).map((task) => {
+      const documents = (task.template_task_documents ?? [])
+        .filter((document) => document.files)
+        .sort(
+          (first, second) =>
+            new Date(second.files.created_at ?? 0).getTime() -
+            new Date(first.files.created_at ?? 0).getTime()
+        );
+      const latestDocument = documents[0];
+      const file = latestDocument?.files;
+
+      return {
+        id: task.template_id,
+        title: task.title,
+        hasReferenceDocument: task.has_reference ?? false,
+        required: task.is_required ?? false,
+        referenceDocument: file
+          ? {
+              id: latestDocument.file_id ?? file.file_id,
+              name: file.file_name ?? "Reference document",
+              type: file.mime_type,
+              size: file.file_size,
+            }
+          : null,
+      };
+    });
+
+    return res.json(tasks);
+  } catch (error) {
+    console.error("Service template tasks lookup failed:", error);
+    return res.status(500).json({ message: "Could not load template tasks." });
+  }
+}
+
 async function createService(req, res) {
   const {
     price,
@@ -134,6 +187,7 @@ async function deleteService(req, res) {
 }
 
 export {
+  getServiceTemplateTasks,
   createService,
   deleteService
 }

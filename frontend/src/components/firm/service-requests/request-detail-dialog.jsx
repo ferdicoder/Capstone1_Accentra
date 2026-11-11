@@ -17,6 +17,7 @@ import { ServiceRequestAvatar } from "./service-request-avatar"
 import { formatSubmittedDate } from "./service-request-variants"
 import { getZodFieldErrors } from "@/lib/form-validation"
 import { rejectionRemarksSchema } from "@/schemas/serviceRequestSchema"
+import { getCategoryLabel } from "@/lib/service-categories"
 
 /**
  * Modal that shows a single service request for review. The parent owns
@@ -95,10 +96,10 @@ export function RequestDetailDialog({
               <ServiceRequestAvatar name={request?.business?.businessName} className="shrink-0" />
               <div className="min-w-0">
               <DialogTitle className="truncate text-lg">{request?.business?.businessName}</DialogTitle>
-              <DialogDescription className="truncate">
-                {request?.requestNumber} · {request?.serviceName} · submitted{" "}
-                {formatSubmittedDate(request?.submittedDate)}
-              </DialogDescription>
+             <DialogDescription className="truncate">
+              {request?.requestNumber} · {getCategoryLabel(request?.category)} · submitted{" "}
+              {formatSubmittedDate(request?.submittedDate)}
+            </DialogDescription>
               </div>
             </div>
 
@@ -144,7 +145,7 @@ export function RequestDetailDialog({
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
               <p className="font-medium">{request?.requestNumber}</p>
               <p className="text-muted-foreground">
-                {request?.business?.businessName} · {request?.serviceName}
+                {request?.business?.businessName} · {getCategoryLabel(request?.category)}
               </p>
               </div>
               <DialogFooter>
