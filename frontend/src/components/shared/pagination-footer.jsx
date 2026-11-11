@@ -27,7 +27,7 @@ export function PaginationFooter({
   return (
     <nav
       aria-label="Pagination"
-      className="mt-4 flex items-center justify-center gap-2"
+      className="mt-4 flex flex-wrap items-center justify-center gap-2"
     >
       <Button
         type="button"
@@ -41,7 +41,12 @@ export function PaginationFooter({
         Previous
       </Button>
 
-      <div className="flex items-center gap-1">
+      {/* Phones: the numbered buttons would not fit, so show the position instead. */}
+      <p className="text-sm text-muted-foreground sm:hidden">
+        Page {visiblePage} of {totalPages}
+      </p>
+
+      <div className="hidden items-center gap-1 sm:flex">
         {visiblePages.map((pageNumber) => (
           <Button
             key={pageNumber}

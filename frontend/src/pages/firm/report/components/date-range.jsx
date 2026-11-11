@@ -116,7 +116,7 @@ export function DateRange({ label, value, onChange }) {
           <div
             role="dialog"
             aria-label={`${label} calendar`}
-            className="absolute left-0 top-full z-50 mt-1.5 w-72 rounded-xl border bg-background p-3 shadow-lg"
+            className="absolute left-0 top-full z-50 mt-1.5 w-72 max-w-full rounded-xl border bg-background p-3 shadow-lg"
           >
             <div className="flex items-center justify-between gap-2">
               <button type="button" aria-label="Previous month" onClick={() => shift(-1)} className={navButtonClass}>

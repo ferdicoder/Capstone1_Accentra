@@ -44,14 +44,14 @@ export function WorkflowProgress({ workflowStage, className }) {
           return (
             <div key={stage.key} className="contents">
               {/* Circle + Label */}
-              <div className="flex flex-col items-center gap-1.5 px-2">
+              <div className="flex flex-col items-center gap-1.5 px-1 sm:px-2">
                 {isDone ? (
                   <CheckCircle2 className="size-6 text-emerald-600" />
                 ) : (
                   <Circle className="size-6 text-muted-foreground/40" />
                 )}
                 <span
-                  className={`whitespace-nowrap text-xs text-center ${
+                  className={`text-xs text-center sm:whitespace-nowrap ${
                     isDone ? "font-medium text-foreground" : "text-muted-foreground"
                   }`}
                 >

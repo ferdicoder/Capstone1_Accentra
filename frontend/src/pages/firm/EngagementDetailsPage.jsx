@@ -317,7 +317,7 @@ export default function EngagementDetailsPage() {
 
   return (
     <>
-      <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3 py-1">
           <Link
             to={`${basePath}/engagements`}
@@ -336,7 +336,7 @@ export default function EngagementDetailsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-lg font-semibold sm:text-xl text-foreground">
+              <h1 className="min-w-0 break-words text-lg font-semibold text-foreground sm:text-xl">
                 {engagement.serviceName}
               </h1>
               <EngagementStatusBadge status={engagement.status} />
@@ -346,7 +346,7 @@ export default function EngagementDetailsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="default"

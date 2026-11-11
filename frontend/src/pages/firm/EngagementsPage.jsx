@@ -320,11 +320,11 @@ export default function EngagementsPage() {
           <Button
             type="button"
             size="sm"
-            className="h-9 cursor-pointer gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
+            className="h-9 w-full cursor-pointer gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90 sm:w-auto"
             onClick={() => setCreateBillingFor(engagement)}
           >
             <Plus className="size-4" />
-            <span className="hidden sm:inline">Create Billing</span>
+            <span>Create Billing</span>
           </Button>
         ) : undefined}
         emptyMessage="No engagements match your filters."

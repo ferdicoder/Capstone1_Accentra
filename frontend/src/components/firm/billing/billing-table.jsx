@@ -15,6 +15,55 @@ function InvoiceTypeBadge({ type }) {
   )
 }
 
+function BillingCard({ billing, engagements, clients, onRowClick }) {
+  const billingFor = getBillingForDisplay({ billing, engagements, clients })
+
+  const cardProps =
+    typeof onRowClick === "function"
+      ? {
+          onClick: () => onRowClick(billing),
+          onKeyDown: (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault()
+              onRowClick(billing)
+            }
+          },
+          tabIndex: 0,
+        }
+      : {}
+
+  return (
+    <li
+      {...cardProps}
+      className={cn(
+        "flex flex-col gap-2 p-4 transition-colors",
+        onRowClick && "cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+          {billingDisplayId(billing)}
+        </p>
+        <BillingStatusBadge status={billing.status} />
+      </div>
+
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-foreground">{billingFor.title}</p>
+        {billingFor.subtitle && (
+          <p className="truncate text-xs text-muted-foreground">{billingFor.subtitle}</p>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <InvoiceTypeBadge type={billing.invoice_type} />
+        <span>Due {formatDate(billing.due_date)}</span>
+      </div>
+
+      <p className="text-sm font-medium text-foreground">{formatPeso(billing.amount)}</p>
+    </li>
+  )
+}
+
 function getBillingForDisplay({ billing, engagements, clients }) {
   const client = clients.find((item) => item.id === billing.business_id)
 
@@ -97,8 +146,50 @@ export function BillingTable({
         )}
         {...props}
       >
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+        {/* Phones: stacked cards, so six columns never have to share 360px. */}
+        <div className="md:hidden">
+          {loading && (
+            <ul className="divide-y divide-border/60" aria-hidden="true">
+              {Array.from({ length: 3 }, (_, index) => (
+                <li key={`billing-card-skeleton-${index}`} className="flex flex-col gap-2.5 p-4">
+                  <Skeleton className="h-3.5 w-1/3" />
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-3 w-1/2" />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {!loading && paginatedBillings.length > 0 && (
+            <ul className="divide-y divide-border/60">
+              {paginatedBillings.map((billing) => (
+                <BillingCard
+                  key={billing.id}
+                  billing={billing}
+                  engagements={engagements}
+                  clients={clients}
+                  onRowClick={onRowClick}
+                />
+              ))}
+            </ul>
+          )}
+
+          {isEmpty && (
+            <div className="flex flex-col items-center justify-center gap-2 px-4 py-14 text-center">
+              <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                <ReceiptText className="size-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium text-foreground">{emptyMessage}</p>
+              {emptyDescription && (
+                <p className="text-xs text-muted-foreground">{emptyDescription}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Tablet and up: the existing table, with a floor so columns stay readable. */}
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full min-w-[820px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
               <th scope="col" className="px-4 py-3 font-semibold">

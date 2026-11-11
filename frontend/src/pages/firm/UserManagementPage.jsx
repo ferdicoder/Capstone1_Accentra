@@ -6,6 +6,9 @@ import { usePageMeta } from "@/hooks/usePageMeta"
 import { FirmUsersToolbar } from "@/components/firm/users/firm-users-toolbar"
 import { FirmUserTable } from "@/components/firm/users/firm-user-table"
 import { FirmUserCreateDialog } from "@/components/firm/users/firm-user-create-dialog"
+import { FirmUserAvatar } from "@/components/firm/users/firm-user-avatar"
+import { FirmUserRoleBadge } from "@/components/firm/users/firm-user-role-badge"
+import { FirmUserStatusBadge } from "@/components/firm/users/firm-user-status-badge"
 import { PAGE_SIZE } from "@/components/shared/pagination-footer"
 
 import {
@@ -18,6 +21,33 @@ const buildDisplayName = ({ firstName, middleName, lastName, extension, name }) 
   if (name) return name
 
   return [firstName, middleName, lastName, extension].filter(Boolean).join(" ")
+}
+
+/** Phone presentation of one team member: never lets the email or badges overlap. */
+function FirmUserCard({ user }) {
+  const displayName = buildDisplayName(user) || "Unnamed user"
+
+  return (
+    <>
+      <div className="flex items-start gap-3">
+        <FirmUserAvatar
+          name={displayName}
+          avatarUrl={user?.avatar_url ?? user?.avatar}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
+          {user?.email && (
+            <p className="text-xs break-all text-muted-foreground">{user.email}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <FirmUserRoleBadge role={user?.role} />
+        <FirmUserStatusBadge status={user?.status} />
+      </div>
+    </>
+  )
 }
 
 export default function UserManagementPage() {
@@ -140,6 +170,7 @@ export default function UserManagementPage() {
             emptyMessage="No users match your filters."
             emptyDescription="Try clearing the search or filters."
             onRowClick={(user) => navigate(`/admin/users/${user.id}`)}
+            renderMobileCard={(user) => <FirmUserCard user={user} />}
             page={currentPage}
             onPageChange={setPage}
           />

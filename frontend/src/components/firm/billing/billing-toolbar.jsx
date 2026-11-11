@@ -64,7 +64,7 @@ export function BillingToolbar({
       </div>
 
       {resultCount && (
-        <p className="hidden text-sm text-muted-foreground md:block">{resultCount}</p>
+        <p className="text-sm text-muted-foreground">{resultCount}</p>
       )}
 
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
@@ -90,11 +90,11 @@ export function BillingToolbar({
         {onCreateBilling && (
           <Button
             size="sm"
-            className="h-9 cursor-pointer gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
+            className="h-9 w-full cursor-pointer gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90 sm:w-auto"
             onClick={onCreateBilling}
           >
             <Plus className="size-4" />
-            <span className="hidden sm:inline">{createLabel}</span>
+            <span>{createLabel}</span>
           </Button>
         )}
       </div>
