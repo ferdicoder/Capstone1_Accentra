@@ -110,6 +110,19 @@ const formatShortDate = (value) => {
     : null
 }
 
+const formatDateTime = (value) => {
+  const date = parseDate(value)
+  return date
+    ? date.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : null
+}
+
 const greeting = () => {
   const hour = new Date().getHours()
   if (hour < 12) return "Good morning"
@@ -421,11 +434,10 @@ export default function FirmAdminDashboard() {
       </div>
 
       {/* Requests awaiting review (left) + Engagement deadlines (right) */}
-      <div className="grid items-start gap-6 lg:grid-cols-2 lg:grid-rows-[auto_1fr]">
+      <div className="grid items-start gap-6 lg:grid-cols-2">
         <Panel
           title="Requests Awaiting Review"
           description="Oldest first."
-          className="lg:col-start-1 lg:row-start-1"
           count={requestsError ? undefined : pendingRequests.length}
           to={ROUTES.requests}
           showLinkIcon={false}
@@ -466,7 +478,6 @@ export default function FirmAdminDashboard() {
         <Panel
           title="Engagement Deadlines"
           description={`Overdue or due within ${DUE_SOON_DAYS} days, earliest first.`}
-          className="lg:col-start-2 lg:row-start-1 lg:row-span-2"
           count={engagementsError ? undefined : dueSoon.length}
           to={ROUTES.engagements}
           showLinkIcon={false}
@@ -503,11 +514,14 @@ export default function FirmAdminDashboard() {
             <MoreLink to={ROUTES.engagements} count={dueSoon.length - MAX_ROWS} showIcon={false} />
           )}
         </Panel>
+      </div>
+
+      {/* Retainer Clients (left) + Audit Logs (right) */}
+      <div className="grid items-stretch gap-6 lg:grid-cols-2">
       {/* Retainer Clients: monthly review (derived, nothing stored or scheduled) */}
       <Panel
         title="Retainer Clients"
         description={`Monthly review for ${monthLabel}.`}
-        className="lg:col-start-1 lg:row-start-2"
         count={retainerError ? undefined : retainerReview.length}
       >
         {retainerError ? (
@@ -565,33 +579,34 @@ export default function FirmAdminDashboard() {
           </button>
         )}
       </Panel>
-      </div>
 
-      {/* Recent activity */}
-      <Panel title="Recent Activity" description="The latest actions across the firm.">
+      {/* Audit Logs */}
+      <Panel
+        title="Audit Logs"
+        description="A record of who did what across the firm, newest first."
+        count={activityQuery.error ? undefined : activity.length}
+      >
         {activityQuery.error ? (
           <InlineError showIcon={false} />
         ) : activity.length === 0 ? (
-          <EmptyState title="No recent activity" compact>
-            Actions on engagements, tasks, and billing will appear here.
+          <EmptyState title="No audit logs yet" compact>
+            Actions on engagements, tasks, and billing will be recorded here.
           </EmptyState>
         ) : (
-          <ul className="flex flex-col gap-3 p-4">
+          <ul className="flex max-h-[28rem] flex-col gap-3 overflow-y-auto p-4">
             {activity.slice(0, MAX_ACTIVITY).map((entry) => {
               const { title, description } = describeActivity(entry)
-              const when = formatShortDate(entry.createdAt ?? entry.created_at)
+              const when = formatDateTime(entry.createdAt ?? entry.created_at)
               return (
                 <li
                   key={entry.id}
                   className="flex items-start justify-between gap-3 rounded-xl border bg-background p-4"
                 >
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{title}</p>
-                      {description && (
-                        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
-                      )}
-                    </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{title}</p>
+                    {description && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+                    )}
                   </div>
                   {when && (
                     <span className="shrink-0 text-xs text-muted-foreground">{when}</span>
@@ -602,6 +617,7 @@ export default function FirmAdminDashboard() {
           </ul>
         )}
       </Panel>
+      </div>
 
       <CreateBillingDialog
         open={billDialogOpen}
