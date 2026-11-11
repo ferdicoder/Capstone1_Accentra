@@ -73,9 +73,16 @@ export default function ClientDetailPage() {
       status: merged.deactivated ? "deactivated" : merged.ownerStatus,
     }
   }, [businesses, id, overrides])
-  const history = engagements
-    .filter((engagement) => engagement.business?.id === id)
-    .sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")))
+
+  // Memoized so the history component's own useMemo hooks only recompute
+  // when the engagements or the client id actually change.
+  const history = useMemo(
+    () =>
+      engagements
+        .filter((engagement) => engagement.business?.id === id)
+        .sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""))),
+    [engagements, id]
+  )
   const isLoading = businessesLoading || engagementsLoading
   const updateClient = clientStore((state) => state.updateClient)
   const updateBusinessType = useUpdateBusinessType()
@@ -165,19 +172,23 @@ export default function ClientDetailPage() {
       String(billing.business_id) === String(client.id) &&
       (!billingTypeFilter || billing.invoice_type === billingTypeFilter)
   )
-  const clientPaymentHistory = clientBillings.flatMap((billing) =>
-    billing.payments?.length
-      ? billing.payments.map((payment) => ({ billing, payment }))
-      : [{ billing, payment: null }]
-  ).sort((first, second) => {
-    const getMostRecentDate = ({ billing, payment }) =>
-      payment?.payment_proofs
-        ?.map((proof) => proof.files?.created_at)
-        .filter(Boolean)
-        .sort()
-        .at(-1) ?? billing.due_date ?? ""
-    return getMostRecentDate(second).localeCompare(getMostRecentDate(first))
-  })
+  const clientPaymentHistory = clientBillings
+    .flatMap((billing) =>
+      billing.payments?.length
+        ? billing.payments.map((payment) => ({ billing, payment }))
+        : [{ billing, payment: null }]
+    )
+    .sort((first, second) => {
+      const getMostRecentDate = ({ billing, payment }) =>
+        payment?.payment_proofs
+          ?.map((proof) => proof.files?.created_at)
+          .filter(Boolean)
+          .sort()
+          .at(-1) ??
+        billing.due_date ??
+        ""
+      return getMostRecentDate(second).localeCompare(getMostRecentDate(first))
+    })
 
   const handleConfirmDeactivation = () => {
     const nextStatus = client.status === "deactivated" ? "active" : "deactivated"
@@ -217,58 +228,59 @@ export default function ClientDetailPage() {
           </p>
         </div>
 
-        {canManageClients && (editing ? (
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                resetEditState()
-                setEditing(false)
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="bg-forest-900 text-white hover:opacity-90"
-              disabled={!typeChanged || !retainerFeeValid}
-              onClick={() => setConfirmationOpen(true)}
-            >
-              Save Changes
-            </Button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={client.status === "deactivated" ? "default" : "destructive"}
-              className={`h-9 gap-1.5 rounded-lg ${client.status === "deactivated" ? "bg-forest-900 text-white hover:opacity-90" : ""}`}
-              onClick={() => setDeactivationOpen(true)}
-            >
-              {client.status === "deactivated" ? "Reactivate" : "Deactivate"}
-            </Button>
-            {/* Editing the client type writes to businesses.type — only
-                possible once the client has added a business. */}
-            {client.hasBusiness !== false && (
+        {canManageClients &&
+          (editing ? (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  resetEditState()
+                  setEditing(false)
+                }}
+              >
+                Cancel
+              </Button>
               <Button
                 type="button"
                 size="sm"
-                className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
-                onClick={() => {
-                  resetEditState()
-                  setEditing(true)
-                }}
+                className="bg-forest-900 text-white hover:opacity-90"
+                disabled={!typeChanged || !retainerFeeValid}
+                onClick={() => setConfirmationOpen(true)}
               >
-                <Pencil className="size-4" />
-                Edit Client
+                Save Changes
               </Button>
-            )}
-          </div>
-        ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={client.status === "deactivated" ? "default" : "destructive"}
+                className={`h-9 gap-1.5 rounded-lg ${client.status === "deactivated" ? "bg-forest-900 text-white hover:opacity-90" : ""}`}
+                onClick={() => setDeactivationOpen(true)}
+              >
+                {client.status === "deactivated" ? "Reactivate" : "Deactivate"}
+              </Button>
+              {/* Editing the client type writes to businesses.type — only
+                  possible once the client has added a business. */}
+              {client.hasBusiness !== false && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
+                  onClick={() => {
+                    resetEditState()
+                    setEditing(true)
+                  }}
+                >
+                  <Pencil className="size-4" />
+                  Edit Client
+                </Button>
+              )}
+            </div>
+          ))}
       </div>
 
       <ClientDetailsCard
@@ -332,34 +344,36 @@ export default function ClientDetailPage() {
                       .at(-1)
 
                     return (
-                    <tr
-                      key={`${billing.id}-${payment?.payment_id ?? index}`}
-                      className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-muted/40"
-                      onClick={() => navigate(`${basePath}/billing/${billing.id}`)}
-                    >
-                      <td className="px-3 py-3 font-medium text-foreground">{billingDisplayId(billing)}</td>
-                      <td className="px-3 py-3">
-                        {invoiceTypeLabels[billing.invoice_type] ?? billing.invoice_type}
-                      </td>
-                      <td className="px-3 py-3">
-                        {paymentDate ? new Date(paymentDate).toLocaleDateString() : "—"}
-                      </td>
-                      <td className="px-3 py-3">
-                        {formatPeso(payment?.amount ?? billing.amount)}
-                      </td>
-                      <td className="px-3 py-3">
-                        {paymentMethodLabels[payment?.payment_method] ??
-                          payment?.payment_method ??
-                          "—"}
-                      </td>
-                      <td className="px-3 py-3">
-                        {billing.status ? (
-                          <BillingStatusBadge status={billing.status} />
-                        ) : (
-                          "No payment submitted"
-                        )}
-                      </td>
-                    </tr>
+                      <tr
+                        key={`${billing.id}-${payment?.payment_id ?? index}`}
+                        className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-muted/40"
+                        onClick={() => navigate(`${basePath}/billing/${billing.id}`)}
+                      >
+                        <td className="px-3 py-3 font-medium text-foreground">
+                          {billingDisplayId(billing)}
+                        </td>
+                        <td className="px-3 py-3">
+                          {invoiceTypeLabels[billing.invoice_type] ?? billing.invoice_type}
+                        </td>
+                        <td className="px-3 py-3">
+                          {paymentDate ? new Date(paymentDate).toLocaleDateString() : "—"}
+                        </td>
+                        <td className="px-3 py-3">
+                          {formatPeso(payment?.amount ?? billing.amount)}
+                        </td>
+                        <td className="px-3 py-3">
+                          {paymentMethodLabels[payment?.payment_method] ??
+                            payment?.payment_method ??
+                            "—"}
+                        </td>
+                        <td className="px-3 py-3">
+                          {billing.status ? (
+                            <BillingStatusBadge status={billing.status} />
+                          ) : (
+                            "No payment submitted"
+                          )}
+                        </td>
+                      </tr>
                     )
                   })}
                 </tbody>

@@ -4,7 +4,15 @@ import { Button } from "@/components/ui/button"
 
 export const PAGE_SIZE = 8
 
-export function PaginationFooter({ page, totalPages, onPageChange }) {
+export function PaginationFooter({
+  page,
+  totalPages,
+  onPageChange,
+  hideWhenSinglePage = true,
+}) {
+  // Nothing to paginate, so don't render the footer at all.
+  if (hideWhenSinglePage && totalPages <= 1) return null
+
   const visiblePage = Math.max(1, Math.min(page, totalPages))
   const pageCount = Math.min(5, totalPages)
   const firstVisiblePage = Math.min(
