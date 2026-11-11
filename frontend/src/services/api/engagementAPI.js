@@ -313,8 +313,14 @@ export async function createEngagementTask({ engagementId, title, hasReferenceDo
   return mapTaskRow(data)
 }
 
-// Firm edits an existing task's definition (name/required/reference/deadline).
 export async function updateEngagementTask({ taskId, title, hasReferenceDocument, required, dueDate }) {
+  const { data: current, error: currentError } = await supabase
+    .from("engagement_tasks")
+    .select("engagement_id, is_required")
+    .eq("engagement_task_id", taskId)
+    .single()
+  if (currentError) throw currentError
+
   const { data, error } = await supabase
     .from("engagement_tasks")
     .update({
@@ -327,6 +333,14 @@ export async function updateEngagementTask({ taskId, title, hasReferenceDocument
     .select(TASK_SELECT)
     .single()
   if (error) throw error
+
+  if (Boolean(current.is_required) !== Boolean(required)) {
+    await logEngagementActivity(
+      current.engagement_id,
+      "task_updated",
+      `${title} changed to ${required ? "required" : "optional"}`
+    )
+  }
   return mapTaskRow(data)
 }
 

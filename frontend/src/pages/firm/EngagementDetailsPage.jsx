@@ -145,7 +145,7 @@ export default function EngagementDetailsPage() {
 
   const requiredTasks = (engagement.tasks ?? []).filter((task) => task.required)
   const canSetForValidation = requiredTasks.every((task) =>
-    ["for_review", "in_review", "submitted", "resubmitted", "approved"].includes(task.status)
+    ["for_review", "approved"].includes(task.status)
   )
   const canSetInProgress = requiredTasks.every((task) => task.status === "approved")
   const canComplete = canCompleteEngagement(engagement.tasks ?? [])
@@ -153,7 +153,7 @@ export default function EngagementDetailsPage() {
   const reviewableTaskIds = new Set(
     (engagement.tasks ?? [])
       .filter((task) =>
-        ["for_review", "in_review", "submitted", "resubmitted", "approved"].includes(task.status)
+       ["for_review", "approved"].includes(task.status)
       )
       .map((task) => task.id)
   )

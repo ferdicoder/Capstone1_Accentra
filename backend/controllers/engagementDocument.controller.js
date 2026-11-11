@@ -1,6 +1,10 @@
 import { uploadFile, deleteFileVersion, downloadFile } from '../services/b2Services.js';
 import { supabaseAdmin } from '../config/supabaseAdmin.js';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Shared `files` columns plus the uploader display name. Junction tables
 // (engagement_deliverables / engagement_task_submissions /
 // engagement_task_references) only store the file_id FK — file metadata
@@ -10,6 +14,28 @@ const fileColumns = `
   uploaded_by, created_at,
   uploader:users!files_uploaded_by_fkey(user_id, first_name, last_name)
 `;
+
+const submissionSelect = `
+  file_id, engagement_task_id, review_status, remark,
+  files(${fileColumns})
+`;
+
+const referenceSelect = `
+  file_id, engagement_task_id, files(${fileColumns})
+`;
+
+// Statuses a task accepts uploads in. `for_review` is included on purpose:
+// a batch of files reaches the route again after the first file has already
+// moved the task to For Review.
+const UPLOADABLE_TASK_STATUSES = ['missing', 'for_revision', 'for_review'];
+const CLOSED_ENGAGEMENT_STATUSES = ['completed', 'cancelled'];
+const FIRM_ROLES = ['admin', 'staff'];
+const actorOf = (req) => ({ id: req.user?.id, role: req.userRole });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Generic helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
 
 function uploaderName(uploader) {
   return uploader ? [uploader.first_name, uploader.last_name].filter(Boolean).join(' ') : '—';
@@ -112,12 +138,112 @@ function deliverableGuard(engagement, req, res) {
 async function getEngagementTask(engagementTaskId) {
   const { data, error } = await supabaseAdmin
     .from('engagement_tasks')
-    .select('engagement_task_id, status')
+    .select(`
+      engagement_task_id, status, engagement_id,
+      engagements(status, assigned_staff, businesses(owner:users(user_id)))
+    `)
     .eq('engagement_task_id', engagementTaskId)
     .maybeSingle();
   if (error) throw error;
   return data;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Submission helpers (client uploads for a task)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Returns { status, error } when the caller may not change this task's
+// submissions, otherwise null. Looks at the TASK status, not the stage.
+function submissionBlock(task, user) {
+  const engagement = task.engagements;
+
+  if (!FIRM_ROLES.includes(user?.role)) {
+    // Anything that is not firm staff is treated as a client (fails closed).
+    const ownerId = engagement?.businesses?.owner?.user_id;
+    if (!ownerId || ownerId !== user?.id) {
+      return { status: 403, error: 'You can only change documents on your own engagements' };
+    }
+  } else if (user.role === 'staff' && engagement?.assigned_staff !== user.id) {
+    return { status: 403, error: 'You are not assigned to this engagement' };
+  }
+
+  if (CLOSED_ENGAGEMENT_STATUSES.includes(engagement?.status)) {
+    return { status: 409, error: 'This engagement is closed. Documents can no longer be changed.' };
+  }
+  if (!UPLOADABLE_TASK_STATUSES.includes(task.status)) {
+    return { status: 409, error: 'This task is already approved. Documents can no longer be changed.' };
+  }
+  return null;
+}
+
+async function getTaskSubmissions(engagementTaskId) {
+  const { data, error } = await supabaseAdmin
+    .from('engagement_task_submissions')
+    .select('file_id, files(storage_key, b2_file_id)')
+    .eq('engagement_task_id', engagementTaskId);
+  if (error) throw error;
+  return data ?? [];
+}
+
+// Atomic claim: only one request in a batch wins the status change.
+async function claimTaskForReview(engagementTaskId, fromStatus) {
+  const { data, error } = await supabaseAdmin
+    .from('engagement_tasks')
+    .update({ status: 'for_review' })
+    .eq('engagement_task_id', engagementTaskId)
+    .eq('status', fromStatus)
+    .select('engagement_task_id');
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
+async function releaseTaskClaim(engagementTaskId, toStatus) {
+  const { error } = await supabaseAdmin
+    .from('engagement_tasks')
+    .update({ status: toStatus })
+    .eq('engagement_task_id', engagementTaskId)
+    .eq('status', 'for_review');
+  if (error) console.error('Could not release task claim:', engagementTaskId, error);
+}
+
+// Best-effort: the new file is already saved, so a failure here only leaves
+// an old file behind. Never throws.
+async function removeReplacedSubmissions(previous) {
+  for (const row of previous) {
+    try {
+      await deleteLinkedFile({
+        junctionTable: 'engagement_task_submissions',
+        fileId: row.file_id,
+        storageKey: row.files?.storage_key,
+        b2FileId: row.files?.b2_file_id,
+      });
+    } catch (err) {
+      console.error('Replaced submission cleanup failed:', row.file_id, err);
+    }
+  }
+}
+
+// Flattens the junction + embedded `files` row into the flat shape the
+// frontend's mapDocumentRow expects (file fields at the top level).
+function flattenSubmission(row) {
+  const file = row.files ?? {};
+  return {
+    file_id: row.file_id,
+    engagement_task_id: row.engagement_task_id,
+    review_status: row.review_status,
+    remark: row.remark,
+    file_name: file.file_name,
+    mime_type: file.mime_type,
+    file_size: file.file_size,
+    created_at: file.created_at,
+    uploaded_by: file.uploaded_by,
+    uploader: file.uploader ?? null,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Deliverables
+// ─────────────────────────────────────────────────────────────────────────────
 
 function mapDeliverable(row) {
   const file = row.files ?? {};
@@ -261,29 +387,9 @@ export async function deleteEngagementDeliverable(req, res) {
   }
 }
 
-// Client uploads for an engagement task — stored as engagement_task_submissions.
-// Flattens the junction + embedded `files` row into the flat shape the
-// frontend's mapDocumentRow expects (file fields at the top level).
-function flattenSubmission(row) {
-  const file = row.files ?? {};
-  return {
-    file_id: row.file_id,
-    engagement_task_id: row.engagement_task_id,
-    review_status: row.review_status,
-    remark: row.remark,
-    file_name: file.file_name,
-    mime_type: file.mime_type,
-    file_size: file.file_size,
-    created_at: file.created_at,
-    uploaded_by: file.uploaded_by,
-    uploader: file.uploader ?? null,
-  };
-}
-
-const submissionSelect = `
-  file_id, engagement_task_id, review_status, remark,
-  files(${fileColumns})
-`;
+// ─────────────────────────────────────────────────────────────────────────────
+// Client task submissions (engagement_task_submissions)
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function uploadEngagementDocument(req, res) {
   const { engagementTaskId } = req.params;
@@ -300,6 +406,9 @@ export async function uploadEngagementDocument(req, res) {
   }
   if (!engagementTask) return res.status(404).json({ error: 'Engagement task not found' });
 
+  const blocked = submissionBlock(engagementTask, req.user);
+  if (blocked) return res.status(blocked.status).json({ error: blocked.error });
+
   const storageKey = `engagements/${engagementTaskId}/${Date.now()}-${req.file.originalname}`;
 
   let b2Result;
@@ -310,8 +419,17 @@ export async function uploadEngagementDocument(req, res) {
     return res.status(500).json({ error: 'File upload failed' });
   }
 
+  const startStatus = engagementTask.status;
+  const isResubmission = startStatus === 'for_revision';
+  let previousSubmissions = [];
+  let claimed = false;
   let fileId;
   try {
+    if (isResubmission) previousSubmissions = await getTaskSubmissions(engagementTaskId);
+    if (startStatus === 'missing' || isResubmission) {
+      claimed = await claimTaskForReview(engagementTaskId, startStatus);
+    }
+
     const file = await insertFileRow({
       fileName: req.file.originalname,
       mimeType: req.file.mimetype,
@@ -329,25 +447,13 @@ export async function uploadEngagementDocument(req, res) {
       .single();
     if (error) throw error;
 
-    // A saved submission means the requirement is now waiting on the firm.
-    // Flip Missing / For Revision → For Review so the client's Documents tab
-    // (which only shows files for locked statuses) and the firm's review list
-    // pick the upload up after a refresh. For Review / Approved uploads are
-    // left alone — the status is already correct (and multi-file batches hit
-    // this path again with the status already flipped by the first file).
-    if (['missing', 'for_revision'].includes(engagementTask.status)) {
-      const { error: statusError } = await supabaseAdmin
-        .from('engagement_tasks')
-        .update({ status: 'for_review' })
-        .eq('engagement_task_id', engagementTaskId)
-        .eq('status', engagementTask.status);
-      if (statusError) throw statusError;
-    }
+    if (claimed && isResubmission) await removeReplacedSubmissions(previousSubmissions);
 
     return res.status(201).json(flattenSubmission(data));
   } catch (err) {
     console.error('DB insert failed, rolling back:', err);
     await rollbackUpload({ fileId, storageKey, b2FileId: b2Result.fileId });
+    if (claimed) await releaseTaskClaim(engagementTaskId, startStatus);
     return res.status(500).json({ error: 'Could not save document record' });
   }
 }
@@ -367,7 +473,10 @@ export async function downloadEngagementDocument(req, res) {
     const fileBuffer = await downloadFile(doc.files.storage_key);
 
     res.setHeader('Content-Type', doc.files.mime_type || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(doc.files.file_name)}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename*=UTF-8''${encodeURIComponent(doc.files.file_name)}`
+    );
     return res.send(Buffer.from(fileBuffer));
   } catch (err) {
     console.error('Download failed:', err);
@@ -381,11 +490,16 @@ export async function deleteEngagementDocument(req, res) {
   try {
     const { data: doc, error } = await supabaseAdmin
       .from('engagement_task_submissions')
-      .select('file_id, files(storage_key, b2_file_id)')
+      .select('file_id, engagement_task_id, files(storage_key, b2_file_id)')
       .eq('file_id', docId)
       .maybeSingle();
     if (error) throw error;
     if (!doc?.files) return res.status(404).json({ error: 'Document not found' });
+
+    const task = await getEngagementTask(doc.engagement_task_id);
+    if (!task) return res.status(404).json({ error: 'Engagement task not found' });
+    const blocked = submissionBlock(task, req.user);
+    if (blocked) return res.status(blocked.status).json({ error: blocked.error });
 
     await deleteLinkedFile({
       junctionTable: 'engagement_task_submissions',
@@ -401,27 +515,29 @@ export async function deleteEngagementDocument(req, res) {
   }
 }
 
-const referenceSelect = `
-  file_id, engagement_task_id, files(${fileColumns})
-`;
+// ─────────────────────────────────────────────────────────────────────────────
+// Firm-provided task reference (guide) files (engagement_task_references)
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function uploadEngagementTaskReference(req, res) {
   const { engagementTaskId } = req.params;
   if (!req.file) {
-    return res.status(400).json({ error: 'No reference document was provided' });
+    return res.status(400).json({ error: 'No reference file was provided' });
   }
 
-  let engagementTask;
+  let task;
   try {
-    engagementTask = await getEngagementTask(engagementTaskId);
+    task = await getEngagementTask(engagementTaskId);
   } catch (err) {
     console.error('Engagement task lookup failed:', err);
     return res.status(500).json({ error: 'Could not verify engagement task' });
   }
-  if (!engagementTask) return res.status(404).json({ error: 'Engagement task not found' });
+  if (!task) return res.status(404).json({ error: 'Engagement task not found' });
+  if (CLOSED_ENGAGEMENT_STATUSES.includes(task.engagements?.status)) {
+    return res.status(409).json({ error: 'This engagement is closed.' });
+  }
 
   const storageKey = `engagement-references/${engagementTaskId}/${Date.now()}-${req.file.originalname}`;
-
   let b2Result;
   try {
     b2Result = await uploadFile(req.file.buffer, storageKey, req.file.mimetype);
@@ -449,11 +565,16 @@ export async function uploadEngagementTaskReference(req, res) {
       .single();
     if (error) throw error;
 
-    return res.status(201).json(data);
+    return res.status(201).json({
+      id: data.file_id,
+      name: data.files?.file_name,
+      size: data.files?.file_size,
+      type: data.files?.mime_type,
+    });
   } catch (err) {
-    console.error('DB insert failed, rolling back:', err);
+    console.error('Reference DB insert failed, rolling back:', err);
     await rollbackUpload({ fileId, storageKey, b2FileId: b2Result.fileId });
-    return res.status(500).json({ error: 'Could not save reference document record' });
+    return res.status(500).json({ error: 'Could not save reference record' });
   }
 }
 
@@ -470,9 +591,12 @@ export async function downloadEngagementTaskReference(req, res) {
     if (!doc?.files) return res.status(404).json({ error: 'Reference document not found' });
 
     const fileBuffer = await downloadFile(doc.files.storage_key);
-
     res.setHeader('Content-Type', doc.files.mime_type || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(doc.files.file_name)}"`);
+    const disposition = req.query.inline === 'true' ? 'inline' : 'attachment';
+    res.setHeader(
+      'Content-Disposition',
+      `${disposition}; filename*=UTF-8''${encodeURIComponent(doc.files.file_name)}`
+    );
     return res.send(Buffer.from(fileBuffer));
   } catch (err) {
     console.error('Reference download failed:', err);
@@ -505,6 +629,10 @@ export async function deleteEngagementTaskReference(req, res) {
     return res.status(500).json({ error: 'Could not delete reference document' });
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Copy template reference files into a new engagement
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Task titles are copied verbatim by the create_engagement RPCs, so a
 // normalized comparison pairs engagement tasks back to their template tasks.

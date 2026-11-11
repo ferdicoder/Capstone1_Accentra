@@ -68,7 +68,7 @@ export const normalizeStatus = (status) =>
 export const LOCKED_STATUSES = ["approved", "for_review"]
 
 const canUploadFiles = (task) =>
-  Boolean(task) && !LOCKED_STATUSES.includes(task.status)
+  Boolean(task) && !task.closed && !LOCKED_STATUSES.includes(task.status)
 
 // Shown instead of the upload actions when a task is locked.
 const lockedNotes = {
@@ -586,7 +586,9 @@ function TaskRow({
             <LockedNote status={task.status} />
           </div>
         ) : (
-          <span className="text-xs text-muted-foreground">—</span>
+          <span className="text-xs text-muted-foreground">
+            {task.closed ? "Engagement closed" : "—"}
+          </span>
         )}
       </td>
     </tr>
@@ -633,17 +635,18 @@ export function TaskList({ engagement, documents = [], className, onUploadFiles 
 
   const rawTasks = engagement?.tasks
 
-  // Statuses are cleaned up here once, so every check below sees the same value.
-  // Tasks the client just uploaded for show as "For Review" until the server catches up.
+  const isEngagementClosed = ["completed", "cancelled"].includes(engagement?.status)
+
   const tasks = useMemo(
     () =>
       (rawTasks ?? []).map((task) => {
         const status = normalizeStatus(task.status)
+        const base = { ...task, closed: isEngagementClosed }
         return submittedFrom[task.id] !== undefined && submittedFrom[task.id] === status
-          ? { ...task, status: "for_review" }
-          : { ...task, status }
+          ? { ...base, status: "for_review" }
+          : { ...base, status }
       }),
-    [rawTasks, submittedFrom]
+    [rawTasks, submittedFrom, isEngagementClosed]
   )
 
   const findTask = (taskId) => tasks.find((t) => t.id === taskId) ?? null

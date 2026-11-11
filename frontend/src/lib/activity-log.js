@@ -1,6 +1,10 @@
 const activityLabels = {
   document_uploaded: "uploaded a document",
   stage_change: "updated the engagement status",
+  task_added: "added a task",
+  task_updated: "updated a task",
+  task_approved: "approved a task",
+  task_revision_requested: "requested a revision on a task",
   task_completed: "completed a task",
   staff_reassigned: "changed the assigned staff",
   schedule_updated: "updated the engagement schedule",

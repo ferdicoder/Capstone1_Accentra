@@ -17,7 +17,6 @@ import {
 import {
   getEngagementDocuments,
   uploadEngagementDocument,
-  deleteEngagementDocument,
   getEngagementDeliverables,
   uploadEngagementDeliverable,
   deleteEngagementDeliverable,
@@ -146,7 +145,10 @@ export function useUpdateEngagementTask(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: updateEngagementTask,
-    onSuccess: (updatedTask) => patchTaskInCache(queryClient, engagementId, updatedTask),
+    onSuccess: (updatedTask) => {
+      patchTaskInCache(queryClient, engagementId, updatedTask)
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(engagementId) })
+    },
   })
 }
 

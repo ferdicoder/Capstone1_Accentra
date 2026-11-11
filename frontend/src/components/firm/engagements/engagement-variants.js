@@ -1,3 +1,4 @@
+
 export const statusBadgeStyles = {
   document_collection: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
   for_validation: "bg-blue-500/10 text-blue-700 ring-blue-500/25",
@@ -334,16 +335,9 @@ export const getWorkflowStageIndex = (stage) => {
 export const isWorkflowComplete = (stage) => stage === "completed"
 export const isWorkflowCancelled = (stage) => stage === "cancelled"
 
-export const canCompleteEngagement = (tasks = []) => {
-  const requiredTasksApproved = tasks
-    .filter((task) => task.required)
-    .every((task) => task.status === "approved")
-  const hasTasksPendingReview = tasks.some((task) =>
-    ["for_review", "in_review", "submitted", "resubmitted"].includes(task.status)
-  )
-
-  return requiredTasksApproved && !hasTasksPendingReview
-}
+export const canCompleteEngagement = (tasks = []) =>
+  tasks.every((task) => !task.required || task.status === "approved") &&
+  !tasks.some((task) => task.status === "for_review")
 
 // ─── Legacy helpers (kept for backward compat in document review, etc.) ────────
 

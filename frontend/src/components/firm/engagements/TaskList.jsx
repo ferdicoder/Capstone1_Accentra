@@ -375,7 +375,7 @@ function TaskDetailDialog({
             </div>
           )}
 
-          {task.hasReferenceDocument && (
+          {(task.hasReferenceDocument || documents.length > 0) && (
             <div className="flex flex-col gap-2">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Client submission</p>
               {documents.length === 0 ? (
@@ -677,10 +677,10 @@ export function TaskList({
   const requiredDoneCount = tasks.filter((task) => task.required && task.status === "approved").length
   const completedCount = tasks.filter((task) => task.status === "approved").length
 
-  const detailCanReview =
-    Boolean(detailTask) &&
-    ["document_collection", "for_validation"].includes(engagement?.status) &&
-    (detailTask.status === "for_review" || detailTask.status === "for_revision")
+const detailCanReview =
+Boolean(detailTask) &&
+!isTerminalEngagement &&
+(detailTask.status === "for_review" || detailTask.status === "for_revision")
 
   return (
     <div className={cn("rounded-xl border border-border bg-card shadow-sm", className)}>
@@ -721,7 +721,7 @@ export function TaskList({
                 <TaskRow
                   key={task.id}
                   task={task}
-                  fileCount={task.hasReferenceDocument ? (documentsByTask[task.id]?.length ?? 0) : 0}
+                  fileCount={documentsByTask[task.id]?.length ?? 0}
                   isTerminal={isTerminalEngagement}
                   onOpen={() => setDetailTaskId(task.id)}
                   onPreviewReference={() => openReferencePreview(task)}

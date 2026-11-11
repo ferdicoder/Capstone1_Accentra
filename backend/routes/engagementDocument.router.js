@@ -18,9 +18,8 @@ import { requireRole } from '../middlewares/requireRole.js';
 
 const engagementDocumentRouter = express.Router();
 
-
-
 engagementDocumentRouter
+  // ── Deliverables ──────────────────────────────────────────────────────────
   .get('/engagement/:engagementId/deliverables', authUser, getEngagementDeliverables)
   .post(
     '/engagement/:engagementId/deliverables',
@@ -36,6 +35,8 @@ engagementDocumentRouter
     requireRole('admin', 'staff'),
     deleteEngagementDeliverable
   )
+
+  // ── Template reference copy ───────────────────────────────────────────────
   // Fills a freshly created engagement's task guides from the service
   // template — the create_engagement RPCs copy task rows but not files.
   .post(
@@ -44,8 +45,10 @@ engagementDocumentRouter
     requireRole('admin', 'staff'),
     copyTemplateReferencesToEngagement
   )
-  // Firm-provided reference files for engagement tasks — registered before the
-  // generic /:docId routes so "reference" never gets treated as a doc id.
+
+  // ── Task reference (guide) files ──────────────────────────────────────────
+  // Registered before the generic /:docId routes so "reference" never gets
+  // treated as a doc id.
   .post(
     '/engagement-task/:engagementTaskId/reference',
     authUser,
@@ -55,6 +58,9 @@ engagementDocumentRouter
   )
   .get('/reference/:docId/download', downloadEngagementTaskReference)
   .delete('/reference/:docId', authUser, requireRole('admin', 'staff'), deleteEngagementTaskReference)
+
+  // ── Client task submissions ───────────────────────────────────────────────
+  // Ownership / assignment / task-status checks happen in submissionBlock().
   .post(
     '/engagement-task/:engagementTaskId',
     authUser,
@@ -62,6 +68,8 @@ engagementDocumentRouter
     uploadEngagementDocument
   )
   .get('/:docId/download', downloadEngagementDocument)
-  .delete('/:docId', authUser, deleteEngagementDocument);
+  // The client page never deletes and tells clients they cannot, so clients are
+  // not allowed here. Revisions are handled by overwrite on re-upload.
+  .delete('/:docId', authUser, requireRole('admin', 'staff'), deleteEngagementDocument);
 
 export default engagementDocumentRouter;
