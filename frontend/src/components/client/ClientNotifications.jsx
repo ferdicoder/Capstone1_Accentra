@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Bell, CheckCheck, Loader2 } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -100,6 +100,52 @@ const notificationLabels = new Map([
   ["client_registered", "New client registered"],
 ])
 
+const navigationKeysByRole = {
+  client: {
+    service_request: "serviceRequests",
+    engagement: "engagements",
+    payment: "billing",
+  },
+  staff: {
+    engagement: "engagements",
+    service: "services",
+  },
+  admin: {
+    service_request: "serviceRequests",
+    payment: "billing",
+    engagement: "engagements",
+    service: "services",
+    client: "clients",
+  },
+  billing_officer: {
+    engagement: "engagements",
+    payment: "billing",
+  },
+}
+
+const navigationPathsByRole = {
+  client: {
+    serviceRequests: "/client/service-requests",
+    engagements: "/client/engagements",
+    billing: "/client/billing",
+  },
+  staff: {
+    engagements: "/firm/engagements",
+    services: "/firm/services",
+  },
+  admin: {
+    serviceRequests: "/admin/service-requests",
+    services: "/admin/services",
+    engagements: "/admin/engagements",
+    billing: "/admin/billing",
+    clients: "/admin/clients",
+  },
+  billing_officer: {
+    engagements: "/billing-officer/engagements",
+    billing: "/billing-officer/billing",
+  },
+}
+
 function getNotificationLabel(notification) {
   const entity = notification?.entity_type
   if (!["service_request", "payment", "engagement", "service", "client"].includes(entity)) return null
@@ -107,22 +153,86 @@ function getNotificationLabel(notification) {
   return notificationLabels.get(notification?.type) ?? null
 }
 
-export function ClientNotifications({ role = "client" }) {
+export function ClientNotifications({ role = "client", onUnreadCountsChange }) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const userId = authStore((state) => state.user?.id)
   const [actionError, setActionError] = useState("")
   const { data: notifications = [], isLoading, error } = useNotifications(userId)
   const markRead = useMarkNotificationRead(userId)
   const markAllRead = useMarkAllNotificationsRead(userId)
-  const visibleNotifications =
-    role === "staff"
-      ? notifications.filter((notification) => notification.type !== "service_request_submitted")
-      : notifications
+  const attemptedReadIds = useRef(new Set())
+  const visibleNotifications = useMemo(
+    () =>
+      role === "staff"
+        ? notifications.filter((notification) => notification.type !== "service_request_submitted")
+        : notifications,
+    [notifications, role]
+  )
 
   const unreadCount = useMemo(
     () => visibleNotifications.filter((notification) => !notification.read_at).length,
     [visibleNotifications]
   )
+  const unreadNavigationCounts = useMemo(() => {
+    const roleKeys = navigationKeysByRole[role] ?? {}
+    return visibleNotifications.reduce((counts, notification) => {
+      if (notification.read_at) return counts
+      const navigationKey = roleKeys[notification.entity_type]
+      if (navigationKey) {
+        counts[navigationKey] = (counts[navigationKey] ?? 0) + 1
+      }
+      return counts
+    }, {})
+  }, [role, visibleNotifications])
+
+  useEffect(() => {
+    onUnreadCountsChange?.(unreadNavigationCounts)
+  }, [onUnreadCountsChange, unreadNavigationCounts])
+
+  useEffect(() => {
+    const roleKeys = navigationKeysByRole[role] ?? {}
+    const rolePaths = navigationPathsByRole[role] ?? {}
+    const activeEntityTypes = Object.entries(roleKeys)
+      .filter(([, navigationKey]) => {
+        const path = rolePaths[navigationKey]
+        return path && (pathname === path || pathname.startsWith(`${path}/`))
+      })
+      .map(([entityType]) => entityType)
+
+    if (activeEntityTypes.length === 0) return
+
+    const unreadToMark = visibleNotifications.filter(
+      (notification) =>
+        !notification.read_at &&
+        activeEntityTypes.includes(notification.entity_type) &&
+        !attemptedReadIds.current.has(notification.notif_id)
+    )
+    if (unreadToMark.length === 0) return
+
+    let cancelled = false
+    unreadToMark.forEach((notification) =>
+      attemptedReadIds.current.add(notification.notif_id)
+    )
+    const markViewedNotificationsRead = async () => {
+      for (const notification of unreadToMark) {
+        try {
+          await markRead.mutateAsync(notification.notif_id)
+        } catch (error) {
+          attemptedReadIds.current.delete(notification.notif_id)
+          console.error("Viewed notification could not be marked as read:", error)
+          if (!cancelled) {
+            setActionError("Some notifications could not be marked as read. Please try again.")
+          }
+        }
+      }
+    }
+
+    markViewedNotificationsRead()
+    return () => {
+      cancelled = true
+    }
+  }, [markRead.mutateAsync, pathname, role, visibleNotifications])
 
   const handleNotificationClick = async (notification) => {
     setActionError("")

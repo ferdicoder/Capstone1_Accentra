@@ -20,7 +20,7 @@ import { authStore } from "@/store/authStore"
 import { useFetchFirmSettings } from "@/hooks/useFirmSettings"
 import { firmLogoUrl } from "@/services/api/firmSettingsAPI"
 
-export function AppSidebar({  user, ...props }) {
+export function AppSidebar({ user, notificationCounts = {}, ...props }) {
   const role = authStore((state) => state.role)
   const sessionUser = authStore((state) => state.user)
   const config = roleConfig[role]
@@ -79,7 +79,11 @@ export function AppSidebar({  user, ...props }) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent className="px-2 py-4  group-data-[collapsible=icon]:px-0">
-        <NavMain label={config.label} items={config.nav} />
+        <NavMain
+          label={config.label}
+          items={config.nav}
+          notificationCounts={notificationCounts}
+        />
       </SidebarContent>
       <SidebarFooter className="border-t border-white/10 p-3  group-data-[collapsible=icon]:p-2 ">
         <NavUser user={sidebarUser} />

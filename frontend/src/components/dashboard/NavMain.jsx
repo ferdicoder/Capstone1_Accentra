@@ -76,7 +76,7 @@ function NavGroup({ item, pathname }) {
   )
 }
 
-export function NavMain({ items = [] }) {
+export function NavMain({ items = [], notificationCounts = {} }) {
   const { pathname } = useLocation()
 
   return (
@@ -94,6 +94,11 @@ export function NavMain({ items = [] }) {
               key={item.title}
               item={item}
               isActive={isNavItemActive(pathname, item.url)}
+              notificationCount={
+                item.notificationKey
+                  ? notificationCounts[item.notificationKey] ?? 0
+                  : 0
+              }
             />
           )
         })}
