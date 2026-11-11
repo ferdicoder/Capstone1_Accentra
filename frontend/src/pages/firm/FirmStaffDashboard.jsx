@@ -16,7 +16,6 @@ import { useFetchEngagements } from "@/hooks/useEngagements"
 import { useFetchBusinesses } from "@/hooks/useBusinesses"
 import { authStore } from "@/store/authStore"
 import {
-  canViewEngagementDocuments,
 } from "@/lib/workflow-stages"
 import { isEngagementActive, stageLabel, stageTone } from "@/lib/vocab"
 import { describeDueDate, parseDate, useToday } from "@/lib/date-utils"
@@ -154,24 +153,21 @@ export default function FirmStaffDashboard() {
   )
 
   // --- Submissions to review ---------------------------------------------------
-  // Client uploads stay hidden until the engagement reaches For Validation
-  // (canViewEngagementDocuments), so only those engagements are counted.
+  // Client submissions can be reviewed at every engagement stage.
   const submissions = useMemo(() => {
     const items = []
-    mine
-      .filter((e) => canViewEngagementDocuments(e.status))
-      .forEach((engagement) => {
-        const tasks = Array.isArray(engagement.tasks) ? engagement.tasks : []
-        tasks
-          .filter((task) => SUBMITTED_TASK_STATUSES.includes(task.status))
-          .forEach((task, index) =>
-            items.push({
-              key: `${engagement.id}-${task.id ?? index}`,
-              engagement,
-              task,
-            })
-          )
-      })
+    mine.forEach((engagement) => {
+      const tasks = Array.isArray(engagement.tasks) ? engagement.tasks : []
+      tasks
+        .filter((task) => SUBMITTED_TASK_STATUSES.includes(task.status))
+        .forEach((task, index) =>
+          items.push({
+            key: `${engagement.id}-${task.id ?? index}`,
+            engagement,
+            task,
+          })
+        )
+    })
     // Oldest first; unknown dates go last.
     return items.sort(
       (a, b) =>

@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { formatDate } from "./engagement-variants"
-import { canViewEngagementDocuments } from "@/lib/workflow-stages"
 import { ReferenceDocumentUpload } from "@/components/firm/service-management/workflow-tasks"
 import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
 import { normalizePreviewFile } from "@/lib/file-utils"
@@ -317,7 +316,6 @@ function TaskDetailDialog({
   task,
   documents = [],
   isTerminal,
-  documentsLocked,
   canReview,
   onEdit,
   onApprove,
@@ -382,9 +380,7 @@ function TaskDetailDialog({
                 <p className="rounded-md border border-dashed px-3 py-3 text-xs text-muted-foreground">
                   {task.status === "missing"
                     ? "The client hasn't submitted a file for this task yet."
-                    : documentsLocked
-                      ? "Submitted. Files can be viewed once the engagement is moved to For Validation."
-                      : task.status === "for_revision"
+                    : task.status === "for_revision"
                         ? "Waiting for the client to resubmit."
                         : "No file to show."}
                 </p>
@@ -738,7 +734,6 @@ Boolean(detailTask) &&
         task={detailTask}
         documents={detailTask ? (documentsByTask[detailTask.id] ?? []) : []}
         isTerminal={isTerminalEngagement}
-        documentsLocked={!canViewEngagementDocuments(engagement?.status)}
         canReview={detailCanReview}
         onEdit={() => detailTask && openEditTask(detailTask)}
         onApprove={() => detailTask && handleApprove(detailTask)}

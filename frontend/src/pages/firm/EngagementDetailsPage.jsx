@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, Lock } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -25,7 +25,7 @@ import {
   EngagementDocumentsTab,
   getVisibleDocuments,
 } from "@/components/shared/EngagementsDocumentsTab"
-import { canViewEngagementDocuments, engagementStatusOptions } from "@/lib/workflow-stages"
+import { engagementStatusOptions } from "@/lib/workflow-stages"
 import { formatDate, canCompleteEngagement } from "@/components/firm/engagements/engagement-variants"
 import {
   useFetchEngagement,
@@ -67,12 +67,7 @@ export default function EngagementDetailsPage() {
   const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(
     canManageEngagements ? id : null
   )
-  // The client's documents are only fetched once the engagement has been moved
-  // to For Validation.
-  const canViewDocuments =
-    Boolean(engagement) &&
-    canManageEngagements &&
-    canViewEngagementDocuments(engagement?.status)
+  const canViewDocuments = Boolean(engagement) && canManageEngagements
   const { data: documents = [], isLoading: isDocumentsLoading } = useFetchEngagementDocuments(
     canViewDocuments ? id : null
   )
@@ -508,29 +503,12 @@ export default function EngagementDetailsPage() {
         </div>}
 
         {activeTab === "documents" && (
-          canViewDocuments ? (
-            <EngagementDocumentsTab
-              documents={visibleDocuments}
-              tasks={engagement.tasks ?? []}
-              isLoading={isDocumentsLoading}
-              audience="firm"
-            />
-          ) : (
-            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-              <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                <div className="flex size-10 items-center justify-center rounded-full bg-muted">
-                  <Lock className="size-5 text-muted-foreground" />
-                </div>
-                <p className="text-sm font-medium text-foreground">
-                  Documents are not available yet
-                </p>
-                <p className="max-w-md text-sm text-muted-foreground">
-                  The client's uploaded documents become available once the
-                  engagement is moved to For Validation.
-                </p>
-              </div>
-            </div>
-          )
+          <EngagementDocumentsTab
+            documents={visibleDocuments}
+            tasks={engagement.tasks ?? []}
+            isLoading={isDocumentsLoading}
+            audience="firm"
+          />
         )}
         {!canManageEngagements && (
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
