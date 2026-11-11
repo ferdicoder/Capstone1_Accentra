@@ -137,6 +137,7 @@ export function CreateBillingDialog({
   submitting = false,
   error,
   initialEngagementId = '',
+  initialClientId = '',
 }) {
   const now = new Date();
   const currentBillingMonth = now.getMonth() + 1;
@@ -167,8 +168,21 @@ export function CreateBillingDialog({
   );
   // Client is the first field of the form, so prefill it from the
   // pre-selected engagement (Create Billing from an engagement row).
-  const initialClientId = initialClient?.id ?? '';
+  const initialEngagementClientId = initialClient?.id ?? '';
   const initialRetainerFee = initialClient?.retainerFee ?? null;
+  // Client preselected by the caller instead of by an engagement (Create
+  // Retainer Fee bill from a dashboard row). Billing rows are keyed by business
+  // id while client records can carry either id, so match on any known key.
+  const initialClientRecord = initialClientId
+    ? clients.find(
+        (client) =>
+          String(client.id) === String(initialClientId) ||
+          getClientKeys(client).includes(String(initialClientId))
+      ) ?? null
+    : null;
+  const initialClientRecordId = initialClientRecord?.id ?? '';
+  const initialClientRecordIsRetainer = isRetainerClient(initialClientRecord);
+  const initialClientRecordRetainerFee = initialClientRecord?.retainerFee ?? null;
   const initialClientIsRetainer = isRetainerClient(initialClient);
   const initialEngagementRetainerCovered =
     isEngagementRetainerCovered(initialEngagement);
@@ -284,15 +298,37 @@ export function CreateBillingDialog({
     setDueDate('');
     setErrors({});
     autoTypeRef.current = false;
-  }, [open, initialEngagementId, currentBillingMonth, currentBillingYear]);
+  }, [open, initialEngagementId, initialClientId, currentBillingMonth, currentBillingYear]);
 
   // 2) Prefill the client from the pre-selected engagement (Create Billing
   // from an engagement row). Runs after the reset above; also covers clients
   // loading after the dialog opens.
   useEffect(() => {
-    if (!open || !initialClientId) return;
-    setClientId(initialClientId);
-  }, [open, initialClientId]);
+    if (!open || !initialEngagementClientId) return;
+    setClientId(initialEngagementClientId);
+  }, [open, initialEngagementClientId]);
+
+  // 2b) Prefill the pre-selected client (Create Retainer Fee bill). A retainer
+  // client also gets the Retainer Fee type at its retainer charge, mirroring
+  // what picking the type by hand does in handleInvoiceTypeChange.
+  useEffect(() => {
+    if (!open || !initialClientRecordId) return;
+    setClientId(initialClientRecordId);
+    if (!initialClientRecordIsRetainer) return;
+    autoTypeRef.current = true;
+    setInvoiceType('retainer_fee');
+    if (
+      initialClientRecordRetainerFee != null &&
+      initialClientRecordRetainerFee !== ''
+    ) {
+      setAmount(String(initialClientRecordRetainerFee));
+    }
+  }, [
+    open,
+    initialClientRecordId,
+    initialClientRecordIsRetainer,
+    initialClientRecordRetainerFee,
+  ]);
 
   // 3) Prefill the billing type from the pre-selected engagement.
   // Retainer client + retainer-covered engagement -> Retainer Fee at the

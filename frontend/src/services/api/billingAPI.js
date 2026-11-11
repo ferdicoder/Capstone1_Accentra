@@ -37,6 +37,8 @@ function mapBilling(row) {
   const payment = [...payments].sort(
     (first, second) => getPaymentCreatedAt(second) - getPaymentCreatedAt(first)
   )[0] ?? null
+  // When the client submitted the proof — the newest proof file's timestamp.
+  const paymentSubmittedAt = payment ? getPaymentCreatedAt(payment) : 0
   return {
     ...row,
     id: row.billing_id,
@@ -55,6 +57,9 @@ function mapBilling(row) {
     payment_proof_name: getLatestPaymentDocument(payment)?.file_name ?? null,
     payment_proof_size: getLatestPaymentDocument(payment)?.file_size ?? null,
     payment_id: payment?.payment_id ?? null,
+    paymentSubmittedAt: paymentSubmittedAt
+      ? new Date(paymentSubmittedAt).toISOString()
+      : null,
     billing_month: row.billing_month ?? null,
     billing_year: row.billing_year ?? null,
   }
