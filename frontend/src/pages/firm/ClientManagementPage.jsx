@@ -9,13 +9,13 @@ import { FirmUserTable } from "@/components/firm/users/firm-user-table"
 import { FirmUserAvatar } from "@/components/firm/users/firm-user-avatar"
 import { FirmUserStatusBadge } from "@/components/firm/users/firm-user-status-badge"
 import { ClientTypeBadge } from "@/components/firm/clients/client-type-badge"
-import { clientStatusFilterOptions, clientTypeOptions, DEFAULT_CLIENT_TYPE, } from "@/components/firm/clients/client-variants"
+import {
+  clientStatusFilterOptions,
+  clientTypeOptions,
+  DEFAULT_CLIENT_TYPE,
+} from "@/components/firm/clients/client-variants"
 import { clientStore } from "@/components/firm/clients/client-store"
 
-const retainerTypeFilterOptions = [
-  { label: "Retainer", value: "retainer" },
-  { label: "Non-retainer", value: "non-retainer" },
-]
 const clientColumns = [
   {
     key: "client",
@@ -23,7 +23,9 @@ const clientColumns = [
     render: (client) => (
       <div className="flex min-w-0 items-center gap-3">
         <FirmUserAvatar name={client.name} />
-        <p className="min-w-0 truncate text-sm font-medium text-foreground">{client.name || "-"}</p>
+        <p className="min-w-0 truncate text-sm font-medium text-foreground">
+          {client.name || "-"}
+        </p>
       </div>
     ),
   },
@@ -31,14 +33,18 @@ const clientColumns = [
     key: "business",
     label: "Business",
     render: (client) => (
-      <span className="block truncate text-sm text-foreground">{client.businessName || "-"}</span>
+      <span className="block truncate text-sm text-foreground">
+        {client.businessName || "-"}
+      </span>
     ),
   },
   {
     key: "industry",
     label: "Industry",
     render: (client) => (
-      <span className="block truncate text-sm text-foreground">{client.industry || "-"}</span>
+      <span className="block truncate text-sm text-foreground">
+        {client.industry || "-"}
+      </span>
     ),
   },
   {
@@ -104,13 +110,10 @@ export default function ClientManagementPage() {
           field?.toLowerCase().includes(query)
         )
 
-      const matchesStatus =
-        !statusFilter || client.status === statusFilter
+      const matchesStatus = !statusFilter || client.status === statusFilter
 
       const clientType = client.clientType ?? DEFAULT_CLIENT_TYPE
-
-      const matchesRetainer =
-        !retainerFilter || clientType === retainerFilter
+      const matchesRetainer = !retainerFilter || clientType === retainerFilter
 
       return matchesSearch && matchesStatus && matchesRetainer
     })
@@ -129,56 +132,59 @@ export default function ClientManagementPage() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3 py-1">
-        <p className="text-sm text-muted-foreground">
+      <div className="flex flex-col gap-1 py-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+        <p className="min-w-0 text-sm text-muted-foreground">
           Manage and view firm clients and their engagement history.
         </p>
         {error && <span className="text-xs text-destructive">Failed to load clients</span>}
       </div>
 
-      <FirmUsersToolbar
-        searchValue={search}
-        onSearchChange={(value) => {
-          setSearch(value)
-          setCurrentPage(1)
-        }}
-        searchPlaceholder="Search clients..."
-        roleFilter={statusFilter}
-        onRoleFilterChange={(value) => {
-          setStatusFilter(value)
-          setCurrentPage(1)
-        }}
-        roleOptions={clientStatusFilterOptions}
-        filterLabel="Status"
-        filterHeading="Filter by status"
-        allOptionLabel="All statuses"
-        resultCount={`${filteredClients.length} of ${clients.length} clients`}
-        
-        typeFilter={retainerFilter}
-        onTypeFilterChange={(value) => {
-  setRetainerFilter(value)
-  setCurrentPage(1)
-        }}
-        typeOptions={clientTypeOptions}
-        typeFilterLabel="Retainer Type"
-        typeFilterHeading="Filter by retainer type"
-        allTypeOptionLabel="All types"
-      />
+      <div className="min-w-0">
+        <FirmUsersToolbar
+          searchValue={search}
+          onSearchChange={(value) => {
+            setSearch(value)
+            setCurrentPage(1)
+          }}
+          searchPlaceholder="Search clients..."
+          roleFilter={statusFilter}
+          onRoleFilterChange={(value) => {
+            setStatusFilter(value)
+            setCurrentPage(1)
+          }}
+          roleOptions={clientStatusFilterOptions}
+          filterLabel="Status"
+          filterHeading="Filter by status"
+          allOptionLabel="All statuses"
+          resultCount={`${filteredClients.length} of ${clients.length} clients`}
+          typeFilter={retainerFilter}
+          onTypeFilterChange={(value) => {
+            setRetainerFilter(value)
+            setCurrentPage(1)
+          }}
+          typeOptions={clientTypeOptions}
+          typeFilterLabel="Retainer Type"
+          typeFilterHeading="Filter by retainer type"
+          allTypeOptionLabel="All types"
+        />
+      </div>
 
-      <FirmUserTable
-        users={filteredClients}
-        columns={clientColumns}
-        equalColumns
-        onRowClick={openDetails}
-        emptyMessage={hasNoClients ? "No clients yet." : "No clients match your filters."}
-        emptyDescription={
-          hasNoClients
-            ? "Clients appear here once they submit a service request."
-            : "Try clearing the search or filters."
-        }
-        page={currentPage}
-        onPageChange={setCurrentPage}
-      />
+      <div className="min-w-0">
+        <FirmUserTable
+          users={filteredClients}
+          columns={clientColumns}
+          equalColumns
+          onRowClick={openDetails}
+          emptyMessage={hasNoClients ? "No clients yet." : "No clients match your filters."}
+          emptyDescription={
+            hasNoClients
+              ? "Clients appear here once they submit a service request."
+              : "Try clearing the search or filters."
+          }
+          page={currentPage}
+          onPageChange={setCurrentPage}
+        />
+      </div>
     </>
   )
 }

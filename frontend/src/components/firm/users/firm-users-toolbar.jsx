@@ -14,6 +14,9 @@ import {
 
 import { roleFilterOptions as defaultRoleFilterOptions } from "./firm-user-variants"
 
+const activeFilterClass =
+  "border-forest-900/40 text-forest-900 dark:border-emerald-500/40 dark:text-emerald-300"
+
 /**
  * Presentational toolbar for a firm user list. Fully controlled — all state
  * lives in the parent page and is passed back in through props/callbacks.
@@ -25,6 +28,12 @@ import { roleFilterOptions as defaultRoleFilterOptions } from "./firm-user-varia
  * @param {Function} onRoleFilterChange - (value: string) => void.
  * @param {Array} roleOptions - [{ value, label }]. Pass [] to hide the role filter.
  *   Status is derived from system activity, so there is no status filter.
+ * @param {string} typeFilter - Active type filter value, or "" for all types.
+ * @param {Function} onTypeFilterChange - (value: string) => void.
+ * @param {Array} typeOptions - [{ value, label }]. Pass [] to hide the type filter.
+ * @param {string} typeFilterLabel - Trigger label when no type filter is active. Default "Type".
+ * @param {string} typeFilterHeading - Type dropdown heading. Default "Filter by type".
+ * @param {string} allTypeOptionLabel - Label of the clear type option. Default "All types".
  * @param {string} filterLabel - Trigger label when no filter is active. Default "Role".
  * @param {string} filterHeading - Dropdown heading. Default "Filter by role".
  * @param {string} allOptionLabel - Label of the clear-filter option. Default "All roles".
@@ -63,7 +72,10 @@ export function FirmUsersToolbar({
   return (
     <div
       data-slot="firm-users-toolbar"
-      className={cn("flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center", className)}
+      className={cn(
+        "flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center",
+        className
+      )}
       {...props}
     >
       <div className="relative w-full sm:w-64">
@@ -74,15 +86,17 @@ export function FirmUsersToolbar({
           onChange={(event) => onSearchChange?.(event.target.value)}
           placeholder={searchPlaceholder}
           aria-label={searchPlaceholder}
-          className="pl-8"
+          className="w-full pl-8"
         />
       </div>
 
+      {/* Shown at every size now; it used to disappear below md. */}
       {resultCount && (
-        <p className="hidden text-sm text-muted-foreground md:block">{resultCount}</p>
+        <p className="text-sm text-muted-foreground">{resultCount}</p>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+      {/* On phones the filters share the row equally; from sm up they sit on the right. */}
+      <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-wrap sm:items-center">
         {typeOptions.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -91,23 +105,22 @@ export function FirmUsersToolbar({
                   variant="outline"
                   size="sm"
                   className={cn(
-                    "gap-1.5",
-                    activeType &&
-                      "border-forest-900/40 text-forest-900 dark:border-emerald-500/40 dark:text-emerald-300"
+                    "w-full min-w-0 justify-between gap-1.5 sm:w-auto sm:justify-center",
+                    activeType && activeFilterClass
                   )}
                 />
               }
             >
-              <Filter className="size-3.5" />
-              {activeType ? activeType.label : typeFilterLabel}
-              <ChevronDown className="size-3.5 opacity-60" />
+              <Filter className="size-3.5 shrink-0" />
+              <span className="min-w-0 truncate">
+                {activeType ? activeType.label : typeFilterLabel}
+              </span>
+              <ChevronDown className="size-3.5 shrink-0 opacity-60" />
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="min-w-40">
               <DropdownMenuGroup>
-                <DropdownMenuLabel>
-                  {typeFilterHeading}
-                </DropdownMenuLabel>
+                <DropdownMenuLabel>{typeFilterHeading}</DropdownMenuLabel>
 
                 <DropdownMenuItem
                   onClick={() => onTypeFilterChange?.("")}
@@ -117,20 +130,16 @@ export function FirmUsersToolbar({
                     {!typeFilter && <Check className="size-4" />}
                   </span>
                   {allTypeOptionLabel}
-               </DropdownMenuItem>
+                </DropdownMenuItem>
 
                 {typeOptions.map((option) => (
                   <DropdownMenuItem
                     key={option.value}
                     onClick={() => onTypeFilterChange?.(option.value)}
-                    className={cn(
-                      option.value === typeFilter && "font-medium"
-                    )}
+                    className={cn(option.value === typeFilter && "font-medium")}
                   >
                     <span className="flex w-4 shrink-0 justify-center">
-                      {option.value === typeFilter && (
-                        <Check className="size-4" />
-                      )}
+                      {option.value === typeFilter && <Check className="size-4" />}
                     </span>
                     {option.label}
                   </DropdownMenuItem>
@@ -139,6 +148,7 @@ export function FirmUsersToolbar({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+
         {roleOptions.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -147,19 +157,23 @@ export function FirmUsersToolbar({
                   variant="outline"
                   size="sm"
                   className={cn(
-                    "gap-1.5",
-                    activeRole && "border-forest-900/40 text-forest-900 dark:border-emerald-500/40 dark:text-emerald-300"
+                    "w-full min-w-0 justify-between gap-1.5 sm:w-auto sm:justify-center",
+                    activeRole && activeFilterClass
                   )}
                 />
               }
             >
-              <Filter className="size-3.5" />
-              {activeRole ? activeRole.label : filterLabel}
-              <ChevronDown className="size-3.5 opacity-60" />
+              <Filter className="size-3.5 shrink-0" />
+              <span className="min-w-0 truncate">
+                {activeRole ? activeRole.label : filterLabel}
+              </span>
+              <ChevronDown className="size-3.5 shrink-0 opacity-60" />
             </DropdownMenuTrigger>
+
             <DropdownMenuContent align="end" className="min-w-40">
               <DropdownMenuGroup>
                 <DropdownMenuLabel>{filterHeading}</DropdownMenuLabel>
+
                 <DropdownMenuItem
                   onClick={() => onRoleFilterChange?.("")}
                   className={cn(!roleFilter && "font-medium")}
@@ -169,6 +183,7 @@ export function FirmUsersToolbar({
                   </span>
                   {allOptionLabel}
                 </DropdownMenuItem>
+
                 {roleOptions.map((option) => (
                   <DropdownMenuItem
                     key={option.value}
@@ -191,11 +206,11 @@ export function FirmUsersToolbar({
         {onAddUser && (
           <Button
             size="sm"
-            className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
+            className="col-span-2 h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90 sm:col-span-1"
             onClick={onAddUser}
           >
             <Plus className="size-4" />
-            <span className="hidden sm:inline">{addUserLabel}</span>
+            <span>{addUserLabel}</span>
           </Button>
         )}
       </div>

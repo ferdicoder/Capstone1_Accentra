@@ -5,13 +5,61 @@ import { EngagementList } from "@/components/firm/engagements/engagement-list"
 import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
 import { formatDate } from "@/components/firm/engagements/engagement-variants"
 
-// historyColumns stays exactly as you have it
+const historyColumns = [
+  {
+    key: "engagementNumber",
+    label: "Engagement No.",
+    render: (engagement) => (
+      <span className="text-sm font-medium tabular-nums whitespace-nowrap text-foreground">
+        {engagement?.engagementNumber}
+      </span>
+    ),
+  },
+  {
+    key: "serviceName",
+    label: "Service",
+    render: (engagement) => (
+      <span className="line-clamp-1 max-w-56 text-sm text-foreground">{engagement?.serviceName}</span>
+    ),
+  },
+  {
+    key: "status",
+    label: "Status",
+    render: (engagement) => <EngagementStatusBadge status={engagement?.status} />,
+  },
+  {
+    key: "startDate",
+    label: "Started",
+    render: (engagement) => (
+      <span className="text-sm whitespace-nowrap text-muted-foreground">
+        {formatDate(engagement?.startDate ?? engagement?.createdAt?.slice(0, 10))}
+      </span>
+    ),
+  },
+  {
+    key: "targetEndDate",
+    label: "Deadline",
+    render: (engagement) => (
+      <span className="text-sm whitespace-nowrap text-muted-foreground">
+        {formatDate(engagement?.targetEndDate)}
+      </span>
+    ),
+  },
+]
 
 const formatStatusLabel = (status) =>
   String(status)
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase())
 
+/**
+ * Engagement history for one client: summary rows only. Full workflow stays
+ * on the Engagement Detail page, reached by clicking a row (`onViewEngagement`).
+ *
+ * @param {Array} engagements - The client's engagements (current and past).
+ * @param {boolean} loading - Shows the shared table loading state.
+ * @param {Function} onViewEngagement - (engagement) => void navigation callback.
+ */
 export function ClientEngagementHistory({ engagements = [], loading = false, onViewEngagement }) {
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState("")
@@ -37,8 +85,8 @@ export function ClientEngagementHistory({ engagements = [], loading = false, onV
   const hasFilters = Boolean(statusFilter || search.trim())
 
   return (
-    <section data-slot="client-engagement-history" className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <section data-slot="client-engagement-history" className="flex min-w-0 flex-col gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-baseline gap-2">
           <h2 className="text-sm font-semibold text-foreground">Engagement History</h2>
           {!loading && (
@@ -50,8 +98,8 @@ export function ClientEngagementHistory({ engagements = [], loading = false, onV
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="relative w-full sm:w-56">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
@@ -62,7 +110,7 @@ export function ClientEngagementHistory({ engagements = [], loading = false, onV
               }}
               placeholder="Search number or service"
               aria-label="Search engagement history"
-              className="h-9 w-56 rounded-lg border border-input bg-background pr-3 pl-8 text-sm text-foreground"
+              className="h-9 w-full rounded-lg border border-input bg-background pr-3 pl-8 text-sm text-foreground"
             />
           </div>
           <select
@@ -72,7 +120,7 @@ export function ClientEngagementHistory({ engagements = [], loading = false, onV
               setPage(1)
             }}
             aria-label="Filter by status"
-            className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground"
+            className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground sm:w-auto"
           >
             <option value="">All statuses</option>
             {statusOptions.map((status) => (
