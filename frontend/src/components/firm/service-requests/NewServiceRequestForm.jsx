@@ -5,9 +5,10 @@ import { useFetchServices } from "@/hooks/useServices"
 import { useCreateServiceRequest } from "@/hooks/useServiceRequests"
 import { getZodFieldErrors } from "@/lib/form-validation"
 import { serviceRequestSchema } from "@/schemas/serviceRequestSchema"
+import { CATEGORY_META } from "@/lib/service-categories"
 
 const initialFormState = {
-  serviceId: "",
+  category: "",
   description: "",
 }
 
@@ -28,7 +29,13 @@ export function NewServiceRequestForm({
   const isBlockedByUnpaidBills = hasUnpaidBills
   const isSubmissionBlocked = isBlockedNonRetainer || isBlockedByUnpaidBills
 
-  const activeServices = services.filter((s) => s.status === "active")
+  // Only categories that have at least one active template, so a request never
+  // lands on a category the firm can't fulfil.
+  const availableCategories = [
+    ...new Set(services.filter((s) => s.status === "active").map((s) => s.category).filter(Boolean)),
+  ]
+  const noCategories = !servicesLoading && availableCategories.length === 0
+  const selectedMeta = CATEGORY_META[formData.category]
 
   const updateField = (event) => {
     const { name, value } = event.target
@@ -55,14 +62,14 @@ export function NewServiceRequestForm({
     }
     const validationErrors = getZodFieldErrors(serviceRequestSchema, formData)
     if (Object.keys(validationErrors).length > 0) {
-      setError(validationErrors.serviceId)
+      setError(validationErrors.category)
       return
     }
 
     createRequest.mutate(
       {
         businessId,
-        serviceId: formData.serviceId,
+        category: formData.category,
         description: formData.description,
       },
       {
@@ -103,25 +110,36 @@ export function NewServiceRequestForm({
       <div className="rounded-xl border bg-background p-5">
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="serviceId">Service</FieldLabel>
+            <FieldLabel htmlFor="category">Service Category</FieldLabel>
             <select
-              id="serviceId"
-              name="serviceId"
-              value={formData.serviceId}
+              id="category"
+              name="category"
+              value={formData.category}
               onChange={updateField}
               required
-              disabled={servicesLoading || isSubmissionBlocked}
+              disabled={servicesLoading || noCategories || isSubmissionBlocked}
               className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
             >
               <option value="">
-                {servicesLoading ? "Loading services..." : "Select a service"}
+                {servicesLoading ? "Loading categories..." : "Select a category"}
               </option>
-              {activeServices.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.name}
+              {availableCategories.map((value) => (
+                <option key={value} value={value}>
+                  {CATEGORY_META[value]?.label ?? value}
                 </option>
               ))}
             </select>
+            {selectedMeta?.description && (
+              <p className="text-xs text-muted-foreground">{selectedMeta.description}</p>
+            )}
+            {noCategories && (
+              <p className="text-xs text-muted-foreground">
+                No services are available right now. Please contact your firm.
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Your firm will assign the exact service when they review your request.
+            </p>
           </Field>
 
           <Field>
@@ -146,7 +164,7 @@ export function NewServiceRequestForm({
         </Button>
         <Button
           type="submit"
-          disabled={createRequest.isPending || isSubmissionBlocked}
+          disabled={createRequest.isPending || isSubmissionBlocked || noCategories}
           className="bg-emerald-600 text-white hover:bg-emerald-700"
         >
           {isBlockedByUnpaidBills

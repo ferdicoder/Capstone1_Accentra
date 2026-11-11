@@ -1,45 +1,36 @@
 import { Inbox } from "lucide-react"
-import { useMemo } from "react"
 
 import { cn } from "@/lib/utils"
 import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { Skeleton } from "@/components/ui/skeleton"
+import { getCategoryLabel } from "@/lib/service-categories"
 import { ServiceRequestAvatar } from "./service-request-avatar"
 import { ServiceRequestRow } from "./service-request-row"
 import { ServiceRequestStatusBadge } from "./service-request-status-badge"
-import {
-  formatRevenue,
-  formatSubmittedDate,
-  getClientFullName,
-  hideServiceRequestPriceColumn,
-} from "./service-request-variants"
+import { formatSubmittedDate, getClientFullName } from "./service-request-variants"
 
 const defaultServiceRequestColumns = [
-{
-  key: "client",
-  label: "Client",
-  render: (request) => {
-    const clientName = request?.client ? getClientFullName(request.client) : null
-    const businessName = request?.business?.businessName
-    const primaryName = clientName || businessName // fallback if client record is missing
+  {
+    key: "client",
+    label: "Client",
+    render: (request) => {
+      const clientName = request?.client ? getClientFullName(request.client) : null
+      const businessName = request?.business?.businessName
+      const primaryName = clientName || businessName // fallback if client record is missing
 
-    return (
-      <div className="flex items-center gap-3">
-        <ServiceRequestAvatar name={primaryName} />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">
-            {primaryName}
-          </p>
-          {clientName && businessName && (
-            <p className="truncate text-xs text-muted-foreground">
-              {businessName}
-            </p>
-          )}
+      return (
+        <div className="flex items-center gap-3">
+          <ServiceRequestAvatar name={primaryName} />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">{primaryName}</p>
+            {clientName && businessName && (
+              <p className="truncate text-xs text-muted-foreground">{businessName}</p>
+            )}
+          </div>
         </div>
-      </div>
-    )
+      )
+    },
   },
-},
   {
     key: "requestNumber",
     label: "Request No.",
@@ -50,19 +41,18 @@ const defaultServiceRequestColumns = [
     ),
   },
   {
-    key: "serviceName",
-    label: "Service",
+    key: "category",
+    label: "Category",
     render: (request) => (
-      <span className="line-clamp-1 max-w-48 text-sm text-foreground">{request?.serviceName}</span>
-    ),
-  },
-  {
-    key: "revenue",
-    label: "Price",
-    render: (request) => (
-      <span className="text-sm font-medium tabular-nums text-foreground">
-        {formatRevenue(request?.revenue)}
-      </span>
+      <div className="min-w-0 max-w-56">
+        <p className="line-clamp-1 text-sm text-foreground">
+          {getCategoryLabel(request?.category)}
+        </p>
+        {/* Only filled in after the admin assigns a template at approval. */}
+        {request?.serviceName && (
+          <p className="line-clamp-1 text-xs text-muted-foreground">{request.serviceName}</p>
+        )}
+      </div>
     ),
   },
   {
@@ -143,14 +133,11 @@ function ServiceRequestCard({ request, showPrice, onRowClick }) {
 
 /**
  * Presentational, data-driven service request table. Receives everything through props.
- *
- * The Price column is only rendered when `showPrice` is true — the Service
- * Request page opts in for Billing Officers only.
+ * The client requests a category only; the template is shown under it once assigned.
  */
 export function ServiceRequestList({
   requests = [],
   columns = defaultServiceRequestColumns,
-  showPrice = false,
   getRowKey = (request, index) => request?.id ?? index,
   loading = false,
   skeletonRows = 5,
@@ -165,13 +152,8 @@ export function ServiceRequestList({
 }) {
   const showActions = typeof actions === "function"
   const isEmpty = !loading && requests.length === 0
-  // Roles that may not see the Price get the same table without that column.
-  const visibleColumns = useMemo(
-    () => (showPrice ? columns : hideServiceRequestPriceColumn(columns)),
-    [columns, showPrice]
-  )
 
-  const columnCount = visibleColumns.length + (showActions ? 1 : 0)
+  const columnCount = columns.length + (showActions ? 1 : 0)
   const totalPages = Math.max(1, Math.ceil(requests.length / PAGE_SIZE))
   const visiblePage = Math.min(page, totalPages)
   const paginatedRequests = requests.slice(
@@ -186,106 +168,64 @@ export function ServiceRequestList({
         className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
         {...props}
       >
-        {/* Phones: stacked cards, so six columns never have to share 360px. */}
-        <div className="md:hidden">
-          {loading && (
-            <ul className="divide-y divide-border/60" aria-hidden="true">
-              {Array.from({ length: 3 }, (_, index) => (
-                <li key={`service-request-card-skeleton-${index}`} className="flex flex-col gap-2.5 p-4">
-                  <Skeleton className="h-3.5 w-1/3" />
-                  <Skeleton className="h-3 w-2/3" />
-                  <Skeleton className="h-3 w-1/2" />
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {!loading && paginatedRequests.length > 0 && (
-            <ul className="divide-y divide-border/60">
-              {paginatedRequests.map((request) => (
-                <ServiceRequestCard
-                  key={request.id}
-                  request={request}
-                  showPrice={showPrice}
-                  onRowClick={onRowClick}
-                />
-              ))}
-            </ul>
-          )}
-
-          {isEmpty && (
-            <div className="flex flex-col items-center justify-center gap-2 px-4 py-14 text-center">
-              <div className="flex size-10 items-center justify-center rounded-full bg-muted">
-                <Inbox className="size-5 text-muted-foreground" />
-              </div>
-              <p className="text-sm font-medium text-foreground">{emptyMessage}</p>
-              {emptyDescription && (
-                <p className="text-xs text-muted-foreground">{emptyDescription}</p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Tablet and up: the existing table, with a floor so columns stay readable. */}
-        <div className="hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[780px] border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
-              {visibleColumns.map((column) => (
-                <th
-                  key={column.key ?? column.label}
-                  scope="col"
-                  className={cn("px-4 py-3 font-semibold", column.headerClassName)}
-                >
-                  {column.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading
-              ? Array.from({ length: skeletonRows }, (_, index) => (
-                  <tr
-                    key={`service-request-skeleton-${index}`}
-                    className="border-b border-border/60 last:border-b-0"
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
+                {columns.map((column) => (
+                  <th
+                    key={column.key ?? column.label}
+                    scope="col"
+                    className={cn("px-4 py-3 font-semibold", column.headerClassName)}
                   >
-                    <td colSpan={columnCount} className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <Skeleton className="size-8 rounded-full" />
-                        <div className="flex flex-1 flex-col gap-1.5">
-                          <Skeleton className="h-3.5 w-1/3" />
-                          <Skeleton className="h-3 w-1/4" />
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              : isEmpty
-                ? (
-                    <tr>
-                      <td colSpan={columnCount} className="px-6 py-12">
-                        <div className="flex flex-col items-center justify-center gap-2 text-center">
-                          <div className="flex size-10 items-center justify-center rounded-full bg-muted">
-                            <Inbox className="size-5 text-muted-foreground" />
+                    {column.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading
+                ? Array.from({ length: skeletonRows }, (_, index) => (
+                    <tr
+                      key={`service-request-skeleton-${index}`}
+                      className="border-b border-border/60 last:border-b-0"
+                    >
+                      <td colSpan={columnCount} className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <Skeleton className="size-8 rounded-full" />
+                          <div className="flex flex-1 flex-col gap-1.5">
+                            <Skeleton className="h-3.5 w-1/3" />
+                            <Skeleton className="h-3 w-1/4" />
                           </div>
-                          <p className="text-sm font-medium text-foreground">{emptyMessage}</p>
-                          {emptyDescription && (
-                            <p className="text-sm text-muted-foreground">{emptyDescription}</p>
-                          )}
                         </div>
                       </td>
                     </tr>
-                  )
-                : paginatedRequests.map((request, index) => (
-                    <ServiceRequestRow
-                      key={getRowKey(request, (visiblePage - 1) * PAGE_SIZE + index)}
-                      request={request}
-                      columns={visibleColumns}
-                      onRowClick={onRowClick}
-                    >
-                    </ServiceRequestRow>
-                  ))}
-          </tbody>
+                  ))
+                : isEmpty
+                  ? (
+                      <tr>
+                        <td colSpan={columnCount} className="px-6 py-12">
+                          <div className="flex flex-col items-center justify-center gap-2 text-center">
+                            <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                              <Inbox className="size-5 text-muted-foreground" />
+                            </div>
+                            <p className="text-sm font-medium text-foreground">{emptyMessage}</p>
+                            {emptyDescription && (
+                              <p className="text-sm text-muted-foreground">{emptyDescription}</p>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  : paginatedRequests.map((request, index) => (
+                      <ServiceRequestRow
+                        key={getRowKey(request, (visiblePage - 1) * PAGE_SIZE + index)}
+                        request={request}
+                        columns={columns}
+                        onRowClick={onRowClick}
+                      />
+                    ))}
+            </tbody>
           </table>
         </div>
       </div>

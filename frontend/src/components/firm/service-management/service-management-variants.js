@@ -6,9 +6,9 @@
 
 /** Maps a raw category value to its badge styling. */
 export const categoryBadgeStyles = {
-  "tax-filing":
+  tax_filing:
     "bg-amber-500/10 text-amber-700 ring-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20",
-  "business-registration":
+  business_registration:
     "bg-indigo-500/10 text-indigo-700 ring-indigo-500/25 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/20",
 }
 
@@ -33,8 +33,8 @@ export const statusDotStyles = {
 
 /** Category options for filters and forms. Pass `[]` to hide the filter. */
 export const categoryFilterOptions = [
-  { value: "tax-filing", label: "Tax Filing" },
-  { value: "business-registration", label: "Business Registration" },
+  { value: "tax_filing", label: "Tax Filing" },
+  { value: "business_registration", label: "Business Registration" },
 ]
 
 /** Status options for the toolbar filter and the form's Status field. */
@@ -58,15 +58,15 @@ export const formatBasePrice = (value) => {
  * can never drift apart. Swap with a real API call later.
  */
 export const serviceTemplateCatalog = [
-  { name: "Tax Filing - Non VAT", price: 2500, category: "tax-filing" },
-  { name: "Tax Filing - VAT", price: 3500, category: "tax-filing" },
+  { name: "Tax Filing - Non VAT", price: 2500, category: "tax_filing" },
+  { name: "Tax Filing - VAT", price: 3500, category: "tax_filing" },
   {
     name: "Business Registration - Sole Proprietorship",
     price: 8000,
-    category: "business-registration",
+    category: "business_registration",
   },
-  { name: "Business Registration - Corporation", price: 15000, category: "business-registration" },
-  { name: "Business Registration - Partnership", price: 12000, category: "business-registration" },
+  { name: "Business Registration - Corporation", price: 15000, category: "business_registration" },
+  { name: "Business Registration - Partnership", price: 12000, category: "business_registration" },
 ]
 
 /** Returns the configured template price for a service name (0 if unknown). */

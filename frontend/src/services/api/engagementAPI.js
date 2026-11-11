@@ -150,9 +150,17 @@ export async function getEngagement(id, includeTasks = true) {
   return mapEngagementRow(data)
 }
 
-export async function createEngagementFromRequest({ serviceRequestId, assignedStaff, startDate, dueDate, fee }) {
+export async function createEngagementFromRequest({
+  serviceRequestId,
+  serviceId,
+  assignedStaff,
+  startDate,
+  dueDate,
+  fee,
+}) {
   const { data: engagementId, error } = await supabase.rpc("create_engagement", {
     p_service_request_id: serviceRequestId,
+    p_service_id: serviceId,
     p_assigned_staff: assignedStaff,
     p_start_date: startDate,
     p_due_date: dueDate,

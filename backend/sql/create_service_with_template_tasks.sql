@@ -1,6 +1,8 @@
 -- Applied manually via the Supabase SQL editor (schema lives outside this repo).
 -- Adds p_is_retainer_covered to match backend/controllers/service.controller.js,
--- which already passes it (create was failing against the live DB without it).
+-- which already passes it. The category value is cast to the database enum
+-- because PostgREST RPC arguments declared VARCHAR are not implicitly assigned
+-- to a service_category column.
 
 CREATE OR REPLACE FUNCTION create_service_with_template_tasks(
     p_price NUMERIC,
@@ -24,7 +26,7 @@ BEGIN
     END IF;
 
     INSERT INTO services (price, service_name, category, description, estimated_time, is_recurring, is_retainer_covered, status)
-    VALUES (p_price, p_service_name, p_category, p_description, p_estimated_time, p_is_recurring, p_is_retainer_covered, p_status)
+    VALUES (p_price, p_service_name, p_category::public.service_category, p_description, p_estimated_time, p_is_recurring, p_is_retainer_covered, p_status)
     RETURNING service_id INTO v_service_id;
 
     FOR v_task IN SELECT * FROM jsonb_array_elements(p_tasks)

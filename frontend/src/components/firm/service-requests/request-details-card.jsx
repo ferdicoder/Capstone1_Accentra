@@ -1,8 +1,8 @@
 import { FileText } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { getCategoryLabel } from "@/lib/service-categories"
 import { ServiceRequestStatusBadge } from "./service-request-status-badge"
-import { formatRevenue } from "./service-request-variants"
 
 /** Label/value row shared by the request cards on the detail view. */
 export function RequestDetailRow({ label, children, className }) {
@@ -21,11 +21,11 @@ export function RequestDetailRow({ label, children, className }) {
 
 /**
  * Presentational card showing what the client requested and their notes.
- *
- * The Price row is only rendered when `showPrice` is true — the Service
- * Request page opts in for Billing Officers only.
+ * The client picks a category only; the Admin chooses the template (and so
+ * the price) when approving, so no price is shown here.
  */
-export function RequestDetailsCard({ request, showPrice = false, className, ...props }) {
+// eslint-disable-next-line no-unused-vars
+export function RequestDetailsCard({ request, showPrice, className, ...props }) {
   return (
     <div
       data-slot="request-details-card"
@@ -40,21 +40,16 @@ export function RequestDetailsCard({ request, showPrice = false, className, ...p
       </div>
 
       <dl className="divide-y divide-border/60">
-        <RequestDetailRow label="Requested Service">
-          <span className="font-medium">{request?.serviceName}</span>
+        <RequestDetailRow label="Requested Category">
+          <span className="font-medium">{getCategoryLabel(request?.category)}</span>
         </RequestDetailRow>
-        {showPrice && (
-          <RequestDetailRow label="Price">
-            <span className="font-semibold tabular-nums text-foreground">
-              {formatRevenue(request?.revenue)}
-            </span>
-          </RequestDetailRow>
-        )}
         <RequestDetailRow label="Status">
           <ServiceRequestStatusBadge status={request?.status} />
         </RequestDetailRow>
         <RequestDetailRow label="Client Notes">
-          <p className="text-sm leading-relaxed break-words text-muted-foreground">{request?.notes}</p>
+          <p className="text-sm leading-relaxed break-words text-muted-foreground">
+            {request?.notes || "—"}
+          </p>
         </RequestDetailRow>
       </dl>
     </div>

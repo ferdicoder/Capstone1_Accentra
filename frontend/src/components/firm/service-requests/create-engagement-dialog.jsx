@@ -24,12 +24,14 @@ import { useFetchServices } from "@/hooks/useServices"
 import { useSearchClients } from "@/hooks/useBusinesses"
 import { useFetchBusinessBillings } from "@/hooks/useBillings"
 import { isOutstandingBill } from "@/lib/outstanding-bill"
-import { scrollToFirstInvalidField } from "@/lib/form-validation"
-import { getZodFieldErrors } from "@/lib/form-validation"
+import { getCategoryLabel } from "@/lib/service-categories"
+import { scrollToFirstInvalidField, getZodFieldErrors } from "@/lib/form-validation"
 import { engagementSchema } from "@/schemas/engagementSchema"
 
-
 const sectionHeadingClass = "font-heading text-sm font-medium text-foreground"
+const groupLabelClass = "px-2 py-1.5 text-xs font-medium text-muted-foreground"
+const amberTextClass = "text-sm text-amber-700 dark:text-amber-300"
+
 const getTodayDateInputValue = () => {
   const date = new Date()
   const year = date.getFullYear()
@@ -37,6 +39,9 @@ const getTodayDateInputValue = () => {
   const day = String(date.getDate()).padStart(2, "0")
   return `${year}-${month}-${day}`
 }
+
+const formatPeso = (value) =>
+  new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(value) || 0)
 
 function ReadOnlyRow({ label, children }) {
   return (
@@ -58,11 +63,11 @@ export function CreateEngagementDialog({
 }) {
   const isStandalone = !request
 
-  const [serviceId, setServiceId] = useState(() => request?.serviceId ?? "")
+  // The admin picks the template. Nothing is pre-selected.
+  const [serviceId, setServiceId] = useState("")
   const [assignedStaff, setAssignedStaff] = useState("")
   const [startDate, setStartDate] = useState("")
   const [targetEndDate, setTargetEndDate] = useState("")
-  const [serviceFee, setServiceFee] = useState("")
 
   const [clientQuery, setClientQuery] = useState(() =>
     isStandalone ? "" : `${request?.client?.firstName ?? ""} ${request?.client?.lastName ?? ""}`.trim()
@@ -80,14 +85,13 @@ export function CreateEngagementDialog({
   const [errors, setErrors] = useState({})
   const formRef = useRef(null)
 
-
   const { data: users = [] } = useFetchUsers()
 
   const {
     data: services = [],
     isLoading: servicesLoading,
     error: servicesError,
-  } = useFetchServices({ enabled: isStandalone })
+  } = useFetchServices({ enabled: open })
 
   const {
     data: matchingClients = [],
@@ -101,26 +105,36 @@ export function CreateEngagementDialog({
   } = useFetchBusinessBillings(isStandalone ? selectedBusinessId : "")
   const outstandingBillCount = clientBillings.filter(isOutstandingBill).length
 
-  const offeredServices = services
-    .filter((service) => {
-      const category = service.category?.trim().toLowerCase()
-      const isOfferedCategory = ["tax-filing", "business-registration"].includes(category)
-      return service.status?.trim().toLowerCase() === "active" && isOfferedCategory
-    })
+  // ── Selectable templates ────────────────────────────────────────────────
+  // Request mode: every active template (admin may go outside the requested category).
+  // Standalone mode (recurring retainer work): retainer-covered templates only.
+  const selectableServices = services
+    .filter((service) => service.status?.trim().toLowerCase() === "active")
+    .filter((service) => !isStandalone || (service.isRetainerCovered ?? service.is_retainer_covered))
     .filter(
-      (service, index, offered) =>
-        offered.findIndex(
-          (candidate) =>
-            candidate.name.trim().toLowerCase() === service.name.trim().toLowerCase()
+      (service, index, all) =>
+        all.findIndex(
+          (candidate) => candidate.name.trim().toLowerCase() === service.name.trim().toLowerCase()
         ) === index
     )
-  const selectedService = request
-    ? {
-        id: request.serviceId,
-        name: request.serviceName,
-        basePrice: request.revenue ?? 0,
-      }
-    : offeredServices.find((service) => service.id === serviceId)
+
+  const sameCategoryServices = request
+    ? selectableServices.filter((service) => service.category === request.category)
+    : selectableServices
+  const otherCategoryServices = request
+    ? selectableServices.filter((service) => service.category !== request.category)
+    : []
+
+  const selectedService = selectableServices.find((service) => service.id === serviceId) ?? null
+  const categoryOverride =
+    !!request && !!selectedService && selectedService.category !== request.category
+  const servicesReady = !servicesLoading && !servicesError
+  const noSelectableServices = servicesReady && selectableServices.length === 0
+  const noTemplateInCategory =
+    !!request && servicesReady && !noSelectableServices && sameCategoryServices.length === 0
+
+  // The price always comes from the selected template.
+  const serviceFeeValue = Number(selectedService?.basePrice ?? 0)
 
   const firmStaffOptions = users
     .filter((u) => u.role === "staff")
@@ -128,6 +142,7 @@ export function CreateEngagementDialog({
 
   const activeStaff = firmStaffOptions.find((s) => s.value === assignedStaff)
   const todayDate = getTodayDateInputValue()
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setDebouncedClientQuery(clientQuery.trim())
@@ -136,12 +151,22 @@ export function CreateEngagementDialog({
   }, [clientQuery])
 
   const handleServiceChange = (value) => {
-    const service = offeredServices.find((item) => item.id === value)
+    const service = selectableServices.find((item) => item.id === value)
     if (!service) return
-
     setServiceId(service.id)
-    setServiceFee(String(service.basePrice ?? 0))
+    setErrors((previous) => ({ ...previous, serviceName: false }))
   }
+
+  const renderServiceItem = (service, showCategory = false) => (
+    <DropdownMenuItem key={service.id} onClick={() => handleServiceChange(service.id)}>
+      {service.name}
+      {showCategory && (
+        <span className="ml-2 text-xs text-muted-foreground">
+          {getCategoryLabel(service.category)}
+        </span>
+      )}
+    </DropdownMenuItem>
+  )
 
   const clientFullName = isStandalone
     ? [clientFirstName, clientLastName].filter(Boolean).join(" ") || "—"
@@ -193,14 +218,17 @@ export function CreateEngagementDialog({
 
     onSubmit?.({
       requestNumber: request?.requestNumber ?? null,
+      requestedCategory: request?.category ?? null,
       serviceId: selectedService.id,
       serviceName: selectedService.name,
+      serviceCategory: selectedService.category,
       client,
       business,
       assignedStaff,
+      assignedStaffName: activeStaff?.label ?? "",
       startDate,
       targetEndDate,
-      serviceFee: Number(selectedService?.basePrice ?? (serviceFee || 0)),
+      serviceFee: serviceFeeValue,
     })
   }
 
@@ -226,8 +254,8 @@ export function CreateEngagementDialog({
           <DialogTitle>Create Engagement</DialogTitle>
           <DialogDescription>
             {isStandalone
-              ? "Set up a new engagement for a client."
-              : "Set up the engagement details for this approved request."}
+              ? "Set up a recurring engagement for a Retainer client."
+              : "Choose the service template for this request and set the engagement details. You will review everything before it is created."}
           </DialogDescription>
         </DialogHeader>
 
@@ -240,54 +268,93 @@ export function CreateEngagementDialog({
 
           <FieldGroup>
             <Field>
-              <FieldLabel>Service<span className="text-red-500">*</span></FieldLabel>
-              {request ? (
-                <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-1.5 text-sm text-foreground">
-                  {selectedService?.name || "Requested service unavailable"}
-                </div>
-              ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={submitting}
-                        aria-invalid={Boolean(errors.serviceName) || undefined}
-                        className={cn(
-                          "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
-                          errors.serviceName && "border-red-500 focus-visible:ring-red-500"
-                        )}
-                      />
-                    }
-                  >
-                    {selectedService?.name || "Select service"}
-                    <ChevronDown className="size-4 opacity-60" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="min-w-64">
-                    {servicesLoading && (
-                      <DropdownMenuItem disabled>Loading services...</DropdownMenuItem>
-                    )}
-                    {!servicesLoading && servicesError && (
-                      <DropdownMenuItem disabled>Unable to load services</DropdownMenuItem>
-                    )}
-                    {!servicesLoading && !servicesError && offeredServices.length === 0 && (
-                      <DropdownMenuItem disabled>
-                        No active tax filing or business registration services available
-                      </DropdownMenuItem>
-                    )}
-                    {!servicesLoading && !servicesError && offeredServices.map((service) => (
-                      <DropdownMenuItem
-                        key={service.id}
-                        onClick={() => handleServiceChange(service.id)}
-                      >
-                        {service.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              <FieldLabel>Service Template<span className="text-red-500">*</span></FieldLabel>
+
+              {request && (
+                <p className="text-sm text-muted-foreground">
+                  Client requested:{" "}
+                  <span className="font-medium text-foreground">
+                    {getCategoryLabel(request.category)}
+                  </span>
+                </p>
               )}
-              {errors.serviceName && <p className="text-sm text-red-500">Select a service.</p>}
+
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={submitting || noSelectableServices}
+                      aria-invalid={Boolean(errors.serviceName) || undefined}
+                      className={cn(
+                        "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
+                        errors.serviceName && "border-red-500 focus-visible:ring-red-500"
+                      )}
+                    />
+                  }
+                >
+                  {selectedService?.name ?? (servicesLoading ? "Loading…" : "Select template")}
+                  <ChevronDown className="size-4 opacity-60" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="min-w-64">
+                  {servicesLoading && (
+                    <DropdownMenuItem disabled>Loading services...</DropdownMenuItem>
+                  )}
+                  {!servicesLoading && servicesError && (
+                    <DropdownMenuItem disabled>Unable to load services</DropdownMenuItem>
+                  )}
+
+                  {servicesReady && (
+                    <>
+                      {request && sameCategoryServices.length > 0 && (
+                        <div className={groupLabelClass}>{getCategoryLabel(request.category)}</div>
+                      )}
+                      {sameCategoryServices.map((service) => renderServiceItem(service))}
+
+                      {otherCategoryServices.length > 0 && (
+                        <>
+                          {sameCategoryServices.length > 0 && (
+                            <div className="-mx-1 my-1 h-px bg-border" />
+                          )}
+                          <div className={groupLabelClass}>Other categories</div>
+                          {otherCategoryServices.map((service) => renderServiceItem(service, true))}
+                        </>
+                      )}
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {errors.serviceName && (
+                <p className="text-sm text-red-500">Select a service template.</p>
+              )}
+              {noSelectableServices && (
+                <p className={amberTextClass}>
+                  {isStandalone
+                    ? "No active retainer-covered template available."
+                    : "Create a service template first."}
+                </p>
+              )}
+              {noTemplateInCategory && (
+                <p className={amberTextClass}>
+                  No active template in this category. You can pick one from another category or
+                  decline the request.
+                </p>
+              )}
+              {categoryOverride && (
+                <p className={amberTextClass}>
+                  This template is outside the category the client requested (
+                  {getCategoryLabel(request.category)}). The change will be recorded in the audit
+                  log.
+                </p>
+              )}
+              {selectedService && (
+                <p className="text-sm text-muted-foreground">
+                  Fixed price:{" "}
+                  <span className="font-medium text-foreground">{formatPeso(serviceFeeValue)}</span>
+                </p>
+              )}
             </Field>
           </FieldGroup>
 
@@ -356,9 +423,10 @@ export function CreateEngagementDialog({
                 )}
               </Field>
 
+              {/* Informational only: recurring retainer work is exempt from the unpaid-bill block. */}
               {selectedBusinessId && (
                 <div
-                  role={outstandingBillCount > 0 ? "alert" : "status"}
+                  role="status"
                   className={cn(
                     "flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm",
                     clientBillingsLoading
@@ -385,15 +453,12 @@ export function CreateEngagementDialog({
                           {outstandingBillCount === 1 ? "bill" : "bills"}
                         </p>
                         <p>
-                          This client has an outstanding balance. Settle{" "}
-                          {outstandingBillCount === 1 ? "it" : "them"} before creating a new
-                          engagement.
+                          For your information. Unpaid bills do not block recurring retainer
+                          engagements, only new service requests.
                         </p>
                       </>
                     ) : (
-                      <p className="font-medium">
-                        0 unpaid bills — this client is clear for a new engagement.
-                      </p>
+                      <p className="font-medium">0 unpaid bills.</p>
                     )}
                   </div>
                 </div>
@@ -402,56 +467,25 @@ export function CreateEngagementDialog({
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
                   <FieldLabel>First Name<span className="text-red-500">*</span></FieldLabel>
-                  <Input
-                    value={clientFirstName}
-                    placeholder="Juan"
-                    readOnly
-                    aria-readonly="true"
-                    className={cn(errors.clientFirstName && "border-red-500 focus-visible:ring-red-500")}
-                  />
-                  {errors.clientFirstName && <p className="text-sm text-red-500">First name is required.</p>}
+                  <Input value={clientFirstName} placeholder="Juan" readOnly aria-readonly="true" />
                 </Field>
                 <Field>
                   <FieldLabel>Last Name<span className="text-red-500">*</span></FieldLabel>
-                  <Input
-                    value={clientLastName}
-                    placeholder="Dela Cruz"
-                    readOnly
-                    aria-readonly="true"
-                    className={cn(errors.clientLastName && "border-red-500 focus-visible:ring-red-500")}
-                  />
-                  {errors.clientLastName && <p className="text-sm text-red-500">Last name is required.</p>}
+                  <Input value={clientLastName} placeholder="Dela Cruz" readOnly aria-readonly="true" />
                 </Field>
               </div>
               <Field>
                 <FieldLabel>Business Name<span className="text-red-500">*</span></FieldLabel>
-                <Input
-                  value={businessName}
-                  placeholder="Business name"
-                  readOnly
-                  aria-readonly="true"
-                  className={cn(errors.businessName && "border-red-500 focus-visible:ring-red-500")}
-                />
-                {errors.businessName && <p className="text-sm text-red-500">Business name is required.</p>}
+                <Input value={businessName} placeholder="Business name" readOnly aria-readonly="true" />
               </Field>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
                   <FieldLabel>Business Type</FieldLabel>
-                  <Input
-                    value={businessType}
-                    placeholder="Sole Proprietorship"
-                    readOnly
-                    aria-readonly="true"
-                  />
+                  <Input value={businessType} placeholder="Sole Proprietorship" readOnly aria-readonly="true" />
                 </Field>
                 <Field>
                   <FieldLabel>Contact Number</FieldLabel>
-                  <Input
-                    value={contactNo}
-                    placeholder="0917 123 4567"
-                    readOnly
-                    aria-readonly="true"
-                  />
+                  <Input value={contactNo} placeholder="0917 123 4567" readOnly aria-readonly="true" />
                 </Field>
               </div>
               <Field>
@@ -501,7 +535,7 @@ export function CreateEngagementDialog({
                         "h-8 w-full justify-between rounded-lg px-2.5 font-normal",
                         errors.assignedStaff && "border-red-500 focus-visible:ring-red-500"
                       )}
-                        aria-invalid={Boolean(errors.assignedStaff) || undefined}
+                      aria-invalid={Boolean(errors.assignedStaff) || undefined}
                     />
                   }
                 >
@@ -512,7 +546,10 @@ export function CreateEngagementDialog({
                   {firmStaffOptions.map((option) => (
                     <DropdownMenuItem
                       key={option.value}
-                      onClick={() => setAssignedStaff(option.value)}
+                      onClick={() => {
+                        setAssignedStaff(option.value)
+                        setErrors((previous) => ({ ...previous, assignedStaff: false }))
+                      }}
                     >
                       {option.label}
                     </DropdownMenuItem>
@@ -546,9 +583,7 @@ export function CreateEngagementDialog({
                   aria-invalid={Boolean(errors.startDate) || undefined}
                 />
                 {errors.startDate && (
-                  <p className="text-sm text-red-500">
-                    Choose today or a future date.
-                  </p>
+                  <p className="text-sm text-red-500">Choose today or a future date.</p>
                 )}
               </Field>
 
@@ -590,11 +625,11 @@ export function CreateEngagementDialog({
             </Button>
             <Button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || noSelectableServices}
               className="bg-[#02353C] text-white hover:opacity-90"
             >
               {submitting && <Loader2 className="size-4 animate-spin" />}
-              {submitting ? "Creating…" : "Create Engagement"}
+              {submitting ? "Creating…" : request ? "Next: Review" : "Create Engagement"}
             </Button>
           </DialogFooter>
         </form>

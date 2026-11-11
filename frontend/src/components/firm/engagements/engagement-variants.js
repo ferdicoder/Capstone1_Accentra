@@ -219,7 +219,7 @@ export const registeredClients = [
 export const getServiceCategoryLabel = (serviceName) => {
   if (!serviceName) return "—"
   if (serviceName.toLowerCase().includes("tax")) return "Tax Filing"
-  if (serviceName.toLowerCase().includes("business registration")) return "Business Registration"
+  if (serviceName.toLowerCase().includes("business_registration")) return "Business Registration"
   return serviceName
 }
 
