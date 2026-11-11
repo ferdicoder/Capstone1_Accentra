@@ -3,6 +3,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input";
 import { OtpCodeInput } from "@/components/ui/otp-code-input";
 import { cn } from "@/lib/utils";
+import { blockClipboard } from "@/lib/block-clipboard";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Check, X, Eye, EyeOff } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -433,176 +434,174 @@ export default function SignupPage() {
                 </FieldDescription>
               )}
 
-             
-      <Field>
-        <FieldLabel htmlFor="password">
-          Password<span className="ml-0.5 text-red-500">*</span>
-        </FieldLabel>
+              <Field>
+                <FieldLabel htmlFor="password">
+                  Password<span className="ml-0.5 text-red-500">*</span>
+                </FieldLabel>
 
-        <div className="relative">
-          <Input
-            id="password"
-            name="password"
-            type={showPassword ? "text" : "password"}
-            value={formData.password}
-            onChange={updateField}
-            className="bg-background pr-10"
-            aria-invalid={Boolean(errorFor("password"))}
-            autoComplete="new-password"
-          />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={updateField}
+                    {...blockClipboard}
+                    className="bg-background pr-10"
+                    aria-invalid={Boolean(errorFor("password"))}
+                    autoComplete="new-password"
+                  />
 
-          <button
-            type="button"
-            onClick={() => setShowPassword((previous) => !previous)}
-            aria-label={showPassword ? "Hide password" : "Show password"}
-            aria-pressed={showPassword}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#02353C]"
-          >
-            {showPassword ? (
-              <EyeOff className="size-4" aria-hidden="true" />
-            ) : (
-              <Eye className="size-4" aria-hidden="true" />
-            )}
-          </button>
-        </div>
-
-        <div className={cn(
-          "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
-          formData.password ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        )}>
-          <div className="overflow-hidden">
-            <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3.5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/70">
-                Password must contain:
-              </p>
-              <ul className="flex flex-col gap-1.5">
-                {passwordRequirements.map((requirement) => {
-                  const passed = requirement.test(formData.password);
-                  return (
-                    <li key={requirement.key} className={cn(
-                      "flex items-center gap-2 text-xs transition-colors duration-200",
-                      passed ? "text-emerald-700" : "text-red-600"
-                    )}>
-                      {passed ? (
-                        <Check className="size-3.5 shrink-0" />
-                      ) : (
-                        <X className="size-3.5 shrink-0" />
-                      )}
-                      {requirement.label}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {errorFor("password") && (
-          <FieldDescription className="text-red-600">
-            {errorFor("password")}
-          </FieldDescription>
-        )}
-      </Field>
-
-
-              
-          <Field>
-            <FieldLabel htmlFor="confirmPassword">
-              Confirm Password<span className="ml-0.5 text-red-500">*</span>
-            </FieldLabel>
-
-            <div className="relative">
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type={showConfirmPassword ? "text" : "password"}
-                value={formData.confirmPassword}
-                onChange={updateField}
-                className="bg-background pr-10"
-                aria-invalid={Boolean(errorFor("confirmPassword"))}
-                autoComplete="new-password"
-              />
-
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword((previous) => !previous)}
-                      aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
-                      aria-pressed={showConfirmPassword}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#02353C]"
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff className="size-4" aria-hidden="true" />
-                      ) : (
-                        <Eye className="size-4" aria-hidden="true" />
-                      )}
-                    </button>
-                  </div>
-
-                  {errorFor("confirmPassword") && (
-                    <FieldDescription className="text-red-600">
-                      {errorFor("confirmPassword")}
-                    </FieldDescription>
-                  )}
-                </Field>
-
-
-                <Button
-                  type="submit"
-                  className="h-12 w-4/5 max-w-sm self-center bg-forest-900 text-lg text-white hover:bg-[#18a16f]"
-                >
-                  Continue
-                </Button>
-              </>
-            ) : currentStep === 2 ? (
-              <>
-                <div className="flex flex-col items-center gap-1 text-center">
-                  <h1 className="text-2xl font-bold">Business Registration</h1>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((previous) => !previous)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#02353C]"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="size-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="size-4" aria-hidden="true" />
+                    )}
+                  </button>
                 </div>
 
-                <Field>
-                  <FieldLabel>Is your business already registered?<span className="ml-0.5 text-red-500">*</span></FieldLabel>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {[
-                      ["registered", "Yes, my business is already registered"],
-                      ["none", "No, not yet — I'll add my business later"],
-                    ].map(([value, label]) => (
-                      <label
-                        key={value}
-                        className={cn(
-                          "flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition-colors",
-                          formData.birRegistrationStatus === value
-                            ? "border-emerald-600 bg-emerald-50/60"
-                            : "border-input hover:bg-muted/40"
-                        )}
-                      >
-                        <input
-                          type="radio"
-                          name="birRegistrationStatus"
-                          value={value}
-                          checked={formData.birRegistrationStatus === value}
-                          onChange={(event) => {
-                            const selectedStatus = event.target.value;
-                            setFormData((previous) => ({
-                              ...previous,
-                              birRegistrationStatus: selectedStatus,
-                              ...(selectedStatus !== "registered" ? {
-                                businessName: "", businessType: "", tin: "", industry: "",
-                                contactNumber: "", houseNo: "", streetName: "", barangay: "",
-                                district: "", city: "", zipCode: "",
-                              } : {}),
-                            }));
-                            setErrors({});
-                            setSubmitError("");
-                          }}
-                          className="mt-0.5 accent-emerald-600"
-                        />
-                        <span>{label}</span>
-                      </label>
-                    ))}
+                <div className={cn(
+                  "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
+                  formData.password ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                )}>
+                  <div className="overflow-hidden">
+                    <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3.5">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/70">
+                        Password must contain:
+                      </p>
+                      <ul className="flex flex-col gap-1.5">
+                        {passwordRequirements.map((requirement) => {
+                          const passed = requirement.test(formData.password);
+                          return (
+                            <li key={requirement.key} className={cn(
+                              "flex items-center gap-2 text-xs transition-colors duration-200",
+                              passed ? "text-emerald-700" : "text-red-600"
+                            )}>
+                              {passed ? (
+                                <Check className="size-3.5 shrink-0" />
+                              ) : (
+                                <X className="size-3.5 shrink-0" />
+                              )}
+                              {requirement.label}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
                   </div>
-                  {errorFor("birRegistrationStatus") && (
-                    <FieldDescription className="text-red-600">{errorFor("birRegistrationStatus")}</FieldDescription>
-                  )}
+                </div>
+
+                {errorFor("password") && (
+                  <FieldDescription className="text-red-600">
+                    {errorFor("password")}
+                  </FieldDescription>
+                )}
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="confirmPassword">
+                  Confirm Password<span className="ml-0.5 text-red-500">*</span>
+                </FieldLabel>
+
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={formData.confirmPassword}
+                    onChange={updateField}
+                    {...blockClipboard}
+                    className="bg-background pr-10"
+                    aria-invalid={Boolean(errorFor("confirmPassword"))}
+                    autoComplete="new-password"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((previous) => !previous)}
+                    aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                    aria-pressed={showConfirmPassword}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#02353C]"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="size-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="size-4" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
+
+                {errorFor("confirmPassword") && (
+                  <FieldDescription className="text-red-600">
+                    {errorFor("confirmPassword")}
+                  </FieldDescription>
+                )}
+              </Field>
+
+              <Button
+                type="submit"
+                className="h-12 w-4/5 max-w-sm self-center bg-forest-900 text-lg text-white hover:bg-[#18a16f]"
+              >
+                Continue
+              </Button>
+            </>
+          ) : currentStep === 2 ? (
+            <>
+              <div className="flex flex-col items-center gap-1 text-center">
+                <h1 className="text-2xl font-bold">Business Registration</h1>
+              </div>
+
+              <Field>
+                <FieldLabel>Is your business already registered?<span className="ml-0.5 text-red-500">*</span></FieldLabel>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    ["registered", "Yes, my business is already registered"],
+                    ["none", "No, not yet — I'll add my business later"],
+                  ].map(([value, label]) => (
+                    <label
+                      key={value}
+                      className={cn(
+                        "flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition-colors",
+                        formData.birRegistrationStatus === value
+                          ? "border-emerald-600 bg-emerald-50/60"
+                          : "border-input hover:bg-muted/40"
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="birRegistrationStatus"
+                        value={value}
+                        checked={formData.birRegistrationStatus === value}
+                        onChange={(event) => {
+                          const selectedStatus = event.target.value;
+                          setFormData((previous) => ({
+                            ...previous,
+                            birRegistrationStatus: selectedStatus,
+                            ...(selectedStatus !== "registered" ? {
+                              businessName: "", businessType: "", tin: "", industry: "",
+                              contactNumber: "", houseNo: "", streetName: "", barangay: "",
+                              district: "", city: "", zipCode: "",
+                            } : {}),
+                          }));
+                          setErrors({});
+                          setSubmitError("");
+                        }}
+                        className="mt-0.5 accent-emerald-600"
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+                {errorFor("birRegistrationStatus") && (
+                  <FieldDescription className="text-red-600">{errorFor("birRegistrationStatus")}</FieldDescription>
+                )}
               </Field>
 
               {formData.birRegistrationStatus === "registered" ? (

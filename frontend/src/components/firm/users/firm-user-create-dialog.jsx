@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { ChevronDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { blockClipboard } from "@/lib/block-clipboard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -276,6 +277,7 @@ export function FirmUserCreateDialog({
                 placeholder="••••••••"
                 disabled={submitting}
                 aria-invalid={Boolean(errors.temporaryPassword) || undefined}
+                {...blockClipboard}
                 className={cn(
                   errors.temporaryPassword && "border-red-500 focus-visible:ring-red-500"
                 )}
