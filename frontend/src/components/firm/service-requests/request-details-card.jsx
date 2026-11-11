@@ -9,7 +9,7 @@ export function RequestDetailRow({ label, children, className }) {
   return (
     <div
       className={cn(
-        "grid min-w-0 grid-cols-[120px_minmax(0,1fr)] gap-4 py-2.5 text-sm sm:grid-cols-[150px_minmax(0,1fr)]",
+        "grid min-w-0 grid-cols-[104px_minmax(0,1fr)] gap-3 py-2.5 text-sm sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-4 lg:grid-cols-[150px_minmax(0,1fr)]",
         className
       )}
     >
@@ -29,7 +29,7 @@ export function RequestDetailsCard({ request, showPrice = false, className, ...p
   return (
     <div
       data-slot="request-details-card"
-      className={cn("rounded-xl border border-border bg-card p-6 shadow-sm", className)}
+      className={cn("rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6", className)}
       {...props}
     >
       <div className="mb-5 flex items-center gap-2">

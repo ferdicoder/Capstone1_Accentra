@@ -10,6 +10,7 @@ import { authStore } from "@/store/authStore"
 import { supabase } from "@/config/supabase"
 import { getHome } from "@/config/roles"
 import { useChangeOwnPassword } from "@/hooks/useUsers"
+import { blockClipboard } from "@/lib/block-clipboard"
 
 export default function SetPasswordPage() {
   const navigate = useNavigate()
@@ -21,9 +22,9 @@ export default function SetPasswordPage() {
   const [error, setError] = useState("")
 
   // guard at the top: send finished users home, signed-out users to sign-in
-if (status && status !== "inactive") {
-  return <Navigate to={getHome(role) ?? "/firm/signin"} replace />
-}
+  if (status && status !== "inactive") {
+    return <Navigate to={getHome(role) ?? "/firm/signin"} replace />
+  }
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -71,19 +72,19 @@ if (status && status !== "inactive") {
               <FieldLabel htmlFor="current-password">Temporary password</FieldLabel>
               <Input id="current-password" type="password" autoComplete="current-password"
                 value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
-                disabled={submitting} />
+                disabled={submitting} {...blockClipboard} />
             </Field>
             <Field>
               <FieldLabel htmlFor="new-password">New password</FieldLabel>
               <Input id="new-password" type="password" autoComplete="new-password"
                 value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-                disabled={submitting} />
+                disabled={submitting} {...blockClipboard} />
             </Field>
             <Field>
               <FieldLabel htmlFor="confirm-password">Confirm new password</FieldLabel>
               <Input id="confirm-password" type="password" autoComplete="new-password"
                 value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={submitting} />
+                disabled={submitting} {...blockClipboard} />
             </Field>
           </FieldGroup>
 

@@ -6,7 +6,7 @@ export function SummaryGrid({ items }) {
       {items.map((item) => (
         <div key={item.label} className="rounded-lg bg-muted/40 px-3 py-2">
           <dt className="text-xs text-muted-foreground">{item.label}</dt>
-          <dd className="text-sm font-semibold">{item.value}</dd>
+          <dd className="text-sm font-semibold break-words">{item.value}</dd>
         </div>
       ))}
     </dl>
@@ -22,7 +22,10 @@ export function DataTable({ columns, rows, rowKey }) {
   const shown = rows.slice(0, MAX_SCREEN_ROWS)
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="overflow-x-auto rounded-lg border">
+      {/* `contain:inline-size` keeps the wide, nowrap table from inflating the
+          dashboard main column (which would make the whole document scroll
+          sideways); the table still scrolls inside this wrapper. */}
+      <div className="overflow-x-auto rounded-lg border [contain:inline-size]">
         <table className="w-full text-left text-xs">
           <thead className="bg-muted/40 text-muted-foreground">
             <tr>

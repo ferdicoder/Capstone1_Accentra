@@ -20,7 +20,7 @@ const textareaClass =
 
 function SummaryRow({ label, children, className }) {
   return (
-    <div className={cn("grid min-w-0 grid-cols-[160px_minmax(0,1fr)] gap-4 py-2.5 text-sm", className)}>
+    <div className={cn("grid min-w-0 grid-cols-[104px_minmax(0,1fr)] gap-3 py-2.5 text-sm sm:grid-cols-[160px_minmax(0,1fr)] sm:gap-4", className)}>
       <dt className="min-w-0 font-medium text-muted-foreground">{label}</dt>
       <dd className="min-w-0 break-words text-foreground">{children}</dd>
     </div>
@@ -90,7 +90,7 @@ export function RequiredDocumentsDialog({
             <h3 className="text-sm font-semibold text-foreground">Engagement Summary</h3>
           </div>
 
-          <div className="rounded-xl border border-[#02353C]/15 bg-[#02353C]/[0.03] px-6">
+          <div className="rounded-xl border border-[#02353C]/15 bg-[#02353C]/[0.03] px-4 sm:px-6">
             <dl className="divide-y divide-[#02353C]/10">
               <SummaryRow label="Client">{businessName}</SummaryRow>
               <SummaryRow label="Service">{engagement?.serviceName ?? "—"}</SummaryRow>
@@ -114,7 +114,7 @@ export function RequiredDocumentsDialog({
             </dl>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+          <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6">
             <div className="mb-4 flex items-center gap-2">
               <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
                 <FileText className="size-3.5" />

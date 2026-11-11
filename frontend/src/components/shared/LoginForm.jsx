@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { blockClipboard } from "@/lib/block-clipboard"
 import { Button } from "@/components/ui/button"
 import {
   Field,
@@ -125,6 +126,7 @@ export function LoginForm({
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               disabled={isSubmitting}
+              {...blockClipboard}
               className={cn(
                 "pr-10",
                 (errors.password || loginError) &&

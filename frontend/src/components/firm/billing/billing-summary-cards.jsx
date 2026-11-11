@@ -5,17 +5,17 @@ export function BillingSummaryCards({ items = [], className, ...props }) {
   return (
     <div
       data-slot="billing-summary-cards"
-      className={cn("grid grid-cols-2 gap-4 lg:grid-cols-4", className)}
+      className={cn("grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4", className)}
       {...props}
     >
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-xl border border-border bg-card p-5 shadow-sm"
+          className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5"
         >
           <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
           <p
-            className={cn("mt-2.5 text-xl font-semibold", item.toneClass ?? "text-foreground")}
+            className={cn("mt-2.5 text-lg font-semibold break-words sm:text-xl", item.toneClass ?? "text-foreground")}
             style={item.toneColor ? { color: item.toneColor } : undefined}
           >
             {item.value}

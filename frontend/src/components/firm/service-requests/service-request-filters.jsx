@@ -51,7 +51,7 @@ export function ServiceRequestFilters({
       </div>
 
       {resultCount && (
-        <p className="hidden text-sm text-muted-foreground md:block">{resultCount}</p>
+        <p className="text-sm text-muted-foreground">{resultCount}</p>
       )}
 
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">

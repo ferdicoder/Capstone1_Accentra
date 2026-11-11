@@ -1,4 +1,5 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 import {
   Briefcase,
   CheckCircle2,
@@ -17,13 +18,18 @@ import {
   Panel,
   StatCard,
 } from "@/components/shared/dashboard"
+import { CreateBillingDialog } from "@/components/firm/billing/create-billing-dialog"
+import { billingDisplayId } from "@/components/firm/billing/billing-variants"
 import { usePageMeta } from "@/hooks/usePageMeta"
-// TODO: these three firm-wide hooks must exist. Rename to your real ones.
-import { useFetchBillings } from "@/hooks/useBillings"
+import { useCreateBilling, useFetchBillings } from "@/hooks/useBillings"
 import { useFetchEngagements } from "@/hooks/useEngagements"
-import { useFetchClients } from "@/hooks/useClients"
+// Retainer clients must come from the `businesses` table (type + retainer_fee).
+// useFetchClients() derives clients from engagements/service requests and never
+// carries the stored classification or retainer fee, so it cannot answer
+// "is this retainer client billed for the month?".
+import { useFetchBusinesses } from "@/hooks/useBusinesses"
 import { authStore } from "@/store/authStore"
-import { classifyInvoice, getDueDate } from "@/lib/billing-status"
+import { classifyInvoice, getDueDate, getReadyToBill } from "@/lib/billing-status"
 import { billingTypeLabel } from "@/lib/vocab"
 
 import {
@@ -35,11 +41,17 @@ import {
 // FIELD MAP: the only place that knows your API field names.
 // If a field is named differently in your responses, change it here.
 // ---------------------------------------------------------------------------
+// Owner's personal name. Only used when the business record has no name of its
+// own — it is never presented as the business name.
+const fullName = (person) =>
+  [person?.firstName, person?.lastName].filter(Boolean).join(" ")
+
 const F = {
   invoice: {
     id: (i) => i.id,
-    clientId: (i) => i.clientId ?? i.client_id,
-    clientName: (i) => i.clientName ?? i.client?.name ?? "Client",
+    // Billing rows are keyed by their business (client) id.
+    clientId: (i) => i.business_id ?? i.clientId ?? i.client_id,
+    clientName: (i) => i.businessName ?? i.clientName ?? i.client?.name ?? null,
     type: (i) => i.billing_type ?? i.billingType,
     month: (i) => Number(i.billing_month ?? i.billingMonth),
     year: (i) => Number(i.billing_year ?? i.billingYear),
@@ -49,37 +61,45 @@ const F = {
   },
   engagement: {
     id: (e) => e.id,
-    // Billed = already linked to a bill (engagements.invoice_id).
-    billed: (e) => Boolean(e.invoiceId ?? e.invoice_id),
-    clientName: (e) => e.clientName ?? e.client?.name ?? "Client",
-    completedAt: (e) => e.completedAt ?? e.completed_at ?? e.updatedAt ?? null,
-    retainerCovered: (e) =>
-      (e.coverageType ?? e.coverage_type) === "retainer_covered",
+    // Mapped engagements carry the business name and the owner's names.
+    clientName: (e) =>
+      e.clientName ||
+      e.business?.businessName ||
+      e.client?.name ||
+      fullName(e.client) ||
+      "Client",
+    // The API exposes no completion timestamp (ENGAGEMENT_BASE_SELECT returns
+    // start_date, due_date and created_at only), so the queue is ordered by
+    // when the engagement was created — oldest first.
+    createdAt: (e) => e.createdAt ?? e.created_at ?? null,
+    // Coverage lives on the service, mapped to `isRetainerCovered`.
+    retainerCovered: (e) => e.isRetainerCovered === true,
   },
   client: {
     id: (c) => c.id,
-    name: (c) => c.name ?? c.businessName ?? "Client",
+    // `businesses.name` is blank on some legacy rows, so fall back to the
+    // owner's name instead of rendering an empty title.
+    name: (c) => c.name || c.businessName || fullName(c) || "Client",
     isRetainer: (c) =>
       (c.classification ?? c.clientType ?? c.client_type) === "retainer",
-    retainerCharge: (c) => c.retainerCharge ?? c.retainer_charge ?? 0,
+    retainerCharge: (c) =>
+      c.retainerFee ?? c.retainerCharge ?? c.retainer_charge ?? 0,
   },
 }
 
 // Rows shown per section on the dashboard. "View all" goes to the full page.
 const MAX_ROWS = 5
 
-// TODO: confirm these routes against your firm router.
-const ROUTES = {
-  billing: "/firm/billing",
-  readyToBill: "/firm/billing?tab=ready-to-bill",
-  forVerification: "/firm/billing?status=for-verification",
-  unpaid: "/firm/billing?status=unpaid",
-  clients: "/firm/clients?classification=retainer",
-  invoice: (id) => `/firm/billing/${id}`,
-  newBillForEngagement: (id) => `/firm/billing/new?engagementId=${id}`,
-  newRetainerBill: (clientId) =>
-    `/firm/billing/new?type=retainer_fee&clientId=${clientId}`,
-}
+// The dashboard lives in both the /firm and /billing-officer trees, and each
+// tree only allows its own roles — build links from the tree we are mounted in.
+const buildRoutes = (basePath) => ({
+  billing: `${basePath}/billing`,
+  readyToBill: `${basePath}/billing?tab=ready-to-bill`,
+  forVerification: `${basePath}/billing?status=for-verification`,
+  unpaid: `${basePath}/billing?status=unpaid`,
+  clients: `${basePath}/clients?classification=retainer`,
+  invoice: (id) => `${basePath}/billing/${id}`,
+})
 
 const coverageBadges = {
   retainer: { label: "Retainer-covered", tone: "bg-emerald-50 text-emerald-700" },
@@ -95,6 +115,19 @@ const oldestFirst = (getDate) => (a, b) => {
   return 0
 }
 
+// Full timestamps, not parseDate's day precision: engagements created on the
+// same day must still come out oldest first, so the engagement code breaks ties.
+const oldestCreatedFirst = (a, b) => {
+  const ta = Date.parse(F.engagement.createdAt(a))
+  const tb = Date.parse(F.engagement.createdAt(b))
+  const fa = Number.isNaN(ta)
+  const fb = Number.isNaN(tb)
+  if (fa && fb) return String(a.id).localeCompare(String(b.id))
+  if (fa) return 1
+  if (fb) return -1
+  return ta - tb || String(a.id).localeCompare(String(b.id))
+}
+
 const greeting = () => {
   const hour = new Date().getHours()
   if (hour < 12) return "Good morning"
@@ -104,8 +137,16 @@ const greeting = () => {
 
 export default function BillingOfficerDashboard() {
   const today = useToday()
+  const location = useLocation()
+  const navigate = useNavigate()
   const user = authStore((state) => state.user)
   const authLoading = authStore((state) => state.loading)
+  const ROUTES = useMemo(
+    () => buildRoutes(
+      location.pathname.startsWith("/billing-officer") ? "/billing-officer" : "/firm"
+    ),
+    [location.pathname]
+  )
 
   const {
     data: invoices = [],
@@ -121,7 +162,12 @@ export default function BillingOfficerDashboard() {
     data: clients = [],
     isLoading: clientsLoading,
     error: clientsError,
-  } = useFetchClients()
+  } = useFetchBusinesses()
+
+  // Bill creation happens in a dialog here (there is no /billing/new route).
+  // The clicked row only tells it which engagement or client to preselect.
+  const createBilling = useCreateBilling()
+  const [billingTarget, setBillingTarget] = useState(null)
 
   usePageMeta({
     title: "Dashboard",
@@ -138,13 +184,14 @@ export default function BillingOfficerDashboard() {
     year: "numeric",
   })
 
-  // --- Ready to Bill: completed and not yet linked to any bill ---------------
+  // --- Ready to Bill: completed and not linked to any active bill ------------
+  // Bill links live in `billing_engagements`, not on the engagement row, so the
+  // billed set is derived from the bills themselves (same rule as the admin
+  // dashboard). Paid and pending bills both count as billed.
   const readyToBill = useMemo(
     () =>
-      engagements
-        .filter((e) => e.status === "completed" && !F.engagement.billed(e))
-        .sort(oldestFirst(F.engagement.completedAt)),
-    [engagements]
+      getReadyToBill(engagements, invoices).sort(oldestCreatedFirst),
+    [engagements, invoices]
   )
 
   // --- Billing buckets (same rules as the client dashboard) -----------------
@@ -160,6 +207,16 @@ export default function BillingOfficerDashboard() {
       unpaid: [...groups.overdue, ...groups.open],
     }
   }, [invoices, today])
+
+  // DB business names by id, so the verification queue can show real clients.
+  const clientNames = useMemo(
+    () => new Map(clients.map((client) => [F.client.id(client), F.client.name(client)])),
+    [clients]
+  )
+  const invoiceClientName = (invoice) =>
+    F.invoice.clientName(invoice) ??
+    clientNames.get(F.invoice.clientId(invoice)) ??
+    "Client"
 
   // --- Retainer clients with no Retainer Fee bill for the current month ------
   const retainerNotBilled = useMemo(
@@ -181,6 +238,26 @@ export default function BillingOfficerDashboard() {
         .sort((a, b) => F.client.name(a).localeCompare(F.client.name(b))),
     [clients, invoices, currentMonth, currentYear, today]
   )
+
+  // The dialog only bills completed engagements, same as the billing page.
+  const billingEngagements = useMemo(
+    () => engagements.filter((engagement) => engagement.status === "completed"),
+    [engagements]
+  )
+
+  const handleCreateBilling = (values) => {
+    createBilling.mutate(
+      { ...values, engagements: billingEngagements },
+      {
+        onSuccess: (record) => {
+          setBillingTarget(null)
+          navigate(ROUTES.billing, {
+            state: { notice: `${billingDisplayId(record)} created` },
+          })
+        },
+      }
+    )
+  }
 
   // --- Render ----------------------------------------------------------------
   const loading =
@@ -265,7 +342,7 @@ export default function BillingOfficerDashboard() {
       <div className="grid items-stretch gap-6 lg:grid-cols-2">
         <Panel
           title="Ready to Bill"
-          description="Completed engagements waiting for a bill, oldest first."
+          description="Completed engagements waiting for a bill, oldest created first."
           count={engagementsError ? undefined : readyToBill.length}
           to={ROUTES.readyToBill}
         >
@@ -291,7 +368,7 @@ export default function BillingOfficerDashboard() {
                     subtitle={F.engagement.clientName(engagement)}
                     badge={badge}
                     actionLabel="Create bill"
-                    actionTo={ROUTES.newBillForEngagement(id)}
+                    onAction={() => setBillingTarget({ engagementId: id })}
                   />
                 )
               })}
@@ -325,7 +402,7 @@ export default function BillingOfficerDashboard() {
                   to={ROUTES.invoice(F.invoice.id(invoice))}
                   icon={Receipt}
                   iconTone="bg-blue-50 text-blue-700"
-                  title={`${billingTypeLabel(F.invoice.type(invoice))} · ${F.invoice.clientName(invoice)}`}
+                  title={`${billingTypeLabel(F.invoice.type(invoice))} · ${invoiceClientName(invoice)}`}
                   subtitle="Payment proof submitted"
                   badge={{ label: "Under Review", tone: "bg-blue-50 text-blue-700" }}
                   trailing={formatCurrency(invoice.amount)}
@@ -365,7 +442,7 @@ export default function BillingOfficerDashboard() {
                 title={F.client.name(client)}
                 subtitle={`Retainer Charge ${formatCurrency(F.client.retainerCharge(client))}`}
                 actionLabel="Create Retainer Fee bill"
-                actionTo={ROUTES.newRetainerBill(F.client.id(client))}
+                onAction={() => setBillingTarget({ clientId: F.client.id(client) })}
               />
             ))}
           </ul>
@@ -377,6 +454,21 @@ export default function BillingOfficerDashboard() {
           />
         )}
       </Panel>
+
+      <CreateBillingDialog
+        open={Boolean(billingTarget)}
+        onOpenChange={(open) => {
+          if (!open) setBillingTarget(null)
+        }}
+        onSubmit={handleCreateBilling}
+        engagements={billingEngagements}
+        clients={clients}
+        billings={invoices}
+        submitting={createBilling.isPending}
+        error={createBilling.error?.message}
+        initialEngagementId={billingTarget?.engagementId ?? ""}
+        initialClientId={billingTarget?.clientId ?? ""}
+      />
     </div>
   )
 }

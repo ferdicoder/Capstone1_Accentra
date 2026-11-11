@@ -15,13 +15,22 @@ export function classifyInvoice(invoice, today) {
   return "open"
 }
 
-// Engagement ids referenced by an active (non-cancelled) billing. Cancelled
-// billings release their engagements again.
+// Statuses that release a bill's engagements again. Both spellings of cancelled
+// are listed because raw rows can carry either one.
+const RELEASED_BILLING_STATUSES = ["cancelled", "canceled", "refunded"]
+
+// Engagement ids referenced by an active billing. A cancelled/refunded bill
+// releases its engagements again, and so does a link that was removed from the
+// bill (is_active === false).
 export const getBilledEngagementIds = (billings) =>
   new Set(
     billings
-      .filter((billing) => billing.status !== "cancelled")
-      .flatMap((billing) => billing.engagement_ids ?? [])
+      .filter(
+        (billing) => !RELEASED_BILLING_STATUSES.includes(billing.status)
+      )
+      .flatMap(
+        (billing) => billing.active_engagement_ids ?? billing.engagement_ids ?? []
+      )
   )
 
 // Completed engagements that are not on any active billing yet.

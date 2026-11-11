@@ -16,16 +16,18 @@ export function getEngagementDisplay(engagements, engagementId) {
 /** Build the standard summary set from billing records. */
 export function buildBillingSummaryItems(billings = []) {
   const sum = (list) => list.reduce((total, b) => total + (Number(b.amount) || 0), 0)
-  const isCancelled = (b) =>
-    ["cancelled", "canceled", "voided", "void"].includes(
+  // Cancelled/voided bills were never owed and refunded ones are no longer owed,
+  // so they are left out of every card while staying in the table.
+  const isExcluded = (b) =>
+    ["cancelled", "canceled", "voided", "void", "refunded"].includes(
       String(b.status ?? "").trim().toLowerCase()
     )
-  const active = billings.filter((b) => !isCancelled(b))
+  const active = billings.filter((b) => !isExcluded(b))
   const pending = active.filter((b) => b.status === "pending")
   const paid = active.filter((b) => b.status === "paid")
 
   return [
-    { label: "Total Billing", value: formatPeso(sum(billings)), hint: `${billings.length} record${billings.length === 1 ? "" : "s"}`, toneColor: "#02353C" },
+    { label: "Total Billing", value: formatPeso(sum(active)), hint: `${active.length} record${active.length === 1 ? "" : "s"}`, toneColor: "#02353C" },
     { label: "Pending Payment", value: formatPeso(sum(pending)), hint: `${pending.length} record${pending.length === 1 ? "" : "s"}`, toneColor: "#3B82F6" },
     { label: "Paid", value: formatPeso(sum(paid)), hint: `${paid.length} record${paid.length === 1 ? "" : "s"}`, toneColor: "#10B981" },
   ]

@@ -1,5 +1,5 @@
-
 import { cn } from "@/lib/utils"
+import { blockClipboard } from "@/lib/block-clipboard"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import {
@@ -21,36 +21,36 @@ export function ClientLoginForm({
   className,
   ...props
 }) {
-    const [errors, setErrors] = useState({})
-    const [isSubmitting, setIsSubmitting] = useState(false)
-    const [credentialsError, setCredentialsError] = useState("")
-    const [showPassword, setShowPassword] = useState(false)
+  const [errors, setErrors] = useState({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [credentialsError, setCredentialsError] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
 
-    const navigate = useNavigate()
+  const navigate = useNavigate()
 
-    const handleSubmit = async (event) => {
-      event.preventDefault()
+  const handleSubmit = async (event) => {
+    event.preventDefault()
 
-      const formData = new FormData(event.currentTarget)
-      const email = formData.get("email")?.toString() ?? ""
-      const password = formData.get("password")?.toString() ?? ""
+    const formData = new FormData(event.currentTarget)
+    const email = formData.get("email")?.toString() ?? ""
+    const password = formData.get("password")?.toString() ?? ""
 
-      const newErrors = getZodFieldErrors(loginFormSchema, { email, password })
-      setErrors(newErrors)
-      setCredentialsError("")
-      if (newErrors.email || newErrors.password) return
+    const newErrors = getZodFieldErrors(loginFormSchema, { email, password })
+    setErrors(newErrors)
+    setCredentialsError("")
+    if (newErrors.email || newErrors.password) return
 
-      setIsSubmitting(true)
+    setIsSubmitting(true)
 
-      try {
-        const { role } = await signinToPortal("client", email, password)
-        navigate(getHome(role))
-      } catch (err) {
-        setCredentialsError(err.message)
-      } finally {
-        setIsSubmitting(false)
-      }
+    try {
+      const { role } = await signinToPortal("client", email, password)
+      navigate(getHome(role))
+    } catch (err) {
+      setCredentialsError(err.message)
+    } finally {
+      setIsSubmitting(false)
     }
+  }
 
   return (
     <form onSubmit={handleSubmit} className={cn("flex flex-col gap-6", className)} {...props}>
@@ -108,6 +108,7 @@ export function ClientLoginForm({
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               disabled={isSubmitting}
+              {...blockClipboard}
               className={cn(
                 "pr-10",
                 (errors.password || credentialsError) && "border-red-500 focus-visible:ring-red-500"

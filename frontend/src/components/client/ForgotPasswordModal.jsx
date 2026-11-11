@@ -1,9 +1,9 @@
-
 import { Fragment, useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ArrowLeft, Check, Eye, EyeOff, Loader2, ShieldCheck, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { blockClipboard } from "@/lib/block-clipboard"
 import { Button } from "@/components/ui/button"
 import { DialogFooter } from "@/components/ui/dialog"
 import {
@@ -474,6 +474,7 @@ export function ForgotPasswordModal({ onClose, floating = false }) {
                   }}
                   disabled={isSubmitting}
                   aria-invalid={Boolean(errors.password) || undefined}
+                  {...blockClipboard}
                 />
                 <InputGroupAddon align="inline-end">
                   <InputGroupButton
@@ -505,6 +506,7 @@ export function ForgotPasswordModal({ onClose, floating = false }) {
                   }}
                   disabled={isSubmitting}
                   aria-invalid={Boolean(errors.confirmPassword) || undefined}
+                  {...blockClipboard}
                 />
                 <InputGroupAddon align="inline-end">
                   <InputGroupButton

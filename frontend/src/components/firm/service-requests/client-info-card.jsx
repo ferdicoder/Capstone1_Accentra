@@ -11,7 +11,7 @@ export function ClientInfoCard({ request, className, ...props }) {
   return (
     <div
       data-slot="client-info-card"
-      className={cn("rounded-xl border border-border bg-card p-6 shadow-sm", className)}
+      className={cn("rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6", className)}
       {...props}
     >
       <div className="mb-5 flex items-center gap-3">
