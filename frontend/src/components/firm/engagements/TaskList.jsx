@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { formatDate } from "./engagement-variants"
 import { ReferenceDocumentUpload } from "@/components/firm/service-management/workflow-tasks"
-import { FilePreviewDialog } from "@/components/shared/file-preview-dialog"
+import { FilePreviewDialog, saveFile } from "@/components/shared/file-preview-dialog"
 import { normalizePreviewFile } from "@/lib/file-utils"
 import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validation"
 import { engagementTaskSchema, revisionRemarkSchema } from "@/schemas/engagementSchema"
@@ -321,6 +321,7 @@ function TaskDetailDialog({
   onApprove,
   onRequestRevision,
   onPreviewReference,
+  onPreviewDocument,
 }) {
   if (!task) return null
 
@@ -393,7 +394,14 @@ function TaskDetailDialog({
                     </div>
                     {document.downloadUrl && (
                       <>
-                        <IconLink href={document.downloadUrl} target="_blank" rel="noopener noreferrer" title="View document">
+                        <IconLink
+                          href={document.downloadUrl}
+                          title="View document"
+                          onClick={(event) => {
+                            event.preventDefault()
+                            onPreviewDocument?.(document)
+                          }}
+                        >
                           <Eye className="size-3.5" />
                         </IconLink>
                         <IconLink
@@ -401,6 +409,10 @@ function TaskDetailDialog({
                           download={document.name}
                           title="Download document"
                           className="border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-700"
+                          onClick={(event) => {
+                            event.preventDefault()
+                            saveFile(document)
+                          }}
                         >
                           <Download className="size-3.5" />
                         </IconLink>
@@ -558,6 +570,7 @@ export function TaskList({
   // Kept after close so the dialog doesn't blank during its close animation.
   const [referencePreviewTask, setReferencePreviewTask] = useState(null)
   const [referencePreviewOpen, setReferencePreviewOpen] = useState(false)
+  const [documentPreview, setDocumentPreview] = useState(null)
 
   const openAddTask = () => {
     if (isTerminalEngagement) {
@@ -739,6 +752,7 @@ Boolean(detailTask) &&
         onApprove={() => detailTask && handleApprove(detailTask)}
         onRequestRevision={() => detailTask && openRequestRevision(detailTask)}
         onPreviewReference={() => detailTask && openReferencePreview(detailTask)}
+        onPreviewDocument={(document) => setDocumentPreview(document)}
       />
 
       <TaskDialog
@@ -764,6 +778,12 @@ Boolean(detailTask) &&
             : []
         }
         subtitle={referencePreviewTask ? `Guide for "${referencePreviewTask.name}"` : undefined}
+      />
+      <FilePreviewDialog
+        open={Boolean(documentPreview)}
+        onOpenChange={(open) => !open && setDocumentPreview(null)}
+        files={documentPreview ? [normalizePreviewFile(documentPreview)] : []}
+        subtitle={detailTask ? `Client submission for "${detailTask.name}"` : "Client submission"}
       />
     </div>
   )
