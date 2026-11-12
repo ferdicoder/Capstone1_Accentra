@@ -141,11 +141,12 @@ export default function BillingOfficerDashboard() {
   const navigate = useNavigate()
   const user = authStore((state) => state.user)
   const authLoading = authStore((state) => state.loading)
+  const basePath = location.pathname.startsWith("/billing-officer")
+    ? "/billing-officer"
+    : "/firm"
   const ROUTES = useMemo(
-    () => buildRoutes(
-      location.pathname.startsWith("/billing-officer") ? "/billing-officer" : "/firm"
-    ),
-    [location.pathname]
+    () => buildRoutes(basePath),
+    [basePath]
   )
 
   const {
@@ -171,7 +172,7 @@ export default function BillingOfficerDashboard() {
 
   usePageMeta({
     title: "Dashboard",
-    breadcrumbs: [{ label: "Firm Portal", href: "/firm/dashboard" }],
+    breadcrumbs: [],
   })
 
   const firstName =

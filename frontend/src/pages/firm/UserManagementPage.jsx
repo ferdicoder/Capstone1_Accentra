@@ -123,7 +123,7 @@ export default function UserManagementPage() {
   usePageMeta({
     title: "Teams",
     breadcrumbs: [
-      { label: "Firm Admin", href: "/admin/dashboard" },
+      { label: "Dashboard", href: "/admin/dashboard" },
       { label: "Teams", href: "/admin/users" },
     ],
   })

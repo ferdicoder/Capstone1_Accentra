@@ -555,7 +555,7 @@ export default function ClientProfilePage() {
 
   usePageMeta({
     title: "My Profile",
-    breadcrumbs: [{ label: "Home", href: "/client/dashboard" }],
+    breadcrumbs: [{ label: "My Account", href: "/client/profile" }],
     hasUnreadNotifications: true,
   })
 
