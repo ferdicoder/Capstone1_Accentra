@@ -72,60 +72,63 @@ const defaultServiceRequestColumns = [
 ]
 
 /** Stacked phone presentation of one service request. Mirrors the table columns. */
-function ServiceRequestCard({ request, showPrice, onRowClick }) {
+function ServiceRequestCard({ request, onRowClick, actions }) {
   const clientName = request?.client ? getClientFullName(request.client) : null
   const businessName = request?.business?.businessName
   const primaryName = clientName || businessName
 
-  const cardProps =
-    typeof onRowClick === "function"
-      ? {
-          onClick: () => onRowClick(request),
-          onKeyDown: (event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault()
-              onRowClick(request)
-            }
-          },
-          tabIndex: 0,
-        }
-      : {}
+  const handleKeyDown = (event) => {
+    if (!onRowClick || (event.key !== "Enter" && event.key !== " ")) return
+    event.preventDefault()
+    onRowClick(request, event)
+  }
 
   return (
-    <li
-      {...cardProps}
-      className={cn(
-        "flex flex-col gap-2 p-4 transition-colors",
-        onRowClick && "cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 truncate text-sm font-semibold tabular-nums">
-          {request?.requestNumber}
-        </p>
-        <ServiceRequestStatusBadge status={request?.status} />
-      </div>
-
-      {primaryName && (
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">{primaryName}</p>
-          {clientName && businessName && (
-            <p className="truncate text-xs text-muted-foreground">{businessName}</p>
+    <li className="border-b border-border/60 last:border-b-0">
+      <div className="p-3 sm:p-4">
+        <div
+          role={onRowClick ? "button" : undefined}
+          aria-label={onRowClick ? `Review request ${request?.requestNumber ?? ""}` : undefined}
+          tabIndex={onRowClick ? 0 : undefined}
+          className={cn(
+            "rounded-lg",
+            onRowClick &&
+              "cursor-pointer transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/40"
           )}
+          onClick={onRowClick ? (event) => onRowClick(request, event) : undefined}
+          onKeyDown={handleKeyDown}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <p className="min-w-0 break-words text-sm font-semibold tabular-nums">
+              {request?.requestNumber}
+            </p>
+            <ServiceRequestStatusBadge status={request?.status} />
+          </div>
+
+          {primaryName && (
+            <div className="mt-2 flex min-w-0 items-center gap-3">
+              <ServiceRequestAvatar name={primaryName} />
+              <div className="min-w-0">
+                <p className="break-words text-sm font-medium text-foreground">{primaryName}</p>
+                {clientName && businessName && (
+                  <p className="break-words text-xs text-muted-foreground">{businessName}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-2">
+            <p className="text-sm text-foreground">{getCategoryLabel(request?.category)}</p>
+            {request?.serviceName && (
+              <p className="line-clamp-2 text-xs text-muted-foreground">{request.serviceName}</p>
+            )}
+          </div>
+
+          <p className="mt-2 text-xs text-muted-foreground">
+            Submitted {formatSubmittedDate(request?.submittedDate)}
+          </p>
         </div>
-      )}
-
-      {request?.serviceName && (
-        <p className="line-clamp-2 text-sm text-muted-foreground">{request.serviceName}</p>
-      )}
-
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <span>Submitted {formatSubmittedDate(request?.submittedDate)}</span>
-        {showPrice && (
-          <span className="text-sm font-medium tabular-nums text-foreground">
-            {formatRevenue(request?.revenue)}
-          </span>
-        )}
+        {actions && <div className="mt-3 flex justify-end">{actions(request)}</div>}
       </div>
     </li>
   )
@@ -168,8 +171,49 @@ export function ServiceRequestList({
         className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
         {...props}
       >
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+        <div className="md:hidden">
+          {loading ? (
+            <ul className="divide-y divide-border/60" aria-hidden="true">
+              {Array.from({ length: Math.min(skeletonRows, 4) }, (_, index) => (
+                <li key={`service-request-card-skeleton-${index}`} className="space-y-3 p-4">
+                  <Skeleton className="h-3.5 w-1/2" />
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="size-8 rounded-full" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-2/3" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-3 w-1/3" />
+                </li>
+              ))}
+            </ul>
+          ) : isEmpty ? (
+            <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+              <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                <Inbox className="size-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium text-foreground">{emptyMessage}</p>
+              {emptyDescription && (
+                <p className="text-sm text-muted-foreground">{emptyDescription}</p>
+              )}
+            </div>
+          ) : (
+            <ul>
+              {paginatedRequests.map((request, index) => (
+                <ServiceRequestCard
+                  key={getRowKey(request, (visiblePage - 1) * PAGE_SIZE + index)}
+                  request={request}
+                  onRowClick={onRowClick}
+                  actions={showActions ? actions : null}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto [contain:inline-size] md:block">
+          <table className="w-full min-w-[760px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
                 {columns.map((column) => (
@@ -181,6 +225,7 @@ export function ServiceRequestList({
                     {column.label}
                   </th>
                 ))}
+                {showActions && <th scope="col" className="px-4 py-3 text-right font-semibold">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -223,7 +268,16 @@ export function ServiceRequestList({
                         request={request}
                         columns={columns}
                         onRowClick={onRowClick}
-                      />
+                      >
+                        {showActions && (
+                          <td
+                            className="px-4 py-3 text-right align-middle"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            {actions(request)}
+                          </td>
+                        )}
+                      </ServiceRequestRow>
                     ))}
             </tbody>
           </table>
