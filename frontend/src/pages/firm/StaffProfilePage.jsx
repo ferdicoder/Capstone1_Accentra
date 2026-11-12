@@ -28,7 +28,6 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { FirmUserRoleBadge } from "@/components/firm/users/firm-user-role-badge"
-import { FirmUserStatusBadge } from "@/components/firm/users/firm-user-status-badge"
 
 const controlClass = "w-full bg-background"
 const readOnlyClass = cn(controlClass, "cursor-not-allowed bg-muted/50 text-muted-foreground")
@@ -149,8 +148,9 @@ function StaffSettings({ profile, role }) {
         <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-forest-900 text-sm font-semibold text-white">
           {getInitials(displayName)}
         </div>
-        <div>
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-lg font-semibold leading-tight">{displayName}</h1>
+          <FirmUserRoleBadge role={role} />
         </div>
       </div>
 
@@ -301,25 +301,6 @@ function StaffSettings({ profile, role }) {
             </Field>
           </FieldGroup>
 
-          <div className="mt-6 border-t border-border pt-5">
-            <h2 className="mb-5 text-sm font-semibold">Account Information</h2>
-            <FieldGroup className="gap-5">
-              <Field>
-                <FieldLabel>Role</FieldLabel>
-                <div className="flex h-8 items-center">
-                  <FirmUserRoleBadge role={role} />
-                </div>
-              </Field>
-              {profile.status && (
-                <Field>
-                  <FieldLabel>Status</FieldLabel>
-                  <div className="flex h-8 items-center">
-                    <FirmUserStatusBadge status={profile.status} />
-                  </div>
-                </Field>
-              )}
-            </FieldGroup>
-          </div>
         </div>
       </form>
 
@@ -413,11 +394,11 @@ export default function StaffProfilePage() {
   }, [isOwnProfile, authUser, authRole, staffUser, myProfile])
 
   usePageMeta({
-    title: isOwnProfile ? "My Settings" : "Staff Profile",
+    title: isOwnProfile ? "Personal Information" : "Staff Profile",
     breadcrumbs: isOwnProfile
       ? [{
-          label: "Dashboard",
-          href: authRole === "billing_officer" ? "/billing-officer/dashboard" : "/firm/dashboard",
+          label: "Account",
+          href: authRole === "billing_officer" ? "/billing-officer/profile" : "/firm/profile",
         }]
       : [{ label: "Teams", href: "/admin/users" }],
     hasUnreadNotifications: true,
@@ -456,12 +437,12 @@ export default function StaffProfilePage() {
         <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-forest-900 text-sm font-semibold text-white">
           {getInitials(displayName)}
         </div>
-        <div>
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-lg font-semibold leading-tight">{displayName}</h1>
-          <p className="text-sm text-muted-foreground">Firm account</p>
+          <FirmUserRoleBadge role={profile.role} />
         </div>
       </div>
-      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+      <div className="w-full max-w-3xl">
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <h2 className="mb-5 text-sm font-semibold">Personal Information</h2>
           <FieldGroup className="gap-5">
@@ -487,25 +468,6 @@ export default function StaffProfilePage() {
               <FieldLabel>Contact Number</FieldLabel>
               <Input value={profile.contactNumber} readOnly disabled className={readOnlyClass} />
             </Field>
-          </FieldGroup>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="mb-5 text-sm font-semibold">Account Information</h2>
-          <FieldGroup className="gap-5">
-            <Field>
-              <FieldLabel>Role</FieldLabel>
-              <div className="flex h-8 items-center">
-                <FirmUserRoleBadge role={profile.role} />
-              </div>
-            </Field>
-            {profile.status && (
-              <Field>
-                <FieldLabel>Status</FieldLabel>
-                <div className="flex h-8 items-center">
-                  <FirmUserStatusBadge status={profile.status} />
-                </div>
-              </Field>
-            )}
           </FieldGroup>
         </div>
       </div>

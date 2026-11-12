@@ -97,7 +97,7 @@ export default function FirmStaffDashboard() {
 
   usePageMeta({
     title: "Dashboard",
-    breadcrumbs: [{ label: "Firm Staff", href: `${BASE}/dashboard` }],
+    breadcrumbs: [],
   })
 
   const firstName =
