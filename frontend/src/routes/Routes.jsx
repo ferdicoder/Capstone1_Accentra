@@ -16,7 +16,6 @@ import ClientEngagementsPage from "@/pages/client/ClientEngagementsPage";
 import ClientEngagementDetailPage from "@/pages/client/ClientEngagementDetailPage";
 import ClientBillingPage from "@/pages/client/ClientBillingPage";
 import ClientBillingDetailPage from "@/pages/client/ClientBillingDetailsPage";
-import ClientCalendarPage from "@/pages/client/ClientBillingCalendar/ClientCalendarPage";
 import ClientBillingCalendarPage from "@/pages/client/ClientBillingCalendar/ClientBillingCalendarPage";
 
 import FirmAdminDashboard from "@/pages/firm/FirmAdminDashboard";
@@ -74,7 +73,6 @@ export const router = createBrowserRouter([
           { path: "engagements/:id", element: <ClientEngagementDetailPage /> },
           { path: "billing", element: <ClientBillingPage /> },
           { path: "billing/:id", element: <ClientBillingDetailPage /> },
-          { path: "calendar", element: <ClientCalendarPage /> },
           { path: "billing-calendar", element: <ClientBillingCalendarPage /> },
         ],
       },

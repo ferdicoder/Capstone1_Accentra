@@ -6,7 +6,6 @@ import {
   Contact,
   ClipboardList,
   Receipt,
-  CalendarDays,
   FileText,
   UserRoundCog,
 } from "lucide-react"
@@ -38,8 +37,6 @@ export const clientNav = [
   { title: "Service Requests", url: "/client/service-requests", icon: UserCog, items: [] },
   { title: "My Engagements", url: "/client/engagements", icon: Briefcase, items: [] },
   { title: "Billing", url: "/client/billing", icon: Receipt, items: [] },
-  // NEW: Calendar button, links to the Client calendar page
-  { title: "Calendar", url: "/client/calendar", icon: CalendarDays, items: [] },
   { title: "Account", url: "/client/profile", icon: UserRoundCog, items: [] },
 ]
 
