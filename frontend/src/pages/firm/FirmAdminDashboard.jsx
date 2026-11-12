@@ -109,17 +109,18 @@ const formatShortDate = (value) => {
     : null
 }
 
-const formatDateTime = (value) => {
-  const date = parseDate(value)
-  return date
-    ? date.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      })
-    : null
+const formatAuditDate = (value) => {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  })
 }
 
 const greeting = () => {
@@ -582,7 +583,7 @@ export default function FirmAdminDashboard() {
           <ul className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
             {activity.slice(0, MAX_ACTIVITY).map((entry) => {
               const { title, description } = describeActivity(entry)
-              const when = formatDateTime(entry.createdAt ?? entry.created_at)
+              const when = formatAuditDate(entry.createdAt ?? entry.created_at)
               return (
                 <li
                   key={entry.id}

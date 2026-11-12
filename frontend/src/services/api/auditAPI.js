@@ -69,7 +69,7 @@ export async function getRecentAuditLogs(limit = 50) {
   const { data, error } = await supabase
     .from("audit_logs")
     .select(AUDIT_SELECT)
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: false, nullsFirst: false })
     .limit(limit);
   if (error) throw error;
 
@@ -87,5 +87,11 @@ export async function getRecentAuditLogs(limit = 50) {
     });
   }
 
-  return data.map((row) => mapAuditRow(row, actorNames));
+  return data
+    .map((row) => mapAuditRow(row, actorNames))
+    .sort(
+      (a, b) =>
+        (Date.parse(b.createdAt ?? "") || 0) -
+        (Date.parse(a.createdAt ?? "") || 0)
+    );
 }
