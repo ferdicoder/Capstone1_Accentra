@@ -56,8 +56,8 @@ export function ClientDetailsCard({
   className,
   ...props
 }) {
-  const showRetainerFeeRow =
-    editing || client?.clientType === "retainer" || client?.retainerFee != null
+  const isRetainer = editing ? clientType === "retainer" : client?.clientType === "retainer"
+  const showRetainerFeeRow = isRetainer
   return (
     <div
       data-slot="client-details-card"
@@ -82,7 +82,7 @@ export function ClientDetailsCard({
           </p>
           <dl className="divide-y divide-border/60">
             <OptionalRow label="Client Name" value={client?.name} editing={editing} />
-            <RequestDetailRow label="Client Type">
+            <RequestDetailRow label="Retainer Status">
               {editing ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger
@@ -108,14 +108,12 @@ export function ClientDetailsCard({
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
-              ) : client?.type == null ? (
-                <span className="text-muted-foreground">Not set</span>
               ) : (
                 <ClientTypeBadge type={client?.clientType} />
               )}
             </RequestDetailRow>
             {showRetainerFeeRow && (
-              <RequestDetailRow label="Retainer Fee">
+              <RequestDetailRow label="Retainer Fee Charge">
                 {editing ? (
                   <div className="flex flex-col gap-1 sm:max-w-64">
                     <div className="relative">
@@ -150,7 +148,11 @@ export function ClientDetailsCard({
                     </p>
                   </div>
                 ) : (
-                  <span className="tabular-nums">{formatRevenue(client?.retainerFee)}</span>
+                  <span className="tabular-nums">
+                    {client?.retainerFee == null
+                      ? "Not set"
+                      : formatRevenue(client.retainerFee)}
+                  </span>
                 )}
               </RequestDetailRow>
             )}

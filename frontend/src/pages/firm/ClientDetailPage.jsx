@@ -137,15 +137,19 @@ export default function ClientDetailPage() {
   }
 
   const typeChanged = Boolean(selectedClientType) && selectedClientType !== client.clientType
-  // Switching a client onto retainer requires a fee before the change can be saved.
-  const requiresRetainerFee = selectedClientType === "retainer" && client.clientType !== "retainer"
+  const enteredRetainerFee = retainerFee.trim() === "" ? null : Number(retainerFee)
+  const retainerFeeChanged =
+    selectedClientType === "retainer" && enteredRetainerFee !== client.retainerFee
+  const hasClientDetailsChanges = typeChanged || retainerFeeChanged
+  const requiresRetainerFee =
+    selectedClientType === "retainer" && (typeChanged || retainerFeeChanged)
   const retainerFeeNumber = Number(retainerFee)
   const retainerFeeValid =
     !requiresRetainerFee ||
     (retainerFee.trim() !== "" && Number.isFinite(retainerFeeNumber) && retainerFeeNumber > 0)
 
-  const handleConfirmClientType = () => {
-    if (!typeChanged || !retainerFeeValid) return
+  const handleConfirmRetainerUpdate = () => {
+    if (!hasClientDetailsChanges || !retainerFeeValid) return
 
     const fee = selectedClientType === "retainer" ? retainerFeeNumber : null
 
@@ -246,7 +250,7 @@ export default function ClientDetailPage() {
                 type="button"
                 size="sm"
                 className="bg-forest-900 text-white hover:opacity-90"
-                disabled={!typeChanged || !retainerFeeValid}
+                disabled={!hasClientDetailsChanges || !retainerFeeValid}
                 onClick={() => setConfirmationOpen(true)}
               >
                 Save Changes
@@ -400,13 +404,11 @@ export default function ClientDetailPage() {
       <Dialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
         <DialogContent data-slot="client-type-confirmation">
           <DialogHeader>
-            <DialogTitle>Confirm client type change</DialogTitle>
+            <DialogTitle>Confirm retainer details change</DialogTitle>
             <DialogDescription>
-              Change this client&apos;s type from{" "}
+              Update this client&apos;s retainer status from{" "}
               <span className="font-medium text-foreground">
-                {client.type == null
-                  ? "Not set"
-                  : clientTypeLabels[client.clientType] ?? client.clientType}
+                {clientTypeLabels[client.clientType] ?? client.clientType}
               </span>{" "}
               to{" "}
               <span className="font-medium text-foreground">
@@ -416,11 +418,11 @@ export default function ClientDetailPage() {
             </DialogDescription>
             {requiresRetainerFee && (
               <p className="text-sm text-muted-foreground">
-                A retainer fee of{" "}
+                Retainer fee will be set to{" "}
                 <span className="font-medium tabular-nums text-foreground">
                   {formatRevenue(retainerFeeNumber)}
                 </span>{" "}
-                will be applied to this client.
+                for this client.
               </p>
             )}
           </DialogHeader>
@@ -439,7 +441,7 @@ export default function ClientDetailPage() {
             <Button
               type="button"
               className="bg-forest-900 text-white hover:opacity-90"
-              onClick={handleConfirmClientType}
+              onClick={handleConfirmRetainerUpdate}
             >
               Okay
             </Button>
