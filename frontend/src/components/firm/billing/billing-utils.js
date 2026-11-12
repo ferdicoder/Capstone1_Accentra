@@ -1,4 +1,4 @@
-import { formatPeso } from "./billing-variants"
+import { formatPeso, normalizeBillingStatus } from "./billing-variants"
 
 /** Derive display info for the engagement a billing record belongs to. */
 export function getEngagementDisplay(engagements, engagementId) {
@@ -16,15 +16,13 @@ export function getEngagementDisplay(engagements, engagementId) {
 /** Build the standard summary set from billing records. */
 export function buildBillingSummaryItems(billings = []) {
   const sum = (list) => list.reduce((total, b) => total + (Number(b.amount) || 0), 0)
-  // Cancelled/voided bills were never owed and refunded ones are no longer owed,
-  // so they are left out of every card while staying in the table.
-  const isExcluded = (b) =>
-    ["cancelled", "canceled", "voided", "void", "refunded"].includes(
-      String(b.status ?? "").trim().toLowerCase()
-    )
+  // Cancelled/voided bills were never owed and refunded ones are no longer owed.
+  const excludedStatuses = new Set(["cancelled", "voided", "void", "refunded"])
+  const isExcluded = (b) => excludedStatuses.has(normalizeBillingStatus(b.status))
   const active = billings.filter((b) => !isExcluded(b))
-  const pending = active.filter((b) => b.status === "pending")
-  const paid = active.filter((b) => b.status === "paid")
+  const unpaidStatuses = new Set(["pending", "overdue", "for verification", "for resubmission"])
+  const pending = active.filter((b) => unpaidStatuses.has(normalizeBillingStatus(b.status)))
+  const paid = active.filter((b) => normalizeBillingStatus(b.status) === "paid")
 
   return [
     { label: "Total Billing", value: formatPeso(sum(active)), hint: `${active.length} record${active.length === 1 ? "" : "s"}`, toneColor: "#02353C" },
