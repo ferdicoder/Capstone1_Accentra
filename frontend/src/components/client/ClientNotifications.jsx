@@ -17,6 +17,8 @@ import {
 } from "@/hooks/useNotifications"
 import { authStore } from "@/store/authStore"
 
+const EMPTY_NOTIFICATIONS = []
+
 function formatNotificationDate(value) {
   return new Intl.DateTimeFormat("en-PH", {
     dateStyle: "medium",
@@ -158,7 +160,7 @@ export function ClientNotifications({ role = "client", onUnreadCountsChange }) {
   const { pathname } = useLocation()
   const userId = authStore((state) => state.user?.id)
   const [actionError, setActionError] = useState("")
-  const { data: notifications = [], isLoading, error } = useNotifications(userId)
+  const { data: notifications = EMPTY_NOTIFICATIONS, isLoading, error } = useNotifications(userId)
   const markRead = useMarkNotificationRead(userId)
   const markAllRead = useMarkAllNotificationsRead(userId)
   const attemptedReadIds = useRef(new Set())

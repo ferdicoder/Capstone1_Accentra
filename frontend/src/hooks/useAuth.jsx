@@ -1,4 +1,3 @@
-// useAuthBootstrap.js
 import { useEffect } from 'react';
 import { supabase } from '@/config/supabase';
 import { authStore } from '@/store/authStore';
@@ -10,28 +9,38 @@ import { setUserRole } from '../services/api/userAPI';
  * revoked its access.
  */
 const applySession = (session) => {
-  session ? setUserRole(session.user) : authStore.getState().clearAuth();
-};
+  if (session) return setUserRole(session.user);
+  authStore.getState().clearAuth();
+}
 
 export function useAuth() {
   useEffect(() => {
-    const getSession = async () =>{
-      await supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        applySession(session);
-      });
-    }; 
-    getSession(); 
+    let active = true;
+    let sessionUpdates = Promise.resolve();
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      // A password-recovery session is deliberately NOT applied to the app's
-      // auth state. The recovery flow owns that session until the new password
-      // is set, and applying it here would sign the user in and redirect them
-      // away from the recovery screen.
+      // The recovery flow owns this session until the new password is set.
       if (event === 'PASSWORD_RECOVERY') return;
-      applySession(session);
+
+      // Do not call Supabase APIs while its auth-state callback holds the auth
+      // lock. Queue updates to preserve event order and avoid stale sessions
+      // overwriting a newer sign-in or sign-out.
+      setTimeout(() => {
+        if (!active) return;
+        sessionUpdates = sessionUpdates
+          .then(() => {
+            if (active) return applySession(session);
+          })
+          .catch((error) => {
+            console.error('Could not synchronize the authentication session:', error);
+            if (active) authStore.getState().clearAuth();
+          });
+      }, 0);
     });
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 }

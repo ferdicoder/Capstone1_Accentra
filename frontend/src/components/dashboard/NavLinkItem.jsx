@@ -10,15 +10,13 @@ export function NavLinkItem({ item, isActive, notificationCount = 0 }) {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
-        asChild
+        render={<NavLink to={item.url} className="flex w-full items-center gap-4" />}
         tooltip={item.title}
         isActive={isActive}
         className={notificationCount > 0 ? "gap-4 pr-10" : "gap-4"}
       >
-        <NavLink to={item.url} className="flex w-full items-center gap-4">
-          {item.icon && <item.icon className="size-4 shrink-0" />}
-          <span className="truncate">{item.title}</span>
-        </NavLink>
+        {item.icon && <item.icon className="size-4 shrink-0" />}
+        <span className="truncate">{item.title}</span>
       </SidebarMenuButton>
       {notificationCount > 0 && (
         <SidebarMenuBadge
