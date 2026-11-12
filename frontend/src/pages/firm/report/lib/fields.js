@@ -32,9 +32,12 @@ export const F = {
     businessName: (e) => e.business?.businessName ?? "",
     ownerName: (e) => fullName(e.client),
     createdAt: (e) => e.createdAt ?? e.created_at ?? null,
-    // No fallback to updatedAt: a completion date is never inferred.
-    completedAt: (e) => e.completedAt ?? e.completed_at ?? null, // VERIFY
-    coverage: (e) => e.coverageType ?? e.coverage_type ?? "", // VERIFY
+    coverage: (e) => {
+      const type = e.coverageType ?? e.coverage_type
+      if (type) return type
+      if (e.isRetainerCovered === true) return "retainer_covered"
+      return e.isRetainerCovered === false ? "billable" : ""
+    },
     // The assigned lead may come back as an object or as a plain id.
     leadObject: (e) => asObject(e.assignedLead ?? e.assignedStaff ?? e.lead), // VERIFY
     leadId: (e) =>

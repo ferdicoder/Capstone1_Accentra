@@ -19,9 +19,11 @@ export const COVERAGE_OPTIONS = [
   { value: "billable", label: "Billable" },
   { value: "retainer_covered", label: "Retainer-covered" },
 ]
-// NEW: derived from engagements.invoice_id + the linked bill's status.
+// Derived from engagement status and linked bill status.
 // A voided bill releases its engagement, so it counts as "unbilled" again.
 export const ENGAGEMENT_BILLING_OPTIONS = [
+  { value: "not_ready", label: "Not yet billable" },
+  { value: "not_billable", label: "Not billable" },
   { value: "unbilled", label: "Unbilled" },
   { value: "unpaid", label: "Unpaid" },
   { value: "for_verification", label: "For Verification" },
@@ -57,7 +59,6 @@ export const CATEGORIES = [
 export const INITIAL_FILTERS = {
   engagements: {
     created: EMPTY_RANGE,
-    completed: EMPTY_RANGE,
     status: ALL,
     billing: ALL, // NEW
     service: ALL,

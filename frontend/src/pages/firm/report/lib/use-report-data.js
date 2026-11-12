@@ -104,7 +104,6 @@ export function useReportData(f) {
           status: e.status,
           billing,
           createdAt: F.engagement.createdAt(e),
-          completedAt: F.engagement.completedAt(e),
         }
       }),
     [engagements, usersById, billingGroupByEngagement]
@@ -184,7 +183,6 @@ export function useReportData(f) {
         .filter(
           (r) =>
             inRange(r.createdAt, f.engagements.created) &&
-            inRange(r.completedAt, f.engagements.completed) &&
             (f.engagements.status === ALL || r.status === f.engagements.status) &&
             (f.engagements.billing === ALL || r.billing === f.engagements.billing) &&
             (f.engagements.service === ALL || r.service === f.engagements.service) &&

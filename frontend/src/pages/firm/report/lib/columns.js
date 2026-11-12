@@ -33,7 +33,6 @@ export const engagementColumns = [
   { label: "Engagement Status", value: (r) => stageLabel(r.status) },
   { label: "Billing Status", value: (r) => BILLING_STATUS_LABELS[r.billing] ?? "" }, // NEW
   { label: "Date Created", value: (r) => dateOrUnavailable(r.createdAt) },
-  { label: "Completion Date", value: (r) => dateOrUnavailable(r.completedAt) },
 ]
 
 // Retainer Charge only applies to Retainer clients. Verify the field name

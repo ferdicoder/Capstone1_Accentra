@@ -21,7 +21,7 @@ import {
   BILLING_TYPE_OPTIONS,
   CLIENT_TYPE_OPTIONS,
   COVERAGE_OPTIONS,
-  ENGAGEMENT_BILLING_OPTIONS, // NEW constant
+  ENGAGEMENT_BILLING_OPTIONS,
   INITIAL_FILTERS,
   PAYMENT_METHOD_OPTIONS,
   PAYMENT_STATUS_OPTIONS,
@@ -148,9 +148,9 @@ function ReportsContent() {
         return (
           <ReportShell
             title="Engagement Report"
-            description="Engagements with their current status and billing status. Created and completion dates are separate filters."
+            description="Engagements with their current status and billing status, filtered by creation date."
             {...shellProps("engagements")}
-            invalid={Boolean(rangeError(f.engagements.created) || rangeError(f.engagements.completed))}
+            invalid={Boolean(rangeError(f.engagements.created))}
             rowCount={engagementResult.length}
             summary={engagementSummary}
             onExport={() =>
@@ -171,7 +171,6 @@ function ReportsContent() {
             filters={
               <>
                 <DateRange label="Date created" value={f.engagements.created} onChange={(created) => update("engagements", { created })} />
-                <DateRange label="Completion date" value={f.engagements.completed} onChange={(completed) => update("engagements", { completed })} />
                 <SelectField label="Status" value={f.engagements.status} onChange={(status) => update("engagements", { status })} options={engagementStatusOptions} allLabel="All statuses" />
                 <SelectField label="Billing status" value={f.engagements.billing} onChange={(billing) => update("engagements", { billing })} options={ENGAGEMENT_BILLING_OPTIONS} allLabel="All billing statuses" />
                 <SelectField label="Service" value={f.engagements.service} onChange={(service) => update("engagements", { service })} options={serviceOptions} allLabel="All services" />
