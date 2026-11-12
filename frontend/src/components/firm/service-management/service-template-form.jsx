@@ -329,7 +329,7 @@ export function ServiceTemplateForm({
         errors={errors.tasks}
       />
 
-      <DialogFooter className="flex-row justify-end gap-2">
+      <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
         {progress?.active && (
           <div className="mr-auto flex min-w-44 flex-1 flex-col gap-1" aria-live="polite">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
