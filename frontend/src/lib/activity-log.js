@@ -13,6 +13,12 @@ const activityLabels = {
   payment_verified: "verified a payment",
   lead_reassigned: "reassigned an engagement lead",
   client_converted: "converted a client to Retainer",
+  // audit_logs actions written by backend/sql/audit_logs_triggers.sql.
+  user_created: "created a staff account",
+  user_role_changed: "changed a user role",
+  password_changed: "changed a password",
+  client_retainer_changed: "updated retainer details",
+  report_exported: "downloaded a report",
 }
 
 export function describeActivity(entry) {

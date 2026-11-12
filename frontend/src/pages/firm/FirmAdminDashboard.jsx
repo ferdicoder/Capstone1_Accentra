@@ -572,9 +572,11 @@ export default function FirmAdminDashboard() {
       >
         {activityQuery.error ? (
           <InlineError showIcon={false} />
+        ) : activityQuery.isLoading ? (
+          <p className="p-4 text-sm text-muted-foreground">Loading activity…</p>
         ) : activity.length === 0 ? (
           <EmptyState title="No audit logs yet" compact>
-            Actions on engagements, tasks, and billing will be recorded here.
+            Staff, retainer, password, and report actions will be recorded here.
           </EmptyState>
         ) : (
           <ul className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">

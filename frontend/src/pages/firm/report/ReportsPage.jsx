@@ -103,7 +103,7 @@ function ReportsContent() {
 
   // --- Export ----------------------------------------------------------------
   // Audit entry for every export. Non-blocking so a logging failure never
-  // stops the download; the backend still records what it receives.
+  // stops the download; the log_report_export RPC writes the audit_logs row.
   const logExport = (report, format, rowCount) => {
     Promise.resolve(
       logReportExport({ report, format, rowCount, filters: filters[report] })

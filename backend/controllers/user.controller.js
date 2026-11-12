@@ -4,6 +4,15 @@ import { createClient } from "@supabase/supabase-js";
 
 const FIRM_ROLES = ["admin", "staff", "billing_officer"];
 
+function getErrorMessage(error, fallback = "Unexpected server error") {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error) return error;
+  if (error?.message) return error.message;
+  if (error?.details) return error.details;
+  if (error?.hint) return error.hint;
+  return fallback;
+}
+
 async function createStaff(req, res) {
   const {
     email, password, role, firstName, middleName, lastName,
@@ -24,7 +33,9 @@ async function createStaff(req, res) {
       .in("role_id", FIRM_ROLES)
       .maybeSingle();
 
-    if (roleError) throw roleError;
+    if (roleError) {
+      throw new Error(`Could not validate the requested role: ${getErrorMessage(roleError)}`);
+    }
     if (!roleRecord) {
       return res.status(400).json({ message: "Invalid firm user role" });
     }
@@ -32,7 +43,8 @@ async function createStaff(req, res) {
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      app_metadata: { role },
+      // created_by lets the user_created audit trigger attribute the actor.
+      app_metadata: { role, created_by: req.user?.id },
       user_metadata: {
         first_name: firstName,
         middle_name: middleName,
@@ -57,7 +69,7 @@ async function createStaff(req, res) {
 
     if (userRoleError) {
       await supabaseAdmin.auth.admin.deleteUser(data.user.id);
-      throw userRoleError;
+      throw new Error(`Could not assign the new user's role: ${getErrorMessage(userRoleError)}`);
     }
 
     // NEW: firm accounts start as "inactive" (pending first login).
@@ -69,22 +81,27 @@ async function createStaff(req, res) {
 
     if (statusError || !statusRows?.length) {
       await supabaseAdmin.auth.admin.deleteUser(data.user.id);
-      throw statusError || new Error("Could not set initial account status.");
+      throw new Error(
+        `Could not set initial account status: ${getErrorMessage(
+          statusError,
+          "the profile row was not created"
+        )}`
+      );
     }
 
-    const { error: auditError } = await supabaseAdmin.from("audit_logs").insert({
-      actor_id: req.user?.id,
-      action: "user_created",
-      entity_type: "user",
-      entity_id: data.user.id,
-      details: { role },
-    });
-    if (auditError) console.error("audit log failed:", auditError.message);
+    // Audit ("user_created") is written by the trg_log_user_created
+    // DB trigger; actor comes from app_metadata.created_by set above.
 
     return res.status(201).json(data);
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: err.message });
+    const message = getErrorMessage(err, "Staff creation failed.");
+    console.error("Staff creation failed:", {
+      message,
+      code: err?.code,
+      details: err?.details,
+      hint: err?.hint,
+    });
+    return res.status(500).json({ message });
   }
 }
 
@@ -140,7 +157,20 @@ async function updateUserRole(req, res) {
       }
     }
 
-    const { error } = await supabaseAdmin
+    // Audit ("user_role_changed") is written by the trg_log_user_role_changed
+    // DB trigger. Service-role requests have auth.uid() IS NULL, so pass the
+    // acting admin via x-actor-id; pgrst_pre_request() stores it in the
+    // transaction-local GUC app.actor_id (trusted only for service_role).
+    const adminWithActor = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SECRET_KEY,
+      {
+        global: { headers: { "x-actor-id": String(actorId ?? "") } },
+        auth: { persistSession: false, autoRefreshToken: false },
+      }
+    );
+
+    const { error } = await adminWithActor
       .from("user_roles")
       .update({ role })
       .eq("user_id", userId);
@@ -151,19 +181,16 @@ async function updateUserRole(req, res) {
     });
     if (metaError) console.error("app_metadata sync failed:", metaError.message);
 
-    const { error: auditError } = await supabaseAdmin.from("audit_logs").insert({
-      actor_id: actorId,
-      action: "user_role_changed",
-      entity_type: "user",
-      entity_id: userId,
-      details: { from: current.role, to: role },
-    });
-    if (auditError) console.error("audit log failed:", auditError.message);
-
     return res.status(200).json({ userId, role });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: err.message });
+    const message = getErrorMessage(err);
+    console.error("User role update failed:", {
+      message,
+      code: err?.code,
+      details: err?.details,
+      hint: err?.hint,
+    });
+    return res.status(500).json({ message });
   }
 }
 
@@ -225,19 +252,20 @@ async function changeOwnPassword(req, res) {
       .eq("status", "inactive");
     if (statusError) throw statusError;
 
-    const { error: auditError } = await supabaseAdmin.from("audit_logs").insert({
-      actor_id: req.user.id,
-      action: "password_changed",
-      entity_type: "user",
-      entity_id: req.user.id,
-      details: { first_login: req.userStatus === "inactive" },
-    });
-    if (auditError) console.error("audit log failed:", auditError.message);
+    // Audit ("password_changed") is written by the trg_log_password_changed
+    // DB trigger on auth.users; it fires during the password update above,
+    // while status is still 'inactive', so first_login stays accurate.
 
     return res.status(200).json({ message: "Password updated.", status: "active" });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: err.message });
+    const message = getErrorMessage(err);
+    console.error("Password change failed:", {
+      message,
+      code: err?.code,
+      details: err?.details,
+      hint: err?.hint,
+    });
+    return res.status(500).json({ message });
   }
 }
 
