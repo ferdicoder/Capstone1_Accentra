@@ -1,9 +1,15 @@
-// TODO (Ced): replace this stub with the real endpoint, e.g.
-//   GET /api/activity?limit=10  (newest first, firm-wide)
-// Each entry should look like:
+import { useQuery } from "@tanstack/react-query";
+import { getRecentAuditLogs } from "@/services/api/auditAPI";
+import { queryKeys } from "@/config/queryKeys";
+
+// Firm-wide audit trail (audit_logs), newest first. Entries look like:
 //   { id, type, actorName, message, createdAt }
-// `type` is one of the keys in lib/activity-log.js. Until then the Admin
-// dashboard shows the empty state for Recent Activity.
-export function useFetchRecentActivity() {
-  return { data: [], isLoading: false, error: null }
+// `type` is one of the keys in lib/activity-log.js. Backed by the DB
+// triggers in backend/sql/audit_logs_triggers.sql.
+export function useFetchRecentActivity({ limit = 50 } = {}) {
+  return useQuery({
+    queryKey: queryKeys.auditLogs(limit),
+    queryFn: () => getRecentAuditLogs(limit),
+    staleTime: 1000 * 10,
+  });
 }

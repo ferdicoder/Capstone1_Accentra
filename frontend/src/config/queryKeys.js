@@ -22,4 +22,5 @@ export const queryKeys = {
   businessBillings: (businessId) => ["billings", "business", businessId],
   notifications: (userId) => ["notifications", userId],
   firmSettings: ["firmSettings"],
+  auditLogs: (limit = 50) => ["auditLogs", limit],
 }

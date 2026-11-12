@@ -3,12 +3,29 @@ import { authStore } from "@/store/authStore";
 import { apiBaseUrl } from "@/config/api";
 
 async function authHeaders() {
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session: currentSession }, error: sessionError } =
+    await supabase.auth.getSession()
+  if (sessionError) throw sessionError
+
+  let session = currentSession
+  const expiresSoon =
+    session?.expires_at &&
+    session.expires_at * 1000 <= Date.now() + 30_000
+
+  if (!session || expiresSoon) {
+    const { data: { session: refreshedSession }, error: refreshError } =
+      await supabase.auth.refreshSession()
+    if (refreshError) throw refreshError
+    session = refreshedSession
+  }
+
+  if (!session?.access_token) {
+    throw new Error("Your login session has expired. Please sign in again.")
+  }
+
   return {
     "Content-Type": "application/json",
-    ...(session?.access_token
-      ? { Authorization: `Bearer ${session.access_token}` }
-      : {}),
+    Authorization: `Bearer ${session.access_token}`,
   }
 }
 
