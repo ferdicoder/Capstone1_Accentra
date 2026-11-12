@@ -33,20 +33,23 @@ export const engagementColumns = [
   { label: "Engagement Status", value: (r) => stageLabel(r.status) },
   { label: "Billing Status", value: (r) => BILLING_STATUS_LABELS[r.billing] ?? "" }, // NEW
   { label: "Date Created", value: (r) => dateOrUnavailable(r.createdAt) },
-  { label: "Completion Date", value: (r) => dateOrUnavailable(r.completedAt) },
 ]
 
-// Retainer Charge only applies to Retainer clients. Verify the field name
-// against your businesses payload (retainerCharge / retainer_charge).
+// Retainer Charge only applies to Retainer clients.
 const retainerCharge = (c) => {
-  const raw = c.retainerCharge ?? c.retainer_charge
+  const raw = c.retainerFee ?? c.retainerCharge ?? c.retainer_charge
   if (raw == null || F.client.type(c) !== "retainer") return null
   const n = Number(raw)
   return Number.isFinite(n) ? n : null
 }
 
+const formatClientId = (id) => {
+  if (!id) return ""
+  return `CLIENT - ${String(id).slice(-4).toUpperCase()}`
+}
+
 export const clientListColumns = [
-  { label: "Client ID", value: (c) => F.client.id(c) },
+  { label: "Client ID", value: (c) => formatClientId(F.client.id(c)) },
   { label: "Client Name", value: (c) => F.client.name(c) },
   { label: "Email Address", value: (c) => F.client.email(c) },
   { label: "Business Name", value: (c) => F.client.businessName(c) },
@@ -65,7 +68,6 @@ export const clientListColumns = [
   { label: "Active Engagements", value: (c) => c.activeEngagements ?? 0 }, // NEW
   { label: "Outstanding Bill", value: (c) => (c.hasOutstanding ? "Yes" : "No") }, // NEW
   { label: "Account Status", value: (c) => labelize(c.status) },
-  { label: "Registration Date", value: (c) => dateOrUnavailable(F.client.registeredAt(c)) },
 ]
 
 // Billing Report = old Billing Summary + Payment Monitoring merged.
@@ -78,6 +80,6 @@ export const billingColumns = [
   { label: "Billing Date", value: (r) => dateOrUnavailable(r.date) },
   { label: "Billing Month and Year", value: (r) => r.period },
   { label: "Billing Status", value: (r) => PAYMENT_STATUS_LABELS[r.group] },
-  { label: "Payment Method", value: (r) => (r.group === "paid" ? methodLabel(r.method) || UNAVAILABLE : "") }, // NEW
-  { label: "Date Paid", value: (r) => (r.group === "paid" ? dateOrUnavailable(r.verifiedAt) : "") }, // NEW
+  { label: "Payment Method", value: (r) => methodLabel(r.method) || (r.group === "paid" ? UNAVAILABLE : "") }, // NEW
+  { label: "Date Paid", value: (r) => (r.group === "paid" ? dateOrUnavailable(r.paidAt) : "") }, // NEW
 ]

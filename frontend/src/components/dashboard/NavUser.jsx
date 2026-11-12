@@ -1,30 +1,19 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
-import {
-  ChevronsUpDown,
-  LogOut,
-} from "lucide-react"
+import { LogOut } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import { LogoutConfirmDialog } from "@/components/dashboard/logout-confirm-dialog"
 import { supabase } from "@/config/supabase"
 import { authStore } from "@/store/authStore"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar"
 
-export function NavUser({ user }) {
-  const { isMobile } = useSidebar()
+export function NavUser({ user, subtitle }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [logoutOpen, setLogoutOpen] = useState(false)
@@ -57,50 +46,36 @@ export function NavUser({ user }) {
     <>
       <SidebarMenu>
         <SidebarMenuItem>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <SidebarMenuButton
-                  size="lg"
-                  className=" data-[state=open]:bg-sidebar-accent 
-                              data-[state=open]:text-sidebar-accent-foreground
-                              group-data-[collapsible=icon]:size-8!
-                              group-data-[collapsible=icon]:p-0!
-                              group-data-[collapsible=icon]:justify-center"
-                />
-              }
+          <div className="flex items-center gap-2 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+            <Avatar className="h-8 w-8 shrink-0 rounded-lg group-data-[collapsible=icon]:hidden">
+              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarFallback className="rounded-lg">
+                {user.name?.slice(0, 2)?.toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+
+            <div className="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+              <span className="truncate font-semibold">{user.name}</span>
+              {subtitle && (
+                <span className="truncate text-xs text-white/60">{subtitle}</span>
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Log out"
+              title="Log out"
+              onClick={() => setLogoutOpen(true)}
+              className="shrink-0 text-white hover:bg-white/10 hover:text-white"
             >
-              <Avatar className="h-8 w-8 shrink-0 rounded-lg">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">
-                  {user.name?.slice(0, 2)?.toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-
-              {/* BUG fix: footer trigger no longer shows the email — name only. */}
-              <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-semibold">{user.name}</span>
-              </div>
-
-              <ChevronsUpDown className="ml-auto size-4 shrink-0 group-data-[collapsible=icon]:hidden" />
-            </DropdownMenuTrigger>
-
-            <DropdownMenuContent
-              className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-              side={isMobile ? "bottom" : "right"}
-              align="end"
-              sideOffset={4}
-            >
-              <DropdownMenuItem onClick={() => setLogoutOpen(true)}>
-                <LogOut />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <LogOut className="size-4" />
+            </Button>
+          </div>
         </SidebarMenuItem>
       </SidebarMenu>
 
-      {/* Sibling of the dropdown, so it stays mounted after the menu closes. */}
+      {/* Keep the confirmation dialog mounted independently of its trigger. */}
       <LogoutConfirmDialog
         open={logoutOpen}
         onOpenChange={setLogoutOpen}

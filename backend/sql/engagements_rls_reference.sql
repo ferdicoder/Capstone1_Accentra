@@ -10,8 +10,7 @@
 --   SELECT  all firm roles (admin/staff/billing_officer) — dashboards,
 --           list pages, reports, usage counts; clients only engagements of
 --           businesses they own (getMyEngagements, and strict scoping of
---           the unfiltered calendar queries / raw-id detail fetch, which
---           matches the stated intent at ClientCalendarPage.jsx:212-213).
+--           the unfiltered calendar queries / raw-id detail fetch).
 --   INSERT  admin + staff — only meaningful if the live create RPCs are
 --           SECURITY INVOKER (discovery 0e reveals this; no direct
 --           .insert() on engagements exists anywhere in the repo).
@@ -280,14 +279,14 @@ WITH CHECK (
 -- create_standalone_engagement RPCs. If those are SECURITY INVOKER
 -- (discovery 0e), this policy is what authorizes the caller; if they are
 -- DEFINER, it is belt-and-suspenders. Scope matches the UI: admin-only
--- for create-from-request, admin+staff for standalone; billing_officer
+-- for create-from-request and standalone, admin-only; billing_officer
 -- excluded (canManageEngagements). No direct .insert() exists in code.
-CREATE POLICY engagements_insert_admin_or_staff
+CREATE POLICY engagements_insert_admin_only
 ON public.engagements FOR INSERT
 TO authenticated
 WITH CHECK (
   public.is_active_user()
-  AND (public.has_role('admin') OR public.has_role('staff'))
+  AND public.has_role('admin')
 );
 
 -- engagements: no browser-side deletes (none exist in the repo).
@@ -536,11 +535,9 @@ COMMIT;
 --   updating service_requests. This avoids relying on browser RLS policies
 --   for those writes. The standalone RPC is separate; if it remains
 --   SECURITY INVOKER, its engagement_tasks writes need their own RLS policy.
--- * Client calendar pages (ClientCalendarPage.jsx:219,
---   ClientBillingCalendarPage.jsx:400) call the unfiltered
---   getEngagements() — under this policy they now return only the
---   client's own engagements, which is the stated intent
---   (ClientCalendarPage.jsx:212-213). ClientEngagementDetailPage's
+-- * ClientBillingCalendarPage.jsx:400 calls the unfiltered
+--   getEngagements() — under this policy it returns only the client's own
+--   engagements. ClientEngagementDetailPage's
 --   raw-id getEngagement() returns null/empty for foreign ids — correct.
 -- * Embeds: PostgREST applies the already-applied businesses/users
 --   policies to businesses(...) and assignedStaffUser:users(...) inside

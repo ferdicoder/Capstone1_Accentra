@@ -18,13 +18,23 @@ import { NavUser } from "@/components/dashboard/NavUser"
 import { roleConfig } from "@/components/dashboard/NavData"
 import { authStore } from "@/store/authStore"
 import { useFetchFirmSettings } from "@/hooks/useFirmSettings"
+import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { firmLogoUrl } from "@/services/api/firmSettingsAPI"
 
+<<<<<<< HEAD
 export function AppSidebar({ user, notificationCounts = {}, ...props }) {
+=======
+export function AppSidebar({ user, ...props }) {
+>>>>>>> b3c1f6561d33742aa808c9c8b126f27dd7bca169
   const role = authStore((state) => state.role)
   const sessionUser = authStore((state) => state.user)
   const config = roleConfig[role]
   const { data: settings } = useFetchFirmSettings()
+  const {
+    data: clientBusiness,
+    isLoading: isClientBusinessLoading,
+    error: clientBusinessError,
+  } = useFetchMyBusiness(role === "client" ? sessionUser?.id : null)
   const [logoFailed, setLogoFailed] = useState(false)
   if (!config) return null
 
@@ -86,7 +96,16 @@ export function AppSidebar({ user, notificationCounts = {}, ...props }) {
         />
       </SidebarContent>
       <SidebarFooter className="border-t border-white/10 p-3  group-data-[collapsible=icon]:p-2 ">
-        <NavUser user={sidebarUser} />
+        <NavUser
+          user={sidebarUser}
+          subtitle={
+            role === "client" && !isClientBusinessLoading && !clientBusinessError
+              ? clientBusiness?.clientType === "retainer"
+                ? "Retainer"
+                : "Non-retainer"
+              : null
+          }
+        />
       </SidebarFooter >
       <SidebarRail />
     </Sidebar>

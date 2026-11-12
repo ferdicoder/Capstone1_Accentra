@@ -20,15 +20,9 @@ import {
 import { useCreateStandaloneEngagement, useFetchEngagements } from "@/hooks/useEngagements"
 import { useFetchBillings, useCreateBilling } from "@/hooks/useBillings"
 import { useFetchBusinesses } from "@/hooks/useBusinesses"
-import { useUnpaidBillsLookup } from "@/hooks/useUnpaidBillsLookup"
 import { authStore } from "@/store/authStore"
 import { can } from "@/config/roles"
 import { getOutstandingBills } from "@/lib/outstanding-bill"
-import { isLedBy } from "@/lib/engagement-lead"
-import { isEngagementActive } from "@/lib/workflow-stages"
-
-const STAFF_RESTRICTION_MESSAGE =
-  "You can only create engagements for Retainer clients you currently handle."
 
 export default function EngagementsPage() {
   const navigate = useNavigate()
@@ -39,11 +33,10 @@ export default function EngagementsPage() {
       ? "/firm"
       : "/admin"
   const role = authStore((state) => state.role)
-  const user = authStore((state) => state.user)
   const canManageEngagements = can(role, "manage_engagements")
+  const canCreateStandaloneEngagement = can(role, "create_standalone_engagement")
   const isBillingOfficer = role === "billing_officer"
   const isAdmin = role === "admin"
-  const isStaff = role === "staff"
 
   const { data: engagements = [], isLoading, error } = useFetchEngagements({
     includeTasks: canManageEngagements,
@@ -53,8 +46,6 @@ export default function EngagementsPage() {
   const { data: billings = [] } = useFetchBillings({ enabled: isBillingOfficer || isAdmin })
   const { data: clients = [] } = useFetchBusinesses({ enabled: isBillingOfficer })
   const createBilling = useCreateBilling()
-  // Firm Staff has no billing access: unpaid bills come from a read-only lookup.
-  const lookupUnpaidBills = useUnpaidBillsLookup()
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -81,25 +72,6 @@ export default function EngagementsPage() {
       ),
     [billings]
   )
-
-  // Staff may only create engagements for Retainer clients they currently
-  // handle: clients for whom they lead an active engagement. Derived from the
-  // engagements already loaded. VERIFY: engagement.client.id equals the client
-  // id the create dialog returns (values.client.id).
-  const handledRetainerClientIds = useMemo(() => {
-    if (!isStaff) return new Set()
-    return new Set(
-      engagements
-        .filter(
-          (engagement) =>
-            isEngagementActive(engagement.status) &&
-            isLedBy(engagement, user?.id) &&
-            engagement.business?.clientType === "retainer"
-        )
-        .map((engagement) => engagement.client?.id ?? engagement.clientId)
-        .filter(Boolean)
-    )
-  }, [isStaff, engagements, user?.id])
 
   const statusOptions = useMemo(
     () =>
@@ -211,23 +183,17 @@ export default function EngagementsPage() {
   // Standalone engagements (no service request). The dialog returns the client
   // (owner) id as values.client.id.
   const handleNewEngagementSubmit = async (values) => {
+    if (!canCreateStandaloneEngagement) return
+
     const clientId = values.client?.id
 
-    // Staff: only Retainer clients they currently handle. The backend must
-    // enforce this too.
-    if (isStaff && !(clientId && handledRetainerClientIds.has(clientId))) {
-      setFormError(STAFF_RESTRICTION_MESSAGE)
-      return
-    }
     setFormError("")
 
     // Unpaid bills warn and ask, they do not block here (payment terms can be
     // arranged outside the system). Creating an engagement FROM a service request
     // is blocked instead, on the Service Requests page.
     const bills = clientId
-      ? isStaff
-        ? await lookupUnpaidBills(clientId)
-        : getOutstandingBills(billings, clientId)
+      ? getOutstandingBills(billings, clientId)
       : []
     if (bills.length > 0) {
       setNewEngagementOpen(false) // reopened on cancel; the form keeps its values
@@ -294,7 +260,7 @@ export default function EngagementsPage() {
         }}
         dateSortOptions={dateSortOptions}
         resultCount={`${filteredEngagements.length} of ${allEngagements.length} engagements`}
-        actions={canManageEngagements && (
+        actions={canCreateStandaloneEngagement && (
           <Button
             type="button"
             size="sm"
@@ -333,7 +299,7 @@ export default function EngagementsPage() {
         onPageChange={setCurrentPage}
       />
 
-      {canManageEngagements && (
+      {canCreateStandaloneEngagement && (
         <>
           <CreateEngagementDialog
             open={newEngagementOpen}

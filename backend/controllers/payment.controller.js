@@ -37,6 +37,7 @@ export async function submitPayment(req, res) {
         billing_id: billingId,
         amount: billing.total_amount,
         payment_method: paymentMethod,
+        paid_at: new Date().toISOString(),
       })
       .select()
       .single();

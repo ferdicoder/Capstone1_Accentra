@@ -484,9 +484,9 @@ export default function BillingOfficerCalendarPage() {
     setTimeout(() => setNotice(""), 3000)
   }
 
-  const handleConfirmVerification = (paymentMethod) => {
+  const handleConfirmVerification = (_paymentMethod, referenceId) => {
     const billing = verifyingEvent?.billing
-    if (!billing || !paymentMethod) return
+    if (!billing || !_paymentMethod) return
 
     const payment = getPendingPayment(billing)
     if (!payment) {
@@ -499,6 +499,7 @@ export default function BillingOfficerCalendarPage() {
         paymentId: payment.payment_id,
         billingId: billing.id,
         status: "verified",
+        referenceId,
       },
       {
         onSuccess: () => {

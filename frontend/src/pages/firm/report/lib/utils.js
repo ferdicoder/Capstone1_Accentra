@@ -17,11 +17,11 @@ export function normalize(value) {
   return String(value ?? "").toLowerCase().replace(/[\s_-]+/g, " ").trim()
 }
 
-// Collapses the app's many bill statuses into the four the spec names.
-// Unpaid and For Verification stay separate; cancelled bills are Voided.
+// Collapses the app's many bill statuses into the report's status groups.
+// Unpaid and For Verification stay separate; cancelled bills remain Cancelled.
 export function paymentGroup(status) {
   const s = normalize(status)
-  if (["cancelled", "canceled", "voided", "void"].includes(s)) return "voided"
+  if (["cancelled", "canceled"].includes(s)) return "cancelled"
   if (["paid", "verified"].includes(s)) return "paid"
   if (["for verification", "under review"].includes(s)) return "for_verification"
   return "unpaid" // pending, overdue, for resubmission
@@ -30,9 +30,7 @@ export function paymentGroup(status) {
 export function methodGroup(method) {
   const m = normalize(method).replace(/ /g, "_")
   if (!m) return ""
-  if (m === "cash") return "cash"
-  if (m.startsWith("retainer")) return "retainer"
-  return "online" // gcash, bank_transfer
+  return m
 }
 export const methodLabel = (method) => {
   const key = normalize(method).replace(/ /g, "_")

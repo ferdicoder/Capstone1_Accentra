@@ -79,16 +79,19 @@ function getBillingForDisplay({ billing, engagements, clients }) {
     client?.businessName || engagement?.business?.businessName
 
   if (!person && !businessName) {
-    return { title: "Unknown business", subtitle: null }
+    return { title: "Unknown client", subtitle: null }
   }
 
   const personName = person
     ? `${person.firstName ?? ""} ${person.lastName ?? ""}`.trim()
     : ""
 
+  const title = personName || businessName || "Unnamed client"
+
   return {
-    title: businessName || "Unnamed business",
-    subtitle: personName || null,
+    title,
+    // Only show the business line when there is a person name above it
+    subtitle: personName && businessName ? businessName : null,
   }
 }
 

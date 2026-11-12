@@ -76,7 +76,7 @@ export const DEFAULT_CLIENT_TYPE = "non_retainer"
 
 export const clientTypeOptions = [
   { value: "retainer", label: "Retainer" },
-  { value: "non_retainer", label: "Non-retainer" },
+  { value: "non_retainer", label: "Non Retainer" },
 ]
 
 export const clientTypeLabels = Object.fromEntries(

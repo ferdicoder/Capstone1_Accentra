@@ -63,12 +63,12 @@ export function useReportData(f) {
   )
 
   // --- Billing status per engagement (NEW) ----------------------------------
-  // A voided bill releases its engagement, so voided bills are ignored here.
+  // A cancelled bill releases its engagement, so cancelled bills are ignored here.
   const billingGroupByEngagement = useMemo(() => {
     const map = new Map()
     billings.forEach((b) => {
       const group = paymentGroup(b.status)
-      if (group === "voided") return
+      if (group === "cancelled") return
       F.billing.engagementIds(b).forEach((id) => map.set(id, group))
     })
     return map
@@ -104,7 +104,6 @@ export function useReportData(f) {
           status: e.status,
           billing,
           createdAt: F.engagement.createdAt(e),
-          completedAt: F.engagement.completedAt(e),
         }
       }),
     [engagements, usersById, billingGroupByEngagement]
@@ -123,6 +122,7 @@ export function useReportData(f) {
         return {
           b,
           id: b.id,
+          billingCode: b.billingCode,
           clientId: client?.id ?? null,
           clientName:
             (client && clientDisplayName(client)) ||
@@ -134,7 +134,7 @@ export function useReportData(f) {
           date: F.billing.date(b),
           period: year && month ? `${year}-${pad(month)}` : "",
           method: F.billing.method(b),
-          verifiedAt: F.billing.verifiedAt(b),
+          paidAt: F.billing.paidAt(b),
         }
       }),
     [billings, engagementsById, clientsById]
@@ -184,7 +184,6 @@ export function useReportData(f) {
         .filter(
           (r) =>
             inRange(r.createdAt, f.engagements.created) &&
-            inRange(r.completedAt, f.engagements.completed) &&
             (f.engagements.status === ALL || r.status === f.engagements.status) &&
             (f.engagements.billing === ALL || r.billing === f.engagements.billing) &&
             (f.engagements.service === ALL || r.service === f.engagements.service) &&
@@ -235,18 +234,18 @@ export function useReportData(f) {
     [billingRows, f.billing]
   )
   const billingSummary = useMemo(() => {
-    const active = billingResult.filter((r) => r.group !== "voided")
+    const active = billingResult.filter((r) => r.group !== "cancelled")
     const total = active.reduce((sum, r) => sum + r.amount, 0)
     const count = (group) => billingResult.filter((r) => r.group === group).length
-    // Billed totals are not revenue; voided bills are left out of them.
+    // Billed totals are not revenue; cancelled bills are left out of them.
     // Unpaid and For Verification are never counted as paid.
     return [
       { label: "Total Billings", value: billingResult.length },
       { label: "Paid", value: count("paid") },
       { label: "Unpaid", value: count("unpaid") },
       { label: "For Verification", value: count("for_verification") },
-      { label: "Voided", value: count("voided") },
-      { label: "Total Billed (excl. voided)", value: formatCurrency(total), csv: total.toFixed(2) },
+      { label: "Cancelled", value: count("cancelled") },
+      { label: "Total Billed (excl. cancelled)", value: formatCurrency(total), csv: total.toFixed(2) },
     ]
   }, [billingResult])
 

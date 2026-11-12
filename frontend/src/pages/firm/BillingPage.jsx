@@ -22,6 +22,7 @@ export default function BillingPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
+  const [summaryMonth, setSummaryMonth] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
   const [verifying, setVerifying] = useState(null)
@@ -119,7 +120,10 @@ export default function BillingPage() {
     clients,
   ])
 
-  const summaryItems = useMemo(() => buildBillingSummaryItems(billings), [billings])
+  const summaryItems = useMemo(
+    () => buildBillingSummaryItems(billings, summaryMonth),
+    [billings, summaryMonth]
+  )
 
   const showNotice = (message) => {
     setNotice(message)
@@ -136,11 +140,11 @@ export default function BillingPage() {
     setCreateOpen(open)
   }
 
-  const handleConfirmVerification = () => {
+  const handleConfirmVerification = (_paymentMethod, referenceId) => {
     if (!verifying) return
     const paymentId = verifying.payment_id ?? verifying.payments?.[0]?.payment_id
     if (!paymentId) return showNotice("No payment was found for this billing.")
-    updatePayment.mutate({ paymentId, billingId: verifying.id, status: "verified" }, {
+    updatePayment.mutate({ paymentId, billingId: verifying.id, status: "verified", referenceId }, {
       onSuccess: () => { showNotice(`${billingDisplayId(verifying)} payment verified`); setVerifying(null) },
       onError: (err) => showNotice(err.message),
     })
@@ -187,7 +191,11 @@ export default function BillingPage() {
 
           {isLoading && <p className="text-sm text-muted-foreground">Loading billing records…</p>}
           {error && <p className="text-sm text-destructive">{error.message}</p>}
-          <BillingSummaryCards items={summaryItems} />
+          <BillingSummaryCards
+            items={summaryItems}
+            monthValue={summaryMonth}
+            onMonthChange={setSummaryMonth}
+          />
 
           <BillingToolbar
             searchValue={search}

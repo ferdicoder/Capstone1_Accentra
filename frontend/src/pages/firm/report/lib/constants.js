@@ -19,9 +19,11 @@ export const COVERAGE_OPTIONS = [
   { value: "billable", label: "Billable" },
   { value: "retainer_covered", label: "Retainer-covered" },
 ]
-// NEW: derived from engagements.invoice_id + the linked bill's status.
-// A voided bill releases its engagement, so it counts as "unbilled" again.
+// Derived from engagement status and linked bill status.
+// A cancelled bill releases its engagement, so it counts as "unbilled" again.
 export const ENGAGEMENT_BILLING_OPTIONS = [
+  { value: "not_ready", label: "Not yet billable" },
+  { value: "not_billable", label: "Not billable" },
   { value: "unbilled", label: "Unbilled" },
   { value: "unpaid", label: "Unpaid" },
   { value: "for_verification", label: "For Verification" },
@@ -35,16 +37,16 @@ export const PAYMENT_STATUS_OPTIONS = [
   { value: "paid", label: "Paid" },
   { value: "unpaid", label: "Unpaid" },
   { value: "for_verification", label: "For Verification" },
-  { value: "voided", label: "Voided" },
+  { value: "cancelled", label: "Cancelled" },
 ]
 export const PAYMENT_METHOD_OPTIONS = [
   { value: "cash", label: "Cash" },
-  { value: "online", label: "GCash / Bank Transfer" },
-  { value: "retainer", label: "Retainer" },
+  { value: "gcash", label: "GCash" },
+  { value: "bank_transfer", label: "Bank Transfer" },
 ]
 
 export const PAYMENT_STATUS_LABELS = Object.fromEntries(PAYMENT_STATUS_OPTIONS.map((o) => [o.value, o.label]))
-export const METHOD_LABELS = { cash: "Cash", gcash: "GCash", bank_transfer: "Bank Transfer", retainer: "Retainer" }
+export const METHOD_LABELS = { cash: "Cash", gcash: "GCash", bank_transfer: "Bank Transfer" }
 
 // 3 operational reports. Kept as CATEGORIES so any other file importing it
 // (and the tab tooltip) keeps working.
@@ -57,7 +59,6 @@ export const CATEGORIES = [
 export const INITIAL_FILTERS = {
   engagements: {
     created: EMPTY_RANGE,
-    completed: EMPTY_RANGE,
     status: ALL,
     billing: ALL, // NEW
     service: ALL,
