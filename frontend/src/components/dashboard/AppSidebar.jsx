@@ -18,13 +18,19 @@ import { NavUser } from "@/components/dashboard/NavUser"
 import { roleConfig } from "@/components/dashboard/NavData"
 import { authStore } from "@/store/authStore"
 import { useFetchFirmSettings } from "@/hooks/useFirmSettings"
+import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { firmLogoUrl } from "@/services/api/firmSettingsAPI"
 
-export function AppSidebar({  user, ...props }) {
+export function AppSidebar({ user, ...props }) {
   const role = authStore((state) => state.role)
   const sessionUser = authStore((state) => state.user)
   const config = roleConfig[role]
   const { data: settings } = useFetchFirmSettings()
+  const {
+    data: clientBusiness,
+    isLoading: isClientBusinessLoading,
+    error: clientBusinessError,
+  } = useFetchMyBusiness(role === "client" ? sessionUser?.id : null)
   const [logoFailed, setLogoFailed] = useState(false)
   if (!config) return null
 
@@ -82,7 +88,16 @@ export function AppSidebar({  user, ...props }) {
         <NavMain label={config.label} items={config.nav} />
       </SidebarContent>
       <SidebarFooter className="border-t border-white/10 p-3  group-data-[collapsible=icon]:p-2 ">
-        <NavUser user={sidebarUser} />
+        <NavUser
+          user={sidebarUser}
+          subtitle={
+            role === "client" && !isClientBusinessLoading && !clientBusinessError
+              ? clientBusiness?.clientType === "retainer"
+                ? "Retainer"
+                : "Non-retainer"
+              : null
+          }
+        />
       </SidebarFooter >
       <SidebarRail />
     </Sidebar>
