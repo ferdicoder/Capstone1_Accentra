@@ -34,6 +34,7 @@ export function LandingNav({ onSignIn, sectionPrefix = "", showLinks }) {
     pathname.startsWith("/admin") ||
     pathname.startsWith("/billing-officer")
 
+  const authActionsVisible = !isFirmSide
   const linksVisible =
     showLinks ?? (!isFirmSide && (!role || role === CLIENT_ROLE))
 
@@ -126,41 +127,49 @@ export function LandingNav({ onSignIn, sectionPrefix = "", showLinks }) {
             <div className="hidden lg:block" aria-hidden="true" />
           )}
 
-          <div className="hidden items-center gap-4 justify-self-end lg:flex">
-            <button
-              type="button"
-              onClick={onSignIn}
-              className={`${link} cursor-pointer font-medium`}
-            >
-              Sign in
-            </button>
-            <Link
-              to="/client/signup"
-              className="rounded-md bg-white px-4 py-2 text-[0.875rem] font-semibold text-[#02353C] transition-colors hover:bg-[#E6F7EF] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#6EE7B7]"
-            >
-              Create account
-            </Link>
-          </div>
+          {isFirmSide ? (
+            <div className="justify-self-end text-sm font-semibold tracking-wide text-white">
+              Firm Portal
+            </div>
+          ) : authActionsVisible && (
+            <div className="hidden items-center gap-4 justify-self-end lg:flex">
+              <button
+                type="button"
+                onClick={onSignIn}
+                className={`${link} cursor-pointer font-medium`}
+              >
+                Sign in
+              </button>
+              <Link
+                to="/client/signup"
+                className="rounded-md bg-white px-4 py-2 text-[0.875rem] font-semibold text-[#02353C] transition-colors hover:bg-[#E6F7EF] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#6EE7B7]"
+              >
+                Create account
+              </Link>
+            </div>
+          )}
 
-          <button
-            ref={menuButtonRef}
-            type="button"
-            className="cursor-pointer justify-self-end rounded-lg p-2 text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#6EE7B7] lg:hidden"
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={menuOpen}
-            aria-controls="landing-mobile-menu"
-            onClick={() => setMenuOpen((o) => !o)}
-          >
-            {menuOpen ? (
-              <X className="size-5" aria-hidden="true" />
-            ) : (
-              <Menu className="size-5" aria-hidden="true" />
-            )}
-          </button>
+          {(linksVisible || authActionsVisible) && (
+            <button
+              ref={menuButtonRef}
+              type="button"
+              className="cursor-pointer justify-self-end rounded-lg p-2 text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#6EE7B7] lg:hidden"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              aria-controls="landing-mobile-menu"
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              {menuOpen ? (
+                <X className="size-5" aria-hidden="true" />
+              ) : (
+                <Menu className="size-5" aria-hidden="true" />
+              )}
+            </button>
+          )}
         </div>
       </nav>
 
-      {menuOpen && (
+      {menuOpen && (linksVisible || authActionsVisible) && (
         <div
           id="landing-mobile-menu"
           className="landing-menu-in border-b border-white/10 bg-[#062c31] lg:hidden"
@@ -184,25 +193,27 @@ export function LandingNav({ onSignIn, sectionPrefix = "", showLinks }) {
                   </a>
                 )
               })}
-            <div className={`flex gap-3 ${linksVisible ? "pt-2" : ""}`}>
-              <button
-                type="button"
-                onClick={() => {
-                  closeMenu()
-                  onSignIn()
-                }}
-                className="cursor-pointer rounded-md border border-white/25 px-4 py-2 text-sm font-medium text-white"
-              >
-                Sign in
-              </button>
-              <Link
-                to="/client/signup"
-                onClick={closeMenu}
-                className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-[#02353C] transition-colors hover:bg-[#E6F7EF]"
-              >
-                Create account
-              </Link>
-            </div>
+            {authActionsVisible && (
+              <div className={`flex gap-3 ${linksVisible ? "pt-2" : ""}`}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeMenu()
+                    onSignIn()
+                  }}
+                  className="cursor-pointer rounded-md border border-white/25 px-4 py-2 text-sm font-medium text-white"
+                >
+                  Sign in
+                </button>
+                <Link
+                  to="/client/signup"
+                  onClick={closeMenu}
+                  className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-[#02353C] transition-colors hover:bg-[#E6F7EF]"
+                >
+                  Create account
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}

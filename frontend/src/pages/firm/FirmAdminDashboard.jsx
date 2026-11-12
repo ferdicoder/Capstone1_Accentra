@@ -9,7 +9,6 @@ import {
   MoreLink,
   Panel,
   StatCard,
-  focusRing,
 } from "@/components/shared/dashboard"
 // Reused as-is from the Engagements page.
 import { CreateBillingDialog } from "@/components/firm/billing/create-billing-dialog"
@@ -21,7 +20,6 @@ import { useFetchBillings, useCreateBilling } from "@/hooks/useBillings"
 import { useFetchBusinesses } from "@/hooks/useBusinesses"
 import { useFetchRecentActivity } from "@/hooks/UseRecentActivity"
 import { authStore } from "@/store/authStore"
-import { cn } from "@/lib/utils"
 import { describeActivity } from "@/lib/activity-log"
 import { classifyInvoice, getReadyToBill } from "@/lib/billing-status"
 import { buildOutstandingClientSet } from "@/lib/outstanding-bill"
@@ -37,10 +35,11 @@ const ROUTES = {
   client: (id) => `${BASE}/clients/${id}`,
 }
 
-// Rows shown per section on the dashboard. "View all" goes to the full page.
-const MAX_ROWS = 4
+// Maximum records shown in each action list card.
+const MAX_ROWS = 3
 const MAX_ACTIVITY = 10
 const DUE_SOON_DAYS = 7
+const ACTION_PANEL_HEIGHT = "h-[23rem] sm:h-[26rem]"
 
 // ---------------------------------------------------------------------------
 // FIELD MAP: the only place that knows API field names. Names marked VERIFY
@@ -151,7 +150,6 @@ export default function FirmAdminDashboard() {
   const [billDialogOpen, setBillDialogOpen] = useState(false)
   const [billClientId, setBillClientId] = useState("")
   const [notice, setNotice] = useState("")
-  const [showAllClients, setShowAllClients] = useState(false)
 
   usePageMeta({
     title: "Dashboard",
@@ -348,10 +346,6 @@ export default function FirmAdminDashboard() {
     month: "long",
     day: "numeric",
   })
-  const visibleClients = showAllClients
-    ? retainerReview
-    : retainerReview.slice(0, MAX_ROWS)
-
   return (
     <div className="flex flex-1 flex-col gap-6 px-2 py-4 sm:px-4 lg:px-6">
       {/* Header */}
@@ -434,13 +428,14 @@ export default function FirmAdminDashboard() {
       </div>
 
       {/* Requests awaiting review (left) + Engagement deadlines (right) */}
-      <div className="grid items-start gap-6 lg:grid-cols-2">
+      <div className="grid items-stretch gap-6 lg:grid-cols-2">
         <Panel
           title="Requests Awaiting Review"
           description="Oldest first."
           count={requestsError ? undefined : pendingRequests.length}
           to={ROUTES.requests}
           showLinkIcon={false}
+          className={ACTION_PANEL_HEIGHT}
         >
           {requestsError ? (
             <InlineError showIcon={false} />
@@ -449,7 +444,7 @@ export default function FirmAdminDashboard() {
               New client requests will appear here.
             </EmptyState>
           ) : (
-            <ul className="flex flex-col gap-3 p-4">
+            <ul className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
               {pendingRequests.slice(0, MAX_ROWS).map((request) => {
                 const created = parseDate(F.request.createdAt(request))
                 const days = created
@@ -481,6 +476,7 @@ export default function FirmAdminDashboard() {
           count={engagementsError ? undefined : dueSoon.length}
           to={ROUTES.engagements}
           showLinkIcon={false}
+          className={ACTION_PANEL_HEIGHT}
         >
           {engagementsError ? (
             <InlineError showIcon={false} />
@@ -489,7 +485,7 @@ export default function FirmAdminDashboard() {
               Active engagements that are late or due this week appear here.
             </EmptyState>
           ) : (
-            <ul className="flex flex-col gap-3 p-4">
+            <ul className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
               {dueSoon.slice(0, MAX_ROWS).map((engagement) => {
                 const due = parseDate(F.engagement.dueDate(engagement))
                 const late = due && due < today
@@ -523,6 +519,7 @@ export default function FirmAdminDashboard() {
         title="Retainer Clients"
         description={`Monthly review for ${monthLabel}.`}
         count={retainerError ? undefined : retainerReview.length}
+        className={ACTION_PANEL_HEIGHT}
       >
         {retainerError ? (
           <InlineError showIcon={false} />
@@ -531,8 +528,8 @@ export default function FirmAdminDashboard() {
             Clients converted to Retainer will appear here for the monthly review.
           </EmptyState>
         ) : (
-          <ul className="flex flex-col gap-3 p-4">
-            {visibleClients.map((row) => {
+          <ul className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+            {retainerReview.slice(0, MAX_ROWS).map((row) => {
               const last = formatShortDate(row.lastEngagement)
               const badge = feeBadges[row.feeKey]
               return (
@@ -564,20 +561,6 @@ export default function FirmAdminDashboard() {
             })}
           </ul>
         )}
-        {!retainerError && retainerReview.length > MAX_ROWS && (
-          <button
-            type="button"
-            onClick={() => setShowAllClients((value) => !value)}
-            className={cn(
-              "mt-auto flex items-center justify-center gap-1 border-t px-4 py-3 text-xs font-medium text-emerald-700 transition-colors hover:bg-muted/40",
-              focusRing
-            )}
-          >
-            {showAllClients
-              ? "Show fewer"
-              : `Show ${retainerReview.length - MAX_ROWS} more`}
-          </button>
-        )}
       </Panel>
 
       {/* Audit Logs */}
@@ -585,6 +568,7 @@ export default function FirmAdminDashboard() {
         title="Audit Logs"
         description="A record of who did what across the firm, newest first."
         count={activityQuery.error ? undefined : activity.length}
+        className={ACTION_PANEL_HEIGHT}
       >
         {activityQuery.error ? (
           <InlineError showIcon={false} />
@@ -593,7 +577,7 @@ export default function FirmAdminDashboard() {
             Actions on engagements, tasks, and billing will be recorded here.
           </EmptyState>
         ) : (
-          <ul className="flex max-h-[28rem] flex-col gap-3 overflow-y-auto p-4">
+          <ul className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
             {activity.slice(0, MAX_ACTIVITY).map((entry) => {
               const { title, description } = describeActivity(entry)
               const when = formatDateTime(entry.createdAt ?? entry.created_at)

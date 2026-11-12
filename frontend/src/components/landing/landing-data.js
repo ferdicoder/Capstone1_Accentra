@@ -54,12 +54,14 @@ export const features = [
     title: "Business Registration",
     description:
       "Reliable support with business registration and essential setup requirements.",
+    startingPrice: 1000,
     image: businessRegistrationImage,
   },
   {
     title: "Tax Filing",
     description:
       "Reliable support with tax filing and managing essential tax requirements.",
+    startingPrice: 2500,
     image: taxFilingImage,
   },
 ]

@@ -88,17 +88,17 @@ export function ServiceStatsCards({ services = [], className }) {
   return (
     <div
       data-slot="service-stats-cards"
-      className={cn("grid grid-cols-2 gap-4 lg:grid-cols-4", className)}
+      className={cn("grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4", className)}
     >
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="rounded-xl border border-border bg-card p-5 shadow-sm"
+          className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-5"
         >
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             {stat.label}
           </p>
-          <p className={cn("mt-1.5 text-3xl font-bold", stat.valueClassName)}>
+          <p className={cn("mt-1.5 text-2xl font-bold sm:text-3xl", stat.valueClassName)}>
             {stat.value}
           </p>
         </div>
@@ -196,6 +196,63 @@ function ServiceManagementRow({ service, columns = [], onRowClick, children, cla
   )
 }
 
+function ServiceManagementCard({ service, columns, onRowClick, actions }) {
+  const handleKeyDown = (event) => {
+    if (!onRowClick || (event.key !== "Enter" && event.key !== " ")) return
+    event.preventDefault()
+    onRowClick(service, event)
+  }
+
+  const content = (
+    <>
+      <p className="text-xs font-medium text-muted-foreground">
+        {columns[0]?.label ?? "Service"}
+      </p>
+      <div className="mt-1 min-w-0">
+        {columns[0]?.render ? columns[0].render(service) : service?.[columns[0]?.key]}
+      </div>
+      {columns.length > 1 && (
+        <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3">
+          {columns.slice(1).map((column) => (
+            <div key={column.key ?? column.label} className="min-w-0">
+              <dt className="text-xs text-muted-foreground">{column.label}</dt>
+              <dd className="mt-0.5 break-words text-sm">
+                {column.render ? column.render(service) : service?.[column.key] ?? "—"}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </>
+  )
+
+  return (
+    <li className="border-b border-border/60 last:border-b-0">
+      <div className="flex items-start gap-2 p-3 sm:p-4">
+        <div
+          role={onRowClick ? "button" : undefined}
+          aria-label={onRowClick ? `View ${service?.name ?? "service"} details` : undefined}
+          tabIndex={onRowClick ? 0 : undefined}
+          className={cn(
+            "min-w-0 flex-1 rounded-lg p-1",
+            onRowClick &&
+              "cursor-pointer text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/40"
+          )}
+          onClick={onRowClick ? (event) => onRowClick(service, event) : undefined}
+          onKeyDown={handleKeyDown}
+        >
+          {content}
+        </div>
+        {actions && (
+          <div className="shrink-0" onClick={(event) => event.stopPropagation()}>
+            {actions(service)}
+          </div>
+        )}
+      </div>
+    </li>
+  )
+}
+
 /** Presentational, data-driven service table. Receives everything through props. */
 export function ServiceManagementTable({
   services = [],
@@ -229,8 +286,48 @@ export function ServiceManagementTable({
         className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
         {...props}
       >
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+        <div className="md:hidden">
+          {loading ? (
+            <ul className="divide-y divide-border/60" aria-hidden="true">
+              {Array.from({ length: Math.min(skeletonRows, 4) }, (_, index) => (
+                <li key={`service-card-skeleton-${index}`} className="space-y-3 p-4">
+                  <Skeleton className="h-3.5 w-1/2" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Skeleton className="h-8" />
+                    <Skeleton className="h-8" />
+                    <Skeleton className="h-8" />
+                    <Skeleton className="h-8" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : isEmpty ? (
+            <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+              <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                <ClipboardList className="size-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium text-foreground">{emptyMessage}</p>
+              {emptyDescription && (
+                <p className="text-sm text-muted-foreground">{emptyDescription}</p>
+              )}
+            </div>
+          ) : (
+            <ul>
+              {paginatedServices.map((service, index) => (
+                <ServiceManagementCard
+                  key={getRowKey(service, (visiblePage - 1) * PAGE_SIZE + index)}
+                  service={service}
+                  columns={columns}
+                  onRowClick={onRowClick}
+                  actions={showActions ? actions : null}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto [contain:inline-size] md:block">
+          <table className="w-full min-w-[800px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
               {columns.map((column) => (
@@ -565,9 +662,7 @@ export function ServiceManagementToolbar({
         />
       </div>
 
-      {resultCount && (
-        <p className="hidden text-sm text-muted-foreground md:block">{resultCount}</p>
-      )}
+      {resultCount && <p className="text-xs text-muted-foreground sm:text-sm">{resultCount}</p>}
 
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
         {filters.map((filter) => (
@@ -631,6 +726,8 @@ export function ServiceManagementToolbar({
         {onAddService && (
           <Button
             size="sm"
+            aria-label={addServiceLabel}
+            title={addServiceLabel}
             className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
             onClick={onAddService}
           >
