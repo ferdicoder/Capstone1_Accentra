@@ -133,7 +133,7 @@ export function useReportData(f) {
           date: F.billing.date(b),
           period: year && month ? `${year}-${pad(month)}` : "",
           method: F.billing.method(b),
-          verifiedAt: F.billing.verifiedAt(b),
+          paidAt: F.billing.paidAt(b),
         }
       }),
     [billings, engagementsById, clientsById]

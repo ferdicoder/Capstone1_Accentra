@@ -1,5 +1,3 @@
-import { normalize } from "./utils"
-
 // ---------------------------------------------------------------------------
 // FIELD MAP: the only place that knows API field names. Names marked VERIFY
 // are guesses; change them here if your responses differ.
@@ -56,15 +54,15 @@ export const F = {
     engagementIds: (b) =>
       b.engagement_ids?.length ? b.engagement_ids : b.engagement_id ? [b.engagement_id] : [],
     payment: (b) =>
-      b.payments?.find((p) => normalize(p.status) === "verified") ?? b.payments?.[0] ?? null, // VERIFY
+      b.payments?.find((p) => p.verified_at) ??
+      b.payments?.find((p) => p.paid_at) ??
+      b.payments?.[0] ??
+      null,
     method: (b) => {
       const p = F.billing.payment(b)
       return b.payment_method || b.paymentMethod || p?.payment_method || p?.paymentMethod || p?.method || ""
     }, // VERIFY
-    verifiedAt: (b) => {
-      const p = F.billing.payment(b)
-      return p?.verified_at ?? p?.verifiedAt ?? b.payment_verified_at ?? null
-    }, // VERIFY
+    paidAt: (b) => F.billing.payment(b)?.paid_at ?? null,
     verifiedBy: (b) => {
       const p = F.billing.payment(b)
       return (

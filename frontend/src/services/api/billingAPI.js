@@ -3,11 +3,11 @@ import { apiBaseUrl } from "@/config/api"
 import { normalizeBillingStatus } from "@/components/firm/billing/billing-variants"
 
 const BILLING_SELECT = `
-  billing_id, billing_code, business_id, billing_type, total_amount, status, remark, due_date,
+  billing_id, billing_code, business_id, billing_type, total_amount, status, remark, due_date, created_at,
   billing_month, billing_year,
   billing_engagements(billing_id, engagement_id, amount, service_name, is_active),
   payments(
-    payment_id, billing_id, amount, payment_method, reference_id,
+    payment_id, billing_id, amount, payment_method, reference_id, paid_at, verified_at,
     payment_proofs(file_id, files(file_name, mime_type, file_size, created_at))
   )
 `
@@ -198,7 +198,10 @@ export async function createPayment({ billingId, amount, paymentMethod }) {
   const { data, error } = await supabase
     .from("payments")
     .insert({
-      billing_id: billingId, amount, payment_method: paymentMethod,
+      billing_id: billingId,
+      amount,
+      payment_method: paymentMethod,
+      paid_at: new Date().toISOString(),
     })
     .select()
     .single()
@@ -232,14 +235,22 @@ export async function updatePaymentStatus({
   referenceId,
 }) {
   let data = paymentId ? { payment_id: paymentId } : null
+  const paymentUpdate = {}
 
   if (paymentId && referenceId !== undefined) {
     const normalizedReferenceId = String(referenceId)
       .replace(/[^a-zA-Z0-9-]/g, "")
       .toUpperCase()
+    paymentUpdate.reference_id = normalizedReferenceId || null
+  }
+  if (status === "verified") {
+    paymentUpdate.verified_at = new Date().toISOString()
+  }
+
+  if (paymentId && Object.keys(paymentUpdate).length > 0) {
     const { data: updatedPayment, error } = await supabase
       .from("payments")
-      .update({ reference_id: normalizedReferenceId || null })
+      .update(paymentUpdate)
       .eq("payment_id", paymentId)
       .select()
       .single()

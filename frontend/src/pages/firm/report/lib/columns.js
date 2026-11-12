@@ -78,5 +78,5 @@ export const billingColumns = [
   { label: "Billing Month and Year", value: (r) => r.period },
   { label: "Billing Status", value: (r) => PAYMENT_STATUS_LABELS[r.group] },
   { label: "Payment Method", value: (r) => methodLabel(r.method) || (r.group === "paid" ? UNAVAILABLE : "") }, // NEW
-  { label: "Date Paid", value: (r) => (r.group === "paid" ? dateOrUnavailable(r.verifiedAt) : "") }, // NEW
+  { label: "Date Paid", value: (r) => (r.group === "paid" ? dateOrUnavailable(r.paidAt) : "") }, // NEW
 ]
