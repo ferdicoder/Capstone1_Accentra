@@ -35,10 +35,9 @@ export const engagementColumns = [
   { label: "Date Created", value: (r) => dateOrUnavailable(r.createdAt) },
 ]
 
-// Retainer Charge only applies to Retainer clients. Verify the field name
-// against your businesses payload (retainerCharge / retainer_charge).
+// Retainer Charge only applies to Retainer clients.
 const retainerCharge = (c) => {
-  const raw = c.retainerCharge ?? c.retainer_charge
+  const raw = c.retainerFee ?? c.retainerCharge ?? c.retainer_charge
   if (raw == null || F.client.type(c) !== "retainer") return null
   const n = Number(raw)
   return Number.isFinite(n) ? n : null
@@ -64,7 +63,6 @@ export const clientListColumns = [
   { label: "Active Engagements", value: (c) => c.activeEngagements ?? 0 }, // NEW
   { label: "Outstanding Bill", value: (c) => (c.hasOutstanding ? "Yes" : "No") }, // NEW
   { label: "Account Status", value: (c) => labelize(c.status) },
-  { label: "Registration Date", value: (c) => dateOrUnavailable(F.client.registeredAt(c)) },
 ]
 
 // Billing Report = old Billing Summary + Payment Monitoring merged.
