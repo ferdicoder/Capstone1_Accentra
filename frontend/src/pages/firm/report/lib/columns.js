@@ -43,8 +43,13 @@ const retainerCharge = (c) => {
   return Number.isFinite(n) ? n : null
 }
 
+const formatClientId = (id) => {
+  if (!id) return ""
+  return `CLIENT - ${String(id).slice(-4).toUpperCase()}`
+}
+
 export const clientListColumns = [
-  { label: "Client ID", value: (c) => F.client.id(c) },
+  { label: "Client ID", value: (c) => formatClientId(F.client.id(c)) },
   { label: "Client Name", value: (c) => F.client.name(c) },
   { label: "Email Address", value: (c) => F.client.email(c) },
   { label: "Business Name", value: (c) => F.client.businessName(c) },

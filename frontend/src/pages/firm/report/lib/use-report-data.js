@@ -122,6 +122,7 @@ export function useReportData(f) {
         return {
           b,
           id: b.id,
+          billingCode: b.billingCode,
           clientId: client?.id ?? null,
           clientName:
             (client && clientDisplayName(client)) ||
