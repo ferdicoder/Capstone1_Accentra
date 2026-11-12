@@ -194,7 +194,7 @@ function ReportsContent() {
         return (
           <ReportShell
             title="Billing Report"
-            description="Recorded bills, their statuses, and recorded payments. Unpaid and For Verification bills are never counted as paid. Billed totals leave out voided bills and are not revenue."
+            description="Recorded bills, their statuses, and recorded payments. Unpaid and For Verification bills are never counted as paid. Billed totals leave out cancelled bills and are not revenue."
             {...shellProps("billing")}
             invalid={Boolean(rangeError(f.billing.range))}
             rowCount={billingResult.length}

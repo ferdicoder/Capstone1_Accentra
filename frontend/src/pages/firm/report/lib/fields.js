@@ -59,7 +59,7 @@ export const F = {
       b.payments?.find((p) => normalize(p.status) === "verified") ?? b.payments?.[0] ?? null, // VERIFY
     method: (b) => {
       const p = F.billing.payment(b)
-      return p?.payment_method ?? p?.paymentMethod ?? p?.method ?? b.payment_method ?? b.paymentMethod ?? ""
+      return b.payment_method || b.paymentMethod || p?.payment_method || p?.paymentMethod || p?.method || ""
     }, // VERIFY
     verifiedAt: (b) => {
       const p = F.billing.payment(b)
