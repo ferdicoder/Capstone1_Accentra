@@ -153,7 +153,7 @@ export default function FirmAdminDashboard() {
 
   usePageMeta({
     title: "Dashboard",
-    breadcrumbs: [{ label: "Firm Admin", href: `${BASE}/dashboard` }],
+    breadcrumbs: [],
   })
 
   const firstName =

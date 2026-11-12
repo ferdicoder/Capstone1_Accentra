@@ -326,8 +326,8 @@ export default function FirmProfilePage() {
   }
 
   usePageMeta({
-    title: "Firm Profile",
-    breadcrumbs: [{ label: "Dashboard", href: "/admin/dashboard" }],
+    title: tabs.find((tab) => tab.key === activeTab)?.label ?? "Firm Information",
+    breadcrumbs: [{ label: "Account", href: "/admin/profile" }],
     hasUnreadNotifications: true,
   })
 
