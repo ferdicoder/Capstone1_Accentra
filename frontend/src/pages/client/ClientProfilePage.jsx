@@ -554,8 +554,8 @@ export default function ClientProfilePage() {
   }
 
   usePageMeta({
-    title: TABS.find((tab) => tab.id === activeTab)?.label ?? "Business Information",
-    breadcrumbs: [{ label: "Account", href: "/client/profile" }],
+    title: "My Profile",
+    breadcrumbs: [{ label: "Home", href: "/client/dashboard" }],
     hasUnreadNotifications: true,
   })
 

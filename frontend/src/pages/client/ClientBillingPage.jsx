@@ -56,7 +56,9 @@ export default function ClientBillingPage() {
 
   usePageMeta({
     title: "My Billing",
-    breadcrumbs: [],
+    breadcrumbs: [
+      { label: "Home", href: "/client/dashboard" },
+    ],
     hasUnreadNotifications: true,
     onRequestServiceClick: () =>
       navigate("/client/service-requests"),

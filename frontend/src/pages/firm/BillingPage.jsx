@@ -173,7 +173,10 @@ export default function BillingPage() {
 
   usePageMeta({
     title: "Billing",
-    breadcrumbs: [],
+    breadcrumbs: [
+      { label: "Firm Admin", href: "/admin/dashboard" },
+      { label: "Billing", href: "/admin/billing" },
+    ],
   })
 
   return (

@@ -23,7 +23,6 @@ import { useFetchBusinesses } from "@/hooks/useBusinesses"
 import { authStore } from "@/store/authStore"
 import { can } from "@/config/roles"
 import { getOutstandingBills } from "@/lib/outstanding-bill"
-import { getBilledEngagementIds } from "@/lib/billing-status"
 
 export default function EngagementsPage() {
   const navigate = useNavigate()
@@ -36,15 +35,16 @@ export default function EngagementsPage() {
   const role = authStore((state) => state.role)
   const canManageEngagements = can(role, "manage_engagements")
   const canCreateStandaloneEngagement = can(role, "create_standalone_engagement")
-  const canManageBilling = can(role, "manage_billing")
   const isBillingOfficer = role === "billing_officer"
+  const isAdmin = role === "admin"
 
   const { data: engagements = [], isLoading, error } = useFetchEngagements({
     includeTasks: canManageEngagements,
     status: isBillingOfficer ? "completed" : undefined,
   })
-  const { data: billings = [] } = useFetchBillings({ enabled: canManageBilling })
-  const { data: clients = [] } = useFetchBusinesses({ enabled: canManageBilling })
+  // Admin also needs billings, for the unpaid-bill warning on new engagements.
+  const { data: billings = [] } = useFetchBillings({ enabled: isBillingOfficer || isAdmin })
+  const { data: clients = [] } = useFetchBusinesses({ enabled: isBillingOfficer })
   const createBilling = useCreateBilling()
 
   const [search, setSearch] = useState("")
@@ -60,10 +60,16 @@ export default function EngagementsPage() {
   const [confirm, setConfirm] = useState(null) // { values, bills, clientName }
   const createEngagement = useCreateStandaloneEngagement()
 
-  // Engagements linked to active billings should not be offered for billing
-  // again; cancelled/refunded billings release them.
+  // Engagements referenced by an active billing should disappear from the
+  // billing officer's list (cancelled billings release them again). Cost is
+  // linear in the number of billing-engagement links — the input itself.
   const billedEngagementIds = useMemo(
-    () => getBilledEngagementIds(billings),
+    () =>
+      new Set(
+        billings
+          .filter((billing) => billing.status !== "cancelled")
+          .flatMap((billing) => billing.engagement_ids ?? [])
+      ),
     [billings]
   )
 
@@ -87,15 +93,6 @@ export default function EngagementsPage() {
         ? engagements.filter((engagement) => !billedEngagementIds.has(engagement.id))
         : engagements,
     [isBillingOfficer, engagements, billedEngagementIds]
-  )
-  const availableBillingEngagements = useMemo(
-    () =>
-      allEngagements.filter(
-        (engagement) =>
-          engagement.status === "completed" &&
-          !billedEngagementIds.has(engagement.id)
-      ),
-    [allEngagements, billedEngagementIds]
   )
   const clientTypeOptions = useMemo(
     () => [
@@ -285,23 +282,17 @@ export default function EngagementsPage() {
         onRowClick={!isBillingOfficer ? (engagement) => {
           navigate(`${basePath}/engagements/${engagement.id}`)
         } : undefined}
-        actions={
-          canManageBilling
-            ? (engagement) =>
-                engagement.status === "completed" &&
-                !billedEngagementIds.has(engagement.id) && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-9 w-full cursor-pointer gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90 sm:w-auto"
-                    onClick={() => setCreateBillingFor(engagement)}
-                  >
-                    <Plus className="size-4" />
-                    <span>Create Billing</span>
-                  </Button>
-                )
-            : undefined
-        }
+        actions={isBillingOfficer ? (engagement) => engagement.status === "completed" && (
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 w-full cursor-pointer gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90 sm:w-auto"
+            onClick={() => setCreateBillingFor(engagement)}
+          >
+            <Plus className="size-4" />
+            <span>Create Billing</span>
+          </Button>
+        ) : undefined}
         emptyMessage="No engagements match your filters."
         emptyDescription="Try clearing the search or changing the status filter."
         page={currentPage}
@@ -336,14 +327,14 @@ export default function EngagementsPage() {
         </>
       )}
 
-      {canManageBilling && (
+      {isBillingOfficer && (
         <CreateBillingDialog
           open={Boolean(createBillingFor)}
           onOpenChange={(open) => {
             if (!open) setCreateBillingFor(null)
           }}
           onSubmit={handleCreateBilling}
-          engagements={availableBillingEngagements}
+          engagements={allEngagements}
           clients={clients}
           billings={billings}
           submitting={createBilling.isPending}

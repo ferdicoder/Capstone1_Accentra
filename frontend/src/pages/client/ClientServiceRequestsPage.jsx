@@ -446,7 +446,7 @@ export default function ClientServiceRequestsPage() {
 
   usePageMeta({
     title: "Service Requests",
-    breadcrumbs: [],
+    breadcrumbs: [{ label: "Home", href: "/client/dashboard" }],
     hasUnreadNotifications: true,
   })
 
