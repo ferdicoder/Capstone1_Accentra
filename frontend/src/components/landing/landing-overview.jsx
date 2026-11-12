@@ -26,7 +26,7 @@ export function LandingOverview() {
           style={{ "--reveal-delay": "150ms" }}
           className="landing-reveal mt-8 grid gap-6 lg:grid-cols-2 lg:gap-8"
         >
-          {features.map(({ title, description, image }) => (
+          {features.map(({ title, description, startingPrice, image }) => (
             <li
               key={title}
               className="group overflow-hidden rounded-2xl border border-[#DCE9E5] bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-[#02353C]/10"
@@ -44,6 +44,9 @@ export function LandingOverview() {
                 <h3 className="text-lg font-semibold text-[#02353C]">{title}</h3>
                 <p className="mt-2 text-sm leading-6 text-[#3D5F5A]">
                   {description}
+                </p>
+                <p className="mt-3 text-sm font-semibold text-[#047857]">
+                  Starting price: ₱{startingPrice.toLocaleString("en-PH")}
                 </p>
               </div>
             </li>
