@@ -664,7 +664,7 @@ export default function ClientEngagementsPage() {
 
   usePageMeta({
     title: "Engagements",
-    breadcrumbs: [{ label: "Dashboard", href: "/client/dashboard" }],
+    breadcrumbs: [],
     hasUnreadNotifications: true,
   })
 
