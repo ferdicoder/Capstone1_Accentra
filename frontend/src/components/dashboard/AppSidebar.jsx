@@ -21,11 +21,7 @@ import { useFetchFirmSettings } from "@/hooks/useFirmSettings"
 import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { firmLogoUrl } from "@/services/api/firmSettingsAPI"
 
-<<<<<<< HEAD
 export function AppSidebar({ user, notificationCounts = {}, ...props }) {
-=======
-export function AppSidebar({ user, ...props }) {
->>>>>>> b3c1f6561d33742aa808c9c8b126f27dd7bca169
   const role = authStore((state) => state.role)
   const sessionUser = authStore((state) => state.user)
   const config = roleConfig[role]

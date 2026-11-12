@@ -8,6 +8,7 @@ import {
   Receipt,
   FileText,
   UserRoundCog,
+  CalendarDays,
 } from "lucide-react"
 
 export const firmAdminNav = [
@@ -34,17 +35,10 @@ export const firmUserNav = [
 
 export const clientNav = [
   { title: "Dashboard", url: "/client/dashboard", icon: LayoutDashboard, items: [] },
-<<<<<<< HEAD
   { title: "Service Requests", url: "/client/service-requests", icon: UserCog, items: [], notificationKey: "serviceRequests" },
   { title: "My Engagements", url: "/client/engagements", icon: Briefcase, items: [], notificationKey: "engagements" },
   { title: "Billing", url: "/client/billing", icon: Receipt, items: [], notificationKey: "billing" },
-  // NEW: Calendar button, links to the Client calendar page
-  { title: "Calendar", url: "/client/calendar", icon: CalendarDays, items: [] },
-=======
-  { title: "Service Requests", url: "/client/service-requests", icon: UserCog, items: [] },
-  { title: "My Engagements", url: "/client/engagements", icon: Briefcase, items: [] },
-  { title: "Billing", url: "/client/billing", icon: Receipt, items: [] },
->>>>>>> b3c1f6561d33742aa808c9c8b126f27dd7bca169
+  { title: "Calendar", url: "/client/billing-calendar", icon: CalendarDays, items: [] },
   { title: "Account", url: "/client/profile", icon: UserRoundCog, items: [] },
 ]
 
