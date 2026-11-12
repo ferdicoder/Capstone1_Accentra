@@ -109,7 +109,7 @@ export default function ClientDashboard() {
 
   usePageMeta({
     title: "Dashboard",
-    breadcrumbs: [{ label: "Client Portal", href: "/client/dashboard" }],
+    breadcrumbs: [],
     // TODO: drive this from useNotifications (unread count) instead of true.
     hasUnreadNotifications: true,
     // The request form lives on the Service Requests page.

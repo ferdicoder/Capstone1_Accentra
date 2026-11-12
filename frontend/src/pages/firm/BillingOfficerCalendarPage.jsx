@@ -444,7 +444,7 @@ export default function BillingOfficerCalendarPage() {
 
   usePageMeta({
     title: "Billing Calendar",
-    breadcrumbs: [{ label: "Billing Officer", href: `${BASE_PATH}/dashboard` }],
+    breadcrumbs: [{ label: "Dashboard", href: `${BASE_PATH}/dashboard` }],
   })
 
   const allEvents = useMemo(
