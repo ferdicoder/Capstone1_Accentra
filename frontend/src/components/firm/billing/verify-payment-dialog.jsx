@@ -12,6 +12,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
+function normalizeReferenceId(value) {
+  return value.replace(/[^a-zA-Z0-9-]/g, "").toUpperCase()
+}
+
 export function VerifyPaymentDialog({
   billing,
   open,
@@ -23,12 +27,14 @@ export function VerifyPaymentDialog({
   const [paymentMethod, setPaymentMethod] = useState(
     billing?.payment_method ?? ""
   )
+  const [referenceId, setReferenceId] = useState(billing?.reference_id ?? "")
 
   const [rejectOpen, setRejectOpen] = useState(false)
 
   const handleOpenChange = (nextOpen) => {
     if (!nextOpen) {
       setPaymentMethod(billing?.payment_method ?? "")
+      setReferenceId(billing?.reference_id ?? "")
       setRejectOpen(false)
     }
     onOpenChange?.(nextOpen)
@@ -47,7 +53,7 @@ export function VerifyPaymentDialog({
   const handleConfirm = () => {
     if (!canConfirm) return
 
-    onConfirm?.(paymentMethod)
+    onConfirm?.(paymentMethod, referenceId)
   }
 
   const handleReject = () => {
@@ -102,6 +108,28 @@ export function VerifyPaymentDialog({
                 <option value="maya">Maya</option>
                 <option value="cash">Cash</option>
               </select>
+            </div>
+
+            {/* Reference ID */}
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="payment-reference-id"
+                className="text-sm font-medium text-foreground"
+              >
+                Reference ID
+              </label>
+              <input
+                id="payment-reference-id"
+                type="text"
+                value={referenceId}
+                onChange={(event) =>
+                  setReferenceId(normalizeReferenceId(event.target.value))
+                }
+                disabled={submitting}
+                placeholder="Enter payment reference ID"
+                maxLength={255}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              />
             </div>
 
             {/* Payment Proof */}

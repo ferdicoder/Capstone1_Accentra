@@ -40,6 +40,12 @@ function Section({ title, action, children }) {
   )
 }
 
+function maskReferenceId(referenceId) {
+  if (!referenceId) return null
+  if (referenceId.length <= 4) return referenceId
+  return `${"*".repeat(referenceId.length - 4)}${referenceId.slice(-4)}`
+}
+
 const paymentStatusDisplay = {
   "for verification": {
     label: "For Verification",
@@ -212,6 +218,14 @@ export function BillingDetailContent({
               ) : (
                 <span className="font-normal text-muted-foreground">
                   Not yet selected
+                </span>
+              )}
+            </Field>
+
+            <Field label="Reference ID">
+              {maskReferenceId(billing.reference_id) || (
+                <span className="font-normal text-muted-foreground">
+                  Not provided
                 </span>
               )}
             </Field>
