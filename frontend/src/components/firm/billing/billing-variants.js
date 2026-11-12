@@ -88,9 +88,14 @@ export const statusDotStyles = {
   refunded: "bg-muted-foreground",
 }
 
-export const billingStatusFilterOptions = Object.entries(billingStatusLabels).map(
-  ([value, label]) => ({ value, label })
-)
+export const billingStatusFilterOptions = [
+  "pending",
+  "for verification",
+  "for resubmission",
+  "paid",
+  "overdue",
+  "cancelled",
+].map((value) => ({ value, label: billingStatusLabels[value] }))
 
 export const billingStatusChangeOptions = ["pending", "for verification", "for resubmission", "paid", "cancelled"].map(
   (value) => ({ value, label: billingStatusLabels[value] })
