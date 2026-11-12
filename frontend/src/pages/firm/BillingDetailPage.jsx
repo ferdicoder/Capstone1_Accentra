@@ -155,7 +155,7 @@ export default function BillingDetailPage() {
     )
   }
 
-  const handleConfirmVerification = (paymentMethod) => {
+  const handleConfirmVerification = (paymentMethod, referenceId) => {
     if (!billing || !paymentMethod) return
 
     const paymentId = billing.payment_id ?? billing.payments?.[0]?.payment_id
@@ -163,7 +163,7 @@ export default function BillingDetailPage() {
       setVerifyOpen(false)
       return showNotice("No payment has been submitted for this billing yet.")
     }
-    updatePayment.mutate({ paymentId, billingId: billing.id, status: "verified" }, {
+    updatePayment.mutate({ paymentId, billingId: billing.id, status: "verified", referenceId }, {
       onSuccess: () => { setNotice(`${billingDisplayId(billing)} payment verified`); setVerifyOpen(false); setTimeout(() => setNotice(""), 3000) },
       onError: (err) => showNotice(err.message),
     })

@@ -140,11 +140,11 @@ export default function BillingPage() {
     setCreateOpen(open)
   }
 
-  const handleConfirmVerification = () => {
+  const handleConfirmVerification = (_paymentMethod, referenceId) => {
     if (!verifying) return
     const paymentId = verifying.payment_id ?? verifying.payments?.[0]?.payment_id
     if (!paymentId) return showNotice("No payment was found for this billing.")
-    updatePayment.mutate({ paymentId, billingId: verifying.id, status: "verified" }, {
+    updatePayment.mutate({ paymentId, billingId: verifying.id, status: "verified", referenceId }, {
       onSuccess: () => { showNotice(`${billingDisplayId(verifying)} payment verified`); setVerifying(null) },
       onError: (err) => showNotice(err.message),
     })
