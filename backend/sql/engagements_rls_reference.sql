@@ -279,14 +279,14 @@ WITH CHECK (
 -- create_standalone_engagement RPCs. If those are SECURITY INVOKER
 -- (discovery 0e), this policy is what authorizes the caller; if they are
 -- DEFINER, it is belt-and-suspenders. Scope matches the UI: admin-only
--- for create-from-request, admin+staff for standalone; billing_officer
+-- for create-from-request and standalone, admin-only; billing_officer
 -- excluded (canManageEngagements). No direct .insert() exists in code.
-CREATE POLICY engagements_insert_admin_or_staff
+CREATE POLICY engagements_insert_admin_only
 ON public.engagements FOR INSERT
 TO authenticated
 WITH CHECK (
   public.is_active_user()
-  AND (public.has_role('admin') OR public.has_role('staff'))
+  AND public.has_role('admin')
 );
 
 -- engagements: no browser-side deletes (none exist in the repo).
