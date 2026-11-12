@@ -23,10 +23,13 @@ export function buildBillingSummaryItems(billings = []) {
   const unpaidStatuses = new Set(["pending", "overdue", "for verification", "for resubmission"])
   const pending = active.filter((b) => unpaidStatuses.has(normalizeBillingStatus(b.status)))
   const paid = active.filter((b) => normalizeBillingStatus(b.status) === "paid")
+  const cancelledStatuses = new Set(["cancelled", "voided", "void"])
+  const cancelled = billings.filter((b) => cancelledStatuses.has(normalizeBillingStatus(b.status)))
 
   return [
     { label: "Total Billing", value: formatPeso(sum(active)), hint: `${active.length} record${active.length === 1 ? "" : "s"}`, toneColor: "#02353C" },
     { label: "Pending Payment", value: formatPeso(sum(pending)), hint: `${pending.length} record${pending.length === 1 ? "" : "s"}`, toneColor: "#3B82F6" },
     { label: "Paid", value: formatPeso(sum(paid)), hint: `${paid.length} record${paid.length === 1 ? "" : "s"}`, toneColor: "#10B981" },
+    { label: "Cancelled Bills", value: cancelled.length, hint: `${cancelled.length} record${cancelled.length === 1 ? "" : "s"}`, toneColor: "#6B7280" },
   ]
 }
