@@ -394,13 +394,8 @@ export default function StaffProfilePage() {
   }, [isOwnProfile, authUser, authRole, staffUser, myProfile])
 
   usePageMeta({
-    title: isOwnProfile ? "My Settings" : "Staff Profile",
-    breadcrumbs: isOwnProfile
-      ? [{
-          label: "Dashboard",
-          href: authRole === "billing_officer" ? "/billing-officer/dashboard" : "/firm/dashboard",
-        }]
-      : [{ label: "Teams", href: "/admin/users" }],
+    title: isOwnProfile ? "My Account" : "Staff Profile",
+    breadcrumbs: isOwnProfile ? [] : [{ label: "Teams", href: "/admin/users" }],
     hasUnreadNotifications: true,
   })
 
