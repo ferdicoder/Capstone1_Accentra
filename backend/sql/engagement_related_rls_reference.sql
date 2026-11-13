@@ -8,11 +8,13 @@
 --
 -- Access matrix:
 --   engagement_deliverables SELECT
---       active firm users, and clients who own the engagement's business.
+--       admins/billing officers, assigned staff, and clients who own the
+--       engagement's business.
 --       INSERT/UPDATE/DELETE are backend-owned because file metadata and
 --       bytes are written through the authenticated Express backend.
 --   engagement_activity SELECT
---       active firm users, and clients who own the engagement's business.
+--       admins/billing officers, assigned staff, and clients who own the
+--       engagement's business.
 --       INSERT assigned staff/admin only, and only as themselves. The
 --       frontend logs task/status changes after the corresponding write.
 --       Trigger-generated activity uses SECURITY DEFINER functions.
@@ -256,7 +258,17 @@ TO authenticated
 USING (
   public.is_active_user()
   AND (
-    public.is_firm_user()
+    public.has_role('admin')
+    OR public.has_role('billing_officer')
+    OR (
+      public.has_role('staff')
+      AND EXISTS (
+        SELECT 1
+        FROM public.engagements
+        WHERE engagement_id = engagement_deliverables.engagement_id
+          AND assigned_staff = auth.uid()
+      )
+    )
     OR public.is_my_engagement(engagement_id)
   )
 );
@@ -273,7 +285,17 @@ TO authenticated
 USING (
   public.is_active_user()
   AND (
-    public.is_firm_user()
+    public.has_role('admin')
+    OR public.has_role('billing_officer')
+    OR (
+      public.has_role('staff')
+      AND EXISTS (
+        SELECT 1
+        FROM public.engagements
+        WHERE engagement_id = engagement_activity.engagement_id
+          AND assigned_staff = auth.uid()
+      )
+    )
     OR public.is_my_engagement(engagement_id)
   )
 );
