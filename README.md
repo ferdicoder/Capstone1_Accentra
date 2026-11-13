@@ -162,8 +162,9 @@ modules. The Express API is intentionally limited to privileged account
 operations, service RPCs, Backblaze B2 file operations, payments, and firm
 settings.
 
-## Architecture
 
+
+## Architecture
 ```text
 React + Vite frontend
         |
@@ -172,6 +173,9 @@ React + Vite frontend
         v
 Supabase Auth / PostgreSQL       Backblaze B2 object storage
 ```
+
+### Entity Relationship Diagram
+<img width="875" height="964" alt="image" src="https://github.com/user-attachments/assets/910f49cf-89aa-4948-be6a-44061169441b" />
 
 ### Frontend
 
