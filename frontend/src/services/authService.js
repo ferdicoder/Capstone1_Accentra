@@ -40,9 +40,10 @@ async function signinUser(email, password){
 /**
  * Number of digits in the recovery code that is emailed to the account owner.
  *
- * Matches the length used by the password recovery flow.
+ * Supabase Auth's "Email OTP Length" setting applies to every OTP email the
+ * project sends, so recovery codes are the same length as signup codes.
  */
-const PASSWORD_RECOVERY_OTP_LENGTH = 6
+const PASSWORD_RECOVERY_OTP_LENGTH = 8
 
 /** Digits in the signup confirmation code configured in Supabase Auth. */
 const SIGNUP_OTP_LENGTH = 8
