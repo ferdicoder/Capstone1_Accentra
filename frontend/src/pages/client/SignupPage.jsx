@@ -198,6 +198,9 @@ export default function SignupPage() {
         ...registrationData,
         birthDate,
         tin: registrationData.tin,
+        contactNumber: registrationData.contactNumber
+          ? `+63${registrationData.contactNumber}`
+          : "",
       });
 
       if (result?.error) throw new Error(
@@ -656,15 +659,37 @@ export default function SignupPage() {
                     />
                   </div>
 
-                  <TextField
-                    field={{ name: "contactNumber", label: "Contact Number", placeholder: "09123456789", required: true }}
-                    value={displayedContact}
-                    onChange={updateField}
-                    onFocus={() => setIsContactFocused(true)}
-                    onBlur={() => setIsContactFocused(false)}
-                    error={errorFor("contactNumber")}
-                    inputMode="numeric"
-                  />
+                  <Field>
+                    <FieldLabel htmlFor="contactNumber">
+                      Contact Number<span className="ml-0.5 text-red-500">*</span>
+                    </FieldLabel>
+                    <div className="flex">
+                      <span className="inline-flex h-8 shrink-0 items-center rounded-l-lg border border-r-0 border-input bg-muted px-3 text-sm font-medium text-muted-foreground">
+                        +63
+                      </span>
+                      <Input
+                        id="contactNumber"
+                        name="contactNumber"
+                        type="tel"
+                        inputMode="numeric"
+                        placeholder="917 123 4567"
+                        value={displayedContact}
+                        onChange={updateField}
+                        onFocus={() => setIsContactFocused(true)}
+                        onBlur={() => setIsContactFocused(false)}
+                        required
+                        className="rounded-l-none bg-background"
+                        aria-invalid={Boolean(errorFor("contactNumber"))}
+                      />
+                    </div>
+                    {errorFor("contactNumber") ? (
+                      <FieldDescription className="text-red-600">
+                        {errorFor("contactNumber")}
+                      </FieldDescription>
+                    ) : (
+                      <FieldDescription>Enter 10 digits after +63.</FieldDescription>
+                    )}
+                  </Field>
 
                   <div className="grid gap-4 md:grid-cols-2">
                     {addressFields.map((field) => (

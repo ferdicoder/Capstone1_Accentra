@@ -725,7 +725,7 @@ export default function ClientProfilePage() {
                       name="contactNumber"
                       type="tel"
                       inputMode="numeric"
-                      placeholder="9XX XXX XXXX"
+                      placeholder="917 123 4567"
                       value={profile.contactNumber}
                       onChange={updateProfileField}
                       disabled={!editing.business}
@@ -736,6 +736,11 @@ export default function ClientProfilePage() {
                   {fieldErrors.contactNumber && (
                     <FieldDescription className="text-red-600">
                       {fieldErrors.contactNumber}
+                    </FieldDescription>
+                  )}
+                  {!fieldErrors.contactNumber && editing.business && (
+                    <FieldDescription>
+                      Enter 10 digits after +63 (11 digits in the local 09… format).
                     </FieldDescription>
                   )}
                 </Field>

@@ -12,7 +12,15 @@ export function sanitizeValue(name, value) {
       );
   }
 
-  if (DIGITS_ONLY_FIELDS.has(name)) return value.replace(/\D/g, "");
+  if (DIGITS_ONLY_FIELDS.has(name)) {
+    let digits = value.replace(/\D/g, "");
+    if (name === "contactNumber") {
+      if (digits.startsWith("63")) digits = digits.slice(2);
+      else if (digits.startsWith("0") && digits.length > 10) digits = digits.slice(1);
+      return digits.slice(0, 10);
+    }
+    return digits;
+  }
   return value;
 }
 
