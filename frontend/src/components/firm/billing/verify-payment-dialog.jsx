@@ -108,8 +108,7 @@ export function VerifyPaymentDialog({
                 </option>
 
                 <option value="gcash">GCash</option>
-                <option value="bank">Bank</option>
-                <option value="maya">Maya</option>
+                <option value="bank_transfer">Bank Transfer</option>
                 <option value="cash">Cash</option>
               </select>
             </div>

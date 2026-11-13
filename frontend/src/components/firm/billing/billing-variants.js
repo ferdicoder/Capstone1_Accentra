@@ -55,6 +55,11 @@ export const paymentMethodLabels = {
   retainer: "Retainer",
 }
 
+export const paymentMethodOptions = [
+  { value: "gcash", label: paymentMethodLabels.gcash },
+  { value: "bank_transfer", label: paymentMethodLabels.bank_transfer },
+]
+
 /** Semantic hex colors for status values, per the Accentra billing color system. */
 export const statusToneColors = {
   pending: "#3B82F6",

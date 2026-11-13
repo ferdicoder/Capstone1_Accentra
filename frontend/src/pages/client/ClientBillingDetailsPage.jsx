@@ -15,6 +15,7 @@ import { BillingStatusBadge } from "@/components/firm/billing/billing-status-bad
 import {
   billingDisplayId,
   invoiceTypeLabels,
+  paymentMethodOptions,
 } from "@/components/firm/billing/billing-variants"
 import {
   FileDropzone,
@@ -405,8 +406,11 @@ export default function ClientBillingDetailPage() {
                     disabled={isSubmitting}
                     className={inputClass}
                   >
-                    <option value="gcash">GCash</option>
-                    <option value="bank_transfer">Bank Transfer</option>
+                    {paymentMethodOptions.map(({ value, label }) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
