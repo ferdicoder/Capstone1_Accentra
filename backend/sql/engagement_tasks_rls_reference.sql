@@ -236,7 +236,17 @@ TO authenticated
 USING (
   public.is_active_user()
   AND (
-    public.is_firm_user()
+    public.has_role('admin')
+    OR public.has_role('billing_officer')
+    OR (
+      public.has_role('staff')
+      AND EXISTS (
+        SELECT 1
+        FROM public.engagements
+        WHERE engagement_id = engagement_tasks.engagement_id
+          AND assigned_staff = auth.uid()
+      )
+    )
     OR public.is_my_engagement(engagement_id)
   )
 );
@@ -277,7 +287,17 @@ USING (
       public.engagement_task_references.engagement_task_id
       AND public.is_active_user()
       AND (
-        public.is_firm_user()
+        public.has_role('admin')
+        OR public.has_role('billing_officer')
+        OR (
+          public.has_role('staff')
+          AND EXISTS (
+            SELECT 1
+            FROM public.engagements
+            WHERE engagement_id = task.engagement_id
+              AND assigned_staff = auth.uid()
+          )
+        )
         OR public.is_my_engagement(task.engagement_id)
       )
   )
@@ -294,7 +314,17 @@ USING (
       public.engagement_task_submissions.engagement_task_id
       AND public.is_active_user()
       AND (
-        public.is_firm_user()
+        public.has_role('admin')
+        OR public.has_role('billing_officer')
+        OR (
+          public.has_role('staff')
+          AND EXISTS (
+            SELECT 1
+            FROM public.engagements
+            WHERE engagement_id = task.engagement_id
+              AND assigned_staff = auth.uid()
+          )
+        )
         OR public.is_my_engagement(task.engagement_id)
       )
   )

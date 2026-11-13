@@ -44,7 +44,12 @@ const F = {
   engagement: {
     // Who leads the engagement. VERIFY the field name.
     leadId: (e) =>
-      e.leadId ?? e.lead_id ?? e.assignedStaff?.id ?? e.assignedStaff ?? null,
+      e.assignedStaffId ??
+      e.leadId ??
+      e.lead_id ??
+      e.assignedStaff?.id ??
+      e.assignedStaff ??
+      null,
     clientId: (e) => e.client?.id ?? e.clientId ?? e.client_id,
     businessId: (e) => e.business?.id ?? e.businessId,
     dueDate: (e) => e.targetEndDate ?? e.dueDate ?? e.due_date ?? null,

@@ -4,6 +4,7 @@
 --
 -- RLS for:
 --   public.services
+--   public.service_categories
 --   public.template_tasks
 --   public.template_task_documents
 --
@@ -18,6 +19,11 @@
 --   services INSERT/DELETE:
 --     no browser access. Creation and hard deletion use the backend service
 --     role; the delete RPC also enforces its usage guard.
+--   service_categories SELECT:
+--     authenticated users may read active categories; firm users may also
+--     read inactive categories.
+--   service_categories INSERT/UPDATE/DELETE:
+--     admins only.
 --   template_tasks SELECT:
 --     active admins and staff only — template management and backend flows.
 --   template_tasks INSERT/UPDATE/DELETE:
@@ -48,6 +54,7 @@ FROM pg_policies
 WHERE schemaname = 'public'
   AND tablename IN (
     'services',
+    'service_categories',
     'template_tasks',
     'template_task_documents'
   )
@@ -64,11 +71,13 @@ WHERE c.contype = 'f'
   AND (
     c.conrelid IN (
       'public.services'::regclass,
+      'public.service_categories'::regclass,
       'public.template_tasks'::regclass,
       'public.template_task_documents'::regclass
     )
     OR c.confrelid IN (
       'public.services'::regclass,
+      'public.service_categories'::regclass,
       'public.template_tasks'::regclass,
       'public.template_task_documents'::regclass
     )
@@ -80,6 +89,7 @@ FROM information_schema.role_table_grants
 WHERE table_schema = 'public'
   AND table_name IN (
     'services',
+    'service_categories',
     'template_tasks',
     'template_task_documents'
   )

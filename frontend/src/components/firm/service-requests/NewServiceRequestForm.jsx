@@ -1,11 +1,10 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { useFetchServices } from "@/hooks/useServices"
+import { useFetchServiceCategories } from "@/hooks/useServiceCategories"
 import { useCreateServiceRequest } from "@/hooks/useServiceRequests"
 import { getZodFieldErrors } from "@/lib/form-validation"
 import { serviceRequestSchema } from "@/schemas/serviceRequestSchema"
-import { CATEGORY_META } from "@/lib/service-categories"
 
 const initialFormState = {
   category: "",
@@ -23,19 +22,21 @@ export function NewServiceRequestForm({
   const [formData, setFormData] = useState(initialFormState)
   const [error, setError] = useState(null)
 
-  const { data: services = [], isLoading: servicesLoading } = useFetchServices()
+  const {
+    data: availableCategories = [],
+    isLoading: categoriesLoading,
+    error: categoriesError,
+  } = useFetchServiceCategories()
   const createRequest = useCreateServiceRequest()
   const isBlockedNonRetainer = clientType !== "retainer" && hasExistingServiceRequest
   const isBlockedByUnpaidBills = hasUnpaidBills
   const isSubmissionBlocked = isBlockedNonRetainer || isBlockedByUnpaidBills
 
-  // Only categories that have at least one active template, so a request never
-  // lands on a category the firm can't fulfil.
-  const availableCategories = [
-    ...new Set(services.filter((s) => s.status === "active").map((s) => s.category).filter(Boolean)),
-  ]
-  const noCategories = !servicesLoading && availableCategories.length === 0
-  const selectedMeta = CATEGORY_META[formData.category]
+  const noCategories =
+    !categoriesLoading && !categoriesError && availableCategories.length === 0
+  const selectedCategory = availableCategories.find(
+    (category) => category.value === formData.category
+  )
 
   const updateField = (event) => {
     const { name, value } = event.target
@@ -117,20 +118,27 @@ export function NewServiceRequestForm({
               value={formData.category}
               onChange={updateField}
               required
-              disabled={servicesLoading || noCategories || isSubmissionBlocked}
+              disabled={
+                categoriesLoading || Boolean(categoriesError) || noCategories || isSubmissionBlocked
+              }
               className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
             >
               <option value="">
-                {servicesLoading ? "Loading categories..." : "Select a category"}
+                {categoriesLoading ? "Loading categories..." : "Select a category"}
               </option>
-              {availableCategories.map((value) => (
-                <option key={value} value={value}>
-                  {CATEGORY_META[value]?.label ?? value}
+              {availableCategories.map((category) => (
+                <option key={category.value} value={category.value}>
+                  {category.label}
                 </option>
               ))}
             </select>
-            {selectedMeta?.description && (
-              <p className="text-xs text-muted-foreground">{selectedMeta.description}</p>
+            {selectedCategory?.description && (
+              <p className="text-xs text-muted-foreground">{selectedCategory.description}</p>
+            )}
+            {categoriesError && (
+              <p className="text-xs text-red-600">
+                Categories could not be loaded. Please try again.
+              </p>
             )}
             {noCategories && (
               <p className="text-xs text-muted-foreground">

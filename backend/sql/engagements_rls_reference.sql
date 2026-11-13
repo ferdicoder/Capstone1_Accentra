@@ -7,10 +7,11 @@
 -- the old file once this one is in place.
 --
 -- Access matrix enforced here:
---   SELECT  all firm roles (admin/staff/billing_officer) — dashboards,
---           list pages, reports, usage counts; clients only engagements of
---           businesses they own (getMyEngagements, and strict scoping of
---           the unfiltered calendar queries / raw-id detail fetch).
+--   SELECT  admin and billing_officer — firm-wide dashboards, list pages,
+--           reports, and usage counts; staff — only engagements assigned to
+--           them; clients only engagements of businesses they own
+--           (getMyEngagements, and strict scoping of the unfiltered calendar
+--           queries / raw-id detail fetch).
 --   INSERT  admin + staff — only meaningful if the live create RPCs are
 --           SECURITY INVOKER (discovery 0e reveals this; no direct
 --           .insert() on engagements exists anywhere in the repo).
@@ -239,15 +240,20 @@ END $$;
 -- 5) Policies (TO authenticated; anon gets nothing here).
 -- ============================================================
 
--- engagements: firm roles see all rows (unfiltered dashboards/lists);
--- clients see only engagements of businesses they own.
+-- engagements: admins and billing officers see all firm rows; staff see only
+-- rows assigned to them; clients see only engagements of businesses they own.
 CREATE POLICY engagements_select_firm_or_owner
 ON public.engagements FOR SELECT
 TO authenticated
 USING (
   public.is_active_user()
   AND (
-    public.is_firm_user()
+    public.has_role('admin')
+    OR public.has_role('billing_officer')
+    OR (
+      public.has_role('staff')
+      AND assigned_staff = auth.uid()
+    )
     OR public.is_my_business(business_id)
   )
 );
@@ -466,11 +472,12 @@ SET LOCAL request.jwt.claims = '{"sub":"<OTHER_STAFF>","role":"authenticated"}';
 UPDATE public.engagements SET status = 'cancelled' WHERE engagement_id = '<ENG>';
 COMMIT;
 
--- 7h. As non-assigned staff: full SELECT visibility (firm directory).
+-- 7h. As non-assigned staff: no SELECT visibility.
 BEGIN;
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"<OTHER_STAFF>","role":"authenticated"}';
-SELECT 'visible' AS probe, count(*) FROM public.engagements;  -- expect: total row count
+SELECT 'foreign' AS probe, count(*) FROM public.engagements
+WHERE engagement_id = '<ENG>';  -- expect: 0
 COMMIT;
 
 -- 7i. As billing officer: read-only.

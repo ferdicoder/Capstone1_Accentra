@@ -1,243 +1,285 @@
 # Accentra
-<img width="1900" height="850" alt="image" src="https://github.com/user-attachments/assets/22bea220-2e90-46bf-bf8d-d4f1883e9f2c" />
 
-Demo: <i><a href="accentra.up.railway.app ">Accentra Demo</a></i>
+<img width="1900" height="850" alt="Accentra application screenshot" src="https://github.com/user-attachments/assets/22bea220-2e90-46bf-bf8d-d4f1883e9f2c" />
 
-Accentra is a web-based practice management system for accounting firms in the Philippines. It centralizes client service requests, engagement tracking, workflow tasks, document exchange, firm users, and service templates in one application.
+**Demo:** [accentra.up.railway.app](https://accentra.up.railway.app)
 
-This repository contains the React frontend and the Node.js/Express backend used by the application. Supabase provides authentication and the application database, while Backblaze B2 stores uploaded documents.
+Accentra is a web-based practice-management system for accounting firms in the
+Philippines. It brings client service requests, engagements, workflow tasks,
+document exchange, billing, payments, firm users, and service templates into
+one application.
 
-## Current Features
+The repository contains two independent npm packages:
 
-### Client workspace
+- `frontend/` - React 19 and Vite browser application.
+- `backend/` - Node.js and Express 5 API for privileged operations and file
+  transfer.
 
-- Client account registration and sign-in.
-- Client dashboard and profile management.
-- View and create service requests.
-- View engagements belonging to the client's business.
-- Open an engagement detail page with service, client, assigned staff, dates, fee, status, tasks, activity, and documents.
-- Upload documents to engagement tasks.
-- Track task progress, required documents, remarks, deadlines, approvals, and requested revisions.
+Supabase provides authentication and the application database. Backblaze B2
+stores uploaded files. The Supabase schema is maintained outside this
+repository; the SQL files in [`backend/sql/`](backend/sql/) are reference
+scripts for applying or repairing parts of the live database.
 
-### Firm workspace
+## Features
 
-- Separate firm sign-in flow.
-- Admin dashboard and staff dashboard.
-- Admin user management, including staff creation and user status updates.
-- Firm profile management.
-- Service management with pricing, categories, descriptions, estimated time, recurring status, status, and template tasks.
-- Service request management and request filtering.
-- Convert a service request into an engagement with assigned staff, dates, and fee.
-- Engagement list and engagement detail views.
-- Add and edit engagement tasks, deadlines, required flags, and reference-document flags.
-- Mark checklist tasks complete, review uploaded documents, approve tasks, or request revisions with remarks.
-- Engagement activity logging for task additions, completions, approvals, and revision requests.
-- Upload reference documents to service template tasks.
-- Upload, download, and delete engagement documents.
+### Client portal
 
-### Document handling
+- Register and sign in with Supabase Auth.
+- Manage the client profile and business details.
+- Browse services and submit service requests.
+- View engagements, assigned staff, dates, fees, status, tasks, activity, and
+  documents.
+- Upload documents to engagement tasks and respond to requested revisions.
+- View billing records and submit payment details with proof documents.
+- Download completed engagement deliverables.
 
-- Uploads are held in memory by Multer and sent to Backblaze B2.
-- Document metadata is stored in Supabase tables.
-- Engagement document uploads use a compensating cleanup step if the database insert fails.
-- Maximum upload size is 15 MB per file.
-- Accepted MIME types are PDF, JPEG, PNG, WebP, Microsoft Word, and DOCX.
+### Firm portals
+
+- Admin, staff, and billing-officer dashboards with role-based access.
+- Admin user management, staff account creation, role changes, and account
+  status management.
+- Firm and staff profile management, including the firm logo.
+- Service management with categories, pricing, descriptions, estimated time,
+  recurring status, active status, and template tasks.
+- Service-request review and conversion into engagements.
+- Engagement management, assignment, task deadlines, required documents,
+  approvals, revisions, remarks, and activity history.
+- Client and business management.
+- Billing records, payment-status verification, and payment-proof review.
+- Admin reporting with CSV/PDF export and audit logging.
+- Service-template reference documents and engagement task reference files.
+
+### File handling
+
+- Document bytes are accepted in Multer memory storage and uploaded to
+  Backblaze B2, not Supabase Storage.
+- Document metadata is stored in Supabase.
+- Engagement uploads use compensating cleanup when metadata or object
+  operations fail.
+- General documents are limited to 15 MiB per file.
+- Accepted document MIME types are PDF, JPEG, PNG, WebP, Microsoft Word, and
+  DOCX.
+- Firm logos accept PNG, JPEG, WebP, and SVG, with a 2 MiB limit.
 
 ## Roles
 
-The frontend currently exposes these application areas:
+| Role | Portal | Main capabilities |
+| --- | --- | --- |
+| Client | `/client` | Service requests, engagements, task submissions, documents, billing, and payments |
+| Admin | `/admin` | Firm administration, users, clients, services, engagements, billing, and reports |
+| Staff | `/firm` | Assigned service and engagement work, clients, tasks, and documents |
+| Billing officer | `/billing-officer` | Billing, payments, engagements, and clients |
 
-| Role | Application areas |
-| --- | --- |
-| Client | Dashboard, profile, service requests, engagements, engagement documents and task progress |
-| Admin | Dashboard, users, profile, services, service requests, engagements |
-| Firm staff | Dashboard, service requests, services, engagements |
-| Billing officer | Billing, engagements,  |
+Authentication is handled by Supabase PKCE. The frontend stores the current
+role in its Zustand auth store, while the backend validates bearer tokens and
+resolves roles from `user_roles`.
 
-
-## Application Routes
+## Application routes
 
 ### Frontend routes
 
-| Route | Purpose |
-| --- | --- |
-| `/client/signup` | Client registration |
-| `/client/signin` | Client sign-in |
-| `/firm/signin` | Firm sign-in |
-| `/client/dashboard` | Client dashboard |
-| `/client/profile` | Client profile |
-| `/client/service-requests` | Client service requests |
-| `/client/engagements` | Client engagements |
-| `/client/engagements/:id` | Client engagement details |
-| `/admin/dashboard` | Admin dashboard |
-| `/admin/users` | User management |
-| `/admin/profile` | Firm profile |
-| `/admin/services` | Service management |
-| `/admin/service-requests` | Admin service requests |
-| `/admin/engagements` | Firm engagements |
-| `/admin/engagements/:id` | Firm engagement details |
-| `/firm/dashboard` | Staff dashboard |
-| `/firm/services` | Staff service management |
-| `/firm/engagements` | Staff engagements |
-| `/firm/engagements/:id` | Staff engagement details |
+| Route | Access | Purpose |
+| --- | --- | --- |
+| `/` | Public | Landing page |
+| `/client/signup` | Public | Client registration |
+| `/client/signin` | Public | Client sign-in |
+| `/firm/signin` | Public | Firm-user sign-in |
+| `/set-password` | Inactive firm users | Set the password for a newly created account |
+| `/client/dashboard` | Client | Client dashboard |
+| `/client/profile` | Client | Client profile |
+| `/client/service-requests` | Client | Client service requests |
+| `/client/engagements` | Client | Client engagements |
+| `/client/engagements/:id` | Client | Engagement details and task progress |
+| `/client/billing` | Client | Client billing |
+| `/client/billing/:id` | Client | Billing details and payment submission |
+| `/admin/dashboard` | Admin | Admin dashboard |
+| `/admin/users` | Admin | User management |
+| `/admin/users/:id` | Admin | User details |
+| `/admin/profile` | Admin | Firm profile |
+| `/admin/services` | Admin | Service and template-task management |
+| `/admin/service-requests` | Admin | Service-request management |
+| `/admin/engagements` | Admin | Engagement management |
+| `/admin/engagements/:id` | Admin | Engagement details |
+| `/admin/clients` | Admin | Client management |
+| `/admin/clients/:id` | Admin | Client details |
+| `/admin/staff/:id` | Admin | Staff profile |
+| `/admin/billing` | Admin | Billing management |
+| `/admin/billing/:id` | Admin | Billing details and payment verification |
+| `/admin/reports` | Admin | Reports and exports |
+| `/firm/dashboard` | Staff | Staff dashboard |
+| `/firm/profile` | Staff | Staff profile |
+| `/firm/services` | Staff | View services and template tasks |
+| `/firm/engagements` | Staff | Staff engagements |
+| `/firm/engagements/:id` | Staff | Engagement details |
+| `/firm/clients` | Staff | Client management |
+| `/firm/clients/:id` | Staff | Client details |
+| `/billing-officer/dashboard` | Billing officer | Billing dashboard |
+| `/billing-officer/profile` | Billing officer | Billing-officer profile |
+| `/billing-officer/engagements` | Billing officer | Engagement list |
+| `/billing-officer/engagements/:id` | Billing officer | Engagement details |
+| `/billing-officer/billing` | Billing officer | Billing management |
+| `/billing-officer/billing/:id` | Billing officer | Billing details and payment verification |
+| `/billing-officer/clients` | Billing officer | Client management |
 
-### Backend API routes
+The legacy `/firm-admin/*` and `/firm-staff/dashboard` paths redirect to their
+current equivalents.
 
-The Express server mounts its API under `/api/v1`.
+### Backend API
+
+The Express server listens on `PORT` and mounts application routes under
+`/api/v1`.
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/v1/staffs/create` | Create a confirmed staff account through Supabase Admin Auth |
-| `POST` | `/api/v1/services/create` | Create a service and its template tasks |
-| `POST` | `/api/v1/documents/template/:templateTaskId` | Upload a service-template document |
-| `POST` | `/api/v1/documents/engagement-task/:engagementTaskId` | Upload an engagement-task document |
+| `GET` | `/health` | Deployment health check |
+| `GET` | `/api/v1/staffs/me` | Get the authenticated user |
+| `PATCH` | `/api/v1/staffs/password` | Change the authenticated user's password |
+| `POST` | `/api/v1/staffs/create` | Admin-only staff account creation |
+| `PATCH` | `/api/v1/staffs/:userId/role` | Admin-only role update |
+| `GET` | `/api/v1/services/:serviceId/template-tasks` | Get service template tasks |
+| `POST` | `/api/v1/services/create` | Create a service and template tasks |
+| `DELETE` | `/api/v1/services/:id` | Delete or deactivate a service through the cleanup RPC |
+| `POST` | `/api/v1/documents/template/:templateTaskId` | Upload a template-task reference file |
+| `GET` | `/api/v1/documents/engagement/:engagementId/deliverables` | List engagement deliverables |
+| `POST` | `/api/v1/documents/engagement/:engagementId/deliverables` | Upload an engagement deliverable |
+| `GET` | `/api/v1/documents/deliverables/:deliverableId/download` | Download a deliverable |
+| `DELETE` | `/api/v1/documents/deliverables/:deliverableId` | Delete a deliverable |
+| `POST` | `/api/v1/documents/engagement/:engagementId/template-references` | Copy template references into an engagement |
+| `POST` | `/api/v1/documents/engagement-task/:engagementTaskId/reference` | Upload a task reference file |
+| `GET` | `/api/v1/documents/reference/:docId/download` | Download a task reference file |
+| `DELETE` | `/api/v1/documents/reference/:docId` | Delete a task reference file |
+| `POST` | `/api/v1/documents/engagement-task/:engagementTaskId` | Upload a client task submission |
 | `GET` | `/api/v1/documents/:docId/download` | Download an engagement document |
-| `DELETE` | `/api/v1/documents/:docId` | Delete an engagement document and its B2 object |
-| `POST` | `/api/v1/payments/:billingId` | Submit a client payment and upload its proof |
-| `GET` | `/api/v1/payments/:paymentId/proof` | Download the latest uploaded payment proof |
+| `DELETE` | `/api/v1/documents/:docId` | Delete an engagement document |
+| `POST` | `/api/v1/payments/:billingId` | Submit a payment and optional proof document |
+| `GET` | `/api/v1/payments/:paymentId/proof` | Download payment proof |
+| `GET` | `/api/v1/firm-settings/logo` | Get the current firm logo |
+| `POST` | `/api/v1/firm-settings/logo` | Admin-only firm-logo upload |
+| `DELETE` | `/api/v1/firm-settings/logo` | Admin-only firm-logo deletion |
 
-Most application data operations currently use the Supabase client directly from frontend API modules. The Express routes mainly handle privileged staff/service operations and file transfer operations.
-
-### Supabase data routes
-
-These are not Express HTTP routes. They are the Supabase Auth, table, and RPC operations called directly by the frontend or backend. Their availability depends on the corresponding Supabase schema, relationships, functions, and Row Level Security policies.
-
-#### Supabase Auth
-
-| Operation | Used for |
-| --- | --- |
-| `auth.signUp()` | Register a client and save profile/business fields in Supabase user metadata |
-| `auth.signInWithPassword()` | Sign in clients and firm users |
-| `auth.getSession()` | Restore the current browser session on application startup |
-| `auth.onAuthStateChange()` | React to sign-in, sign-out, and session changes |
-| `auth.getUser()` | Get the authenticated user for activity logging and backend token validation |
-| `auth.exchangeCodeForSession()` | Exchange a PKCE callback URL for a Supabase session |
-| `auth.admin.createUser()` | Backend-only creation of confirmed staff accounts with role and profile metadata |
-
-#### Tables and operations
-
-| Table | Operations used | Purpose |
-| --- | --- | --- |
-| `users` | `select`, `update` | User lists, profiles, contact details, and account status |
-| `user_roles` | `select` | Resolve the signed-in user's application role and display roles with users |
-| `roles` | `select` | Load available role options for staff management |
-| `businesses` | `select` | Load the client's business and its owner details |
-| `services` | `select` | List and display available services and service details |
-| `service_requests` | `select`, `insert`, `update` | Create, list, filter, review, and update service requests |
-| `engagements` | `select`, `update` | List engagements, load details, and update engagement status |
-| `engagement_tasks` | `select`, `insert`, `update` | Manage task definitions, deadlines, completion, review status, remarks, and reviewers |
-| `engagement_activity` | `select`, `insert` | Record and display engagement activity updates |
-| `engagement_documents` | `select`, `insert`, `delete` | Store document metadata and list or remove engagement documents |
-| `template_documents` | `insert` | Store metadata for service-template document uploads |
-| `payment_documents` | `insert`, `select` | Store metadata for client payment proof uploads |
-
-The frontend also uses relational selects between `businesses` and `users`, `engagements` and `services`, `engagements` and `businesses`, `engagements` and assigned staff, `engagements` and `engagement_tasks`, and `engagement_documents` and `engagement_tasks` or uploaders.
-
-#### Supabase RPC functions
-
-| Function | Used for |
-| --- | --- |
-| `create_service_with_template_tasks` | Atomically create a service together with its template tasks |
-| `create_engagement` | Create an engagement from an approved service request |
-| `update_service_with_template_tasks` | Update a service and its template tasks |
-
-The backend additionally uses the Supabase Admin client to insert and query `template_documents` and `engagement_documents`, and to roll back document metadata when a Backblaze B2 operation fails. Document file contents are stored in Backblaze B2, not in Supabase Storage.
+Most CRUD operations use the Supabase client directly from frontend API
+modules. The Express API is intentionally limited to privileged account
+operations, service RPCs, Backblaze B2 file operations, payments, and firm
+settings.
 
 ## Architecture
 
 ```text
 React + Vite frontend
-	|
-	| Supabase client: auth and application data
-	| Express API: privileged operations and file transfer
-	v
+        |
+        | Supabase client: PKCE auth, PostgREST CRUD, and RPC calls
+        | Express API: privileged operations and file transfer
+        v
 Supabase Auth / PostgreSQL       Backblaze B2 object storage
 ```
 
 ### Frontend
 
 - React 19 with Vite.
-- React Router for client, admin, and staff route trees.
-- Supabase JS with PKCE authentication.
-- TanStack React Query for server-state data fetching and cache management.
-- Zustand for the authentication store.
-- Tailwind CSS and the local UI component collection.
-- `lucide-react` for interface icons.
+- React Router route trees for client, admin, staff, and billing officer
+  portals.
+- TanStack React Query for server-state fetching and cache invalidation.
+- Zustand for authentication and role state.
+- Supabase JS for authentication and direct application-data access.
+- Tailwind CSS v4 with the Base UI/shadcn-style component collection.
+- Zod schemas for form validation.
+- `lucide-react` for icons.
+
+Frontend API modules map database rows from snake_case to the camelCase
+shapes used by the UI. React Query keys are centralized in
+[`frontend/src/config/queryKeys.js`](frontend/src/config/queryKeys.js).
 
 ### Backend
 
-- Node.js with ES modules.
-- Express 5.
-- Supabase JS for privileged database and authentication operations.
-- Multer for multipart uploads.
-- Axios for Backblaze B2 requests.
-- CORS and JSON request handling.
+- Node.js ES modules and Express 5.
+- Helmet, CORS, JSON parsing, bearer-token authentication, and role
+  middleware.
+- Supabase server client for privileged Auth and database operations.
+- Multer memory storage for multipart uploads.
+- Axios for Backblaze B2 authorization and object operations.
+- IPv4 keep-alive B2 requests, cached B2 authorization, transient-network
+  retries, and a configurable B2 request timeout.
+- `trust proxy` is enabled for deployment behind Railway.
 
-## Repository Structure
+## Repository structure
 
 ```text
 accentra/
 ├── backend/
-│   ├── config/          Supabase, B2, and upload configuration
-│   ├── controllers/     HTTP request handlers
-│   ├── middlewares/     Authentication and rate-limit middleware
-│   ├── routes/          Express route definitions
-│   ├── services/        Backblaze B2 upload, download, and delete helpers
-│   ├── test/            Backend test files
-│   └── server.js        Express application entry point
+│   ├── config/          Environment-backed Supabase, B2, CORS, and upload config
+│   ├── controllers/     Express request handlers
+│   ├── middlewares/     Authentication, roles, rate limits, and uploads
+│   ├── routes/          API route definitions
+│   ├── services/        Backblaze B2 helpers
+│   ├── sql/             Reference SQL for functions, triggers, and RLS
+│   └── server.js        Express entry point
 ├── frontend/
 │   ├── src/components/  Shared, client, firm, and UI components
-│   ├── src/hooks/       Authentication and data hooks
-│   ├── src/layout/      Client, admin, and staff layouts
-│   ├── src/pages/       Route-level pages
-│   ├── src/services/    Authentication and API modules
-│   └── src/routes/      React Router configuration
-├── package.json         Root development commands
+│   ├── src/hooks/       React Query and authentication hooks
+│   ├── src/layout/      Portal layouts
+│   ├── src/pages/       Route-level pages and reports
+│   ├── src/services/    Supabase and backend API modules
+│   ├── src/routes/      React Router configuration
+│   └── tests/            Playwright end-to-end specs
+├── supabase/
+│   └── config.toml      Local Supabase CLI configuration
+├── package.json          Root Supabase CLI dependency only
 └── README.md
 ```
 
 ## Requirements
 
 - Node.js and npm.
-- A Supabase project with the application database schema, functions, and tables expected by the source code.
-- A Backblaze B2 bucket for document storage.
-- Supabase credentials for both browser and server use.
+- A Supabase project with the tables, relationships, functions, Auth
+  configuration, and RLS policies expected by the application.
+- A Backblaze B2 bucket and application key for file storage.
+- Browser-safe Supabase URL and publishable key.
+- Server-side Supabase and B2 credentials.
 
-The repository does not include the Supabase schema or database migrations. Those must be provisioned separately before the application can use services, businesses, users, engagements, tasks, activity records, and document tables.
+There are no application migrations in this repository. The files under
+[`backend/sql/`](backend/sql/) are reference copies and must be applied
+manually through the Supabase SQL editor or the project's database workflow.
+The live Supabase schema is the source of truth. In particular, review the
+service, engagement, billing, service-request, user, and RLS reference files
+before deploying a matching database change.
 
 ## Installation
 
-Install dependencies in the root, backend, and frontend packages:
+The backend and frontend have separate dependency manifests. Install each
+package independently:
 
 ```bash
-npm install
 npm install --prefix backend
 npm install --prefix frontend
 ```
 
-Create `backend/.env` and `frontend/.env`. The local environment files are intentionally not documented with values here; never commit credentials or secret keys.
+The root `package.json` only provides the Supabase CLI development dependency;
+it does not define `dev`, `build`, or `test` scripts.
 
-### Backend environment variables
+Create `backend/.env` and `frontend/.env`. These files are ignored and must
+never contain values committed to Git.
+
+### Backend environment
 
 ```dotenv
 PORT=3000
 SUPABASE_URL=
 SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SECRET_KEY=
-SUPABASE_JWKS_URL=
+FRONTEND_URL=http://localhost:5173
 B2_KEY_ID=
 B2_APPLICATION_KEY=
 B2_BUCKET_ID=
 B2_BUCKET_NAME=
+B2_REQUEST_TIMEOUT_MS=60000
 ```
 
-B2 requests use a 60-second timeout by default and retry transient authorization
-network failures. Set `B2_REQUEST_TIMEOUT_MS` in the backend environment to
-override the timeout when the deployment has slower outbound connectivity.
+`FRONTEND_URL` is a comma-separated CORS allowlist. Requests without an
+`Origin` header are allowed. `B2_REQUEST_TIMEOUT_MS` is optional and defaults
+to 60,000 milliseconds. The Supabase secret key and all B2 credentials must
+remain server-side.
 
-`SUPABASE_SECRET_KEY`, `B2_APPLICATION_KEY`, and the other B2 credentials are server secrets and must only be used by the backend.
-
-### Frontend environment variables
+### Frontend environment
 
 ```dotenv
 VITE_SUPABASE_URL=
@@ -245,27 +287,58 @@ VITE_SUPABASE_PUBLISHABLE_KEY=
 VITE_API_BASE_URL=http://localhost:3000/api/v1
 ```
 
-## Running Locally
+`VITE_API_BASE_URL` is required. If it is configured without a scheme, the
+frontend treats it as HTTPS.
 
-From the repository root, start both development servers:
+## Running locally
 
-```bash
-npm run dev
-```
-
-The root command runs the backend in watch mode and the frontend through Vite. The frontend development URL is normally printed by Vite, commonly `http://localhost:5173`. The backend listens on `PORT`, defaulting to `http://localhost:3000`.
-
-To run either part separately:
+Run the backend and frontend in separate terminals:
 
 ```bash
-cd backend && npm run dev --prefix backend
-cd frontend && npm run dev --prefix frontend
+npm run dev --prefix backend
+npm run dev --prefix frontend
 ```
 
-The frontend also supports:
+The backend defaults to `http://localhost:3000`, and Vite normally serves the
+frontend at `http://localhost:5173`.
+
+Useful frontend commands:
 
 ```bash
 npm run build --prefix frontend
 npm run lint --prefix frontend
 npm run preview --prefix frontend
+npm run test --prefix frontend
 ```
+
+`npm run test --prefix frontend` runs the Playwright suite and may start Vite
+automatically. The checked-in end-to-end specs are scaffolding and require
+valid test credentials and a configured application environment before they
+can pass.
+
+The backend test script is currently the npm placeholder and exits with an
+error. The files under `backend/test/`, when present, are legacy scratch
+scripts rather than a configured automated test suite.
+
+## Database and security notes
+
+- Supabase Auth uses PKCE in the browser.
+- Backend protected routes validate bearer tokens with Supabase Auth and
+  enforce application roles.
+- Row Level Security policies are part of the external Supabase deployment;
+  the reference SQL is not automatically applied by this repository.
+- Service creation, service updates, engagement creation, and service cleanup
+  depend on database functions such as
+  `create_service_with_template_tasks`,
+  `update_service_with_template_tasks`, `create_engagement`,
+  `create_standalone_engagement`, and
+  `delete_service_with_cleanup`.
+- The service cleanup function deactivates services that are already referenced
+  by an engagement or service request instead of deleting them outright.
+- Uploaded file contents are kept in memory only while the request is
+  processed and are stored in Backblaze B2.
+
+Before submitting frontend changes, run the frontend lint command. When
+changing data access or authorization, verify the corresponding live Supabase
+tables, RPC signatures, relationships, and RLS policies as well as the
+application code.

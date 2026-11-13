@@ -10,7 +10,7 @@ export default defineConfig({
     tailwindcss()
   ],
   preview: {
-    allowedHosts: ['accentra-test.up.railway.app'],
+    allowedHosts: ['jobalconsultancy.app', '.up.railway.app'],
   },
   resolve: {
     alias: {

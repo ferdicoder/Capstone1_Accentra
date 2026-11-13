@@ -185,6 +185,9 @@ GRANT EXECUTE ON FUNCTION public.is_my_business(uuid) TO authenticated;
 
 ALTER TABLE public.service_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.service_request_code_counters ENABLE ROW LEVEL SECURITY;
+-- Trigger functions run as the table owner. Ensure a previous deployment did
+-- not force that owner through RLS, which would block the counter increment.
+ALTER TABLE public.service_request_code_counters NO FORCE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
@@ -262,7 +265,49 @@ USING (false);
 -- The counter is trigger/service-role-only. Do not add a browser policy.
 
 -- ============================================================
--- 5) Column grants — prevent browser callers from changing identity,
+-- 5) Request-code generation — the trigger must be SECURITY DEFINER.
+--    The counter intentionally has no browser policy. A SECURITY INVOKER
+--    trigger would therefore fail with 42501 during a client INSERT.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.assign_service_request_code()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  request_year integer;
+  next_sequence bigint;
+BEGIN
+  request_year := EXTRACT(YEAR FROM COALESCE(NEW.created_at, now()))::integer;
+
+  INSERT INTO public.service_request_code_counters (year, last_seq)
+  VALUES (request_year, 1)
+  ON CONFLICT (year)
+  DO UPDATE SET last_seq = public.service_request_code_counters.last_seq + 1
+  RETURNING last_seq INTO next_sequence;
+
+  NEW.request_code := format('SR-%s-%s', request_year, lpad(next_sequence::text, 4, '0'));
+  RETURN NEW;
+END;
+$$;
+
+ALTER FUNCTION public.assign_service_request_code()
+  SECURITY DEFINER
+  SET search_path = public;
+
+REVOKE ALL ON FUNCTION public.assign_service_request_code() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS service_requests_assign_code ON public.service_requests;
+CREATE TRIGGER service_requests_assign_code
+  BEFORE INSERT ON public.service_requests
+  FOR EACH ROW
+  WHEN (NEW.request_code IS NULL)
+  EXECUTE FUNCTION public.assign_service_request_code();
+
+-- ============================================================
+-- 6) Column grants — prevent browser callers from changing identity,
 -- generated, approval, and rejection metadata even when a row policy matches.
 -- ============================================================
 
@@ -279,7 +324,7 @@ GRANT UPDATE (
 ) ON public.service_requests TO authenticated;
 
 -- ============================================================
--- 6) Guard trigger — RLS cannot express immutable fields or reject
+-- 7) Guard trigger — RLS cannot express immutable fields or reject
 -- client-side attempts to change workflow metadata.
 -- ============================================================
 
@@ -343,8 +388,22 @@ CREATE TRIGGER service_requests_guard_write
   FOR EACH ROW EXECUTE FUNCTION public.service_requests_guard_write();
 
 -- ============================================================
--- 7) Verification — replace placeholders before running.
+-- 8) Verification — replace placeholders before running.
 -- ============================================================
+
+SELECT p.proname, p.prosecdef AS is_security_definer, p.proconfig
+FROM pg_proc AS p
+JOIN pg_namespace AS n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname = 'assign_service_request_code';
+
+SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity,
+       pg_get_userbyid(c.relowner) AS table_owner,
+       p.proowner::regrole AS function_owner
+FROM pg_class AS c
+JOIN pg_proc AS p
+  ON p.oid = 'public.assign_service_request_code()'::regprocedure
+WHERE c.oid = 'public.service_request_code_counters'::regclass;
 
 SELECT policyname, cmd, roles, qual, with_check
 FROM pg_policies
