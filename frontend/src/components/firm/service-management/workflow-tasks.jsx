@@ -1,9 +1,10 @@
-import { useRef, useState } from "react"
-import { FileText, Plus, Upload, X } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Plus, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
@@ -13,79 +14,139 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { createTaskId, formatBytes } from "./service-management-variants"
+import {
+  FileDropzone,
+  FilePreviewDialog,
+  SelectedFileList,
+} from "@/components/shared/file-preview-dialog"
+import {
+  createTaskId,
+  getInvalidFileTypeMessage,
+  REFERENCE_DOCUMENT_ACCEPT,
+  REFERENCE_DOCUMENT_MIME_TYPES,
+} from "./service-management-variants"
+
+const ATTACHMENT_SKELETON_DELAY_MS = 500
 
 /**
  * Presentational single-file upload. Fully controlled via `file` +
  * `onSelect`/`onRemove`. No upload API — the raw File object is passed up so
  * a parent can handle it later (e.g. Supabase storage).
+ *
+ * The picker box, the chosen-file row and the preview popup are the shared
+ * components from file-preview-dialog.jsx, so this looks the same as every
+ * other upload in the app.
+ *
+ * A file outside the supported types is rejected by the dropzone, so it never
+ * reaches the form state and is never included in an upload.
  */
-export function ReferenceDocumentUpload({ file, onSelect, onRemove, disabled = false, error, className }) {
-  const inputRef = useRef(null)
+export function ReferenceDocumentUpload({
+  file,
+  onSelect,
+  onRemove,
+  disabled = false,
+  uploading = false,
+  error,
+  className,
+}) {
+  const attachmentTimerRef = useRef(null)
+  const [pendingFile, setPendingFile] = useState(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
 
-  const handleFiles = (fileList) => {
-    const selected = fileList?.[0]
+  useEffect(
+    () => () => {
+      if (attachmentTimerRef.current) {
+        clearTimeout(attachmentTimerRef.current)
+      }
+    },
+    []
+  )
+
+  const handleFiles = ([selected]) => {
     if (!selected) return
-    onSelect?.({ name: selected.name, size: selected.size, type: selected.type, file: selected })
+
+    const selectedFile = {
+      name: selected.name,
+      size: selected.size,
+      type: selected.type,
+      file: selected,
+    }
+    setPendingFile(selectedFile)
+    attachmentTimerRef.current = setTimeout(() => {
+      onSelect?.(selectedFile)
+      setPendingFile(null)
+      attachmentTimerRef.current = null
+    }, ATTACHMENT_SKELETON_DELAY_MS)
+  }
+
+  const handleRemove = () => {
+    if (attachmentTimerRef.current) {
+      clearTimeout(attachmentTimerRef.current)
+      attachmentTimerRef.current = null
+    }
+    setPendingFile(null)
+    onRemove?.()
   }
 
   return (
     <div className={className}>
-      <input
-        ref={inputRef}
-        type="file"
-        className="hidden"
-        disabled={disabled}
-        onChange={(event) => {
-          handleFiles(event.target.files)
-          event.target.value = "" // allow re-selecting the same file later
-        }}
-      />
-
-      {!file ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          onClick={() => inputRef.current?.click()}
-          className="gap-1.5 border-dashed"
+      {pendingFile || (uploading && file) ? (
+        <div
+          role="status"
+          aria-label={
+            pendingFile
+              ? `Attaching ${pendingFile.name}`
+              : `Uploading ${file.name}`
+          }
+          className="flex items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2"
         >
-          <Upload className="size-3.5" />
-          Upload reference document
-        </Button>
-      ) : (
-        <div className="flex items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-forest-900/10 text-forest-900 dark:bg-emerald-500/10 dark:text-emerald-300">
-            <FileText className="size-4" />
+          <Skeleton className="size-8 shrink-0 rounded-md" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-3.5 w-3/4" />
+            <Skeleton className="h-3 w-1/3" />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">{file.name}</p>
-            {file.size != null && (
-              <p className="text-xs text-muted-foreground">{formatBytes(file.size)}</p>
-            )}
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            disabled={disabled}
-            onClick={onRemove}
-            aria-label="Remove file"
-            className="rounded-md text-muted-foreground hover:text-destructive"
-          >
-            <X className="size-3.5" />
-          </Button>
+          <Skeleton className="size-7 shrink-0 rounded-md" />
         </div>
+      ) : !file ? (
+        <FileDropzone
+          accept={REFERENCE_DOCUMENT_ACCEPT}
+          allowedTypes={REFERENCE_DOCUMENT_MIME_TYPES}
+          typeLabel="a supported document"
+          title="Click to upload reference document"
+          disabled={disabled}
+          onSelect={handleFiles}
+        />
+      ) : (
+        <SelectedFileList
+          files={[file]}
+          disabled={disabled}
+          onRemove={handleRemove}
+          onPreview={() => setPreviewOpen(true)}
+        />
       )}
 
       {error && <p className="mt-1 text-sm text-red-500">Upload a reference document.</p>}
+
+      <FilePreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        files={file ? [file] : []}
+        subtitle="Reference document"
+        allowDownload={false}
+      />
     </div>
   )
 }
 
-/** Presentational row for a single workflow task. Fully controlled. */
-export function WorkflowTaskItem({ task, onTaskChange, onRemove, disabled = false, error }) {
+/** Presentational row for a single engagement task. Fully controlled. */
+export function WorkflowTaskItem({
+  task,
+  onTaskChange,
+  onRemove,
+  disabled = false,
+  uploading = false,
+  error,
+}) {
   const [removeOpen, setRemoveOpen] = useState(false)
 
   return (
@@ -99,6 +160,7 @@ export function WorkflowTaskItem({ task, onTaskChange, onRemove, disabled = fals
             placeholder="Task name, e.g. Submit Valid Government-issued ID"
             disabled={disabled}
             aria-invalid={error?.name || undefined}
+            data-invalid-field={error?.name ? "true" : undefined}
             className={cn(error?.name && "border-red-500 focus-visible:ring-red-500")}
           />
           {error?.name && <p className="mt-1 text-sm text-red-500">Task name is required.</p>}
@@ -143,6 +205,7 @@ export function WorkflowTaskItem({ task, onTaskChange, onRemove, disabled = fals
             onSelect={(file) => onTaskChange({ referenceDocument: file })}
             onRemove={() => onTaskChange({ referenceDocument: null })}
             disabled={disabled}
+            uploading={uploading}
             error={error?.reference}
           />
         </div>
@@ -151,9 +214,9 @@ export function WorkflowTaskItem({ task, onTaskChange, onRemove, disabled = fals
       <Dialog open={removeOpen} onOpenChange={setRemoveOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Remove Workflow Task</DialogTitle>
+            <DialogTitle>Remove Engagement Task</DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove this workflow task?
+              Are you sure you want to remove this engagement task?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row justify-end gap-2">
@@ -178,7 +241,14 @@ export function WorkflowTaskItem({ task, onTaskChange, onRemove, disabled = fals
 }
 
 /** Presentational list of workflow tasks with add/remove/edit row handling. */
-export function WorkflowTaskList({ tasks = [], onChange, disabled = false, errors = [], className }) {
+export function WorkflowTaskList({
+  tasks = [],
+  onChange,
+  disabled = false,
+  uploadingTaskIndexes = [],
+  errors = [],
+  className,
+}) {
   const updateTask = (id, patch) =>
     onChange?.(tasks.map((task) => (task.id === id ? { ...task, ...patch } : task)))
   const removeTask = (id) => onChange?.(tasks.filter((task) => task.id !== id))
@@ -193,7 +263,7 @@ export function WorkflowTaskList({ tasks = [], onChange, disabled = false, error
       {tasks.length === 0 && (
         <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
           <p className="text-sm text-muted-foreground">
-            No workflow tasks yet. Add tasks to collect documents or steps from clients.
+            No engagement tasks yet. Add tasks to collect documents or steps from clients.
           </p>
         </div>
       )}
@@ -203,6 +273,7 @@ export function WorkflowTaskList({ tasks = [], onChange, disabled = false, error
           key={task.id}
           task={task}
           error={errors?.[index]}
+          uploading={uploadingTaskIndexes.includes(index)}
           onTaskChange={(patch) => updateTask(task.id, patch)}
           onRemove={() => removeTask(task.id)}
           disabled={disabled}

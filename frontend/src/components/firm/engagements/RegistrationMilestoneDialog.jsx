@@ -12,14 +12,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { milestoneStatusOptions } from "./engagement-registration-variants"
+import { getZodFieldErrors } from "@/lib/form-validation"
+import { milestoneSchema } from "@/schemas/engagementSchema"
 
 export function RegistrationMilestoneDialog({ open, onOpenChange, milestone, onSave }) {
   const [status, setStatus] = useState(milestone?.status ?? "pending")
   const [completionDate, setCompletionDate] = useState(milestone?.completedDate ?? "")
   const [remarks, setRemarks] = useState(milestone?.remarks ?? "")
+  const [errors, setErrors] = useState({})
 
   const handleSave = (e) => {
     e.preventDefault()
+    const nextErrors = getZodFieldErrors(milestoneSchema, { status, completionDate })
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
     onSave?.({
       ...milestone,
       status,
@@ -56,7 +62,10 @@ export function RegistrationMilestoneDialog({ open, onOpenChange, milestone, onS
                       name="milestone-status"
                       value={option.value}
                       checked={status === option.value}
-                      onChange={() => setStatus(option.value)}
+                      onChange={() => {
+                        setStatus(option.value)
+                        setErrors({})
+                      }}
                       className="size-4 accent-[#02353C]"
                     />
                     <span className="text-foreground">{option.label}</span>
@@ -70,10 +79,15 @@ export function RegistrationMilestoneDialog({ open, onOpenChange, milestone, onS
               <Input
                 type="date"
                 value={completionDate}
-                onChange={(e) => setCompletionDate(e.target.value)}
+                onChange={(e) => {
+                  setCompletionDate(e.target.value)
+                  setErrors((current) => ({ ...current, completionDate: undefined }))
+                }}
                 className="h-8"
                 disabled={status !== "completed"}
+                aria-invalid={Boolean(errors.completionDate) || undefined}
               />
+              {errors.completionDate && <p className="text-sm text-destructive">{errors.completionDate}</p>}
             </Field>
 
             <Field>

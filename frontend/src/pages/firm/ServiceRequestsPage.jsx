@@ -9,28 +9,34 @@ import { CreateEngagementDialog } from "@/components/firm/service-requests/creat
 import { RequiredDocumentsDialog } from "@/components/firm/service-requests/required-documents-dialog"
 import { ServiceRequestFilters } from "@/components/firm/service-requests/service-request-filters"
 import { ServiceRequestList } from "@/components/firm/service-requests/service-request-list"
-import { statusFilterOptions } from "@/components/firm/service-requests/service-request-variants"
-import { engagementStore } from "@/components/firm/engagements/engagement-store" // still mocked — no engagements API yet
-import { generateEngagementNumber } from "@/components/firm/engagements/engagement-variants"
+import {
+  statusFilterOptions,
+} from "@/components/firm/service-requests/service-request-variants"
+import { authStore } from "@/store/authStore"
 import { useFetchServiceRequests, useUpdateServiceRequestStatus } from "@/hooks/useServiceRequests"
 import { useCreateEngagementFromRequest } from "@/hooks/useEngagements"
+import { getCategoryLabel } from "@/lib/service-categories"
 
 export default function ServiceRequestsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
+  const role = authStore((state) => state.role)
+  const canRejectRequest = role === "admin"
 
   const { data: requests = [], isLoading, error } = useFetchServiceRequests()
   const updateStatus = useUpdateServiceRequestStatus()
-  const addEngagement = engagementStore((state) => state.addEngagement)
-
-  const createEngagement = useCreateEngagementFromRequest();
+  const createEngagement = useCreateEngagementFromRequest()
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
   const [selectedId, setSelectedId] = useState(null)
+
+  // Approve -> Create Engagement flow. Nothing is saved until the "confirm" step.
   const [engagementRequest, setEngagementRequest] = useState(null)
-  const [activeEngagement, setActiveEngagement] = useState(null)
+  const [engagementDraft, setEngagementDraft] = useState(null)
+  const [step, setStep] = useState(null) // null | "form" | "confirm"
 
   const selectedRequest = requests.find((request) => request.id === selectedId) ?? null
 
@@ -52,80 +58,105 @@ export default function ServiceRequestsPage() {
       const matchesStatus = statusFilter === "all" || request.status === statusFilter
       const matchesSearch =
         !query ||
-        [request.business?.businessName, request.requestNumber, request.serviceName].some((field) =>
+        [request.business?.businessName, request.requestNumber, getCategoryLabel(request?.category)].some((field) =>
           field?.toLowerCase().includes(query)
         )
       return matchesStatus && matchesSearch
     })
   }, [requests, search, statusFilter])
 
-  const openRequest = (request) => setSelectedId(request.id)
+  const openRequest = (request) => {
+    updateStatus.reset()
+    setSelectedId(request.id)
+  }
   const closeRequest = () => setSelectedId(null)
+
+  const resetFlow = () => {
+    createEngagement.reset()
+    setStep(null)
+    setEngagementRequest(null)
+    setEngagementDraft(null)
+  }
 
   const handleApproveAndEngage = (request) => {
     if (!request) return
     closeRequest()
+    createEngagement.reset()
     setEngagementRequest(request)
+    setEngagementDraft(null)
+    setStep("form")
   }
 
-  const handleReject = (request) => {
+  const handleReject = (request, reason, onSuccess) => {
     if (!request) return
-    updateStatus.mutate({ id: request.id, status: "rejected" })
-  }
-
-  const handleEngagementSubmit = (values) => {
-    if (!engagementRequest) return
-
-    createEngagement.mutate(
+    updateStatus.mutate(
+      { id: request.id, status: "rejected", rejectionReason: reason },
       {
-        serviceRequestId: engagementRequest.id,
-        assignedStaff: values.assignedStaff,
-        startDate: values.startDate,
-        dueDate: values.targetEndDate,
-        fee: values.serviceFee,
-      },
-      {
-        onSuccess: (newEngagement) => {
-          setEngagementRequest(null)
-          setActiveEngagement(newEngagement) // real engagement, with real copied tasks
+        onSuccess: () => {
+          onSuccess?.()
+          closeRequest()
         },
       }
     )
   }
 
-  const handleBackToEngagement = () => { // cannot reedit
-    setActiveEngagement(null)
+  // Step 1 -> 2: form is valid, show the confirmation. No API call yet.
+  const handleFormSubmit = (values) => {
+    setEngagementDraft(values)
+    setStep("confirm")
   }
 
-  const handleSendToClient = () => {
-    setActiveEngagement(null)
-    navigate(`${basePath}/engagements`)
+  // Step 2 -> 1: the form stays mounted, so its values are preserved.
+  const handleBackToForm = () => {
+    createEngagement.reset()
+    setStep("form")
+  }
+
+  // Step 2: the only place the engagement (and request approval) is actually saved.
+  const handleConfirmEngagement = () => {
+    if (!engagementRequest || !engagementDraft || createEngagement.isPending) return
+
+    createEngagement.mutate(
+      {
+        serviceRequestId: engagementRequest.id,
+        serviceId: engagementDraft.serviceId,
+        assignedStaff: engagementDraft.assignedStaff,
+        startDate: engagementDraft.startDate,
+        dueDate: engagementDraft.targetEndDate,
+        fee: engagementDraft.serviceFee,
+      },
+      {
+        onSuccess: () => {
+          resetFlow()
+          navigate(`${basePath}/engagements`)
+        },
+      }
+    )
   }
 
   usePageMeta({
     title: "Service Requests",
-    breadcrumbs: [
-      { label: basePath === "/firm" ? "Firm Staff" : "Firm Admin", href: `${basePath}/dashboard` },
-      { label: "Service Requests", href: `${basePath}/service-requests` },
-    ],
+    breadcrumbs: [],
   })
 
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-1">
-        <p className="text-sm text-muted-foreground">
-          Review incoming service requests submitted by clients and decide whether to start an
-          engagement.
-        </p>
         {error && <span className="text-xs text-destructive">Failed to load service requests</span>}
       </div>
 
       <ServiceRequestFilters
         searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search by client, request no., or service..."
+        onSearchChange={(value) => {
+          setSearch(value)
+          setCurrentPage(1)
+        }}
+        searchPlaceholder="Search by client, request no., or category..."
         statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
+        onStatusFilterChange={(value) => {
+          setStatusFilter(value)
+          setCurrentPage(1)
+        }}
         statusOptions={statusOptions}
         resultCount={`${filteredRequests.length} of ${requests.length} requests`}
       />
@@ -134,8 +165,9 @@ export default function ServiceRequestsPage() {
         requests={filteredRequests}
         loading={isLoading}
         emptyMessage="No service requests match your filters."
-        emptyDescription="Try clearing the search or changing the status filter."
         onRowClick={(request) => openRequest(request)}
+        page={currentPage}
+        onPageChange={setCurrentPage}
         actions={(request) => (
           <Button
             size="sm"
@@ -157,25 +189,42 @@ export default function ServiceRequestsPage() {
         onApprove={handleApproveAndEngage}
         onApproveAndEngage={handleApproveAndEngage}
         onReject={handleReject}
+        canReject={canRejectRequest}
+        rejecting={updateStatus.isPending}
+        rejectionError={
+          updateStatus.isError
+            ? updateStatus.error?.message || "Unable to reject the request. Please try again."
+            : ""
+        }
       />
 
+      {/* key resets the form's internal state for each request; it stays mounted
+          while moving between "form" and "confirm" so Back keeps the values. */}
       <CreateEngagementDialog
-        open={!!engagementRequest}
+        key={engagementRequest?.id ?? "none"}
+        open={step === "form"}
         onOpenChange={(open) => {
-          if (!open) setEngagementRequest(null)
+          if (!open) resetFlow()
         }}
         request={engagementRequest}
-        onSubmit={handleEngagementSubmit}
+        onSubmit={handleFormSubmit}
       />
 
       <RequiredDocumentsDialog
-        open={!!activeEngagement}
+        open={step === "confirm"}
         onOpenChange={(open) => {
-          if (!open) setActiveEngagement(null)
+          if (!open && !createEngagement.isPending) resetFlow()
         }}
-        engagement={activeEngagement}
-        onBack={handleBackToEngagement}
-        onSubmit={handleSendToClient}
+        request={engagementRequest}
+        draft={engagementDraft}
+        submitting={createEngagement.isPending}
+        error={
+          createEngagement.isError
+            ? createEngagement.error?.message || "Unable to create the engagement. Please try again."
+            : ""
+        }
+        onBack={handleBackToForm}
+        onConfirm={handleConfirmEngagement}
       />
     </>
   )

@@ -11,13 +11,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { getZodFieldErrors } from "@/lib/form-validation"
+import { filingSchema } from "@/schemas/engagementSchema"
 
 export function FileTaxDialog({ open, onOpenChange, isVat, onSave }) {
   const [filingDate, setFilingDate] = useState("")
   const [filingNotes, setFilingNotes] = useState("")
+  const [errors, setErrors] = useState({})
 
   const handleSave = (e) => {
     e.preventDefault()
+    const nextErrors = getZodFieldErrors(filingSchema, { filingDate, filingNotes })
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
     onSave?.({
       filingDate,
       filingNotes: filingNotes.trim() || null,
@@ -44,10 +50,15 @@ export function FileTaxDialog({ open, onOpenChange, isVat, onSave }) {
               <Input
                 type="date"
                 value={filingDate}
-                onChange={(e) => setFilingDate(e.target.value)}
+                onChange={(e) => {
+                  setFilingDate(e.target.value)
+                  setErrors((current) => ({ ...current, filingDate: undefined }))
+                }}
                 className="h-8"
                 required
+                aria-invalid={Boolean(errors.filingDate) || undefined}
               />
+              {errors.filingDate && <p className="text-sm text-destructive">{errors.filingDate}</p>}
             </Field>
 
             <Field>

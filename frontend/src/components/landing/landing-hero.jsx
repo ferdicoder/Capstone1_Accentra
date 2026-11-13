@@ -1,81 +1,84 @@
-import { ArrowRight, Check, Sparkles } from "lucide-react"
-import { Link } from "react-router-dom"
+import { ArrowRight } from "lucide-react"
+
+// 1) Large vertical photo: replace ./hero-team.jpg with your photo.
+import heroImage from "./hero-team.jpg"
 
 import { LandingNav } from "./landing-nav"
-import { LandingProductPreview } from "./landing-product-preview"
 import { landingContainer } from "./landing-data"
+import { useFetchFirmSettings } from "@/hooks/useFirmSettings"
+
+// 2) Smaller landscape photo: save it as ./hero-secondary.jpg (or .jpeg, .png,
+// .webp) in this folder. It is picked up automatically. Until it exists, a
+// close-up crop of the main photo is shown so the layout never looks empty.
+const secondaryImages = import.meta.glob("./hero-secondary.{jpg,jpeg,png,webp}", {
+  eager: true,
+  import: "default",
+})
+const secondaryImage = Object.values(secondaryImages)[0] ?? null
 
 export function LandingHero({ onSignIn }) {
+  const { data: settings } = useFetchFirmSettings()
+  const firmName = settings?.firmName?.trim() || "Jobal Business Consultancy"
+
   return (
     <section
+      id="home"
       data-landing-hero
-      className="relative isolate overflow-hidden bg-[#02353C] text-white"
+      className="flex min-h-svh snap-start items-center overflow-x-clip bg-[#FAFBF9] pt-[4.5rem] text-[#02353C]"
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.06)_1px,transparent_1px)] [background-size:56px_56px]"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-32 top-20 size-[30rem] rounded-full bg-emerald-400/10 blur-3xl"
-      />
       <LandingNav onSignIn={onSignIn} />
 
       <div
-        className={`${landingContainer} landing-hero-grid relative z-10 grid items-center gap-14 py-16 lg:grid-cols-[.98fr_1.02fr] lg:gap-10 lg:pb-16 lg:pt-24 xl:gap-16`}
+        className={`${landingContainer} grid w-full items-center gap-10 py-8 lg:grid-cols-[1fr_1fr] lg:gap-12`}
       >
-        <div className="landing-enter landing-hero-copy max-w-[840px]">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-3.5 py-1.5 text-xs font-medium text-emerald-200 sm:text-[0.9375rem]">
-            <Sparkles className="size-3.5" aria-hidden="true" />
-            Accounting practice management
-          </div>
-          <h1 className="max-w-[840px] text-[clamp(2rem,5vw,4.5rem)] font-semibold leading-[0.99] tracking-[-0.055em] text-white sm:text-[clamp(3.5rem,5vw,4.5rem)] lg:text-[clamp(3.25rem,4.7vw,4.5rem)]">
-            <span className="block">Every accounting</span>
-            <span className="block">
-              engagement, <span className="text-emerald-300">in</span>
-            </span>
-            <span className="block">one place.</span>
-          </h1>
-          <p className="mt-6 max-w-[680px] text-base leading-7 text-white/70 sm:text-[1.1875rem] sm:leading-[2.125rem]">
-            Accentra brings clients, accounting firms, documents, tasks, and
-            progress into one calm, connected workspace.
+        <div className="landing-enter landing-hero-copy">
+          <p className="inline-block border-b border-[#DCE9E5] pb-3 text-sm font-semibold tracking-[0.02em] text-[#047857] sm:text-base">
+            {firmName}
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Link
-              to="/client/signup"
-              className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-[#10B981] px-6 py-3.5 text-sm font-semibold text-[#02353C] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:bg-[#34d399] hover:shadow-lg hover:shadow-emerald-950/25 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300"
-            >
-              Get started
-              <ArrowRight className="ml-2 size-4" aria-hidden="true" />
-            </Link>
+          <h1 className="mt-6 max-w-[640px] text-[clamp(2.25rem,4.6vw,4rem)] font-semibold leading-[1.04] tracking-[-0.035em] text-balance">
+            Your Business, Made Simpler.
+          </h1>
+          <p className="mt-6 max-w-[540px] text-lg leading-[1.65] text-[#3D5F5A]">
+            Providing reliable business registration and tax filing services
+            to help businesses manage their essential requirements.
+          </p>
+
+          <div className="mt-8">
             <a
               href="#features"
-              className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-white/20 px-6 py-3.5 text-sm font-medium text-white transition duration-200 hover:-translate-y-0.5 hover:border-white/45 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-[#02353C] px-5 py-3 text-[0.9375rem] font-semibold text-white transition-colors hover:bg-[#0A4B52] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#02353C]"
             >
-              Explore the workspace
+              Explore our services
+              <ArrowRight className="size-4" aria-hidden="true" />
             </a>
-          </div>
-          <div className="mt-8 flex flex-wrap gap-x-7 gap-y-2 text-[0.9375rem] text-white/70">
-            <span>
-              <Check
-                className="mr-1.5 inline size-3.5 text-emerald-300"
-                aria-hidden="true"
-              />
-              For accounting firms
-            </span>
-            <span>
-              <Check
-                className="mr-1.5 inline size-3.5 text-emerald-300"
-                aria-hidden="true"
-              />
-              Built around engagements
-            </span>
           </div>
         </div>
 
-        <div className="landing-enter landing-hero-preview [animation-delay:120ms]">
-          <LandingProductPreview />
-        </div>
+        <figure className="landing-enter landing-hero-preview mx-auto w-full max-w-[420px] [animation-delay:120ms] lg:max-w-none">
+          <div className="relative ml-auto w-full pb-10 lg:max-w-[700px]">
+            {/* Large vertical photo */}
+            <img
+              src={heroImage}
+              alt="Accounting professionals meeting with a client"
+              decoding="async"
+              className="relative ml-auto block aspect-[4/5] max-h-[60svh] w-[80%] rounded-3xl object-cover object-[50%_35%] lg:aspect-auto lg:h-[min(66vh,600px)] lg:max-h-none lg:w-[min(100%,480px)]"
+            />
+
+            {/* Smaller landscape photo over the bottom-left corner */}
+            <div className="absolute bottom-0 left-0 aspect-[4/3] w-[52%] overflow-hidden rounded-xl border-4 border-white shadow-xl shadow-[#02353C]/15 sm:rounded-2xl sm:border-[6px] lg:w-[340px]">
+              <img
+                src={secondaryImage ?? heroImage}
+                alt={secondaryImage ? "Calculator and financial reports on a desk" : ""}
+                loading="lazy"
+                decoding="async"
+                className={`size-full object-cover ${
+                  secondaryImage ? "" : "scale-[2.2] object-[32%_62%]"
+                }`}
+              />
+            </div>
+          </div>
+
+        </figure>
       </div>
     </section>
   )

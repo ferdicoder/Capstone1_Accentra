@@ -1,0 +1,138 @@
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { getZodFieldErrors } from "@/lib/form-validation"
+import { rejectionRemarksSchema } from "@/schemas/billingSchema"
+
+const REJECTION_REMARKS_MAX_LENGTH = 1000
+
+/**
+ * Confirmation dialog before rejecting a submitted payment reference.
+ * Mirrors the CancelBillingDialog pattern and the service-request rejection
+ * flow: first confirm, then require a remarks entry before rejecting.
+ * Reject changes the single billing status back to the existing
+ * unresolved/pending state (spec section 9: never a persistent
+ * billing status to "paid").
+ */
+export function RejectPaymentDialog({ open, onOpenChange, onConfirm, submitting = false }) {
+  const [step, setStep] = useState("confirm")
+  const [remarks, setRemarks] = useState("")
+  const [remarksError, setRemarksError] = useState("")
+
+  const closeDialog = () => {
+    if (submitting) return
+    setStep("confirm")
+    setRemarks("")
+    setRemarksError("")
+    onOpenChange?.(false)
+  }
+
+  const handleOpenChange = (nextOpen) => {
+    if (!nextOpen) closeDialog()
+  }
+
+  const handleSubmitRemarks = (event) => {
+    event.preventDefault()
+    const reason = remarks.trim()
+    const errors = getZodFieldErrors(rejectionRemarksSchema, { remarks: reason })
+    if (Object.keys(errors).length > 0) {
+      setRemarksError(errors.remarks)
+      return
+    }
+    onConfirm?.(reason)
+  }
+
+  const handleBack = () => {
+    if (submitting) return
+    setStep("confirm")
+    setRemarksError("")
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent data-slot="reject-payment-dialog">
+        {step === "confirm" ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Reject this payment?</DialogTitle>
+              <DialogDescription>
+                Confirm to continue to the remarks form.
+              </DialogDescription>
+            </DialogHeader>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={submitting} onClick={closeDialog}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={submitting}
+                onClick={() => setStep("remarks")}
+              >
+                Continue
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <form onSubmit={handleSubmitRemarks} className="flex min-h-0 flex-col gap-4">
+            <DialogHeader>
+              <DialogTitle>Reason for rejection</DialogTitle>
+              <DialogDescription>
+                Enter the reason to share with the client. Remarks are required.
+              </DialogDescription>
+            </DialogHeader>
+
+            <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="payment-rejection-remarks">
+              Remarks
+              <Textarea
+                id="payment-rejection-remarks"
+                value={remarks}
+                onChange={(event) => {
+                  setRemarks(event.target.value)
+                  if (remarksError) setRemarksError("")
+                }}
+                placeholder="Explain why this payment cannot be accepted..."
+                rows={5}
+                maxLength={REJECTION_REMARKS_MAX_LENGTH}
+                aria-invalid={Boolean(remarksError)}
+                aria-describedby={remarksError ? "payment-rejection-remarks-error" : undefined}
+                disabled={submitting}
+              />
+            </label>
+
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              {remarksError ? (
+                <p id="payment-rejection-remarks-error" className="text-destructive" role="alert">
+                  {remarksError}
+                </p>
+              ) : (
+                <span>Client-facing remarks</span>
+              )}
+              <span>
+                {remarks.length}/{REJECTION_REMARKS_MAX_LENGTH}
+              </span>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleBack} disabled={submitting}>
+                Back
+              </Button>
+              <Button type="submit" variant="destructive" disabled={submitting}>
+                {submitting ? "Rejecting..." : "Confirm rejection"}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}

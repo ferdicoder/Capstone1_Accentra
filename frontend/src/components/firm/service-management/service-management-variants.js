@@ -6,9 +6,9 @@
 
 /** Maps a raw category value to its badge styling. */
 export const categoryBadgeStyles = {
-  "tax-filing":
+  tax_filing:
     "bg-amber-500/10 text-amber-700 ring-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20",
-  "business-registration":
+  business_registration:
     "bg-indigo-500/10 text-indigo-700 ring-indigo-500/25 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/20",
 }
 
@@ -33,8 +33,8 @@ export const statusDotStyles = {
 
 /** Category options for filters and forms. Pass `[]` to hide the filter. */
 export const categoryFilterOptions = [
-  { value: "tax-filing", label: "Tax Filing" },
-  { value: "business-registration", label: "Business Registration" },
+  { value: "tax_filing", label: "Tax Filing" },
+  { value: "business_registration", label: "Business Registration" },
 ]
 
 /** Status options for the toolbar filter and the form's Status field. */
@@ -58,20 +58,41 @@ export const formatBasePrice = (value) => {
  * can never drift apart. Swap with a real API call later.
  */
 export const serviceTemplateCatalog = [
-  { name: "Tax Filing - Non VAT", price: 2500, category: "tax-filing" },
-  { name: "Tax Filing - VAT", price: 3500, category: "tax-filing" },
+  { name: "Tax Filing - Non VAT", price: 2500, category: "tax_filing" },
+  { name: "Tax Filing - VAT", price: 3500, category: "tax_filing" },
   {
     name: "Business Registration - Sole Proprietorship",
     price: 8000,
-    category: "business-registration",
+    category: "business_registration",
   },
-  { name: "Business Registration - Corporation", price: 15000, category: "business-registration" },
-  { name: "Business Registration - Partnership", price: 12000, category: "business-registration" },
+  { name: "Business Registration - Corporation", price: 15000, category: "business_registration" },
+  { name: "Business Registration - Partnership", price: 12000, category: "business_registration" },
 ]
 
 /** Returns the configured template price for a service name (0 if unknown). */
 export const getServiceTemplatePrice = (serviceName) =>
   serviceTemplateCatalog.find((template) => template.name === serviceName)?.price ?? 0
+
+/**
+ * File types the reference-document upload accepts. Mirrors the server-side
+ * allow-list (backend/config/allowedFileTypes.js) so an unsupported file is
+ * rejected before the upload starts.
+ */
+export const REFERENCE_DOCUMENT_MIME_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]
+
+/** File-picker hint matching REFERENCE_DOCUMENT_MIME_TYPES. */
+export const REFERENCE_DOCUMENT_ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+
+/** Builds the message shown when a file outside the supported types is picked. */
+export const getInvalidFileTypeMessage = (fileName) =>
+  `"${fileName || "This file"}" is not a supported file type. Upload a PDF, JPG, PNG, WEBP, DOC, or DOCX file.`
 
 /** Generates a short unique id for client-side records (tasks, services). */
 export const createTaskId = () => Math.random().toString(36).slice(2, 10)

@@ -1,23 +1,23 @@
+import { useLocation } from "react-router-dom"
+
+import { LandingNav } from "@/components/landing/landing-nav"
+
 export function FirmAuthLayout({ children }) {
+  const location = useLocation()
+  const slideClass = location.state?.clientAuthSlide
+    ? "client-auth-slide-up"
+    : ""
+
   return (
-    <div className="min-h-svh bg-linear-to-br from-navy-900 via-forest-900 to-emerald-500">
-      {/* Header */}
-      <header className="flex items-center px-6 py-6 md:px-10">
-        <a href="#" className="flex items-center gap-2 text-white">
-          <div className="flex size-8 items-center justify-center rounded-md border border-white">
-            <span className="font-bold">A</span>
+    <>
+      <LandingNav sectionPrefix="/" />
+      <main className="min-h-svh pt-[4.5rem]">
+        <div className="relative flex min-h-[calc(100svh-4.5rem)] flex-col items-center justify-center gap-5 bg-linear-to-br from-[#e8f3ef] via-[#fbfcfa] to-[#dceee5] px-4 py-8 sm:gap-6">
+          <div className={`client-auth-card w-full max-w-2xl rounded-xl border border-border bg-white p-5 shadow-[0_20px_50px_rgba(15,71,62,0.14)] sm:p-8 ${slideClass}`}>
+            {children}
           </div>
-
-          <span className="text-lg font-semibold">Accentra</span>
-        </a>
-      </header>
-
-      {/* Main Content */}
-      <main className="flex min-h-[calc(100svh-80px)] items-center justify-center px-6 pb-6 md:px-10 md:pb-10">
-        <div className="w-full max-w-lg rounded-xl bg-white p-8 shadow-2xl">
-          {children}
         </div>
       </main>
-    </div>
+    </>
   );
 }

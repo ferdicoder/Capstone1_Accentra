@@ -4,16 +4,23 @@ import modelUrl from "@/assets/3dLogo.gltf?url"
 
 const clamp = (value) => Math.min(1, Math.max(0, value))
 
+// Brand colors for the model: secondary teal for the body, accent emerald for
+// the swoosh (when the GLTF exposes it as a separate mesh or material).
+const PALETTE = { body: "#0A4B52", accent: "#10B981" }
+const ACCENT_NAME = /swoosh|wave|curve|accent/i
+
 /**
  * Renders the supplied Accentra GLTF as a restrained section accent.
  *
- * The model is loaded only when this component mounts, rendered on demand
- * rather than in a permanent animation loop, and stays front-facing while its
- * horizontal offset and front-facing rotation are driven by page scroll
- * progress through the section. It is decorative and never receives pointer
- * or focus events.
+ * The model is loaded only when this component mounts. Optional motion runs
+ * only while visible and when reduced motion is not requested. It is
+ * decorative and never receives pointer or focus events.
  */
-export function Landing3DLogo({ className = "" }) {
+export function Landing3DLogo({
+  className = "",
+  animateEntrance = true,
+  animateFloatRotate = false,
+}) {
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
 
@@ -36,6 +43,7 @@ export function Landing3DLogo({ className = "" }) {
     let resizeObserver
     let intersectionObserver
     let scrollFrame = 0
+    let animationFrame = 0
     let isVisible = true
     let baseScale = 1
 
@@ -61,16 +69,21 @@ export function Landing3DLogo({ className = "" }) {
       const parentWidth = track.clientWidth || 0
       const modelWidth = container.offsetWidth || 1
       const finalX = Math.max((parentWidth - modelWidth) / 2, 0)
-      const startX = -modelWidth - 48
+      // A short slide from beside its resting place, not from off-screen.
+      const startX = finalX - modelWidth * 0.35
       const easedProgress = progress * progress * (3 - 2 * progress)
-      const offset = motionPreference.matches
-        ? finalX
-        : startX + (finalX - startX) * easedProgress
+      const offset =
+        !animateEntrance || motionPreference.matches
+          ? finalX
+          : startX + (finalX - startX) * easedProgress
 
       container.style.setProperty("--landing-3d-x", `${offset}px`)
+      container.style.opacity = !animateEntrance || motionPreference.matches
+        ? "1"
+        : String(0.4 + 0.6 * easedProgress)
     }
 
-    const applyScrollProgress = () => {
+    const applyScrollProgress = (timestamp = performance.now()) => {
       const sectionProgress = getSectionProgress()
       container.dataset.scrollProgress = sectionProgress.toFixed(3)
       setEntrancePosition(sectionProgress)
@@ -78,14 +91,69 @@ export function Landing3DLogo({ className = "" }) {
       if (!model || !isVisible) return
 
       // Turn the logo toward the viewer as it reaches its resting position.
-      const entranceTurn = motionPreference.matches
-        ? 0
-        : -Math.PI * 0.42 * (1 - sectionProgress)
-      model.rotation.set(0, entranceTurn, 0)
-      model.position.set(0, 0, 0)
+      const frontFacingRotation = -Math.PI * 0.25
+      const rotationY = animateEntrance
+        ? motionPreference.matches
+          ? 0
+          : frontFacingRotation * (1 - sectionProgress)
+        : frontFacingRotation
+      const elapsed = timestamp / 1000
+      model.rotation.set(
+        animateFloatRotate && !motionPreference.matches
+          ? Math.sin(elapsed * 0.8) * 0.035
+          : 0,
+        rotationY +
+          (animateFloatRotate && !motionPreference.matches
+            ? elapsed * 0.32
+            : 0),
+        animateFloatRotate && !motionPreference.matches
+          ? Math.sin(elapsed * 0.65) * 0.025
+          : 0,
+      )
+      model.position.set(
+        0,
+        animateFloatRotate && !motionPreference.matches
+          ? Math.sin(elapsed * 1.6) * 0.08
+          : 0,
+        0,
+      )
       model.scale.setScalar(baseScale)
 
       renderScene()
+    }
+
+    const stopFloatAnimation = () => {
+      if (!animationFrame) return
+      window.cancelAnimationFrame(animationFrame)
+      animationFrame = 0
+    }
+
+    const animateFrame = (timestamp) => {
+      animationFrame = 0
+      if (
+        cancelled ||
+        !isVisible ||
+        !model ||
+        !animateFloatRotate ||
+        motionPreference.matches
+      ) {
+        return
+      }
+
+      applyScrollProgress(timestamp)
+      animationFrame = window.requestAnimationFrame(animateFrame)
+    }
+
+    const startFloatAnimation = () => {
+      if (
+        !animationFrame &&
+        isVisible &&
+        model &&
+        animateFloatRotate &&
+        !motionPreference.matches
+      ) {
+        animationFrame = window.requestAnimationFrame(animateFrame)
+      }
     }
 
     const scheduleRender = () => {
@@ -98,9 +166,11 @@ export function Landing3DLogo({ className = "" }) {
 
     const handleMotionChange = () => {
       if (motionPreference.matches) {
+        stopFloatAnimation()
         applyScrollProgress()
       } else {
-        scheduleRender()
+        startFloatAnimation()
+        if (!animateFloatRotate) scheduleRender()
       }
     }
 
@@ -136,16 +206,18 @@ export function Landing3DLogo({ className = "" }) {
         roomEnvironment.dispose()
         pmremGenerator.dispose()
 
+        // Soft, even lighting: one key, one brand-colored fill, one rim. No hot
+        // specular glints, so the mark reads as a finished object.
         const hemisphereLight = new THREE.HemisphereLight(
-          0xd9fff5,
-          0x02353c,
-          0.85,
+          0xbfeee2,
+          0x011a16,
+          0.45,
         )
-        const keyLight = new THREE.DirectionalLight(0xffffff, 1.7)
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.6)
         keyLight.position.set(2.5, 3.5, 4)
-        const emeraldLight = new THREE.PointLight(0x10b981, 4.5, 8)
+        const emeraldLight = new THREE.PointLight(0x10b981, 0.8, 8)
         emeraldLight.position.set(-2.4, -1.5, 2.5)
-        const rimLight = new THREE.PointLight(0x9fffd8, 2.6, 7)
+        const rimLight = new THREE.PointLight(0xd8fff1, 1.6, 7)
         rimLight.position.set(2, 1.5, -2)
 
         scene.add(hemisphereLight, keyLight, emeraldLight, rimLight)
@@ -185,31 +257,42 @@ export function Landing3DLogo({ className = "" }) {
             const modelGroup = new THREE.Group()
             modelGroup.add(modelRoot)
             modelRoot.traverse((child) => {
-              if (!child.isMesh) return
+              if (!child.isMesh || !child.material) return
               child.castShadow = false
               child.receiveShadow = false
-              if (child.material) {
-                child.material.envMapIntensity = 1.05
-                // Tint the clear asset toward translucent green jade without
-                // changing the source GLTF.
-                if ("transmission" in child.material) {
-                  child.material.transmission = 0.28
+
+              // Polished, lacquered finish in brand colors. Materials are
+              // cloned so the body and the accent can differ even when the
+              // source file shares one material.
+              const tune = (source) => {
+                const material = source.clone()
+                const isAccent = ACCENT_NAME.test(
+                  `${child.name} ${source.name}`,
+                )
+
+                if ("color" in material) {
+                  material.color.set(isAccent ? PALETTE.accent : PALETTE.body)
                 }
-                if ("thickness" in child.material) {
-                  child.material.thickness = 1.25
-                  child.material.attenuationDistance = 0.7
-                  child.material.attenuationColor?.set("#087f62")
+                material.envMapIntensity = 1.2
+                // Set transmission to about 0.15 to bring back a hint of
+                // translucency.
+                if ("transmission" in material) material.transmission = 0
+                if ("dispersion" in material) material.dispersion = 0
+                if ("iridescence" in material) material.iridescence = 0
+                if ("ior" in material) material.ior = 1.5
+                if ("roughness" in material) material.roughness = 0.28
+                if ("metalness" in material) material.metalness = 0.15
+                if ("clearcoat" in material) material.clearcoat = 0.6
+                if ("clearcoatRoughness" in material) {
+                  material.clearcoatRoughness = 0.12
                 }
-                if ("roughness" in child.material) {
-                  child.material.roughness = 0.14
-                }
-                if ("metalness" in child.material) {
-                  child.material.metalness = 0.04
-                }
-                if (child.material.color) {
-                  child.material.color.set("#1bbf8a")
-                }
+                material.needsUpdate = true
+                return material
               }
+
+              child.material = Array.isArray(child.material)
+                ? child.material.map(tune)
+                : tune(child.material)
             })
 
             modelRoot.updateMatrixWorld(true)
@@ -229,6 +312,7 @@ export function Landing3DLogo({ className = "" }) {
             model.position.set(0, 0, 0)
             scene.add(model)
             applyScrollProgress()
+            startFloatAnimation()
             resize()
           },
           undefined,
@@ -240,7 +324,12 @@ export function Landing3DLogo({ className = "" }) {
         intersectionObserver = new IntersectionObserver(
           ([entry]) => {
             isVisible = entry.isIntersecting
-            if (isVisible) scheduleRender()
+            if (isVisible) {
+              startFloatAnimation()
+              if (!animateFloatRotate) scheduleRender()
+            } else {
+              stopFloatAnimation()
+            }
           },
           { rootMargin: "160px" },
         )
@@ -265,6 +354,7 @@ export function Landing3DLogo({ className = "" }) {
       window.removeEventListener("resize", scheduleRender)
       motionPreference.removeEventListener?.("change", handleMotionChange)
       if (scrollFrame) window.cancelAnimationFrame(scrollFrame)
+      stopFloatAnimation()
       resizeObserver?.disconnect()
       intersectionObserver?.disconnect()
       model?.traverse((child) => {
@@ -279,7 +369,7 @@ export function Landing3DLogo({ className = "" }) {
       environmentTexture?.dispose()
       renderer?.dispose()
     }
-  }, [])
+  }, [animateEntrance, animateFloatRotate])
 
   return (
     <div

@@ -1,4 +1,3 @@
-import { useState } from "react"
 import { FileText, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -11,118 +10,152 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { formatRevenue } from "./service-request-variants"
+import { useFetchServiceTasks } from "@/hooks/useServiceTasks"
+import { getCategoryLabel } from "@/lib/service-categories"
 
-const textareaClass =
-  "min-h-20 w-full resize-none rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 dark:bg-input/30 dark:disabled:bg-input/80"
+const formatDate = (value) =>
+  value
+    ? new Date(`${value}T00:00:00`).toLocaleDateString("en-PH", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "—"
 
-function SummaryRow({ label, children, className }) {
+const formatPeso = (value) =>
+  new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(Number(value) || 0)
+
+function SummaryRow({ label, children }) {
   return (
-    <div className={cn("grid min-w-0 grid-cols-[160px_minmax(0,1fr)] gap-4 py-2.5 text-sm", className)}>
-      <dt className="min-w-0 font-medium text-muted-foreground">{label}</dt>
+    <div className="grid min-w-0 grid-cols-[140px_minmax(0,1fr)] gap-4 py-2.5 text-sm">
+      <dt className="font-medium text-muted-foreground">{label}</dt>
       <dd className="min-w-0 break-words text-foreground">{children}</dd>
     </div>
   )
 }
 
-const statusBadgeStyles = {
-  active: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
-  completed: "bg-blue-500/10 text-blue-700 ring-blue-500/25",
-  cancelled: "bg-gray-500/10 text-gray-600 ring-gray-500/25",
-}
-
 export function RequiredDocumentsDialog({
   open = false,
   onOpenChange,
-  engagement,
-  onBack,
-  onSubmit,
+  request,
+  draft,
+  submitting = false,
   error,
+  onBack,
+  onConfirm,
   className,
 }) {
-  const [note, setNote] = useState("")
+  const {
+    data: tasks = [],
+    isLoading: tasksLoading,
+    error: tasksError,
+  } = useFetchServiceTasks(open ? draft?.serviceId : null)
 
-  const businessName = engagement?.business?.businessName ?? "—"
-  const staffLabel = engagement?.assignedStaff || "—"
-  const badgeClass = statusBadgeStyles[engagement?.status] ?? statusBadgeStyles.active
-
-  const handleSubmit = (event) => {
-    event.preventDefault()
-    onSubmit?.({ engagement, note: note.trim() })
-  }
+  const client = draft?.client ?? request?.client
+  const business = draft?.business ?? request?.business
+  const clientName = [client?.firstName, client?.lastName].filter(Boolean).join(" ") || "—"
+  const categoryOverride =
+    !!draft?.requestedCategory && draft.requestedCategory !== draft.serviceCategory
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-slot="required-documents-dialog" className={cn("max-w-2xl", className)}>
+      <DialogContent
+        data-slot="confirm-engagement-dialog"
+        className={cn("max-w-2xl", className)}
+      >
         <DialogHeader>
-          <DialogTitle>Engagement Created</DialogTitle>
+          <DialogTitle>Confirm Engagement</DialogTitle>
           <DialogDescription>
-            The engagement has been created and required tasks copied over from the service template.
+            Review the details and required documents. The engagement is only created when you
+            confirm.
           </DialogDescription>
-          {engagement && (
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
-                <span className="font-medium text-foreground">{engagement.engagementNumber ?? "—"}</span>
-              </span>
-              <span>{engagement.serviceName}</span>
-              <span>{businessName}</span>
-              <span>Assigned to {staffLabel}</span>
-            </div>
-          )}
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh]">
-          <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
-              <FileText className="size-3.5" />
-            </div>
-            <h3 className="text-sm font-semibold text-foreground">Engagement Summary</h3>
-          </div>
-
-          <div className="rounded-xl border border-[#02353C]/15 bg-[#02353C]/[0.03] px-6">
-            <dl className="divide-y divide-[#02353C]/10">
-              <SummaryRow label="Client">{businessName}</SummaryRow>
-              <SummaryRow label="Service">{engagement?.serviceName ?? "—"}</SummaryRow>
-              <SummaryRow label="Assigned Firm User">{staffLabel}</SummaryRow>
-              <SummaryRow label="Due Date">
-                {engagement?.targetEndDate
-                  ? new Date(`${engagement.targetEndDate}T00:00:00`).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "2-digit",
-                      year: "numeric",
-                    })
-                  : "—"}
+        <div className="flex max-h-[65vh] flex-col gap-5 overflow-y-auto p-1">
+          <div className="rounded-xl border border-border bg-muted/30 px-6">
+            <dl className="divide-y divide-border/60">
+              <SummaryRow label="Client">{clientName}</SummaryRow>
+              <SummaryRow label="Business">{business?.businessName ?? "—"}</SummaryRow>
+              {draft?.requestedCategory && (
+                <SummaryRow label="Requested">
+                  {getCategoryLabel(draft.requestedCategory)}
+                </SummaryRow>
+              )}
+              <SummaryRow label="Service Template">
+                {draft?.serviceName ?? "—"}
+                {draft?.serviceCategory && (
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {getCategoryLabel(draft.serviceCategory)}
+                  </span>
+                )}
+                {categoryOverride && (
+                  <span className="mt-0.5 block text-xs text-amber-700 dark:text-amber-300">
+                    Outside the requested category. This will be recorded in the audit log.
+                  </span>
+                )}
               </SummaryRow>
-              <SummaryRow label="Service Fee">{formatRevenue(engagement?.serviceFee)}</SummaryRow>
-              <SummaryRow label="Status">
-                <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset", badgeClass)}>
-                  <span className="size-1.5 rounded-full bg-current" />
-                  {engagement?.status ?? "active"}
-                </span>
-              </SummaryRow>
+              <SummaryRow label="Assigned Lead">{draft?.assignedStaffName || "—"}</SummaryRow>
+              <SummaryRow label="Start Date">{formatDate(draft?.startDate)}</SummaryRow>
+              <SummaryRow label="Target Completion">{formatDate(draft?.targetEndDate)}</SummaryRow>
+              <SummaryRow label="Service Fee">{formatPeso(draft?.serviceFee)}</SummaryRow>
             </dl>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex size-7 items-center justify-center rounded-lg bg-[#02353C]/10 text-[#02353C]">
-                <FileText className="size-3.5" />
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <h3 className="text-sm font-semibold text-foreground">Internal Notes</h3>
-                <p className="text-xs text-muted-foreground">
-                  Visible only to firm users. Not saved yet — notes storage is coming soon.
-                </p>
-              </div>
-            </div>
+          <div className="space-y-2">
+            <h3 className="font-heading text-sm font-medium text-foreground">
+              Required Documents
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Tasks are copied from the template, and attached reference documents are listed here.
+            </p>
 
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Add any internal notes about this engagement…"
-              rows={3}
-              className={textareaClass}
-            />
+            {tasksLoading && (
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Loading template tasks…
+              </p>
+            )}
+            {!tasksLoading && tasksError && (
+              <p role="alert" className="text-sm text-destructive">
+                Unable to load the template's tasks. You can still confirm; the tasks are copied
+                by the server.
+              </p>
+            )}
+            {!tasksLoading && !tasksError && tasks.length === 0 && (
+              <p className="text-sm text-muted-foreground">This template has no tasks.</p>
+            )}
+            {!tasksLoading && !tasksError && tasks.length > 0 && (
+              <ul className="divide-y divide-border/60 rounded-xl border border-border">
+                {tasks.map((task) => {
+                  const required = task.required ?? task.isRequired ?? task.is_required ?? true
+                  return (
+                    <li key={task.id} className="flex items-start gap-3 px-4 py-2.5 text-sm">
+                      <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-foreground">{task.title ?? task.name}</p>
+                        {task.description && (
+                          <p className="text-xs text-muted-foreground">{task.description}</p>
+                        )}
+                        {task.referenceDocument ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Template reference:{" "}
+                            <span className="font-medium text-foreground">
+                              {task.referenceDocument.name}
+                            </span>
+                          </p>
+                        ) : task.hasReferenceDocument && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            No reference document is attached.
+                          </p>
+                        )}
+                      </div>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {required ? "Required" : "Optional"}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
           </div>
 
           {error && (
@@ -130,16 +163,22 @@ export function RequiredDocumentsDialog({
               {error}
             </p>
           )}
+        </div>
 
-          <DialogFooter className="flex-row justify-between gap-2">
-            <Button type="button" variant="outline" onClick={onBack} className="rounded-lg">
-              Close
-            </Button>
-            <Button type="submit" className="rounded-lg bg-[#02353C] text-white hover:opacity-90">
-              Go to Engagement
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogFooter className="flex-row justify-end gap-2">
+          <Button type="button" variant="outline" disabled={submitting} onClick={onBack}>
+            Back
+          </Button>
+          <Button
+            type="button"
+            disabled={submitting}
+            onClick={onConfirm}
+            className="bg-[#02353C] text-white hover:opacity-90"
+          >
+            {submitting && <Loader2 className="size-4 animate-spin" />}
+            {submitting ? "Creating…" : "Confirm & Create Engagement"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

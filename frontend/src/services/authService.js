@@ -1,10 +1,23 @@
 import { supabase } from '../config/supabase.js';
 import { setUserRole } from './api/userAPI.js';
 import toISODateString from '@/utils/formatDate.js';
+import { canUsePortal } from '@/config/roles.js';
+import { authStore } from '@/store/authStore';
 
-/**
- * fix: every role can login to every auth routes signins
- */
+export async function signinToPortal(portal, email, password) {
+  const result = await signinUser(email, password)
+  if (result?.error) throw new Error("The email or password you entered is incorrect.")
+
+  if (!canUsePortal(portal, result.role)) {
+    await supabase.auth.signOut()
+    authStore.getState().clearAuth()
+    throw new Error("Invalid credentials please try again.")
+  }
+
+  // Loads role AND status into the store (persist = true)
+  await setUserRole(result.data.user)
+  return result
+}
 async function signinUser(email, password){
   try{
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -13,14 +26,107 @@ async function signinUser(email, password){
     }); 
     if(error) throw new Error(error.message)
 
-    const role = await setUserRole(data.user);
-    console.log("Login Successful"); 
+    const role = await setUserRole(data.user, false);
+    if (!role) {
+      throw new Error("Invalid Credentials, your account maybe deactivated or not registered. ")
+    }
     return { data, role }; 
 
     }catch(err){
-      console.error(err); 
       throw err;
     }
+}
+
+/**
+ * Number of digits in the recovery code that is emailed to the account owner.
+ *
+ * Matches the length used by the password recovery flow.
+ */
+const PASSWORD_RECOVERY_OTP_LENGTH = 6
+
+/** Digits in the signup confirmation code configured in Supabase Auth. */
+const SIGNUP_OTP_LENGTH = 8
+const PASSWORD_REUSE_MESSAGE = "This password has already been used. Try another."
+
+function getPasswordReuseMessage(error) {
+  const message = `${error?.code ?? ""} ${error?.message ?? ""}`
+  return /password.{0,40}(reuse|used before|previous|same as|different from old)|(?:reuse|used before|previous).{0,40}password/i.test(
+    message
+  )
+    ? PASSWORD_REUSE_MESSAGE
+    : null
+}
+
+/**
+ * Asks Supabase Auth to email a recovery code to the given address.
+ *
+ * The response is intentionally not used to tell the caller whether the
+ * address is registered — the caller must show the same confirmation either
+ * way.
+ *
+ * @param {{ email: string, redirectTo?: string }} params
+ * @returns {Promise<void>}
+ */
+async function requestPasswordRecovery({ email, redirectTo }) {
+  const { error } = await supabase.auth.resetPasswordForEmail(
+    email,
+    redirectTo ? { redirectTo } : undefined
+  )
+  if (error) throw error
+}
+
+/**
+ * Verifies the emailed recovery code and opens a recovery session.
+ *
+ * @param {{ email: string, token: string }} params
+ * @returns {Promise<void>}
+ */
+async function verifyPasswordRecoveryOtp({ email, token }) {
+  const { error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: "recovery",
+  })
+  if (error) throw error
+}
+
+/**
+ * Sets the new password for the account that owns the recovery session.
+ *
+ * @param {{ password: string }} params
+ * @returns {Promise<void>}
+ */
+async function updateRecoveredPassword({ password }) {
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw error
+}
+
+async function changeAuthenticatedPassword({ currentPassword, newPassword }) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+  if (userError) throw userError
+  if (!user?.email) throw new Error("No authenticated account was found.")
+
+  const { error: verificationError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  })
+  if (verificationError) {
+    if (
+      verificationError.code === "invalid_credentials" ||
+      verificationError.message === "Invalid login credentials"
+    ) {
+      throw new Error("Current password is incorrect.")
+    }
+    throw verificationError
+  }
+
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: newPassword,
+  })
+  if (updateError) throw updateError
 }
 
 /*
@@ -31,30 +137,95 @@ async function registerClient(formData) {
     email: formData.email,
     password: formData.password,
     options: {
+      // Keep confirmation links in the frontend. Without this, Supabase uses
+      // the project Site URL, which may point at the backend and return JSON
+      // instead of rendering the application.
+      emailRedirectTo: `${window.location.origin}/client/signin`,
       data: {
-        first_name: formData.firstName, 
-        last_name: formData.lastName, 
+        first_name: formData.firstName,
+        last_name: formData.lastName,
         middle_name: formData.middleName,
         birth_date: toISODateString(formData.birthDate),
         contact_no: formData.contactNumber,
+        // Every client gets a businesses row with type = 'non-retainer'
+        // regardless of this flag; has_business = false only leaves the
+        // row's business fields empty (kept in metadata for reference).
+        has_business: formData.birRegistrationStatus !== "none",
         business_name: formData.businessName,
         business_type: formData.businessType,
         tin_no: formData.tin,
         industry: formData.industry,
         house_no: formData.houseNo,
         street: formData.streetName,
-        barangay: formData.barangay, 
-        district: formData.district, 
+        barangay: formData.barangay,
+        district: formData.district,
         city: formData.city,
-        zip_code: formData.zipCode
-      }
-    }
+        zip_code: formData.zipCode,
+      },
+    },
   });
 
-  if (authError) return { data: null, error: authError.message };
-  if (!authData.user) return { data: null, error: 'No user returned from signUp' };
+  if (authError) return { data: null, error: authError };
+  if (!authData?.user) {
+    return { data: null, error: new Error("No user returned from signUp.") };
+  }
+
+  // A signup session means Supabase has email confirmation disabled. The
+  // client signup flow requires confirmation before allowing sign-in, so do
+  // not show an OTP screen that can never receive a code.
+  if (authData.session || authData.user.email_confirmed_at) {
+    await supabase.auth.signOut();
+    return {
+      data: null,
+      error: new Error(
+        "Email confirmation is not enabled. Please enable Confirm email in Supabase Auth settings."
+      ),
+    };
+  }
+
+  // Supabase may return an empty identities array for an existing email
+  // when email-enumeration protection is enabled. This is not guaranteed
+  // to be exposed in every Auth configuration.
+  if (authData.user.identities?.length === 0) {
+    return {
+      data: null,
+      error: new Error("An account with this email may already exist."),
+    };
+  }
 
   return { data: authData, error: null };
+}
+
+/**
+ * Verifies the 8-digit code emailed at signup and confirms the account.
+ *
+ * Supabase returns a session for the newly confirmed user; it is signed
+ * out immediately so the caller can route the user to the sign-in page
+ * instead of silently entering the portal.
+ *
+ * @param {{ email: string, token: string }} params
+ * @returns {Promise<void>}
+ */
+async function verifySignupOtp({ email, token }) {
+  const { error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: "signup",
+  })
+  if (error) throw error
+  const { error: signOutError } = await supabase.auth.signOut()
+  if (signOutError) throw signOutError
+}
+
+/**
+ * Re-sends the signup confirmation code to the given address.
+ *
+ * @param {{ email: string }} params
+ * @returns {Promise<void>}
+ */
+async function resendSignupOtp({ email }) {
+  const { error } = await supabase.auth.resend({ type: "signup", email })
+  if (error) throw error
 }
 
 /* will be added: after admin UI is done
@@ -109,6 +280,15 @@ async function createStaff(email, password, formData){
 */
 
 export{
-  registerClient, 
-  signinUser
+  registerClient,
+  signinUser,
+  PASSWORD_RECOVERY_OTP_LENGTH,
+  SIGNUP_OTP_LENGTH,
+  requestPasswordRecovery,
+  verifyPasswordRecoveryOtp,
+  updateRecoveredPassword,
+  changeAuthenticatedPassword,
+  getPasswordReuseMessage,
+  verifySignupOtp,
+  resendSignupOtp
 }

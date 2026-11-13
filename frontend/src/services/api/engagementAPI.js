@@ -1,4 +1,32 @@
 import { supabase } from "@/config/supabase"
+import { apiBaseUrl } from "@/config/api"
+import { copyTemplateReferences } from "./documentAPI"
+
+// Latest firm-provided guide file attached to an engagement task. Stored like
+// template_task_documents (junction row linking to the shared `files` table —
+// file metadata lives there, bytes in B2).
+function mapReferenceDocument(documents) {
+  const list = Array.isArray(documents) ? documents : [documents]
+  // Junction rows have no created_at of their own — newest file wins.
+  const document = list
+    .filter(Boolean)
+    .sort(
+      (first, second) =>
+        new Date(second.files?.created_at ?? second.created_at ?? 0).getTime() -
+        new Date(first.files?.created_at ?? first.created_at ?? 0).getTime()
+    )[0]
+  if (!document) return null
+
+  const file = document.files ?? document
+  const fileId = document.file_id ?? file.file_id ?? file.doc_id
+  return {
+    id: fileId,
+    name: file.file_name ?? "Reference document",
+    size: file.file_size,
+    type: file.mime_type,
+    downloadUrl: `${apiBaseUrl}/documents/reference/${fileId}/download`,
+  }
+}
 
 function mapTaskRow(t) {
   return {
@@ -11,6 +39,7 @@ function mapTaskRow(t) {
     completed: t.status === "approved",
     remark: t.remark,
     deadline: t.due_date,
+    referenceDocument: mapReferenceDocument(t.engagement_task_references),
   }
 }
 
@@ -31,6 +60,7 @@ function mapEngagementRow(row) {
     serviceId: row.service_id,
     serviceName: row.services?.service_name ?? "",
     category: row.services?.category ?? "",
+    isRetainerCovered: row.services?.is_retainer_covered ?? false,
     assignedStaffId: row.assigned_staff,
     assignedStaff: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "",
     business: business
@@ -38,6 +68,7 @@ function mapEngagementRow(row) {
           id: business.business_id,
           businessName: business.name ?? "",
           businessType: business.business_type ?? "",
+          clientType: business.type === "retainer" ? "retainer" : "non_retainer",
           tinNo: business.tin_no ?? "",
           industry: business.industry ?? "",
           contactNo: business.contact_no ?? "",
@@ -59,18 +90,26 @@ function mapEngagementRow(row) {
   }
 }
 
-const ENGAGEMENT_SELECT = `
+const ENGAGEMENT_BASE_SELECT = `
   engagement_id, engagement_code, status, fee, start_date, due_date, created_at,
   business_id, service_id, assigned_staff,
-  services(service_id, service_name, category, estimated_time),
+  services(service_id, service_name, category, estimated_time, is_retainer_covered),
   businesses(
-    business_id, name, business_type, tin_no, industry, contact_no,
+    business_id, name, business_type, type, tin_no, industry, contact_no,
     house_no, street, barangay, district, city, zip_code,
     owner:users(user_id, first_name, middle_name, last_name, email, contact_no)
   ),
-  assignedStaffUser:users!engagements_assigned_staff_fkey(user_id, first_name, last_name),
-  engagement_tasks(engagement_task_id, title, has_reference, is_required, status, remark, due_date)
+  assignedStaffUser:users!engagements_assigned_staff_fkey(user_id, first_name, last_name)
 `
+const ENGAGEMENT_SELECT = `${ENGAGEMENT_BASE_SELECT},
+  engagement_tasks(
+    engagement_task_id, title, has_reference, is_required, status, remark, due_date,
+    engagement_task_references(file_id, files(file_name, mime_type, file_size, created_at))
+  )
+`
+// Single-task selects (create/update/review) keep the reference-file embed so
+// cache patches don't wipe task.referenceDocument.
+const TASK_SELECT = `*, engagement_task_references(file_id, files(file_name, mime_type, file_size, created_at))`
 
 async function logEngagementActivity(engagementId, type, message) {
   const { data: { user } } = await supabase.auth.getUser()
@@ -83,8 +122,14 @@ async function logEngagementActivity(engagementId, type, message) {
   if (error) console.error("Failed to log engagement activity:", error)
 }
 
-export async function getEngagements() {
-  const { data, error } = await supabase.from("engagements").select(ENGAGEMENT_SELECT).order("created_at", { ascending: false })
+export async function getEngagements(includeTasks = true, status) {
+  let query = supabase
+    .from("engagements")
+    .select(includeTasks ? ENGAGEMENT_SELECT : ENGAGEMENT_BASE_SELECT)
+    .order("created_at", { ascending: false })
+  if (status) query = query.eq("status", status)
+
+  const { data, error } = await query
   if (error) throw error
   return (data ?? []).map(mapEngagementRow)
 }
@@ -95,22 +140,68 @@ export async function getMyEngagements(businessId) {
   return (data ?? []).map(mapEngagementRow)
 }
 
-export async function getEngagement(id) {
-  const { data, error } = await supabase.from("engagements").select(ENGAGEMENT_SELECT).eq("engagement_id", id).single()
+export async function getEngagement(id, includeTasks = true) {
+  const { data, error } = await supabase
+    .from("engagements")
+    .select(includeTasks ? ENGAGEMENT_SELECT : ENGAGEMENT_BASE_SELECT)
+    .eq("engagement_id", id)
+    .single()
   if (error) throw error
   return mapEngagementRow(data)
 }
 
-export async function createEngagementFromRequest({ serviceRequestId, assignedStaff, startDate, dueDate, fee }) {
+export async function createEngagementFromRequest({
+  serviceRequestId,
+  serviceId,
+  assignedStaff,
+  startDate,
+  dueDate,
+  fee,
+}) {
   const { data: engagementId, error } = await supabase.rpc("create_engagement", {
     p_service_request_id: serviceRequestId,
+    p_service_id: serviceId,
     p_assigned_staff: assignedStaff,
     p_start_date: startDate,
     p_due_date: dueDate,
     p_fee: fee,
   })
   if (error) throw error
+  await fillTemplateReferences(engagementId)
   return getEngagement(engagementId)
+}
+
+export async function createStandaloneEngagement({
+  businessId,
+  serviceId,
+  assignedStaff,
+  startDate,
+  dueDate,
+  fee,
+}) {
+  const { data: engagementId, error } = await supabase.rpc("create_standalone_engagement", {
+    p_business_id: businessId,
+    p_service_id: serviceId,
+    p_assigned_staff: assignedStaff,
+    p_start_date: startDate,
+    p_due_date: dueDate,
+    p_fee: fee,
+  })
+  if (error) throw error
+  await fillTemplateReferences(engagementId)
+  return getEngagement(engagementId)
+}
+
+// The create_* RPCs copy task rows from the service template but not their
+// reference files — copy those in before fetching so the returned engagement
+// already carries them. Best-effort: a copy failure never fails an engagement
+// that already exists (staff can re-upload the guide manually).
+async function fillTemplateReferences(engagementId) {
+  try {
+    await copyTemplateReferences(engagementId)
+  } catch (err) {
+    console.error("Template reference documents could not be copied:", err)
+  }
 }
 
 export async function updateEngagementStatus({ id, status }) {
@@ -119,19 +210,70 @@ export async function updateEngagementStatus({ id, status }) {
   return mapEngagementRow(data)
 }
 
-// Docless checklist tasks — firm marks done directly.
+// Admin edits the engagement's assigned staff and/or schedule from the
+// details dialog. Activities are logged only for fields that actually changed.
+export async function updateEngagementDetails({
+  engagementId,
+  assignedStaffId,
+  assignedStaffName,
+  startDate,
+  dueDate,
+}) {
+  const { data: current, error: currentError } = await supabase
+    .from("engagements")
+    .select("assigned_staff, start_date, due_date")
+    .eq("engagement_id", engagementId)
+    .single()
+  if (currentError) throw currentError
+
+  const staffChanged = (assignedStaffId ?? null) !== (current.assigned_staff ?? null)
+  const scheduleChanged =
+    (startDate ?? null) !== (current.start_date ?? null) ||
+    (dueDate ?? null) !== (current.due_date ?? null)
+
+  const { data, error } = await supabase
+    .from("engagements")
+    .update({ assigned_staff: assignedStaffId, start_date: startDate, due_date: dueDate })
+    .eq("engagement_id", engagementId)
+    .select(ENGAGEMENT_SELECT)
+    .single()
+  if (error) throw error
+
+  if (staffChanged) {
+    await logEngagementActivity(
+      engagementId,
+      "staff_reassigned",
+      assignedStaffName ? `Assigned staff changed to ${assignedStaffName}` : "Assigned staff changed"
+    )
+  }
+  if (scheduleChanged) {
+    await logEngagementActivity(
+      engagementId,
+      "schedule_updated",
+      `Schedule updated — start ${formatScheduleDate(startDate)}, due ${formatScheduleDate(dueDate)}`
+    )
+  }
+  return mapEngagementRow(data)
+}
+
+function formatScheduleDate(value) {
+  if (!value) return "—"
+  const date = new Date(`${String(value).split("T")[0]}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+}
+
+// Docless checklist tasks — firm marks done directly. task_completed is
+// logged by the DB trigger (trg_log_engagement_task_completed), so no
+// client-side insert here.
 export async function setTaskCompleted({ taskId, completed }) {
   const { data, error } = await supabase
     .from("engagement_tasks")
     .update({ status: completed ? "approved" : "missing" })
     .eq("engagement_task_id", taskId)
-    .select()
+    .select(TASK_SELECT)
     .single()
   if (error) throw error
-
-  if (data.status === "approved") {
-    await logEngagementActivity(data.engagement_id, "task_completed", data.title)
-  }
   return mapTaskRow(data)
 }
 
@@ -147,7 +289,7 @@ export async function reviewEngagementTask({ taskId, status, remark }) {
       reviewed_at: new Date().toISOString(),
     })
     .eq("engagement_task_id", taskId)
-    .select()
+    .select(TASK_SELECT)
     .single()
   if (error) throw error
 
@@ -171,7 +313,7 @@ export async function createEngagementTask({ engagementId, title, hasReferenceDo
       due_date: dueDate || null,
       status: "missing",
     })
-    .select()
+    .select(TASK_SELECT)
     .single()
   if (error) throw error
 
@@ -179,8 +321,14 @@ export async function createEngagementTask({ engagementId, title, hasReferenceDo
   return mapTaskRow(data)
 }
 
-// Firm edits an existing task's definition (name/required/reference/deadline).
 export async function updateEngagementTask({ taskId, title, hasReferenceDocument, required, dueDate }) {
+  const { data: current, error: currentError } = await supabase
+    .from("engagement_tasks")
+    .select("engagement_id, is_required")
+    .eq("engagement_task_id", taskId)
+    .single()
+  if (currentError) throw currentError
+
   const { data, error } = await supabase
     .from("engagement_tasks")
     .update({
@@ -190,9 +338,17 @@ export async function updateEngagementTask({ taskId, title, hasReferenceDocument
       due_date: dueDate || null,
     })
     .eq("engagement_task_id", taskId)
-    .select()
+    .select(TASK_SELECT)
     .single()
   if (error) throw error
+
+  if (Boolean(current.is_required) !== Boolean(required)) {
+    await logEngagementActivity(
+      current.engagement_id,
+      "task_updated",
+      `${title} changed to ${required ? "required" : "optional"}`
+    )
+  }
   return mapTaskRow(data)
 }
 
@@ -202,7 +358,7 @@ export async function updateEngagementTaskDeadline({ taskId, dueDate }) {
     .from("engagement_tasks")
     .update({ due_date: dueDate || null })
     .eq("engagement_task_id", taskId)
-    .select()
+    .select(TASK_SELECT)
     .single()
   if (error) throw error
   return mapTaskRow(data)

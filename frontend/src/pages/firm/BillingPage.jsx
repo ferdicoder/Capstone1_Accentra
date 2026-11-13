@@ -1,0 +1,281 @@
+import { useEffect, useMemo, useState } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
+import { Eye, ShieldCheck } from "lucide-react"
+
+import { FirmUserActionsMenu } from "@/components/firm/users/firm-user-actions-menu"
+import { usePageMeta } from "@/hooks/usePageMeta"
+import { BillingToolbar } from "@/components/firm/billing/billing-toolbar"
+import { BillingTable } from "@/components/firm/billing/billing-table"
+import { BillingSummaryCards } from "@/components/firm/billing/billing-summary-cards"
+import { buildBillingSummaryItems } from "@/components/firm/billing/billing-utils"
+import { CreateBillingDialog } from "@/components/firm/billing/create-billing-dialog"
+import { VerifyPaymentDialog } from "@/components/firm/billing/verify-payment-dialog"
+import { billingDisplayId, isVerifiable } from "@/components/firm/billing/billing-variants"
+import { useFetchBillings, useCreateBilling, useUpdatePaymentStatus } from "@/hooks/useBillings"
+import { useFetchEngagements } from "@/hooks/useEngagements"
+import { useFetchBusinesses } from "@/hooks/useBusinesses"
+
+export default function BillingPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const basePath = location.pathname.startsWith("/billing-officer") ? "/billing-officer" : "/admin"
+  const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState("")
+  const [typeFilter, setTypeFilter] = useState("")
+  const [summaryMonth, setSummaryMonth] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [verifying, setVerifying] = useState(null)
+  // Success notice handed over by a redirect after creating a billing
+  // (e.g. from the billing officer's engagements page).
+  const [notice, setNotice] = useState(() => location.state?.notice ?? "")
+  const { data: billings = [], isLoading, error } = useFetchBillings()
+  const { data: engagements = [] } = useFetchEngagements({ includeTasks: false })
+  const { data: clients = [] } = useFetchBusinesses()
+  const createBilling = useCreateBilling()
+  const updatePayment = useUpdatePaymentStatus()
+
+  // Drop the handed-over notice from history so navigating back doesn't replay it.
+  useEffect(() => {
+    if (location.state?.notice) {
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location.pathname, location.state, navigate])
+
+  // Auto-clear any notice after 3 seconds.
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(""), 3000)
+    return () => clearTimeout(timer)
+  }, [notice])
+
+  const billingEngagements = useMemo(
+    () => engagements.filter((engagement) => engagement.status === "completed"),
+    [engagements]
+  )
+
+  const filteredBillings = useMemo(() => {
+    const query = search.trim().toLowerCase().replace(/\s+/g, " ")
+    const queryWords = query.split(" ").filter(Boolean)
+
+    return billings.filter((billing) => {
+      const matchesStatus =
+        !statusFilter || billing.status === statusFilter
+
+      const matchesType =
+        !typeFilter || billing.invoice_type === typeFilter
+
+      if (!matchesStatus || !matchesType) return false
+
+      if (!query) return true
+
+      const engagementIds =
+        billing.engagement_ids?.length > 0
+          ? billing.engagement_ids
+          : billing.engagement_id
+            ? [billing.engagement_id]
+            : []
+      const linkedEngagements = engagements.filter((item) =>
+        engagementIds.includes(item.id)
+      )
+      const client =
+        clients.find(
+          (item) =>
+            item.id === billing.business_id ||
+            item.id === billing.client_id
+        ) ?? linkedEngagements[0]?.client
+      const clientNames = [
+        [
+          client?.firstName,
+          client?.middleName,
+          client?.lastName,
+        ].filter(Boolean).join(" "),
+        ...linkedEngagements.map((item) =>
+          [
+            item.client?.firstName,
+            item.client?.middleName,
+            item.client?.lastName,
+          ].filter(Boolean).join(" ")
+        ),
+      ]
+        .filter(Boolean)
+        .map((name) => name.toLowerCase().replace(/\s+/g, " "))
+
+      const matchesClientName = clientNames.some((name) =>
+        queryWords.every((word) => name.includes(word))
+      )
+
+      return (
+        billing.billingCode?.toLowerCase().includes(query) ||
+        billing.id?.toLowerCase().includes(query) ||
+        matchesClientName
+      )
+    })
+  }, [
+    billings,
+    search,
+    statusFilter,
+    typeFilter,
+    engagements,
+    clients,
+  ])
+
+  const summaryItems = useMemo(
+    () => buildBillingSummaryItems(billings, summaryMonth),
+    [billings, summaryMonth]
+  )
+
+  const showNotice = (message) => {
+    setNotice(message)
+  }
+
+  const handleCreate = (values) => {
+    createBilling.mutate({ ...values, engagements }, {
+      onSuccess: (record) => { setCreateOpen(false); showNotice(`${billingDisplayId(record)} created`) },
+      onError: (err) => showNotice(err.message),
+    })
+  }
+
+  const handleCreateDialogOpenChange = (open) => {
+    setCreateOpen(open)
+  }
+
+  const handleConfirmVerification = (_paymentMethod, referenceId) => {
+    if (!verifying) return
+    const paymentId = verifying.payment_id ?? verifying.payments?.[0]?.payment_id
+    if (!paymentId) return showNotice("No payment was found for this billing.")
+    updatePayment.mutate({ paymentId, billingId: verifying.id, status: "verified", referenceId }, {
+      onSuccess: () => { showNotice(`${billingDisplayId(verifying)} payment verified`); setVerifying(null) },
+      onError: (err) => showNotice(err.message),
+    })
+  }
+
+  const handleConfirmRejection = (remarks) => {
+    if (!verifying) return
+    const paymentId = verifying.payment_id ?? verifying.payments?.[0]?.payment_id
+    if (!paymentId) return showNotice("No payment was found for this billing.")
+    updatePayment.mutate(
+      {
+        paymentId,
+        billingId: verifying.id,
+        status: "rejected",
+        remark: remarks,
+      },
+      {
+        onSuccess: () => {
+          setVerifying(null)
+          showNotice(`${billingDisplayId(verifying)} payment rejected. Reason: ${remarks}`)
+        },
+        onError: (err) => showNotice(err.message),
+      }
+    )
+  }
+
+  usePageMeta({
+    title: "Billing",
+    breadcrumbs: [],
+  })
+
+  return (
+    <>
+          <div className="flex flex-wrap items-center gap-3 py-1">
+            {notice && (
+              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
+                {notice}
+              </span>
+            )}
+          </div>
+
+          {isLoading && <p className="text-sm text-muted-foreground">Loading billing records…</p>}
+          {error && <p className="text-sm text-destructive">{error.message}</p>}
+          <BillingSummaryCards
+            items={summaryItems}
+            monthValue={summaryMonth}
+            onMonthChange={setSummaryMonth}
+          />
+
+          <BillingToolbar
+            searchValue={search}
+            onSearchChange={(value) => {
+              setSearch(value)
+              setCurrentPage(1)
+            }}
+            searchPlaceholder="Search by invoice, engagement, service, or reference..."
+            statusFilter={statusFilter}
+            onStatusFilterChange={(value) => {
+              setStatusFilter(value)
+              setCurrentPage(1)
+            }}
+            typeFilter={typeFilter}
+            onTypeFilterChange={(value) => {
+              setTypeFilter(value)
+              setCurrentPage(1)
+            }}
+            onCreateBilling={() => setCreateOpen(true)}
+            resultCount={`${filteredBillings.length} of ${billings.length} records`}
+          />
+
+          <BillingTable
+            billings={filteredBillings}
+            engagements={engagements}
+            clients={clients}
+            emptyMessage={
+              billings.length === 0
+                ? "No billing records exist."
+                : "No billing records match your current filters."
+            }
+            emptyDescription={
+              billings.length === 0
+                ? "Create a billing record to get started."
+                : "Try clearing the search or filters."
+            }
+            onRowClick={(billing) => navigate(`${basePath}/billing/${billing.id}`)}
+            page={currentPage}
+            onPageChange={setCurrentPage}
+            actions={(billing) => (
+              <FirmUserActionsMenu
+                user={billing}
+                items={[
+                  {
+                    key: "view",
+                    label: "View Details",
+                    icon: Eye,
+                    onSelect: () => navigate(`${basePath}/billing/${billing.id}`),
+                  },
+                  ...(isVerifiable(billing)
+                    ? [
+                        { type: "separator" },
+                        {
+                          key: "verify",
+                          label: "Verify Payment",
+                          icon: ShieldCheck,
+                          onSelect: () => setVerifying(billing),
+                        },
+                      ]
+                    : []),
+                ]}  
+              />
+            )}
+          />
+
+          <CreateBillingDialog
+            open={createOpen}
+            onOpenChange={handleCreateDialogOpenChange}
+            onSubmit={handleCreate}
+            engagements={billingEngagements}
+            clients={clients}
+            billings={billings}
+            submitting={createBilling.isPending}
+          />
+
+          <VerifyPaymentDialog
+            billing={verifying}
+            open={Boolean(verifying)}
+            onOpenChange={(open) => !open && setVerifying(null)}
+            onConfirm={handleConfirmVerification}
+            onReject={handleConfirmRejection}
+            submitting={updatePayment.isPending}
+          />
+    </>
+  )
+}

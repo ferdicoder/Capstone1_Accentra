@@ -3,7 +3,58 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 
+:is(button, a, [role="button"])[class*="bg-forest-900"]:hover:not(:disabled):not([aria-disabled="true"]),
+:is(button, a, [role="button"])[class*="bg-[#02353C]"]:hover:not(:disabled):not([aria-disabled="true"]) {
+    background-color: #18a16f;
+    opacity: 1;
+}
+
+:is(button, a, [role="button"])[class*="from-[#0F3443]"]:hover:not(:disabled):not([aria-disabled="true"]) {
+    background-color: #18a16f;
+    background-image: none;
+    opacity: 1;
+}
+
 @custom-variant dark (&:is(.dark *));
+
+.client-auth-slide-up {
+    animation: client-auth-slide-up 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.client-auth-card {
+    transition: transform 240ms ease, box-shadow 240ms ease;
+}
+
+.client-auth-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 28px 65px rgba(15, 35, 30, 0.28);
+}
+
+@keyframes client-auth-slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(28px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .client-auth-slide-up {
+        animation: none;
+    }
+
+    .client-auth-card {
+        transition: none;
+    }
+
+    .client-auth-card:hover {
+        transform: none;
+    }
+}
 
 @theme inline {
     --font-heading: var(--font-sans);

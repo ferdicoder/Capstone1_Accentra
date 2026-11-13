@@ -1,0 +1,82 @@
+import axios from 'axios';
+import crypto from 'crypto';
+import { authorizeB2, b2HttpsAgent, b2RequestTimeout } from '../config/b2Client.js';
+
+async function getUploadUrl() {
+  const { apiUrl, authorizationToken } = await authorizeB2();
+  const res = await axios.post(
+    `${apiUrl}/b2api/v3/b2_get_upload_url`,
+    { bucketId: process.env.B2_BUCKET_ID },
+    {
+      headers: { Authorization: authorizationToken },
+      httpsAgent: b2HttpsAgent,
+      timeout: b2RequestTimeout(),
+    }
+  );
+  return res.data; // { uploadUrl, authorizationToken }
+}
+async function uploadFile(fileBuffer, fileName, contentType) {
+  const { uploadUrl, authorizationToken } = await getUploadUrl();
+  const sha1 = crypto.createHash('sha1').update(fileBuffer).digest('hex');
+
+  const res = await axios.post(uploadUrl, fileBuffer, {
+    headers: {
+      Authorization: authorizationToken,
+      'X-Bz-File-Name': encodeURIComponent(fileName),
+      'Content-Type': contentType || 'b2/x-auto',
+      'Content-Length': fileBuffer.length,
+      'X-Bz-Content-Sha1': sha1,
+    },
+    httpsAgent: b2HttpsAgent,
+    timeout: b2RequestTimeout(),
+    maxBodyLength: Infinity,
+  });
+
+  return res.data;
+}
+
+async function deleteFileVersion(fileName, fileId) {
+  const { apiUrl, authorizationToken } = await authorizeB2();
+  const res = await axios.post(
+    `${apiUrl}/b2api/v3/b2_delete_file_version`,
+    { fileName, fileId },
+    { headers: { Authorization: authorizationToken }, httpsAgent: b2HttpsAgent, timeout: b2RequestTimeout() }
+  );
+  return res.data;
+}
+
+// Fallback for rows without a b2_file_id (legacy data): resolve the file id
+// via list_file_versions before deleting. Prefer deleteFileVersion when the
+// id is available.
+async function deleteFileByName(fileName) {
+  const { apiUrl, authorizationToken } = await authorizeB2();
+  const listRes = await axios.post(
+    `${apiUrl}/b2api/v3/b2_list_file_versions`,
+    { fileName, maxFileCount: 1 },
+    { headers: { Authorization: authorizationToken }, httpsAgent: b2HttpsAgent, timeout: b2RequestTimeout() }
+  );
+  const entry = listRes.data?.files?.[0];
+  if (!entry) return null;
+  return deleteFileVersion(entry.fileName, entry.fileId);
+}
+
+async function downloadFile(fileName) {
+  const { downloadUrl, authorizationToken } = await authorizeB2();
+  const res = await axios.get(
+    `${downloadUrl}/file/${process.env.B2_BUCKET_NAME}/${fileName}`,
+    {
+      headers: { Authorization: authorizationToken },
+      responseType: 'arraybuffer',
+      httpsAgent: b2HttpsAgent,
+      timeout: b2RequestTimeout(),
+    }
+  );
+  return res.data;
+}
+
+export {
+  uploadFile,
+  deleteFileVersion,
+  deleteFileByName,
+  downloadFile
+}

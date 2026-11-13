@@ -4,6 +4,7 @@ import {
   statusBadgeStyles,
   statusDotStyles,
 } from "./service-management-variants"
+import { normalizeServiceCategory } from "@/lib/service-categories"
 
 /**
  * Presentational pill that renders a service's status with a colored dot.
@@ -41,11 +42,11 @@ export function ServiceStatusBadge({ status, statusLabels, showDot = true, class
 /** Presentational pill that renders a service's category with a distinct color. */
 export function ServiceCategoryBadge({ category, categoryLabels, className, ...props }) {
   const labels = {
-    "tax-filing": "Tax Filing",
-    "business-registration": "Business Registration",
+    tax_filing: "Tax Filing",
+    business_registration: "Business Registration",
     ...categoryLabels,
   }
-  const value = typeof category === "string" ? category.toLowerCase() : category
+  const value = normalizeServiceCategory(category)
   const label = labels[value] ?? category ?? "Unknown"
 
   return (

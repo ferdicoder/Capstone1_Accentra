@@ -1,15 +1,15 @@
 import { FileText } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { getCategoryLabel } from "@/lib/service-categories"
 import { ServiceRequestStatusBadge } from "./service-request-status-badge"
-import { formatRevenue } from "./service-request-variants"
 
 /** Label/value row shared by the request cards on the detail view. */
 export function RequestDetailRow({ label, children, className }) {
   return (
     <div
       className={cn(
-        "grid min-w-0 grid-cols-[120px_minmax(0,1fr)] gap-4 py-2.5 text-sm sm:grid-cols-[150px_minmax(0,1fr)]",
+        "grid min-w-0 grid-cols-[104px_minmax(0,1fr)] gap-3 py-2.5 text-sm sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-4 lg:grid-cols-[150px_minmax(0,1fr)]",
         className
       )}
     >
@@ -19,12 +19,17 @@ export function RequestDetailRow({ label, children, className }) {
   )
 }
 
-/** Presentational card showing what the client requested and their notes. */
-export function RequestDetailsCard({ request, className, ...props }) {
+/**
+ * Presentational card showing what the client requested and their notes.
+ * The client picks a category only; the Admin chooses the template (and so
+ * the price) when approving, so no price is shown here.
+ */
+// eslint-disable-next-line no-unused-vars
+export function RequestDetailsCard({ request, showPrice, className, ...props }) {
   return (
     <div
       data-slot="request-details-card"
-      className={cn("rounded-xl border border-border bg-card p-6 shadow-sm", className)}
+      className={cn("rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6", className)}
       {...props}
     >
       <div className="mb-5 flex items-center gap-2">
@@ -35,19 +40,16 @@ export function RequestDetailsCard({ request, className, ...props }) {
       </div>
 
       <dl className="divide-y divide-border/60">
-        <RequestDetailRow label="Requested Service">
-          <span className="font-medium">{request?.serviceName}</span>
-        </RequestDetailRow>
-        <RequestDetailRow label="Price">
-          <span className="font-semibold tabular-nums text-foreground">
-            {formatRevenue(request?.revenue)}
-          </span>
+        <RequestDetailRow label="Requested Category">
+          <span className="font-medium">{getCategoryLabel(request?.category)}</span>
         </RequestDetailRow>
         <RequestDetailRow label="Status">
           <ServiceRequestStatusBadge status={request?.status} />
         </RequestDetailRow>
         <RequestDetailRow label="Client Notes">
-          <p className="text-sm leading-relaxed break-words text-muted-foreground">{request?.notes}</p>
+          <p className="text-sm leading-relaxed break-words text-muted-foreground">
+            {request?.notes || "—"}
+          </p>
         </RequestDetailRow>
       </dl>
     </div>

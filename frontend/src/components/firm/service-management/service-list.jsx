@@ -1,17 +1,21 @@
 import {
+  Ban,
   Check,
+  CheckCircle2,
   ChevronDown,
   ClipboardList,
   Clock,
   Filter,
   Loader2,
   MoreHorizontal,
+  Pencil,
   Plus,
   Search,
   Trash2,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { PaginationFooter, PAGE_SIZE } from "@/components/shared/pagination-footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -36,6 +40,7 @@ import { ServiceCategoryBadge, ServiceStatusBadge } from "./service-badges"
 import {
   categoryFilterOptions,
   formatBasePrice,
+  formatBytes,
   statusFilterOptions,
 } from "./service-management-variants"
 
@@ -83,17 +88,17 @@ export function ServiceStatsCards({ services = [], className }) {
   return (
     <div
       data-slot="service-stats-cards"
-      className={cn("grid grid-cols-2 gap-4 lg:grid-cols-4", className)}
+      className={cn("grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4", className)}
     >
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="rounded-xl border border-border bg-card p-5 shadow-sm"
+          className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-5"
         >
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             {stat.label}
           </p>
-          <p className={cn("mt-1.5 text-3xl font-bold", stat.valueClassName)}>
+          <p className={cn("mt-1.5 text-2xl font-bold sm:text-3xl", stat.valueClassName)}>
             {stat.value}
           </p>
         </div>
@@ -116,15 +121,6 @@ const defaultServiceColumns = [
     render: (service) => <ServiceCategoryBadge category={service?.category} />,
   },
   {
-    key: "description",
-    label: "Description",
-    render: (service) => (
-      <p className="line-clamp-1 max-w-56 text-xs text-muted-foreground">
-        {service?.description}
-      </p>
-    ),
-  },
-  {
     key: "basePrice",
     label: "Base Price",
     render: (service) => (
@@ -135,7 +131,7 @@ const defaultServiceColumns = [
   },
   {
     key: "estimatedTime",
-    label: "Estimated Time",
+    label: "Estimated Processing Days",
     render: (service) => (
       <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
         <Clock className="size-3.5 shrink-0" />
@@ -200,6 +196,63 @@ function ServiceManagementRow({ service, columns = [], onRowClick, children, cla
   )
 }
 
+function ServiceManagementCard({ service, columns, onRowClick, actions }) {
+  const handleKeyDown = (event) => {
+    if (!onRowClick || (event.key !== "Enter" && event.key !== " ")) return
+    event.preventDefault()
+    onRowClick(service, event)
+  }
+
+  const content = (
+    <>
+      <p className="text-xs font-medium text-muted-foreground">
+        {columns[0]?.label ?? "Service"}
+      </p>
+      <div className="mt-1 min-w-0">
+        {columns[0]?.render ? columns[0].render(service) : service?.[columns[0]?.key]}
+      </div>
+      {columns.length > 1 && (
+        <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3">
+          {columns.slice(1).map((column) => (
+            <div key={column.key ?? column.label} className="min-w-0">
+              <dt className="text-xs text-muted-foreground">{column.label}</dt>
+              <dd className="mt-0.5 break-words text-sm">
+                {column.render ? column.render(service) : service?.[column.key] ?? "—"}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </>
+  )
+
+  return (
+    <li className="border-b border-border/60 last:border-b-0">
+      <div className="flex items-start gap-2 p-3 sm:p-4">
+        <div
+          role={onRowClick ? "button" : undefined}
+          aria-label={onRowClick ? `View ${service?.name ?? "service"} details` : undefined}
+          tabIndex={onRowClick ? 0 : undefined}
+          className={cn(
+            "min-w-0 flex-1 rounded-lg p-1",
+            onRowClick &&
+              "cursor-pointer text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/40"
+          )}
+          onClick={onRowClick ? (event) => onRowClick(service, event) : undefined}
+          onKeyDown={handleKeyDown}
+        >
+          {content}
+        </div>
+        {actions && (
+          <div className="shrink-0" onClick={(event) => event.stopPropagation()}>
+            {actions(service)}
+          </div>
+        )}
+      </div>
+    </li>
+  )
+}
+
 /** Presentational, data-driven service table. Receives everything through props. */
 export function ServiceManagementTable({
   services = [],
@@ -211,23 +264,72 @@ export function ServiceManagementTable({
   emptyDescription,
   actions,
   onRowClick,
+  page = 1,
+  onPageChange,
   className,
   ...props
 }) {
   const showActions = typeof actions === "function"
   const isEmpty = !loading && services.length === 0
   const columnCount = columns.length + (showActions ? 1 : 0)
+  const totalPages = Math.max(1, Math.ceil(services.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, totalPages)
+  const paginatedServices = services.slice(
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE
+  )
 
   return (
-    <div
-      data-slot="service-management-table"
-      className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
-      {...props}
-    >
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
+    <>
+      <div
+        data-slot="service-management-table"
+        className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}
+        {...props}
+      >
+        <div className="md:hidden">
+          {loading ? (
+            <ul className="divide-y divide-border/60" aria-hidden="true">
+              {Array.from({ length: Math.min(skeletonRows, 4) }, (_, index) => (
+                <li key={`service-card-skeleton-${index}`} className="space-y-3 p-4">
+                  <Skeleton className="h-3.5 w-1/2" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Skeleton className="h-8" />
+                    <Skeleton className="h-8" />
+                    <Skeleton className="h-8" />
+                    <Skeleton className="h-8" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : isEmpty ? (
+            <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+              <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+                <ClipboardList className="size-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium text-foreground">{emptyMessage}</p>
+              {emptyDescription && (
+                <p className="text-sm text-muted-foreground">{emptyDescription}</p>
+              )}
+            </div>
+          ) : (
+            <ul>
+              {paginatedServices.map((service, index) => (
+                <ServiceManagementCard
+                  key={getRowKey(service, (visiblePage - 1) * PAGE_SIZE + index)}
+                  service={service}
+                  columns={columns}
+                  onRowClick={onRowClick}
+                  actions={showActions ? actions : null}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto [contain:inline-size] md:block">
+          <table className="w-full min-w-[800px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
+            <tr className="border-b border-border bg-muted/40 text-left text-xs tracking-wide text-foreground uppercase">
               {columns.map((column) => (
                 <th
                   key={column.key ?? column.label}
@@ -237,11 +339,6 @@ export function ServiceManagementTable({
                   {column.label}
                 </th>
               ))}
-              {showActions && (
-                <th scope="col" className="px-4 py-3 text-right font-semibold">
-                  Actions
-                </th>
-              )}
             </tr>
           </thead>
           <tbody>
@@ -276,9 +373,9 @@ export function ServiceManagementTable({
                       </td>
                     </tr>
                   )
-                : services.map((service, index) => (
+                : paginatedServices.map((service, index) => (
                     <ServiceManagementRow
-                      key={getRowKey(service, index)}
+                      key={getRowKey(service, (visiblePage - 1) * PAGE_SIZE + index)}
                       service={service}
                       columns={columns}
                       onRowClick={onRowClick}
@@ -294,9 +391,222 @@ export function ServiceManagementTable({
                     </ServiceManagementRow>
                   ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
-    </div>
+      <PaginationFooter
+        page={visiblePage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
+    </>
+  )
+}
+
+/** Service details shown when a staff member or administrator selects a service. */
+export function ServiceDetailsDialog({
+  open = false,
+  onOpenChange,
+  service,
+  categoryOptions = categoryFilterOptions,
+  onEdit,
+  onToggleStatus,
+  onDelete,
+}) {
+  if (!service) return null
+
+  const categoryLabel =
+    categoryOptions.find((option) => option.value === service.category)?.label ??
+    service.category ??
+    "—"
+  const workflowTasks = service.workflowTasks ?? []
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent data-slot="service-details-dialog" className="max-w-2xl">
+        <DialogHeader className="border-b border-border pb-4">
+          <DialogTitle>{service.name}</DialogTitle>
+          <DialogDescription>
+            {onEdit
+              ? "Review and manage this service template."
+              : "Read-only details for this service template."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="overflow-y-auto pr-1">
+          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Description
+              </p>
+              <p className="mt-1 text-sm leading-6 text-foreground">
+                {service.description || "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Category
+              </p>
+              <div className="mt-1">
+                <ServiceCategoryBadge category={service.category} categoryLabels={{ [service.category]: categoryLabel }} />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Status
+              </p>
+              <div className="mt-1">
+                <ServiceStatusBadge status={service.status} />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Base Price
+              </p>
+              <p className="mt-1 text-sm font-medium tabular-nums">{formatBasePrice(service.basePrice)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Estimated Time
+              </p>
+              <p className="mt-1 text-sm">{service.estimatedTime || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Active Engagements
+              </p>
+              <p className="mt-1 text-sm font-medium tabular-nums">{service.activeEngagements ?? 0}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Retainer Coverage
+              </p>
+              <p className="mt-1 text-sm">{service.isRetainerCovered ? "Covered" : "Not covered"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Recurring Service
+              </p>
+              <p className="mt-1 text-sm">{service.isRecurring ? "Yes" : "No"}</p>
+            </div>
+          </div>
+
+          <div className="mt-6 border-t border-border pt-5">
+            <h3 className="text-sm font-medium text-foreground">Engagement Tasks</h3>
+            {workflowTasks.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {workflowTasks.map((task, index) => (
+                  <li
+                    key={task.id ?? `${task.name}-${index}`}
+                    className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm text-foreground">{task.name || "Unnamed task"}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {task.required ? "Required" : "Optional"}
+                        </p>
+                      </div>
+                      {task.hasReferenceDocument && (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          Reference document
+                        </span>
+                      )}
+                    </div>
+                    {task.referenceDocument && (
+                      <p className="mt-2 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+                        {task.referenceDocument.name}
+                        {task.referenceDocument.size ? ` (${formatBytes(task.referenceDocument.size)})` : ""}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">No engagement tasks configured.</p>
+            )}
+          </div>
+        </div>
+
+        {(onEdit || onToggleStatus || onDelete) && (
+          <DialogFooter className="flex-row flex-wrap justify-end gap-2 border-t border-border pt-4">
+            {onToggleStatus && (
+              <Button
+                type="button"
+                variant={service.status === "active" ? "outline" : "default"}
+                className={service.status === "active" ? undefined : "bg-forest-900 text-white hover:opacity-90"}
+                onClick={() => onToggleStatus(service)}
+              >
+                {service.status === "active" ? (
+                  <Ban className="size-4" />
+                ) : (
+                  <CheckCircle2 className="size-4" />
+                )}
+                {service.status === "active" ? "Deactivate" : "Activate"}
+              </Button>
+            )}
+            {onEdit && (
+              <Button type="button" variant="outline" onClick={() => onEdit(service)}>
+                <Pencil className="size-4" />
+                Edit service
+              </Button>
+            )}
+            {onDelete && (
+              <Button type="button" variant="destructive" onClick={() => onDelete(service)}>
+                <Trash2 className="size-4" />
+                Delete
+              </Button>
+            )}
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function ServiceStatusDialog({
+  open = false,
+  onOpenChange,
+  service,
+  onConfirm,
+  updating = false,
+}) {
+  const isActive = service?.status === "active"
+  const action = isActive ? "deactivate" : "activate"
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent data-slot="service-status-dialog">
+        <DialogHeader>
+          <DialogTitle>
+            {isActive ? "Deactivate service?" : "Activate service?"}
+          </DialogTitle>
+          <DialogDescription>
+            Are you sure you want to {action}{" "}
+            <span className="font-medium text-foreground">{service?.name}</span>?
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="flex-row justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={updating}
+            onClick={() => onOpenChange?.(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant={isActive ? "destructive" : "default"}
+            className={!isActive ? "bg-forest-900 text-white hover:opacity-90" : undefined}
+            disabled={updating}
+            onClick={onConfirm}
+          >
+            {updating ? "Saving..." : isActive ? "Deactivate" : "Activate"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -352,9 +662,7 @@ export function ServiceManagementToolbar({
         />
       </div>
 
-      {resultCount && (
-        <p className="hidden text-sm text-muted-foreground md:block">{resultCount}</p>
-      )}
+      {resultCount && <p className="text-xs text-muted-foreground sm:text-sm">{resultCount}</p>}
 
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
         {filters.map((filter) => (
@@ -418,6 +726,8 @@ export function ServiceManagementToolbar({
         {onAddService && (
           <Button
             size="sm"
+            aria-label={addServiceLabel}
+            title={addServiceLabel}
             className="h-9 gap-1.5 rounded-lg bg-forest-900 text-white hover:opacity-90"
             onClick={onAddService}
           >
@@ -489,31 +799,50 @@ export function ServiceDeleteDialog({
   service,
   onConfirm,
   deleting = false,
-  title = "Delete Service",
+  title,
   cancelLabel = "Cancel",
-  confirmLabel = "Delete",
+  confirmLabel,
   className,
   ...props
 }) {
-  const hasEngagements = Number(service?.activeEngagements) > 0
+  const engagementCount = Number(service?.activeEngagements) || 0
+  const requestCount = Number(service?.serviceRequestCount) || 0
+  const isUsed = engagementCount + requestCount > 0
+  const referenceSummary = [
+    engagementCount > 0 ? `${engagementCount} engagement${engagementCount === 1 ? "" : "s"}` : null,
+    requestCount > 0 ? `${requestCount} service request${requestCount === 1 ? "" : "s"}` : null,
+  ]
+    .filter(Boolean)
+    .join(" and ")
+
+  const dialogTitle = title ?? (isUsed ? "Deactivate Service" : "Delete Service")
+  const dialogConfirmLabel = confirmLabel ?? (isUsed ? "Deactivate" : "Delete")
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} {...props}>
       <DialogContent data-slot="service-delete-dialog" className={className}>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete{" "}
-            <span className="font-medium text-foreground">{service?.name}</span>? This action
-            cannot be undone.
+            {isUsed ? (
+              <>
+                <span className="font-medium text-foreground">{service?.name}</span> is used by{" "}
+                {referenceSummary} and cannot be permanently deleted. Deactivating it removes it
+                from new engagements while keeping existing records intact.
+              </>
+            ) : (
+              <>
+                Are you sure you want to permanently delete{" "}
+                <span className="font-medium text-foreground">{service?.name}</span>? This action
+                cannot be undone.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
-        {hasEngagements && (
-          <div className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 ring-1 ring-red-500/20 ring-inset dark:text-red-400">
-            This service currently has {service.activeEngagements} active engagement
-            {service.activeEngagements === 1 ? "" : "s"}. Deleting it will remove it from the
-            catalog.
+        {isUsed && (
+          <div className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-700 ring-1 ring-amber-500/20 ring-inset dark:text-amber-400">
+            This service is referenced by {referenceSummary}. Only deactivation is available.
           </div>
         )}
 
@@ -534,10 +863,16 @@ export function ServiceDeleteDialog({
           >
             {deleting ? (
               <Loader2 className="size-4 animate-spin" />
+            ) : isUsed ? (
+              <Ban className="size-4" />
             ) : (
               <Trash2 className="size-4" />
             )}
-            {deleting ? "Deleting…" : confirmLabel}
+            {deleting
+              ? isUsed
+                ? "Deactivating…"
+                : "Deleting…"
+              : dialogConfirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

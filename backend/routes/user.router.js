@@ -1,9 +1,22 @@
 import { Router } from "express";
-import { createStaff } from "../controllers/user.controller.js";
+import {
+  createStaff,
+  updateUserRole,
+  getMe,
+  changeOwnPassword,
+} from "../controllers/user.controller.js";
+import { authUser, authUserAllowInactive } from "../middlewares/authUser.js";
+import { requireRole } from "../middlewares/requireRole.js";
 
-const userRouter = Router(); 
+const userRouter = Router();
 
 userRouter
-  .post('/create', createStaff);
+  // Self-service: allowed while status is "inactive" (pending first login)
+  .get("/me", authUserAllowInactive, getMe)
+  .patch("/password", authUserAllowInactive, changeOwnPassword)
 
-export { userRouter }
+  // Admin only: blocked for "inactive" users by authUser
+  .post("/create", authUser, requireRole("admin"), createStaff)
+  .patch("/:userId/role", authUser, requireRole("admin"), updateUserRole);
+
+export { userRouter };

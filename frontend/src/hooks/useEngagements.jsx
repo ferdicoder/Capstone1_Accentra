@@ -4,7 +4,9 @@ import {
   getMyEngagements,
   getEngagement,
   createEngagementFromRequest,
+  createStandaloneEngagement,
   updateEngagementStatus,
+  updateEngagementDetails,
   setTaskCompleted,
   reviewEngagementTask,
   createEngagementTask,
@@ -15,12 +17,22 @@ import {
 import {
   getEngagementDocuments,
   uploadEngagementDocument,
-  deleteEngagementDocument,
+  getEngagementDeliverables,
+  uploadEngagementDeliverable,
+  deleteEngagementDeliverable,
+  uploadEngagementTaskReferenceDocument,
+  deleteEngagementTaskReferenceDocument,
 } from "@/services/api/documentAPI"
 import { queryKeys } from "@/config/queryKeys"
 
-export function useFetchEngagements() {
-  return useQuery({ queryKey: queryKeys.engagements, queryFn: getEngagements })
+export function useFetchEngagements({ includeTasks = true, status } = {}) {
+  return useQuery({ 
+    queryKey: includeTasks
+      ? [...queryKeys.engagements, status ?? "all"]
+      : [...queryKeys.engagementSummaries, status ?? "all"],
+    queryFn: () => getEngagements(includeTasks, status),
+    staleTime: 1000 * 30
+  })
 }
 
 export function useFetchMyEngagements(businessId) {
@@ -31,10 +43,10 @@ export function useFetchMyEngagements(businessId) {
   })
 }
 
-export function useFetchEngagement(id) {
+export function useFetchEngagement(id, { includeTasks = true } = {}) {
   return useQuery({
-    queryKey: queryKeys.engagement(id),
-    queryFn: () => getEngagement(id),
+    queryKey: includeTasks ? queryKeys.engagement(id) : queryKeys.engagementSummary(id),
+    queryFn: () => getEngagement(id, includeTasks),
     enabled: !!id,
   })
 }
@@ -46,6 +58,18 @@ export function useCreateEngagementFromRequest() {
     onSuccess: (newEngagement) => {
       queryClient.setQueryData(queryKeys.engagements, (old = []) => [newEngagement, ...old])
       queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests })
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagements })
+    },
+  })
+}
+
+export function useCreateStandaloneEngagement() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createStandaloneEngagement,
+    onSuccess: (newEngagement) => {
+      queryClient.setQueryData(queryKeys.engagements, (old = []) => [newEngagement, ...old])
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagements })
     },
   })
 }
@@ -57,6 +81,21 @@ export function useUpdateEngagementStatus() {
     onSuccess: (updated) => {
       queryClient.setQueryData(queryKeys.engagements, (old = []) => old.map((e) => (e.id === updated.id ? updated : e)))
       queryClient.setQueryData(queryKeys.engagement(updated.id), updated)
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(updated.id) })
+    },
+  })
+}
+
+// Details edits (staff and/or schedule) touch the engagement row itself, so
+// the "engagements" prefix (list, summaries, and the detail cache) is
+// invalidated, plus the activity log for any new entries.
+export function useUpdateEngagementDetails() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: updateEngagementDetails,
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagements })
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(updated.id) })
     },
   })
 }
@@ -71,7 +110,10 @@ export function useSetTaskCompleted(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: setTaskCompleted,
-    onSuccess: (updatedTask) => patchTaskInCache(queryClient, engagementId, updatedTask),
+    onSuccess: (updatedTask) => {
+      patchTaskInCache(queryClient, engagementId, updatedTask)
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(engagementId) })
+    },
   })
 }
 
@@ -79,7 +121,10 @@ export function useReviewEngagementTask(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: reviewEngagementTask,
-    onSuccess: (updatedTask) => patchTaskInCache(queryClient, engagementId, updatedTask),
+    onSuccess: (updatedTask) => {
+      patchTaskInCache(queryClient, engagementId, updatedTask)
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(engagementId) })
+    },
   })
 }
 
@@ -100,7 +145,10 @@ export function useUpdateEngagementTask(engagementId) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: updateEngagementTask,
-    onSuccess: (updatedTask) => patchTaskInCache(queryClient, engagementId, updatedTask),
+    onSuccess: (updatedTask) => {
+      patchTaskInCache(queryClient, engagementId, updatedTask)
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementActivity(engagementId) })
+    },
   })
 }
 
@@ -125,6 +173,56 @@ export function useFetchEngagementDocuments(engagementId) {
     queryKey: queryKeys.engagementDocuments(engagementId),
     queryFn: () => getEngagementDocuments(engagementId),
     enabled: !!engagementId,
+  })
+}
+
+export function useFetchEngagementDeliverables(engagementId) {
+  return useQuery({
+    queryKey: queryKeys.engagementDeliverables(engagementId),
+    queryFn: () => getEngagementDeliverables(engagementId),
+    enabled: !!engagementId,
+  })
+}
+
+export function useUploadEngagementDeliverable(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: uploadEngagementDeliverable,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementDeliverables(engagementId) })
+    },
+  })
+}
+
+export function useDeleteEngagementDeliverable(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteEngagementDeliverable,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagementDeliverables(engagementId) })
+    },
+  })
+}
+
+// Reference files live on the task itself, so the engagement detail (which
+// embeds engagement_task_references) is what needs refetching.
+export function useUploadEngagementTaskReference(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: uploadEngagementTaskReferenceDocument,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagement(engagementId) })
+    },
+  })
+}
+
+export function useDeleteEngagementTaskReference(engagementId) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteEngagementTaskReferenceDocument,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.engagement(engagementId) })
+    },
   })
 }
 

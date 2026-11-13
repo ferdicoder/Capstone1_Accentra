@@ -1,8 +1,9 @@
-import { useRef, useState } from "react"
-import { FileText, FileSpreadsheet, FileImage, File, Upload, X, Download, Eye } from "lucide-react"
+import { useState } from "react"
+import { FileText, FileSpreadsheet, FileImage, File, Upload, Download, Eye, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog,
   DialogContent,
@@ -12,32 +13,58 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  FileDropzone,
+  FilePreviewDialog,
+  SelectedFileList,
+} from "@/components/shared/file-preview-dialog"
 import { formatDate } from "./engagement-variants"
 
 // ── File icon helpers ─────────────────────────────────────────────────────────
 
-const fileIconMap = {
-  PDF: FileText,
-  DOC: FileText,
-  DOCX: FileText,
-  XLS: FileSpreadsheet,
-  XLSX: FileSpreadsheet,
-  CSV: FileSpreadsheet,
-  PNG: FileImage,
-  JPG: FileImage,
-  JPEG: FileImage,
-  ZIP: File,
+function FileTypeIcon({ fileType, className }) {
+  const resolvedType = resolveFileType(fileType)
+  if (["XLS", "XLSX", "CSV"].includes(resolvedType)) {
+    return <FileSpreadsheet className={className} />
+  }
+  if (["PNG", "JPG", "JPEG", "GIF", "WEBP"].includes(resolvedType)) {
+    return <FileImage className={className} />
+  }
+  if (resolvedType === "ZIP") return <File className={className} />
+  return <FileText className={className} />
 }
 
-function getFileIcon(fileType) {
-  return fileIconMap[fileType?.toUpperCase()] ?? FileText
+function resolveFileType(file) {
+  const value = typeof file === "string" ? file : file?.fileType ?? file?.mimeType
+  const normalized = value?.toString().toLowerCase()
+  if (normalized === "application/pdf") return "PDF"
+  if (normalized?.startsWith("image/")) return normalized.split("/").pop().toUpperCase()
+  if (normalized?.includes("spreadsheet") || normalized?.includes("excel")) return "XLSX"
+  if (normalized?.includes("word")) return "DOCX"
+  if (normalized?.startsWith("text/csv")) return "CSV"
+  if (normalized?.includes("/")) return null
+  return normalized?.toUpperCase()
+}
+
+// The shared preview dialog reads one shape for every file in the app.
+// (fileSize here is a display string like "2.1 MB", so it is not passed as a size.)
+// The deliverables endpoint only shows a file inline when asked with
+// "?inline=true", so that link is passed as `previewUrl`. The download link
+// stays exactly as it is.
+function toPreviewFile(document) {
+  return {
+    id: document.id,
+    name: document.name,
+    mimeType: document.mimeType ?? null,
+    fileType: document.fileType ?? null,
+    downloadUrl: document.downloadUrl ?? null,
+    previewUrl: document.downloadUrl ? `${document.downloadUrl}?inline=true` : null,
+  }
 }
 
 // ── Compact Document Row (for the card) ──────────────────────────────────────
 
 function CompactDocumentRow({ document, onPreview }) {
-  const Icon = getFileIcon(document?.fileType)
-
   return (
     <button
       type="button"
@@ -46,7 +73,7 @@ function CompactDocumentRow({ document, onPreview }) {
       aria-label={`Preview ${document?.name ?? "document"}`}
     >
       <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-        <Icon className="size-4" />
+        <FileTypeIcon fileType={document} className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground underline-offset-2 hover:underline">{document?.name ?? "—"}</p>
@@ -59,81 +86,22 @@ function CompactDocumentRow({ document, onPreview }) {
   )
 }
 
-function DocumentPreviewDialog({ open, onOpenChange, document }) {
-  const Icon = getFileIcon(document?.fileType)
-
-  if (!document) return null
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="truncate">{document.name}</DialogTitle>
-          <DialogDescription>
-            {document.fileType ?? "Document"} · {document.fileSize ?? "Unknown size"}
-            {document.uploadedDate ? ` · Uploaded ${formatDate(document.uploadedDate)}` : ""}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="rounded-xl border border-border bg-muted/30 p-4">
-          <div className="flex items-center gap-3 rounded-lg bg-background/80 px-3 py-2">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <Icon className="size-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">{document.name}</p>
-              <p className="text-xs text-muted-foreground">{document.uploadedBy ?? "Uploaded document"}</p>
-            </div>
-          </div>
-
-          <div className="mt-4 flex min-h-[200px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-background/70 px-6 py-8 text-center">
-            <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <FileText className="size-5" />
-            </div>
-            <p className="text-sm font-medium text-foreground">Document preview</p>
-          </div>
-        </div>
-
-        <DialogFooter className="sm:justify-between">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            className="gap-2"
-            onClick={() => {
-              const link = document.createElement("a")
-              link.href = "#"
-              link.download = document?.name ?? "document"
-              link.click()
-            }}
-          >
-            <Download className="size-3.5" />
-            Download
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 // ── All Deliverables Dialog Row ──────────────────────────────────────────────
 
-function DeliverableDialogRow({ document, onPreview }) {
-  const Icon = getFileIcon(document?.fileType)
-
+function DeliverableDialogRow({ document, onPreview, onDelete, canDelete, isDeleting }) {
   const handleDownload = () => {
-    const link = document.createElement("a")
-    link.href = "#"
+    const link = window.document.createElement("a")
+    link.href = document.downloadUrl
     link.download = document?.name ?? "document"
+    link.target = "_blank"
+    link.rel = "noopener noreferrer"
     link.click()
   }
 
   return (
     <div className="flex items-center gap-3 border-b border-border/60 px-5 py-3.5 transition-colors last:border-b-0 hover:bg-muted/30">
       <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-        <Icon className="size-4" />
+        <FileTypeIcon fileType={document} className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
         <button
@@ -163,6 +131,20 @@ function DeliverableDialogRow({ document, onPreview }) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {canDelete && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+          onClick={() => onDelete(document)}
+          disabled={isDeleting}
+          aria-label={`Delete ${document?.name ?? "deliverable"}`}
+          title="Delete deliverable"
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      )}
     </div>
   )
 }
@@ -175,6 +157,7 @@ function toFileRecord(file) {
     name: file.name,
     size: file.size,
     type: file.type,
+    file,
   }
 }
 
@@ -182,33 +165,62 @@ function toFileRecord(file) {
 
 const MAX_PREVIEW_DOCS = 1
 
-export function UploadDeliverables({ engagement, className }) {
-  const inputRef = useRef(null)
+// Mirrors the backend's multer allowlist (backend/config/allowedFileTypes.js)
+// so unsupported types are rejected client-side instead of by a server 400.
+const DELIVERABLE_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]
+const DELIVERABLE_ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+const DELIVERABLE_TYPE_LABEL = "PDF, JPG, PNG, WEBP, DOC, or DOCX"
+// Backend multer cap is 15 MB (the shared dropzone default is 10).
+const DELIVERABLE_MAX_SIZE = 15 * 1024 * 1024
+export function UploadDeliverables({
+  deliverables = [],
+  isUploading = false,
+  isDeleting = false,
+  canDelete = false,
+  onUpload,
+  onDelete,
+  disabled = false,
+  onBlockedAction,
+  className,
+}) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [allDocsOpen, setAllDocsOpen] = useState(false)
   const [previewDoc, setPreviewDoc] = useState(null)
-  const [files, setFiles] = useState([])
   const [selectedFiles, setSelectedFiles] = useState([])
+  const [deleteDoc, setDeleteDoc] = useState(null)
 
-  // Combine engagement documents with any locally uploaded files
-  const engagementDocs = engagement?.documents ?? []
-  const allDeliverables = [...engagementDocs, ...files]
+  const allDeliverables = deliverables
   const hasDocuments = allDeliverables.length > 0
   const previewDocs = allDeliverables.slice(-1)
 
   const openUploadDialog = () => {
+    if (disabled) {
+      onBlockedAction?.()
+      return
+    }
     setSelectedFiles([])
     setDialogOpen(true)
   }
 
-  const handleFileSelect = (event) => {
-    setSelectedFiles(Array.from(event.target.files ?? []).map(toFileRecord))
-    event.target.value = ""
+  const handleFilesSelected = (files) => {
+    setSelectedFiles(files.map(toFileRecord))
   }
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (selectedFiles.length === 0) return
-    setFiles((current) => [...current, ...selectedFiles])
+    try {
+      await onUpload?.(selectedFiles.map((item) => item.file))
+    } catch {
+      // The parent surfaces the error notice; keep the dialog open for retry.
+      return
+    }
     setSelectedFiles([])
     setDialogOpen(false)
   }
@@ -219,7 +231,7 @@ export function UploadDeliverables({ engagement, className }) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-3">
           <h3 className="text-sm font-semibold text-foreground">
-            {hasDocuments ? "Deliverables" : "Upload Deliverables"}
+            {hasDocuments || disabled ? "Deliverables" : "Upload Deliverables"}
           </h3>
           <div className="flex items-center gap-3">
             {hasDocuments && (
@@ -231,24 +243,26 @@ export function UploadDeliverables({ engagement, className }) {
                 See All
               </button>
             )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
-              onClick={openUploadDialog}
-              aria-label="Upload deliverables"
-              title="Upload deliverables"
-            >
-              <Upload className="size-4" />
-            </Button>
+            {!disabled && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
+                onClick={openUploadDialog}
+                title="Upload deliverables"
+                aria-label="Upload deliverables"
+              >
+                <Upload className="size-4" />
+              </Button>
+            )}
           </div>
         </div>
 
         {/* Content */}
-        {!hasDocuments ? (
+        {!hasDocuments && !isUploading ? (
           /* Empty state */
-          <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+          <div className={cn("flex flex-col items-center justify-center gap-2 px-6 text-center", disabled ? "py-4" : "py-10")}>
             <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
               <FileText className="size-4" />
             </div>
@@ -267,6 +281,21 @@ export function UploadDeliverables({ engagement, className }) {
                 </p>
               </div>
             )}
+            {isUploading &&
+              Array.from({ length: Math.max(1, selectedFiles.length) }, (_, index) => (
+                <div
+                  key={`uploading-${index}`}
+                  className="flex items-center gap-3 px-6 py-2.5"
+                  role="status"
+                  aria-label="Uploading deliverable"
+                >
+                  <Skeleton className="size-8 shrink-0 rounded-lg" />
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <Skeleton className="h-3.5 w-2/3" />
+                    <Skeleton className="h-3 w-1/3" />
+                  </div>
+                </div>
+              ))}
           </div>
         )}
       </div>
@@ -277,47 +306,77 @@ export function UploadDeliverables({ engagement, className }) {
           <DialogHeader>
             <DialogTitle>Upload Deliverables</DialogTitle>
             <DialogDescription>
-              Select files to make available for this engagement. Files remain in frontend state for now.
+              Select files to make available for this engagement.
             </DialogDescription>
           </DialogHeader>
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleFileSelect}
-          />
           <div className="flex flex-col gap-3">
-            <Button type="button" variant="outline" className="gap-1.5" onClick={() => inputRef.current?.click()}>
-              <Upload className="size-3.5" />
-              Choose files
-            </Button>
-            {selectedFiles.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {selectedFiles.map((file) => (
-                  <div key={file.id} className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">{file.name}</span>
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => setSelectedFiles((current) => current.filter((item) => item.id !== file.id))}
-                      aria-label={`Remove ${file.name}`}
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <FileDropzone
+              multiple
+              accept={DELIVERABLE_ACCEPT}
+              allowedTypes={DELIVERABLE_TYPES}
+              maxSize={DELIVERABLE_MAX_SIZE}
+              typeLabel={DELIVERABLE_TYPE_LABEL}
+              disabled={isUploading}
+              onSelect={handleFilesSelected}
+            />
+            <SelectedFileList
+              files={selectedFiles}
+              disabled={isUploading}
+              onRemove={(index) =>
+                setSelectedFiles((current) => current.filter((_, i) => i !== index))
+              }
+            />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="button" onClick={handleUpload} disabled={selectedFiles.length === 0}>Upload</Button>
+            <Button type="button" onClick={handleUpload} disabled={selectedFiles.length === 0 || isUploading}>
+              {isUploading ? "Uploading..." : "Upload"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <DocumentPreviewDialog open={Boolean(previewDoc)} onOpenChange={(isOpen) => !isOpen && setPreviewDoc(null)} document={previewDoc} />
+      <FilePreviewDialog
+        open={Boolean(previewDoc)}
+        onOpenChange={(isOpen) => !isOpen && setPreviewDoc(null)}
+        files={previewDoc ? [toPreviewFile(previewDoc)] : []}
+        subtitle={
+          previewDoc
+            ? `${previewDoc.uploadedBy ?? "Deliverable"}${
+                previewDoc.uploadedDate ? ` · Uploaded ${formatDate(previewDoc.uploadedDate)}` : ""
+              }`
+            : undefined
+        }
+      />
+
+      <Dialog open={Boolean(deleteDoc)} onOpenChange={(open) => !open && setDeleteDoc(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete deliverable?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete {deleteDoc?.name ?? "this deliverable"} from the engagement.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteDoc(null)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={async () => {
+                const deleted = await onDelete?.(deleteDoc.id)
+                if (deleted === false) return
+                setDeleteDoc(null)
+                setAllDocsOpen(false)
+              }}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── All Deliverables Dialog ────────────────────────────────────────── */}
       <Dialog open={allDocsOpen} onOpenChange={setAllDocsOpen}>
@@ -333,7 +392,14 @@ export function UploadDeliverables({ engagement, className }) {
               <p className="px-5 py-8 text-center text-sm text-muted-foreground">No deliverables uploaded yet.</p>
             ) : (
               allDeliverables.map((doc) => (
-                <DeliverableDialogRow key={doc.id} document={doc} onPreview={() => setPreviewDoc(doc)} />
+                <DeliverableDialogRow
+                  key={doc.id}
+                  document={doc}
+                  onPreview={() => setPreviewDoc(doc)}
+                  onDelete={setDeleteDoc}
+                  canDelete={canDelete}
+                  isDeleting={isDeleting}
+                />
               ))
             )}
           </div>

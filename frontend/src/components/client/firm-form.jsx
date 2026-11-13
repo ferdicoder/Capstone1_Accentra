@@ -21,10 +21,6 @@ export function FirmForm({
           <h1 className="text-2xl font-bold">
             Firm Information
           </h1>
-
-          <p className="text-sm text-muted-foreground">
-            Enter your Business Information
-          </p>
         </div>
 
         {/* Row 1 */}

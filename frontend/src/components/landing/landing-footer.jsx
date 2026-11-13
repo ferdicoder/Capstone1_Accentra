@@ -1,88 +1,69 @@
-import { Link } from "react-router-dom"
-
-import { LandingBrand } from "./landing-brand"
 import { landingContainer } from "./landing-data"
+import { useFetchFirmSettings } from "@/hooks/useFirmSettings"
 
-// The footer intentionally stays outside the scroll-reveal sequence. It must
-// remain fully visible at all times while keeping normal link interactions.
-export function LandingFooter({ onSignIn }) {
+const quickLinks = [
+  { label: "Home", href: "#home" },
+  { label: "Service", href: "#features" },
+  { label: "How It Works", href: "#workflow" },
+  { label: "About", href: "#about" },
+]
+
+const services = ["Business Registration", "Tax Filing"]
+
+const footerLink =
+  "text-sm text-white/70 transition-colors hover:text-[#6EE7B7] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#6EE7B7]"
+
+export function LandingFooter() {
+  const { data: settings } = useFetchFirmSettings()
+  const firmName = settings?.firmName?.trim() || "Jobal Business Consultancy"
+  const copyrightYear = new Date().getFullYear()
+
   return (
-    <footer className="bg-[#062c31] py-12 text-white sm:py-14">
-      <div className={landingContainer}>
-        <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr] lg:gap-12">
-          <div>
-            <LandingBrand dark />
-            <p className="mt-4 max-w-[340px] text-[0.9375rem] leading-6 text-white/50">
-              A shared workspace for accounting firms and the clients they
-              serve.
-            </p>
-          </div>
-
-          <div>
-            <p className="font-semibold text-white/85">Product</p>
-            <div className="mt-4 space-y-3 text-[0.9375rem] text-white/50">
-              <a
-                href="#features"
-                className="block transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300"
-              >
-                Features
-              </a>
-              <a
-                href="#workflow"
-                className="block transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300"
-              >
-                How it works
-              </a>
-            </div>
-          </div>
-
-          <div>
-            <p className="font-semibold text-white/85">For firms</p>
-            <div className="mt-4 space-y-3 text-[0.9375rem] text-white/50">
-              <a
-                href="#for-firms"
-                className="block transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300"
-              >
-                Practice view
-              </a>
-              <a
-                href="#roles"
-                className="block transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300"
-              >
-                Role-based access
-              </a>
-              <Link
-                to="/firm/signin"
-                className="block transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300"
-              >
-                Firm sign in
-              </Link>
-            </div>
-          </div>
-
-          <div>
-            <p className="font-semibold text-white/85">For clients</p>
-            <div className="mt-4 space-y-3 text-[0.9375rem] text-white/50">
-              <a
-                href="#for-clients"
-                className="block transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300"
-              >
-                Client experience
-              </a>
-              <button
-                type="button"
-                onClick={onSignIn}
-                className="block cursor-pointer text-left transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300"
-              >
-                Sign in
-              </button>
-            </div>
-          </div>
+    <footer className="snap-end bg-[#062c31] text-white">
+      <div
+        className={`${landingContainer} grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr] lg:gap-16 lg:py-14`}
+      >
+        <div className="max-w-md">
+          <h2 className="text-lg font-semibold tracking-tight text-white">
+            {firmName}
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-white/65">
+            Supporting businesses since 2006 through business registration and
+            tax filing services.
+          </p>
         </div>
 
-        <div className="mt-12 border-t border-white/10 pt-5 text-xs text-white/35">
-          © {new Date().getFullYear()} Accentra. Built for clearer accounting
-          work.
+        <nav aria-label="Quick links">
+          <h3 className="text-sm font-semibold text-white">Quick Links</h3>
+          <ul className="mt-4 flex flex-col items-start gap-3">
+            {quickLinks.map(({ label, href }) => (
+              <li key={href}>
+                <a href={href} className={footerLink}>
+                  {label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div>
+          <h3 className="text-sm font-semibold text-white">Our Services</h3>
+          <ul className="mt-4 flex flex-col gap-3 text-sm text-white/70">
+            {services.map((service) => (
+              <li key={service}>{service}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div className="border-t border-white/10">
+        <div
+          className={`${landingContainer} flex flex-col gap-2 py-4 text-xs text-white/55 sm:flex-row sm:items-center sm:justify-between`}
+        >
+          <p>© {copyrightYear} {firmName}. All rights reserved.</p>
+          <p>
+            Powered by <span className="font-medium text-white/75">Accentra</span>
+          </p>
         </div>
       </div>
     </footer>

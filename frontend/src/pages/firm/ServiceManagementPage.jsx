@@ -1,17 +1,18 @@
-import { useLocation } from "react-router-dom"
 import { useMemo, useState } from "react"
-import { Ban, CheckCircle2, Pencil, Trash2 } from "lucide-react"
 
 import { usePageMeta } from "@/hooks/usePageMeta"
 import {
-  ServiceManagementActionsMenu,
   ServiceManagementTable,
+  ServiceDetailsDialog,
   ServiceManagementToolbar,
   ServiceDeleteDialog,
+  ServiceStatusDialog,
   ServiceStatsCards,
 } from "@/components/firm/service-management/service-list"
 import {
   ServiceCreateDialog,
+  ServiceCreateFailureDialog,
+  ServiceDuplicateDialog,
   ServiceEditDialog,
   CategoryCreateDialog,
   CategoryManagementDialog,
@@ -26,27 +27,81 @@ import {
 } from "@/hooks/useServices"
 
 import { uploadTemplateDocument } from "@/services/api/documentAPI"
+import { authStore } from "@/store/authStore"
 
 const categoryLabel = (value, options) =>
   options.find((option) => option.value === value)?.label ?? value ?? ""
 
+const normalizeTemplateValue = (value) =>
+  String(value ?? "").toLowerCase().replace(/[\s\p{Pd}]+/gu, "")
+
+const hasSameTemplateDetails = (service, values) => {
+  const sameText = (first, second) =>
+    normalizeTemplateValue(first) === normalizeTemplateValue(second)
+
+  const existingTasks = service.workflowTasks ?? []
+  const newTasks = values.workflowTasks ?? []
+  const sameTasks =
+    existingTasks.length === newTasks.length &&
+    existingTasks.every((task, index) => {
+      const newTask = newTasks[index]
+      const existingDocumentName =
+        task.referenceDocument?.name ?? task.referenceDocument?.file?.name
+      const newDocumentName =
+        newTask.referenceDocument?.name ?? newTask.referenceDocument?.file?.name
+
+      return (
+        sameText(task.name, newTask.name) &&
+        Boolean(task.required) === Boolean(newTask.required) &&
+        Boolean(task.hasReferenceDocument) === Boolean(newTask.hasReferenceDocument) &&
+        sameText(existingDocumentName, newDocumentName)
+      )
+    })
+
+  return (
+    sameText(service.category, values.category) &&
+    sameText(service.description, values.description) &&
+    Number(service.basePrice) === Number(values.basePrice) &&
+    Number(service.estimatedTime) === Number(values.estimatedTime) &&
+    Boolean(service.isRecurring) === Boolean(values.isRecurring) &&
+    sameTasks
+  )
+}
+
+const isDuplicateServiceTemplate = (service, values) =>
+  normalizeTemplateValue(service.name) === normalizeTemplateValue(values.name) ||
+  hasSameTemplateDetails(service, values)
+
 export default function ServiceManagementPage() {
-  const location = useLocation()
-  const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
+  const role = authStore((state) => state.role)
+  const canManageServices = role === "admin"
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
+  const [createFailureOpen, setCreateFailureOpen] = useState(false)
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editingService, setEditingService] = useState(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [viewingService, setViewingService] = useState(null)
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false)
+  const [statusService, setStatusService] = useState(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deletingService, setDeletingService] = useState(null)
   const [notice, setNotice] = useState(null)
   const [categoryCreateOpen, setCategoryCreateOpen] = useState(false)
   const [categoryManagementOpen, setCategoryManagementOpen] = useState(false)
   const [categoryOptions, setCategoryOptions] = useState(categoryFilterOptions)
+  const [createProgress, setCreateProgress] = useState({
+    active: false,
+    percent: 0,
+    phase: "Saving service…",
+    uploadingTaskIndexes: [],
+  })
 
-  const { data: services = [], isLoading, error } = useFetchServices()
+  const { data: services = [], isLoading, error, refetch: refetchServices } = useFetchServices()
   const createService = useCreateService()
   const updateService = useUpdateService()
   const toggleStatus = useToggleServiceStatus()
@@ -68,7 +123,10 @@ export default function ServiceManagementPage() {
   const removeCategory = (value) => {
     const category = categoryOptions.find((option) => option.value === value)
     setCategoryOptions((current) => current.filter((option) => option.value !== value))
-    if (categoryFilter === value) setCategoryFilter("")
+    if (categoryFilter === value) {
+      setCategoryFilter("")
+      setCurrentPage(1)
+    }
     setNotice({ tone: "success", message: `${category?.label ?? "Category"} removed` })
   }
 
@@ -88,85 +146,270 @@ export default function ServiceManagementPage() {
   }, [services, search, categoryFilter, statusFilter, categoryOptions])
 
   const handleCreate = (values) => {
-  const tasksWithFiles = values.workflowTasks
-    .map((task, index) => ({ task, index }))
-    .filter(({ task }) => task.hasReferenceDocument && task.referenceDocument?.file)
-
-  createService.mutate(values, {
-    onSuccess: async (newService) => {
-      setCreateOpen(false)
-      setNotice({ tone: "success", message: `${newService.name} added` })
-
-      if (tasksWithFiles.length === 0) return
-
-      const failedUploads = []
-
-      await Promise.all(
-        tasksWithFiles.map(async ({ task, index }) => {
-          const matchedTask = newService.workflowTasks?.[index]
-          if (!matchedTask?.id) {
-            failedUploads.push(task.name)
-            return
-          }
-          try {
-            await uploadTemplateDocument(matchedTask.id, task.referenceDocument.file)
-          } catch (err) {
-            console.error(`Reference document upload failed for "${task.name}":`, err)
-            failedUploads.push(task.name)
-          }
-        })
-      )
-
-      if (failedUploads.length > 0) {
+    if (canManageServices) {
+      if (isLoading || error) {
         setNotice({
           tone: "danger",
-          message: `Service saved, but reference document(s) failed to upload: ${failedUploads.join(", ")}`,
+          message: "Unable to check existing service templates. Please try again.",
         })
+        return
       }
-    },
-  })
-}
-  const openEdit = (service) => {
-    setEditingService(service)
-    setEditOpen(true)
-  }
 
-  const handleSave = (values) => {
-    updateService.mutate(values, {
-      onSuccess: (updated) => {
-        setEditOpen(false)
-        setNotice({ tone: "success", message: `${updated.name} updated` })
+      if (services.some((service) => isDuplicateServiceTemplate(service, values))) {
+        setDuplicateDialogOpen(true)
+        return
+      }
+    }
+
+    const tasksWithFiles = values.workflowTasks
+      .map((task, index) => ({ task, index }))
+      .filter(({ task }) => task.hasReferenceDocument && task.referenceDocument?.file)
+    const totalBytes = tasksWithFiles.reduce((total, { task }) => total + task.referenceDocument.file.size, 0)
+
+    setCreateProgress({
+      active: true,
+      percent: 0,
+      phase: "Saving service…",
+      uploadingTaskIndexes: tasksWithFiles.map(({ index }) => index),
+    })
+    createService.mutate(values, {
+      onSuccess: async (newService) => {
+        const failedUploads = []
+
+        try {
+          if (tasksWithFiles.length === 0) {
+            setCreateOpen(false)
+            setNotice({ tone: "success", message: `${newService.name} added` })
+            return
+          }
+
+          setCreateProgress({
+            active: true,
+            percent: 10,
+            phase: "Uploading reference documents…",
+            uploadingTaskIndexes: tasksWithFiles.map(({ index }) => index),
+          })
+          const uploadedBytes = new Map()
+
+          await Promise.all(
+            tasksWithFiles.map(async ({ task, index }) => {
+              const matchedTask = newService.workflowTasks?.[index]
+              if (!matchedTask?.id) {
+                failedUploads.push(task.name)
+                setCreateProgress((current) => ({
+                  ...current,
+                  uploadingTaskIndexes: current.uploadingTaskIndexes.filter(
+                    (taskIndex) => taskIndex !== index
+                  ),
+                }))
+                return
+              }
+              try {
+                await uploadTemplateDocument(matchedTask.id, task.referenceDocument.file, (event) => {
+                  uploadedBytes.set(index, event.loaded)
+                  const loaded = [...uploadedBytes.values()].reduce((total, bytes) => total + bytes, 0)
+                  const uploadPercent = totalBytes > 0 ? loaded / totalBytes : 1
+                  setCreateProgress((current) => ({
+                    ...current,
+                    active: true,
+                    percent: Math.min(99, Math.round(10 + uploadPercent * 90)),
+                    phase: "Uploading reference documents…",
+                  }))
+                })
+              } catch (err) {
+                console.error(`Reference document upload failed for "${task.name}":`, err)
+                failedUploads.push(task.name)
+              } finally {
+                setCreateProgress((current) => ({
+                  ...current,
+                  uploadingTaskIndexes: current.uploadingTaskIndexes.filter(
+                    (taskIndex) => taskIndex !== index
+                  ),
+                }))
+              }
+            })
+          )
+
+          await refetchServices()
+          setCreateOpen(false)
+
+          // The service is only reported as added once its reference documents
+          // have finished uploading, so the completion state matches reality.
+          if (failedUploads.length > 0) {
+            setNotice({
+              tone: "danger",
+              message: `Service saved, but reference document(s) failed to upload: ${failedUploads.join(", ")}`,
+            })
+          } else {
+            setNotice({ tone: "success", message: `${newService.name} added` })
+          }
+        } catch (err) {
+          console.error(err)
+          setCreateOpen(false)
+          setNotice({
+            tone: "danger",
+            message: err?.message || "Service saved, but the reference documents could not be uploaded.",
+          })
+        } finally {
+          // Always release the loading state so the progress bar and the
+          // submit button cannot stay stuck on "Saving…".
+          setCreateProgress({
+            active: false,
+            percent: 0,
+            phase: "Saving service…",
+            uploadingTaskIndexes: [],
+          })
+        }
+      },
+      onError: (err) => {
+        setCreateProgress({
+          active: false,
+          percent: 0,
+          phase: "Saving service…",
+          uploadingTaskIndexes: [],
+        })
+        setCreateFailureOpen(true)
+        console.error("Service creation failed:", err)
       },
     })
   }
 
-  const handleToggleStatus = (service) => {
+  const openCreateDialog = () => {
+    // Start from a clean progress state so a previous run's phase is never
+    // shown on a freshly opened form.
+    setCreateProgress({
+      active: false,
+      percent: 0,
+      phase: "Saving service…",
+      uploadingTaskIndexes: [],
+    })
+    setCreateOpen(true)
+  }
+  const openEdit = (service) => {
+    setDetailsOpen(false)
+    updateService.reset()
+    setEditingService(service)
+    setEditOpen(true)
+  }
+
+  const openDetails = (service) => {
+    setViewingService(service)
+    setDetailsOpen(true)
+  }
+
+  const handleSave = (values) => {
+    const tasksWithFiles = values.workflowTasks
+      .map((task, index) => ({ task, index }))
+      .filter(({ task }) => task.hasReferenceDocument && task.referenceDocument?.file)
+
+    updateService.mutate(values, {
+      onSuccess: async (updated) => {
+        setEditOpen(false)
+        setNotice({ tone: "success", message: `${updated.name} updated` })
+
+        if (tasksWithFiles.length === 0) return
+
+        const failedUploads = []
+
+        await Promise.all(
+          tasksWithFiles.map(async ({ task, index }) => {
+            const matchedTask =
+              updated.workflowTasks?.find((updatedTask) => updatedTask.id === task.id) ??
+              updated.workflowTasks?.[index]
+
+            if (!matchedTask?.id) {
+              failedUploads.push(task.name)
+              return
+            }
+
+            try {
+              await uploadTemplateDocument(matchedTask.id, task.referenceDocument.file)
+            } catch (err) {
+              console.error(`Reference document upload failed for "${task.name}":`, err)
+              failedUploads.push(task.name)
+            }
+          })
+        )
+
+        await refetchServices()
+
+        if (failedUploads.length > 0) {
+          setNotice({
+            tone: "danger",
+            message: `Service updated, but reference document(s) failed to upload: ${failedUploads.join(", ")}`,
+          })
+        }
+      },
+    })
+  }
+
+  const openStatusDialog = (service) => {
+    setDetailsOpen(false)
+    setStatusService(service)
+    setStatusDialogOpen(true)
+  }
+
+  const handleToggleStatus = () => {
+    if (!statusService) return
+    const service = statusService
     const nextStatus = service.status === "active" ? "deactivated" : "active"
     toggleStatus.mutate(
       { id: service.id, status: nextStatus },
       {
         onSuccess: () => {
+          setStatusDialogOpen(false)
+          setStatusService(null)
           setNotice({
             tone: "success",
             message: `${service.name} ${nextStatus === "active" ? "activated" : "deactivated"}`,
           })
+        },
+        onError: (err) => {
+          setNotice({ tone: "danger", message: err.message })
         },
       }
     )
   }
 
   const openDeleteDialog = (service) => {
+    setDetailsOpen(false)
     setDeletingService(service)
     setDeleteOpen(true)
   }
 
   const handleDelete = () => {
     if (!deletingService) return
-    deleteService.mutate(deletingService.id, {
+    const service = deletingService
+    const isUsed =
+      (Number(service.activeEngagements) || 0) + (Number(service.serviceRequestCount) || 0) > 0
+
+    if (isUsed) {
+      // Used services can only be deactivated (soft delete) — the backend
+      // rejects hard deletes for anything referenced by an engagement/request.
+      toggleStatus.mutate(
+        { id: service.id, status: "deactivated" },
+        {
+          onSuccess: () => {
+            setDeleteOpen(false)
+            setNotice({ tone: "danger", message: `${service.name} deactivated` })
+            setDeletingService(null)
+          },
+          onError: (err) => {
+            setNotice({ tone: "danger", message: err.message })
+          },
+        }
+      )
+      return
+    }
+
+    deleteService.mutate(service.id, {
       onSuccess: () => {
         setDeleteOpen(false)
-        setNotice({ tone: "danger", message: `${deletingService.name} deleted` })
+        setNotice({ tone: "danger", message: `${service.name} deleted` })
         setDeletingService(null)
+      },
+      onError: (err) => {
+        setNotice({ tone: "danger", message: err.message })
       },
     })
   }
@@ -174,18 +417,14 @@ export default function ServiceManagementPage() {
   usePageMeta({
     title: "Services",
     breadcrumbs: [
-      { label: basePath === "/firm" ? "Firm Staff" : "Firm Admin", href: `${basePath}/dashboard` },
-      { label: "Service Management", href: `${basePath}/services` },
+      // { label: basePath === "/firm" ? "Firm Staff" : "Firm Admin", href: `${basePath}/dashboard` },
+      // { label: "Service Management", href: `${basePath}/services` },
     ],
   })
 
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-1">
-        <p className="text-sm text-muted-foreground">
-          Manage your firm's service catalog. You can add new service templates, edit existing
-          ones, and activate or deactivate services as needed.
-        </p>
         {notice && (
           <span
             className={
@@ -206,14 +445,23 @@ export default function ServiceManagementPage() {
 
       <ServiceManagementToolbar
         searchValue={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => {
+          setSearch(value)
+          setCurrentPage(1)
+        }}
         categoryFilter={categoryFilter}
-        onCategoryFilterChange={setCategoryFilter}
+        onCategoryFilterChange={(value) => {
+          setCategoryFilter(value)
+          setCurrentPage(1)
+        }}
         categoryOptions={categoryOptions}
-        onManageCategories={() => setCategoryManagementOpen(true)}
+        onManageCategories={canManageServices ? () => setCategoryManagementOpen(true) : undefined}
         statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        onAddService={() => setCreateOpen(true)}
+        onStatusFilterChange={(value) => {
+          setStatusFilter(value)
+          setCurrentPage(1)
+        }}
+        onAddService={canManageServices ? openCreateDialog : undefined}
         resultCount={`${filteredServices.length} of ${services.length} services`}
       />
 
@@ -221,66 +469,92 @@ export default function ServiceManagementPage() {
         services={filteredServices}
         loading={isLoading}
         emptyMessage="No services match your filters."
-        emptyDescription="Try clearing the search or filters."
-        actions={(service) => (
-          <ServiceManagementActionsMenu
-            service={service}
-            items={[
-              { key: "edit", label: "Edit service", icon: Pencil, onSelect: openEdit },
-              { type: "separator" },
-              service.status === "active"
-                ? { key: "deactivate", label: "Deactivate", icon: Ban, destructive: true, onSelect: handleToggleStatus }
-                : { key: "activate", label: "Activate", icon: CheckCircle2, onSelect: handleToggleStatus },
-              { type: "separator" },
-              { key: "delete", label: "Delete", icon: Trash2, destructive: true, onSelect: openDeleteDialog },
-            ]}
+        onRowClick={openDetails}
+        page={currentPage}
+        onPageChange={setCurrentPage}
+      />
+
+      <ServiceDetailsDialog
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        service={viewingService}
+        categoryOptions={categoryOptions}
+        onEdit={canManageServices ? openEdit : undefined}
+        onToggleStatus={canManageServices ? openStatusDialog : undefined}
+        onDelete={canManageServices ? openDeleteDialog : undefined}
+      />
+
+      {canManageServices && (
+        <>
+          <ServiceStatusDialog
+            open={statusDialogOpen}
+            onOpenChange={(open) => {
+              setStatusDialogOpen(open)
+              if (!open) setStatusService(null)
+            }}
+            service={statusService}
+            onConfirm={handleToggleStatus}
+            updating={toggleStatus.isPending}
           />
-        )}
-      />
 
-      <ServiceCreateDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onSubmit={handleCreate}
-        categoryOptions={categoryOptions}
-        submitting={createService.isPending}
-      />
+          <ServiceCreateDialog
+            open={createOpen}
+            onOpenChange={setCreateOpen}
+            onSubmit={handleCreate}
+            categoryOptions={categoryOptions}
+            submitting={createService.isPending || createProgress.active}
+            progress={createProgress}
+          />
 
-      <ServiceEditDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        service={editingService}
-        onSubmit={handleSave}
-        categoryOptions={categoryOptions}
-        submitting={updateService.isPending}
-      />
+          <ServiceCreateFailureDialog
+            open={createFailureOpen}
+            onOpenChange={setCreateFailureOpen}
+          />
 
-      <ServiceDeleteDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        service={deletingService}
-        onConfirm={handleDelete}
-        deleting={deleteService.isPending}
-      />
+          <ServiceDuplicateDialog
+            open={duplicateDialogOpen}
+            onOpenChange={setDuplicateDialogOpen}
+          />
 
-      <CategoryCreateDialog
-        open={categoryCreateOpen}
-        onOpenChange={setCategoryCreateOpen}
-        onSubmit={createCategory}
-        existingCategories={categoryOptions}
-      />
+          <ServiceEditDialog
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            service={editingService}
+            onSubmit={handleSave}
+            confirmBeforeSave={canManageServices}
+            categoryOptions={categoryOptions}
+            submitting={updateService.isPending}
+            error={updateService.error?.message ?? ""}
+          />
 
-      <CategoryManagementDialog
-        open={categoryManagementOpen}
-        onOpenChange={setCategoryManagementOpen}
-        categories={categoryOptions}
-        onAdd={() => {
-          setCategoryManagementOpen(false)
-          setCategoryCreateOpen(true)
-        }}
-        onRename={renameCategory}
-        onRemove={removeCategory}
-      />
+          <ServiceDeleteDialog
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            service={deletingService}
+            onConfirm={handleDelete}
+            deleting={deleteService.isPending || toggleStatus.isPending}
+          />
+
+          <CategoryCreateDialog
+            open={categoryCreateOpen}
+            onOpenChange={setCategoryCreateOpen}
+            onSubmit={createCategory}
+            existingCategories={categoryOptions}
+          />
+
+          <CategoryManagementDialog
+            open={categoryManagementOpen}
+            onOpenChange={setCategoryManagementOpen}
+            categories={categoryOptions}
+            onAdd={() => {
+              setCategoryManagementOpen(false)
+              setCategoryCreateOpen(true)
+            }}
+            onRename={renameCategory}
+            onRemove={removeCategory}
+          />
+        </>
+      )}
     </>
   )
 }

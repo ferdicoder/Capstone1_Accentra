@@ -1,63 +1,103 @@
 import { useState } from "react"
-import { useLocation, useNavigate, useParams } from "react-router-dom"
-import { XCircle } from "lucide-react"
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
+import { ArrowLeft } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { PageSkeleton } from "@/components/shared/loading/page-skeleton"
 import { usePageMeta } from "@/hooks/usePageMeta"
 import { EngagementStatusBadge } from "@/components/firm/engagements/engagement-status-badge"
-import { ClientServiceDetailsDialog } from "@/components/firm/engagements/ClientServiceDetailsDialog"
+import { EngagementStatusDropdown } from "@/components/firm/engagements/EngagementStatusDropdown"
 import { TaskList } from "@/components/firm/engagements/TaskList"
 import { UploadDeliverables } from "@/components/firm/engagements/UploadDeliverables"
 import { CancelEngagementDialog } from "@/components/firm/engagements/cancel-engagement-dialog"
 import { WorkflowProgress } from "@/components/firm/engagements/WorkflowProgress"
 import { ActivityLogItem } from "@/components/firm/engagements/ActivityLogItem"
-import { formatDate } from "@/components/firm/engagements/engagement-variants"
-import { workflowStages, isEngagementActive } from "@/lib/workflow-stages"
+import {
+  EngagementDocumentsTab,
+  getVisibleDocuments,
+} from "@/components/shared/EngagementsDocumentsTab"
+import { engagementStatusOptions } from "@/lib/workflow-stages"
+import { formatDate, canCompleteEngagement } from "@/components/firm/engagements/engagement-variants"
 import {
   useFetchEngagement,
   useUpdateEngagementStatus,
-  useSetTaskCompleted,
   useReviewEngagementTask,
   useCreateEngagementTask,
   useUpdateEngagementTask,
-  useUpdateEngagementTaskDeadline,
   useFetchEngagementActivity,
+  useFetchEngagementDocuments,
+  useFetchEngagementDeliverables,
+  useUploadEngagementDeliverable,
+  useDeleteEngagementDeliverable,
+  useUploadEngagementTaskReference,
+  useDeleteEngagementTaskReference,
+  useUpdateEngagementDetails,
 } from "@/hooks/useEngagements"
+import { authStore } from "@/store/authStore"
+import { can } from "@/config/roles"
+import { ClientServiceDetailsDialog } from "@/components/firm/engagements/ClientServiceDetailsDialog"
 
 export default function EngagementDetailsPage() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const location = useLocation()
-  const basePath = location.pathname.startsWith("/firm") ? "/firm" : "/admin"
-  const sectionLabel = basePath === "/firm" ? "Firm Staff" : "Firm Admin"
+  const navigate = useNavigate()
+  const basePath = location.pathname.startsWith("/billing-officer")
+    ? "/billing-officer"
+    : location.pathname.startsWith("/firm")
+      ? "/firm"
+      : "/admin"
+  const role = authStore((state) => state.role)
+  const userId = authStore((state) => state.user?.id)
+  const canManageEngagements = can(role, "manage_engagements")
+  const hasCancelPermission = can(role, "cancel_engagement")
+  // const sectionLabel = basePath === "/firm" ? "Firm Staff" : "Firm Admin"
 
-  const { data: engagement, isLoading, error } = useFetchEngagement(id)
-  const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(id)
+  const { data: engagement, isLoading, error } = useFetchEngagement(id, {
+    includeTasks: canManageEngagements,
+  })
+  const { data: activity = [], isLoading: activityLoading } = useFetchEngagementActivity(
+    canManageEngagements ? id : null
+  )
+  const canViewDocuments = Boolean(engagement) && canManageEngagements
+  const { data: documents = [], isLoading: isDocumentsLoading } = useFetchEngagementDocuments(
+    canViewDocuments ? id : null
+  )
+  const { data: deliverables = [] } = useFetchEngagementDeliverables(
+    canManageEngagements ? id : null
+  )
+  const uploadDeliverable = useUploadEngagementDeliverable(id)
+  const deleteDeliverable = useDeleteEngagementDeliverable(id)
   const updateStatus = useUpdateEngagementStatus()
-  const setTaskCompleted = useSetTaskCompleted(id)
   const reviewTask = useReviewEngagementTask(id)
 
   const createTask = useCreateEngagementTask(id)
   const updateTask = useUpdateEngagementTask(id)
-  const updateDeadline = useUpdateEngagementTaskDeadline(id)
+  const uploadTaskReference = useUploadEngagementTaskReference(id)
+  const deleteTaskReference = useDeleteEngagementTaskReference(id)
+  const updateEngagementDetails = useUpdateEngagementDetails()
+  // Editing staff/schedule from the details dialog is an admin-only capability.
+  const canEditEngagementDetails = role === "admin"
 
-  const [detailsOpen, setDetailsOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [terminalActionDialogOpen, setTerminalActionDialogOpen] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const [notice, setNotice] = useState("")
+  const [noticeIsError, setNoticeIsError] = useState(false)
+  const [activeTab, setActiveTab] = useState("overview")
 
   usePageMeta({
     title: engagement?.engagementNumber ?? "Engagement Details",
     breadcrumbs: [
-      { label: sectionLabel, href: `${basePath}/dashboard` },
+      // { label: sectionLabel, href: `${basePath}/dashboard` },
       { label: "Engagements", href: `${basePath}/engagements` },
     ],
   })
@@ -65,27 +105,97 @@ export default function EngagementDetailsPage() {
   if (isLoading) return <PageSkeleton type="service-requests" />
   if (error || !engagement) return null
 
-  const showNotice = (message) => {
+  // Completed and Cancelled are terminal workflow states, so the cancel
+  // action is not offered for them.
+  const isTerminalEngagement =
+    engagement.status === "completed" || engagement.status === "cancelled"
+  const canCancelEngagement = hasCancelPermission && !isTerminalEngagement
+
+  // Manual stage changes and deliverable management are limited to admins and
+  // the staff member assigned to this engagement — everyone else is view-only.
+  const isInProgress = engagement.status === "in_progress"
+  const isAssignedStaff =
+    role === "staff" && Boolean(userId) && engagement.assignedStaffId === userId
+  const canChangeStage = role === "admin" || isAssignedStaff
+  const canManageDeliverables = isInProgress && canChangeStage
+  // The deliverables card stays hidden until the engagement reaches In
+  // Progress, then remains visible afterward.
+  const showDeliverables = ["in_progress", "completed", "cancelled"].includes(
+    engagement.status
+  )
+  // Red only while the engagement is still open and past its due date.
+  const isOverdue =
+    !isTerminalEngagement &&
+    Boolean(engagement.targetEndDate) &&
+    String(engagement.targetEndDate).slice(0, 10) < new Date().toLocaleDateString("en-CA")
+
+  // Same visibility rule as the client Documents tab.
+  const visibleDocuments = getVisibleDocuments(documents, engagement.tasks ?? [])
+
+  const showNotice = (message, isError = false) => {
     setNotice(message)
+    setNoticeIsError(isError)
     setTimeout(() => setNotice(""), 3000)
   }
 
+  const requiredTasks = (engagement.tasks ?? []).filter((task) => task.required)
+  const canSetForValidation = requiredTasks.every((task) =>
+    ["for_review", "approved"].includes(task.status)
+  )
+  const canSetInProgress = requiredTasks.every((task) => task.status === "approved")
+  const canComplete = canCompleteEngagement(engagement.tasks ?? [])
+
+  const reviewableTaskIds = new Set(
+    (engagement.tasks ?? [])
+      .filter((task) =>
+       ["for_review", "approved"].includes(task.status)
+      )
+      .map((task) => task.id)
+  )
+  const latestDocumentsByTask = new Map()
+  for (const document of documents) {
+    if (!reviewableTaskIds.has(document.engagementTaskId)) continue
+    const current = latestDocumentsByTask.get(document.engagementTaskId)
+    if (
+      !current ||
+      new Date(document.uploadedDate ?? 0) > new Date(current.uploadedDate ?? 0)
+    ) {
+      latestDocumentsByTask.set(document.engagementTaskId, document)
+    }
+  }
+  const reviewableDocuments = [...latestDocumentsByTask.values()].sort(
+    (first, second) =>
+      new Date(second.uploadedDate ?? 0) - new Date(first.uploadedDate ?? 0)
+  )
+
   const handleStageChange = (stageKey) => {
+    if (!canChangeStage) return
+
+    if (stageKey === "for_validation" && !canSetForValidation) {
+      showNotice("All required tasks must be submitted before moving to For Validation.")
+      return
+    }
+
+    if (stageKey === "in_progress" && !canSetInProgress) {
+      showNotice("All required tasks must be approved before moving to In Progress.")
+      return
+    }
+
+    if (stageKey === "completed" && !canComplete) {
+      showNotice(
+        "All required tasks must be approved and none pending review before completing the engagement."
+      )
+      return
+    }
+
     updateStatus.mutate(
       { id: engagement.id, status: stageKey },
       {
         onSuccess: () => {
-          const label = workflowStages.find((s) => s.key === stageKey)?.label ?? stageKey
+          const label = engagementStatusOptions.find((s) => s.key === stageKey)?.label ?? stageKey
           showNotice(`Status updated to "${label}"`)
         },
       }
-    )
-  }
-
-  const handleMarkCompleted = () => {
-    updateStatus.mutate(
-      { id: engagement.id, status: "completed" },
-      { onSuccess: () => showNotice("Engagement marked completed") }
     )
   }
 
@@ -101,10 +211,6 @@ export default function EngagementDetailsPage() {
     )
   }
 
-  const handleTaskComplete = (taskId, completed) => {
-    setTaskCompleted.mutate({ taskId, completed })
-  }
-
   const handleTaskReview = (taskId, status, remark) => {
     reviewTask.mutate(
       { taskId, status, remark },
@@ -112,37 +218,135 @@ export default function EngagementDetailsPage() {
     )
   }
 
-  const handleTaskCreate = (fields) =>
-  createTask.mutateAsync({ engagementId: engagement.id, ...fields })
-    .then(() => showNotice(`Task "${fields.title}" added`))
+  // Reference-file operations run after the task row is saved. If a file op
+  // fails at that point the task itself is fine, so surface a notice instead
+  // of rethrowing (rethrowing would show a dialog error for a saved task and
+  // risk double-submitting on retry).
+  const handleTaskCreate = async (fields) => {
+    if (isTerminalEngagement) {
+      setTerminalActionDialogOpen(true)
+      return
+    }
 
-  const handleTaskUpdate = (taskId, fields) =>
-    updateTask.mutateAsync({ taskId, ...fields })
-      .then(() => showNotice("Task updated"))
+    const { referenceFile, ...taskFields } = fields
+    const created = await createTask.mutateAsync({
+      engagementId: engagement.id,
+      ...taskFields,
+    })
+    showNotice(`Task "${fields.title}" added`)
 
-  const handleDeadlineChange = (taskId, dueDate) => {
-    updateDeadline.mutate({ taskId, dueDate })
+    // `referenceFile` is already the raw File (TaskList unwraps the picker's
+    // { file } wrapper before calling up), so a truthy check is enough.
+    if (referenceFile) {
+      try {
+        await uploadTaskReference.mutateAsync({
+          engagementTaskId: created.id,
+          file: referenceFile,
+        })
+      } catch {
+        showNotice(
+          `Task "${fields.title}" added, but the reference file could not be attached. Use Edit Task to retry.`
+        )
+      }
+    }
   }
+
+  const handleTaskUpdate = async (taskId, fields) => {
+    const { referenceFile, removeReferenceDocId, ...taskFields } = fields
+    const updated = await updateTask.mutateAsync({ taskId, ...taskFields })
+    showNotice("Task updated")
+
+    // Replace = remove the stored guide first, then upload the new pick.
+    try {
+      if (removeReferenceDocId) {
+        await deleteTaskReference.mutateAsync(removeReferenceDocId)
+      }
+      if (referenceFile) {
+        await uploadTaskReference.mutateAsync({
+          engagementTaskId: taskId,
+          file: referenceFile,
+        })
+      }
+    } catch {
+      showNotice("Task updated, but the reference file could not be updated. Use Edit Task to retry.")
+    }
+    return updated
+  }
+
+  // Resolves true on success so the dialog leaves edit mode; false lets it
+  // stay open with the mutation's error shown.
+  const handleSaveEngagementDetails = async ({
+    assignedStaffId,
+    assignedStaffName,
+    startDate,
+    dueDate,
+  }) => {
+    try {
+      await updateEngagementDetails.mutateAsync({
+        engagementId: engagement.id,
+        assignedStaffId,
+        assignedStaffName,
+        startDate,
+        dueDate,
+      })
+      showNotice("Engagement details updated")
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const reviewDocuments = reviewableDocuments.map((document) => {
+    const task = engagement.tasks?.find((item) => item.id === document.engagementTaskId)
+    return {
+      ...document,
+      taskId: task?.id,
+      taskName: task?.name,
+      status: task?.status ?? "missing",
+      remark: task?.remark,
+    }
+  })
+
+  const billing = engagement.billing ?? engagement.billingRecord ?? engagement.billing_record
+  const billingId =
+    (typeof billing === "string" ? billing : billing?.id ?? billing?.billingId ?? billing?.billing_id) ??
+    engagement.billingId ??
+    engagement.billing_id
+  const canViewBilling = basePath === "/admin" && can(role, "manage_billing") && billingId
 
 
   return (
     <>
-      <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-3 py-1">
+          <Link
+            to={`${basePath}/engagements`}
+            className={buttonVariants({
+              variant: "ghost",
+              size: "sm",
+              className: "cursor-pointer gap-1.5 text-muted-foreground",
+            })}
+          >
+            <ArrowLeft className="size-4" />
+            Back
+          </Link>
+        </div>
+
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-lg font-semibold sm:text-xl text-foreground">
+              <h1 className="min-w-0 break-words text-lg font-semibold text-foreground sm:text-xl">
                 {engagement.serviceName}
               </h1>
               <EngagementStatusBadge status={engagement.status} />
             </div>
             <p className="text-sm text-muted-foreground">
-              Due <span className="font-semibold text-red-600">{formatDate(engagement.targetEndDate)}</span>
+              Due <span className={cn("font-semibold", isOverdue ? "text-red-600" : "text-foreground")}>{formatDate(engagement.targetEndDate)}</span>
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="default"
@@ -151,35 +355,26 @@ export default function EngagementDetailsPage() {
             >
               View Details
             </Button>
+            {canViewBilling && (
+              <Button
+                variant="outline"
+                size="default"
+                className="h-9 rounded-lg px-3 text-sm"
+                onClick={() => navigate(`${basePath}/billing/${billingId}`)}
+              >
+                View Billing
+              </Button>
+            )}
 
-            {isEngagementActive(engagement.status) && (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={<Button variant="outline" size="default" className="h-9 gap-1.5 rounded-lg px-3 text-sm" />}
-                >
-                  Change Status
-                  <span className="size-3.5 opacity-60">▾</span>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-52">
-                  {workflowStages.map((stage) => (
-                    <DropdownMenuItem
-                      key={stage.key}
-                      onClick={() => handleStageChange(stage.key)}
-                      className={cn(
-                        engagement.status === stage.key && "bg-[#02353C]/10 text-[#02353C] font-medium"
-                      )}
-                    >
-                      {stage.label}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleMarkCompleted}>Mark Completed</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setCancelDialogOpen(true)} className="text-red-600">
-                    <XCircle className="size-4" />
-                    Cancel Engagement
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            {canManageEngagements && canChangeStage && (
+              <EngagementStatusDropdown
+                engagement={engagement}
+                onStatusChange={(_, status) => handleStageChange(status)}
+                onCancel={canCancelEngagement ? () => setCancelDialogOpen(true) : undefined}
+                canSetForValidation={canSetForValidation}
+                canSetInProgress={canSetInProgress}
+                canComplete={canComplete}
+              />
             )}
           </div>
         </div>
@@ -189,24 +384,98 @@ export default function EngagementDetailsPage() {
           workflowStage={engagement.status}
         />
 
+        {canManageEngagements && <div className="flex max-w-full gap-4 overflow-x-auto overflow-y-hidden no-scrollbar border-b sm:gap-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab("overview")}
+            className={cn(
+              "-mb-px shrink-0 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors",
+              activeTab === "overview"
+                ? "border-emerald-600 text-emerald-700"
+                : "border-transparent text-foreground hover:text-foreground"
+            )}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("documents")}
+            className={cn(
+              "-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-sm font-medium transition-colors",
+              activeTab === "documents"
+                ? "border-emerald-600 text-emerald-700"
+                : "border-transparent text-foreground hover:text-foreground"
+            )}
+          >
+            Documents
+            {canViewDocuments && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                {visibleDocuments.length}
+              </span>
+            )}
+          </button>
+        </div>}
+
         {/* ── Notice ────────────────────────────────────────────────────── */}
         {notice && (
-          <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 ring-1 ring-emerald-500/20 ring-inset">
+          <div
+            role={noticeIsError ? "alert" : "status"}
+            className={cn(
+              "rounded-lg px-3 py-2 text-sm ring-1 ring-inset",
+              noticeIsError
+                ? "bg-destructive/10 text-destructive ring-destructive/20"
+                : "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20"
+            )}
+          >
             {notice}
           </div>
         )}
 
         {/* ── Main content ──────────────────────────────────────────────── */}
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        {activeTab === "overview" && canManageEngagements && <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-w-0 flex-col gap-5">
-            <UploadDeliverables engagement={engagement} />
+            {showDeliverables && (
+              <UploadDeliverables
+                deliverables={deliverables}
+                isUploading={uploadDeliverable.isPending}
+                isDeleting={deleteDeliverable.isPending}
+                canDelete={canManageDeliverables}
+                disabled={!canManageDeliverables}
+                onBlockedAction={() => setTerminalActionDialogOpen(true)}
+                onDelete={async (deliverableId) => {
+                  try {
+                    await deleteDeliverable.mutateAsync(deliverableId)
+                    showNotice("Deliverable deleted")
+                    return true
+                  } catch (deleteError) {
+                    showNotice(deleteError?.message || "Could not delete deliverable", true)
+                    return false
+                  }
+                }}
+                onUpload={async (files) => {
+                  if (!canManageDeliverables) return
+                  try {
+                    await Promise.all(
+                      files.map((file) =>
+                        uploadDeliverable.mutateAsync({ engagementId: id, file })
+                      )
+                    )
+                    showNotice("Deliverables uploaded")
+                  } catch (uploadError) {
+                    showNotice(uploadError?.message || "Could not upload deliverable", true)
+                    // Rethrow so the upload dialog stays open for a retry.
+                    throw uploadError
+                  }
+                }}
+              />
+            )}
             <TaskList
               engagement={engagement}
-              onTaskComplete={handleTaskComplete}
+              documents={reviewDocuments}
+              onBlockedAction={() => setTerminalActionDialogOpen(true)}
               onTaskReview={handleTaskReview}
               onTaskCreate={handleTaskCreate}
               onTaskUpdate={handleTaskUpdate}
-              onDeadlineChange={handleDeadlineChange}
             />
           </div>
 
@@ -231,11 +500,64 @@ export default function EngagementDetailsPage() {
               )}
             </div>
           </div>
-        </div>
+        </div>}
+
+        {activeTab === "documents" && (
+          <EngagementDocumentsTab
+            documents={visibleDocuments}
+            tasks={engagement.tasks ?? []}
+            isLoading={isDocumentsLoading}
+            audience="firm"
+          />
+        )}
+        {!canManageEngagements && (
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="text-sm font-semibold text-foreground">Engagement Information</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              View client, service, fee, and scheduling details using View Details.
+            </p>
+          </div>
+        )}
       </div>
 
-      <ClientServiceDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} engagement={engagement} />
-      <CancelEngagementDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen} onConfirm={handleCancelEngagement} />
+      <ClientServiceDetailsDialog
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        engagement={engagement}
+        canEdit={canEditEngagementDetails}
+        onSave={handleSaveEngagementDetails}
+        saving={updateEngagementDetails.isPending}
+        saveError={updateEngagementDetails.error?.message}
+      />
+      {canCancelEngagement && (
+        <CancelEngagementDialog
+          open={cancelDialogOpen}
+          onOpenChange={setCancelDialogOpen}
+          onConfirm={handleCancelEngagement}
+        />
+      )}
+      <Dialog
+        open={terminalActionDialogOpen}
+        onOpenChange={setTerminalActionDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Engagement is closed</DialogTitle>
+            <DialogDescription>
+              Tasks and deliverables cannot be added to a completed or cancelled engagement.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              className="bg-forest-900 text-white hover:opacity-90"
+              onClick={() => setTerminalActionDialogOpen(false)}
+            >
+              Okay
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog"
 import { firmStaffMap } from "./engagement-variants"
 import { nonVatTaxTreatments, vatFilingPeriods } from "./tax-filing-variants"
+import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validation"
+import { taxComputationSetupSchema } from "@/schemas/engagementSchema"
 
 const staffOptions = Object.entries(firmStaffMap).map(([value, label]) => ({ value, label }))
 
@@ -24,17 +26,27 @@ export function ComputeTaxDialog({ open, onOpenChange, isVat, onContinue }) {
   const [assignedStaff, setAssignedStaff] = useState("")
   const [internalNotes, setInternalNotes] = useState("")
   const [errors, setErrors] = useState({})
+  const formRef = useRef(null)
 
   const handleContinue = (e) => {
     e.preventDefault()
-    const newErrors = {}
-    if (!filingPeriod.trim()) newErrors.filingPeriod = true
-    if (isVat && !vatFilingPeriod) newErrors.vatFilingPeriod = true
-    if (!isVat && !taxTreatment) newErrors.taxTreatment = true
-    if (!assignedStaff) newErrors.assignedStaff = true
+    const validationErrors = getZodFieldErrors(taxComputationSetupSchema, {
+      filingPeriod,
+      isVat,
+      vatFilingPeriod,
+      taxTreatment,
+      assignedStaff,
+      internalNotes,
+    })
+    const newErrors = Object.fromEntries(
+      Object.keys(validationErrors).map((field) => [field, true])
+    )
 
     setErrors(newErrors)
-    if (Object.keys(newErrors).length > 0) return
+    if (Object.keys(newErrors).length > 0) {
+      scrollToFirstInvalidField(formRef.current)
+      return
+    }
 
     onContinue?.({
       filingPeriod: filingPeriod.trim(),
@@ -74,12 +86,13 @@ export function ComputeTaxDialog({ open, onOpenChange, isVat, onContinue }) {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleContinue} className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh] p-1">
+        <form ref={formRef} onSubmit={handleContinue} className="flex flex-1 flex-col gap-5 overflow-y-auto max-h-[70vh] p-1">
           <FieldGroup>
             <Field>
               <FieldLabel>Filing Period<span className="text-red-500">*</span></FieldLabel>
               <Input
                 type="text"
+                aria-invalid={Boolean(errors.filingPeriod) || undefined}
                 value={filingPeriod}
                 onChange={(e) => { setFilingPeriod(e.target.value); if (errors.filingPeriod) setErrors((p) => ({ ...p, filingPeriod: false })) }}
                 placeholder="e.g. January 2025, Q1 2025"
@@ -96,6 +109,7 @@ export function ComputeTaxDialog({ open, onOpenChange, isVat, onContinue }) {
                     <label key={period.value} className="flex items-center gap-2 text-sm">
                       <input
                         type="radio"
+                        aria-invalid={Boolean(errors.vatFilingPeriod) || undefined}
                         name="vat-filing-period"
                         value={period.value}
                         checked={vatFilingPeriod === period.value}
@@ -116,6 +130,7 @@ export function ComputeTaxDialog({ open, onOpenChange, isVat, onContinue }) {
                     <label key={treatment.value} className="flex items-center gap-2 text-sm">
                       <input
                         type="radio"
+                        aria-invalid={Boolean(errors.taxTreatment) || undefined}
                         name="tax-treatment"
                         value={treatment.value}
                         checked={taxTreatment === treatment.value}
@@ -134,6 +149,7 @@ export function ComputeTaxDialog({ open, onOpenChange, isVat, onContinue }) {
               <FieldLabel>Assigned Staff<span className="text-red-500">*</span></FieldLabel>
               <select
                 value={assignedStaff}
+                aria-invalid={Boolean(errors.assignedStaff) || undefined}
                 onChange={(e) => { setAssignedStaff(e.target.value); if (errors.assignedStaff) setErrors((p) => ({ ...p, assignedStaff: false })) }}
                 className={cn("h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50", errors.assignedStaff && "border-red-500 focus-visible:ring-red-500")}
               >

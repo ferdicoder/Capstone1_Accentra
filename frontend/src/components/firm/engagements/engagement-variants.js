@@ -1,23 +1,44 @@
+
 export const statusBadgeStyles = {
-  active: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
-  completed: "bg-sky-500/10 text-sky-700 ring-sky-500/25",
-  on_hold: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
+  document_collection: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
+  for_validation: "bg-blue-500/10 text-blue-700 ring-blue-500/25",
+  in_progress: "bg-cyan-500/10 text-cyan-700 ring-cyan-500/25",
+  completed: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
   cancelled: "bg-red-500/10 text-red-600 ring-red-500/25",
 }
 
 export const statusDotStyles = {
-  active: "bg-emerald-500",
-  completed: "bg-sky-500",
-  on_hold: "bg-amber-500",
+  document_collection: "bg-amber-500",
+  for_validation: "bg-blue-500",
+  in_progress: "bg-cyan-500",
+  completed: "bg-emerald-500",
   cancelled: "bg-red-500",
 }
 
+export const getEngagementDisplayStatus = (status) => {
+  const value = typeof status === "string" ? status.toLowerCase() : status
+  return value === "for_approval" || value === "payment" ? "in_progress" : value
+}
+
 export const statusFilterOptions = [
-  { value: "all", label: "All Engagements" },
-  { value: "active", label: "Active" },
+  { value: "all", label: "All statuses" },
+  { value: "document_collection", label: "Document Collection" },
+  { value: "for_validation", label: "For Validation" },
+  { value: "in_progress", label: "In Progress" },
   { value: "completed", label: "Completed" },
-  { value: "on_hold", label: "On Hold" },
   { value: "cancelled", label: "Cancelled" },
+]
+
+export const dateSortOptions = [
+  { value: "oldest", label: "Oldest" },
+  { value: "newest", label: "Newest" },
+]
+
+/** Quick presets for the engagement start-date filter. */
+export const startDateFilterOptions = [
+  { value: "", label: "All dates" },
+  { value: "this_month", label: "This month" },
+  { value: "this_year", label: "This year" },
 ]
 
 export const getClientFullName = (client) =>
@@ -31,9 +52,83 @@ export const formatRevenue = (value) => {
 
 export const formatDate = (value) => {
   if (!value) return "—"
-  const date = new Date(`${value}T00:00:00`)
+
+  const dateValue = value instanceof Date ? value : String(value)
+  const datePart =
+    typeof dateValue === "string"
+      ? dateValue.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+      : null
+  const date = datePart
+    ? new Date(`${datePart}T00:00:00`)
+    : new Date(dateValue)
+
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+}
+
+const parseDateOnly = (value) => {
+  if (!value) return null
+
+  const dateValue = value instanceof Date ? value : String(value)
+  const datePart =
+    typeof dateValue === "string"
+      ? dateValue.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+      : null
+  const date = datePart ? new Date(`${datePart}T00:00:00`) : new Date(dateValue)
+
+  if (Number.isNaN(date.getTime())) return null
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+export const getEngagementDueTime = (value) => parseDateOnly(value)?.getTime() ?? null
+
+/**
+ * Filters an engagement by its start date. `filter` is one of the quick
+ * presets ("this_month", "this_year"), a specific "YYYY-MM" month, or a
+ * specific "YYYY" year.
+ */
+export const matchesStartDateFilter = (value, filter, now = new Date()) => {
+  if (!filter) return true
+
+  const startDate = parseDateOnly(value)
+  if (!startDate) return false
+
+  if (filter === "this_month") {
+    return (
+      startDate.getFullYear() === now.getFullYear() &&
+      startDate.getMonth() === now.getMonth()
+    )
+  }
+
+  if (filter === "this_year") {
+    return startDate.getFullYear() === now.getFullYear()
+  }
+
+  if (/^\d{4}$/.test(filter)) {
+    return startDate.getFullYear() === Number(filter)
+  }
+
+  const match = /^(\d{4})-(\d{2})$/.exec(filter)
+  if (!match) return true
+
+  return (
+    startDate.getFullYear() === Number(match[1]) &&
+    startDate.getMonth() === Number(match[2]) - 1
+  )
+}
+
+/** Human-readable label for the start-date filter trigger button. */
+export const formatStartDateFilterLabel = (filter) => {
+  if (!filter) return "Start Date"
+  if (filter === "this_month") return "This month"
+  if (filter === "this_year") return "This year"
+  if (/^\d{4}$/.test(filter)) return filter
+
+  const match = /^(\d{4})-(\d{2})$/.exec(filter)
+  if (!match) return "Start Date"
+
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, 1)
+  return date.toLocaleDateString("en-US", { month: "short", year: "numeric" })
 }
 
 export const formatTimestamp = (value) => {
@@ -124,7 +219,7 @@ export const registeredClients = [
 export const getServiceCategoryLabel = (serviceName) => {
   if (!serviceName) return "—"
   if (serviceName.toLowerCase().includes("tax")) return "Tax Filing"
-  if (serviceName.toLowerCase().includes("business registration")) return "Business Registration"
+  if (serviceName.toLowerCase().includes("business_registration")) return "Business Registration"
   return serviceName
 }
 
@@ -138,6 +233,95 @@ export const workflowStages = [
   { key: "payment", label: "Payment", order: 4 },
 ]
 
+export const workflowProgressStages = [
+  { key: "document_collection", label: "Document Collection", order: 0 },
+  { key: "for_validation", label: "For Validation", order: 1 },
+  { key: "in_progress", label: "In Progress", order: 2 },
+  { key: "completed", label: "Completed", order: 3 },
+]
+
+const recurrenceFrequencies = {
+  monthly: { label: "Monthly", months: 1 },
+  quarterly: { label: "Quarterly", months: 3 },
+  annually: { label: "Annually", months: 12 },
+  annual: { label: "Annually", months: 12 },
+  yearly: { label: "Annually", months: 12 },
+}
+
+const formatMonthYear = (value) => {
+  if (!value) return "—"
+  if (/^[A-Za-z]+ \d{4}$/.test(value)) return value
+
+  const dateValue = String(value)
+  const date = new Date(dateValue.includes("T") ? dateValue : `${dateValue}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  })
+}
+
+export const getRecurrenceInfo = (engagement) => {
+  const rawFrequency = [
+    engagement?.frequency,
+    engagement?.recurrenceFrequency,
+    engagement?.recurrence_frequency,
+  ].find((value) => typeof value === "string" && value.trim())
+  const rawRecurrence =
+    engagement?.recurrence ?? engagement?.recurrenceType ?? engagement?.recurrence_type
+  const frequency =
+    recurrenceFrequencies[rawFrequency?.trim().toLowerCase()] ??
+    recurrenceFrequencies[
+      typeof rawRecurrence === "string" ? rawRecurrence.trim().toLowerCase() : ""
+    ]
+  const isRecurring =
+    Boolean(frequency) ||
+    engagement?.isRecurring === true ||
+    engagement?.is_recurring === true ||
+    rawRecurrence === true ||
+    ["recurring", "repeat", "repeating"].includes(
+      typeof rawRecurrence === "string" ? rawRecurrence.trim().toLowerCase() : ""
+    )
+
+  if (!isRecurring) {
+    return {
+      isRecurring: false,
+      recurrence: "One-Time",
+      frequency: null,
+      expectedNextPeriod: null,
+    }
+  }
+
+  const suppliedNextPeriod =
+    engagement?.expectedNextPeriod ?? engagement?.expected_next_period
+  let expectedNextPeriod = suppliedNextPeriod ? formatMonthYear(suppliedNextPeriod) : "—"
+  const periodStart = engagement?.targetEndDate ?? engagement?.dueDate ?? engagement?.startDate
+
+  if (!suppliedNextPeriod && frequency && periodStart) {
+    const dateValue = String(periodStart)
+    const date = new Date(dateValue.includes("T") ? dateValue : `${dateValue}T00:00:00Z`)
+    if (!Number.isNaN(date.getTime())) {
+      const nextPeriod = new Date(
+        Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + frequency.months, 1)
+      )
+      expectedNextPeriod = formatMonthYear(nextPeriod.toISOString())
+    }
+  }
+
+  return {
+    isRecurring: true,
+    recurrence: "Recurring",
+    frequency: frequency?.label ?? rawFrequency ?? "—",
+    expectedNextPeriod,
+  }
+}
+
+export const getWorkflowProgressStageIndex = (status) => {
+  const progressStatus = getEngagementDisplayStatus(status)
+  return workflowProgressStages.findIndex((stage) => stage.key === progressStatus)
+}
+
 export const workflowStageOptions = workflowStages.map((stage) => ({
   value: stage.key,
   label: stage.label,
@@ -150,6 +334,10 @@ export const getWorkflowStageIndex = (stage) => {
 
 export const isWorkflowComplete = (stage) => stage === "completed"
 export const isWorkflowCancelled = (stage) => stage === "cancelled"
+
+export const canCompleteEngagement = (tasks = []) =>
+  tasks.every((task) => !task.required || task.status === "approved") &&
+  !tasks.some((task) => task.status === "for_review")
 
 // ─── Legacy helpers (kept for backward compat in document review, etc.) ────────
 
@@ -179,33 +367,42 @@ export const getWorkflowProgress = (engagement) => {
 // ─── Document status helpers ──────────────────────────────────────────────────
 
 const documentStatusStyles = {
+  missing: "bg-red-500/10 text-red-600 ring-red-500/25",
+  pending: "bg-red-500/10 text-red-600 ring-red-500/25",
+  for_review: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
   in_review: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
-  submitted: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
-  resubmitted: "bg-blue-500/10 text-blue-700 ring-blue-500/25",
+  submitted: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
+  resubmitted: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
   approved: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
-  revision_requested: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
-  rejected: "bg-red-500/10 text-red-600 ring-red-500/25",
-  pending: "bg-muted text-muted-foreground ring-border",
+  for_revision: "bg-orange-500/10 text-orange-700 ring-orange-500/25",
+  revision_requested: "bg-orange-500/10 text-orange-700 ring-orange-500/25",
+  rejected: "bg-orange-500/10 text-orange-700 ring-orange-500/25",
 }
 
 const documentStatusDots = {
+  missing: "bg-red-500",
+  pending: "bg-red-500",
+  for_review: "bg-amber-500",
   in_review: "bg-amber-500",
-  submitted: "bg-emerald-500",
-  resubmitted: "bg-blue-500",
+  submitted: "bg-amber-500",
+  resubmitted: "bg-amber-500",
   approved: "bg-emerald-500",
-  revision_requested: "bg-amber-500",
-  rejected: "bg-red-500",
-  pending: "bg-muted-foreground",
+  for_revision: "bg-orange-500",
+  revision_requested: "bg-orange-500",
+  rejected: "bg-orange-500",
 }
 
 export const documentStatusLabels = {
-  in_review: "In Review",
-  submitted: "Submitted",
-  resubmitted: "Resubmitted",
+  missing: "Missing",
+  pending: "Missing",
+  for_review: "For Review",
+  in_review: "For Review",
+  submitted: "For Review",
+  resubmitted: "For Review",
   approved: "Approved",
-  revision_requested: "Revision Requested",
-  rejected: "Rejected",
-  pending: "Pending",
+  for_revision: "For Revision",
+  revision_requested: "For Revision",
+  rejected: "For Revision",
 }
 
 export const getDocumentStatusStyles = (status) => documentStatusStyles[status] ?? "bg-muted text-muted-foreground ring-border"

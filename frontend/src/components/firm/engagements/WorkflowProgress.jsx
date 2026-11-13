@@ -1,13 +1,18 @@
 import { CheckCircle2, Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { workflowStages, getWorkflowStageIndex, isWorkflowComplete, isWorkflowCancelled } from "./engagement-variants"
+import {
+  workflowProgressStages,
+  getWorkflowProgressStageIndex,
+  isWorkflowComplete,
+  isWorkflowCancelled,
+} from "./engagement-variants"
 
 export function WorkflowProgress({ workflowStage, className }) {
   const isComplete = isWorkflowComplete(workflowStage)
   const isCancelled = isWorkflowCancelled(workflowStage)
-  const progressIndex = getWorkflowStageIndex(workflowStage)
-  const totalStages = workflowStages.length
+  const progressIndex = getWorkflowProgressStageIndex(workflowStage)
+  const totalStages = workflowProgressStages.length
 
   const progressPercent = isComplete
     ? 100
@@ -15,11 +20,11 @@ export function WorkflowProgress({ workflowStage, className }) {
       ? 0
       : Math.round((progressIndex / (totalStages - 1)) * 100)
 
-  const activeStepIndex = isComplete ? totalStages - 1 : progressIndex
+  const activeStepIndex = isComplete ? totalStages - 1 : Math.max(progressIndex, 0)
 
   // Build grid template: auto 1fr auto 1fr ... auto
   // Circle columns = auto, line columns = 1fr (equal width)
-  const gridCols = workflowStages
+  const gridCols = workflowProgressStages
     .flatMap((_, i) => (i < totalStages - 1 ? ["auto", "1fr"] : ["auto"]))
     .join(" ")
 
@@ -33,20 +38,20 @@ export function WorkflowProgress({ workflowStage, className }) {
       </div>
 
       <div className="grid items-start" style={{ gridTemplateColumns: gridCols }}>
-        {workflowStages.map((stage, i) => {
+        {workflowProgressStages.map((stage, i) => {
           const isDone = i <= activeStepIndex
           const isLast = i === totalStages - 1
           return (
             <div key={stage.key} className="contents">
               {/* Circle + Label */}
-              <div className="flex flex-col items-center gap-1.5 px-2">
+              <div className="flex flex-col items-center gap-1.5 px-1 sm:px-2">
                 {isDone ? (
                   <CheckCircle2 className="size-6 text-emerald-600" />
                 ) : (
                   <Circle className="size-6 text-muted-foreground/40" />
                 )}
                 <span
-                  className={`whitespace-nowrap text-xs text-center ${
+                  className={`text-xs text-center sm:whitespace-nowrap ${
                     isDone ? "font-medium text-foreground" : "text-muted-foreground"
                   }`}
                 >

@@ -73,11 +73,10 @@ The frontend currently exposes these application areas:
 | `/admin/users` | User management |
 | `/admin/profile` | Firm profile |
 | `/admin/services` | Service management |
-| `/admin/service-requests` | Firm service requests |
+| `/admin/service-requests` | Admin service requests |
 | `/admin/engagements` | Firm engagements |
 | `/admin/engagements/:id` | Firm engagement details |
 | `/firm/dashboard` | Staff dashboard |
-| `/firm/service-requests` | Staff service requests |
 | `/firm/services` | Staff service management |
 | `/firm/engagements` | Staff engagements |
 | `/firm/engagements/:id` | Staff engagement details |
@@ -94,6 +93,8 @@ The Express server mounts its API under `/api/v1`.
 | `POST` | `/api/v1/documents/engagement-task/:engagementTaskId` | Upload an engagement-task document |
 | `GET` | `/api/v1/documents/:docId/download` | Download an engagement document |
 | `DELETE` | `/api/v1/documents/:docId` | Delete an engagement document and its B2 object |
+| `POST` | `/api/v1/payments/:billingId` | Submit a client payment and upload its proof |
+| `GET` | `/api/v1/payments/:paymentId/proof` | Download the latest uploaded payment proof |
 
 Most application data operations currently use the Supabase client directly from frontend API modules. The Express routes mainly handle privileged staff/service operations and file transfer operations.
 
@@ -128,6 +129,7 @@ These are not Express HTTP routes. They are the Supabase Auth, table, and RPC op
 | `engagement_activity` | `select`, `insert` | Record and display engagement activity updates |
 | `engagement_documents` | `select`, `insert`, `delete` | Store document metadata and list or remove engagement documents |
 | `template_documents` | `insert` | Store metadata for service-template document uploads |
+| `payment_documents` | `insert`, `select` | Store metadata for client payment proof uploads |
 
 The frontend also uses relational selects between `businesses` and `users`, `engagements` and `services`, `engagements` and `businesses`, `engagements` and assigned staff, `engagements` and `engagement_tasks`, and `engagement_documents` and `engagement_tasks` or uploaders.
 
@@ -194,12 +196,76 @@ accentra/
 └── README.md
 ```
 
-## Team
+## Requirements
 
-| Name | Roles |
-| --- | --- |
-| `Racy Jhanna D. Ledres` | `Project Manager/QA Lead` |
-| `Ferdinand Cedrick B. Gelito` | `Full-Stack Dev/Tech Lead` |
-| `Alexis Arcenal` | `UI/UX/Frontend Dev` |
-| `Jhanleur L. Balberan` | `Frontend Dev` |
-| `Reivin Niña V. Lasic` | `UI/UX/QA` |
+- Node.js and npm.
+- A Supabase project with the application database schema, functions, and tables expected by the source code.
+- A Backblaze B2 bucket for document storage.
+- Supabase credentials for both browser and server use.
+
+The repository does not include the Supabase schema or database migrations. Those must be provisioned separately before the application can use services, businesses, users, engagements, tasks, activity records, and document tables.
+
+## Installation
+
+Install dependencies in the root, backend, and frontend packages:
+
+```bash
+npm install
+npm install --prefix backend
+npm install --prefix frontend
+```
+
+Create `backend/.env` and `frontend/.env`. The local environment files are intentionally not documented with values here; never commit credentials or secret keys.
+
+### Backend environment variables
+
+```dotenv
+PORT=3000
+SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SECRET_KEY=
+SUPABASE_JWKS_URL=
+B2_KEY_ID=
+B2_APPLICATION_KEY=
+B2_BUCKET_ID=
+B2_BUCKET_NAME=
+```
+
+B2 requests use a 60-second timeout by default and retry transient authorization
+network failures. Set `B2_REQUEST_TIMEOUT_MS` in the backend environment to
+override the timeout when the deployment has slower outbound connectivity.
+
+`SUPABASE_SECRET_KEY`, `B2_APPLICATION_KEY`, and the other B2 credentials are server secrets and must only be used by the backend.
+
+### Frontend environment variables
+
+```dotenv
+VITE_SUPABASE_URL=
+VITE_SUPABASE_PUBLISHABLE_KEY=
+VITE_API_BASE_URL=http://localhost:3000/api/v1
+```
+
+## Running Locally
+
+From the repository root, start both development servers:
+
+```bash
+npm run dev
+```
+
+The root command runs the backend in watch mode and the frontend through Vite. The frontend development URL is normally printed by Vite, commonly `http://localhost:5173`. The backend listens on `PORT`, defaulting to `http://localhost:3000`.
+
+To run either part separately:
+
+```bash
+cd backend && npm run dev --prefix backend
+cd frontend && npm run dev --prefix frontend
+```
+
+The frontend also supports:
+
+```bash
+npm run build --prefix frontend
+npm run lint --prefix frontend
+npm run preview --prefix frontend
+```

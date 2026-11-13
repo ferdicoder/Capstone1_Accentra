@@ -1,22 +1,41 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { useFetchServices } from "@/hooks/useServices"
 import { useCreateServiceRequest } from "@/hooks/useServiceRequests"
+import { getZodFieldErrors } from "@/lib/form-validation"
+import { serviceRequestSchema } from "@/schemas/serviceRequestSchema"
+import { CATEGORY_META } from "@/lib/service-categories"
 
 const initialFormState = {
-  serviceId: "",
+  category: "",
   description: "",
 }
 
-export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
+export function NewServiceRequestForm({
+  businessId,
+  clientType,
+  hasExistingServiceRequest,
+  hasUnpaidBills,
+  onSubmitted,
+  onCancel,
+}) {
   const [formData, setFormData] = useState(initialFormState)
   const [error, setError] = useState(null)
 
   const { data: services = [], isLoading: servicesLoading } = useFetchServices()
   const createRequest = useCreateServiceRequest()
+  const isBlockedNonRetainer = clientType !== "retainer" && hasExistingServiceRequest
+  const isBlockedByUnpaidBills = hasUnpaidBills
+  const isSubmissionBlocked = isBlockedNonRetainer || isBlockedByUnpaidBills
 
-  const activeServices = services.filter((s) => s.status === "active")
+  // Only categories that have at least one active template, so a request never
+  // lands on a category the firm can't fulfil.
+  const availableCategories = [
+    ...new Set(services.filter((s) => s.status === "active").map((s) => s.category).filter(Boolean)),
+  ]
+  const noCategories = !servicesLoading && availableCategories.length === 0
+  const selectedMeta = CATEGORY_META[formData.category]
 
   const updateField = (event) => {
     const { name, value } = event.target
@@ -28,18 +47,29 @@ export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
     setError(null)
 
     if (!businessId) {
-      setError("No business found for your account. Please contact support.")
+      setError("You haven't added a business yet. Add your business in your profile to request services.")
       return
     }
-    if (!formData.serviceId) {
-      setError("Please select a service.")
+    if (isBlockedByUnpaidBills) {
+      setError("Please settle your outstanding balance before submitting another service request.")
+      return
+    }
+    if (clientType !== "retainer" && hasExistingServiceRequest) {
+      setError(
+        "You have already submitted your initial service request. Please contact the firm to discuss establishing a retainer arrangement before requesting another service."
+      )
+      return
+    }
+    const validationErrors = getZodFieldErrors(serviceRequestSchema, formData)
+    if (Object.keys(validationErrors).length > 0) {
+      setError(validationErrors.category)
       return
     }
 
     createRequest.mutate(
       {
         businessId,
-        serviceId: formData.serviceId,
+        category: formData.category,
         description: formData.description,
       },
       {
@@ -57,6 +87,20 @@ export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {isBlockedByUnpaidBills && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          You have an outstanding unpaid bill. Please settle the balance before submitting another
+          service request.
+        </div>
+      )}
+
+      {isBlockedNonRetainer && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          You have already submitted your initial service request. To request another service,
+          please contact the firm to discuss establishing a retainer arrangement.
+        </div>
+      )}
+
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
           {error}
@@ -66,26 +110,36 @@ export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
       <div className="rounded-xl border bg-background p-5">
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="serviceId">Service</FieldLabel>
+            <FieldLabel htmlFor="category">Service Category</FieldLabel>
             <select
-              id="serviceId"
-              name="serviceId"
-              value={formData.serviceId}
+              id="category"
+              name="category"
+              value={formData.category}
               onChange={updateField}
               required
-              disabled={servicesLoading}
+              disabled={servicesLoading || noCategories || isSubmissionBlocked}
               className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
             >
               <option value="">
-                {servicesLoading ? "Loading services..." : "Select a service"}
+                {servicesLoading ? "Loading categories..." : "Select a category"}
               </option>
-              {activeServices.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.name}
+              {availableCategories.map((value) => (
+                <option key={value} value={value}>
+                  {CATEGORY_META[value]?.label ?? value}
                 </option>
               ))}
             </select>
-            
+            {selectedMeta?.description && (
+              <p className="text-xs text-muted-foreground">{selectedMeta.description}</p>
+            )}
+            {noCategories && (
+              <p className="text-xs text-muted-foreground">
+                No services are available right now. Please contact your firm.
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Your firm will assign the exact service when they review your request.
+            </p>
           </Field>
 
           <Field>
@@ -97,9 +151,9 @@ export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
               placeholder="Anything the firm should know before starting this request..."
               value={formData.description}
               onChange={updateField}
+              disabled={isSubmissionBlocked}
               className="w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
             />
-            
           </Field>
         </FieldGroup>
       </div>
@@ -110,10 +164,16 @@ export function NewServiceRequestForm({ businessId, onSubmitted, onCancel }) {
         </Button>
         <Button
           type="submit"
-          disabled={createRequest.isPending}
+          disabled={createRequest.isPending || isSubmissionBlocked || noCategories}
           className="bg-emerald-600 text-white hover:bg-emerald-700"
         >
-          {createRequest.isPending ? "Submitting..." : "Submit Request"}
+          {isBlockedByUnpaidBills
+            ? "Balance must be settled"
+            : isBlockedNonRetainer
+            ? "Request limit reached"
+            : createRequest.isPending
+              ? "Submitting..."
+              : "Submit Request"}
         </Button>
       </div>
     </form>
