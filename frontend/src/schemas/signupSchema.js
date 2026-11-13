@@ -120,7 +120,10 @@ export const businessSchema = z.object({
   ),
   tin: z.string().min(1, "TIN number is required."),
   industry: z.string().min(1, "Please select an industry."),
-  contactNumber: z.string().min(1, "Contact number is required."),
+  contactNumber: z.string().min(1, "Contact number is required.").regex(
+    /^9\d{9}$/,
+    "Enter 10 digits after +63."
+  ),
   houseNo: z.string().trim().min(1, "House/building/unit number is required."),
   streetName: z.string().trim().min(1, "Street name is required."),
   barangay: z.string().trim().min(1, "Barangay is required."),
