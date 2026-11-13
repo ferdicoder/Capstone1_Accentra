@@ -93,9 +93,13 @@ export function VerifyPaymentDialog({
               <select
                 id="payment-method"
                 value={paymentMethod}
-                onChange={(event) =>
-                  setPaymentMethod(event.target.value)
-                }
+                onChange={(event) => {
+                  const nextPaymentMethod = event.target.value
+                  setPaymentMethod(nextPaymentMethod)
+                  if (nextPaymentMethod === "cash") {
+                    setReferenceId("")
+                  }
+                }}
                 disabled={submitting}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -125,7 +129,7 @@ export function VerifyPaymentDialog({
                 onChange={(event) =>
                   setReferenceId(normalizeReferenceId(event.target.value))
                 }
-                disabled={submitting}
+                disabled={submitting || isCash}
                 placeholder="Enter payment reference ID"
                 maxLength={255}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
