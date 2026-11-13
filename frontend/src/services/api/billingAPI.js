@@ -5,6 +5,7 @@ import { normalizeBillingStatus } from "@/components/firm/billing/billing-varian
 const BILLING_SELECT = `
   billing_id, billing_code, business_id, billing_type, total_amount, status, remark, due_date, created_at,
   billing_month, billing_year,
+  businesses(retainer_fee),
   billing_engagements(billing_id, engagement_id, amount, service_name, is_active),
   payments(
     payment_id, billing_id, amount, payment_method, reference_id, paid_at, verified_at,
@@ -47,6 +48,9 @@ function mapBilling(row) {
     remark: row.remark ?? null,
     invoice_type: row.billing_type,
     amount: Number(row.total_amount ?? 0),
+    retainerFee: row.businesses?.retainer_fee != null
+      ? Number(row.businesses.retainer_fee)
+      : null,
     engagement_id: allLinks[0]?.engagement_id ?? null,
     engagement_ids: allLinks.map((link) => link.engagement_id),
     active_engagement_ids: activeLinks.map((link) => link.engagement_id),

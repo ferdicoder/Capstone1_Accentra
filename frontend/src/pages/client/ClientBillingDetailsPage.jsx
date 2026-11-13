@@ -29,7 +29,9 @@ import { getZodFieldErrors, scrollToFirstInvalidField } from "@/lib/form-validat
 import { clientPaymentProofSchema } from "@/schemas/billingSchema"
 
 function formatCurrency(amount) {
-  return `₱${Number(amount).toLocaleString("en-PH", {
+  const value = Number(amount)
+  if (!Number.isFinite(value)) return "Fee unavailable"
+  return `₱${value.toLocaleString("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
@@ -108,7 +110,7 @@ export default function ClientBillingDetailPage() {
   const typeLabel = billingTypeLabel(invoice?.billing_type ?? invoice?.invoice_type)
   const isRetainerFee = (invoice?.billing_type ?? invoice?.invoice_type) === "retainer_fee"
   const amountDue = isRetainerFee
-    ? business?.retainerFee ?? invoice?.amount
+    ? invoice?.retainerFee ?? business?.retainerFee ?? invoice?.amount
     : invoice?.amount
 
   usePageMeta({
@@ -257,7 +259,7 @@ export default function ClientBillingDetailPage() {
                 {invoice.billing_engagements?.[0]?.service_name ?? typeLabel}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {engagementList || "—"}
+                {isRetainerFee ? formatCurrency(amountDue) : engagementList || "—"}
               </p>
             </div>
 
