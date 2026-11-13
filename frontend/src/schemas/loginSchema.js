@@ -18,7 +18,7 @@ export const phoneRecoverySchema = z.object({
 })
 
 export const otpSchema = z.object({
-  code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code."),
+  code: z.string().regex(/^\d{8}$/, "Enter the 8-digit code."),
 })
 
 export const signupOtpSchema = z.object({
