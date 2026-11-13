@@ -446,9 +446,6 @@ function EngagementCard({ engagement, navigate, highlightedId }) {
         <EngagementStatusBadge status={stageLabel(engagement.status)} />
       </div>
       <p className="text-sm font-medium">{engagement.serviceName}</p>
-      {engagement.category && (
-        <p className="text-xs text-muted-foreground">{engagement.category}</p>
-      )}
       <div className="flex items-center justify-between gap-3 text-xs">
         <span className="text-muted-foreground">Created {formatDate(engagement.createdAt)}</span>
         <span className="flex items-center gap-1 text-sm">
@@ -930,9 +927,6 @@ export default function ClientEngagementsPage() {
                       <p className="truncate font-medium">
                         <EngagementLink engagement={e} />
                       </p>
-                      {e.category && (
-                        <p className="truncate text-xs text-muted-foreground">{e.category}</p>
-                      )}
                     </td>
                     <td className="px-4 py-4 align-middle font-medium">
                       <span className="line-clamp-2">{e.serviceName}</span>

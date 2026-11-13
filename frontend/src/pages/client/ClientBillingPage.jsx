@@ -28,7 +28,11 @@ import { useFetchMyBusiness } from "@/hooks/useBusinesses"
 import { useFetchBusinessBillings } from "@/hooks/useBillings"
 import { NoBusinessBanner } from "@/components/client/NoBusinessBanner"
 import { authStore } from "@/store/authStore"
-import { billingDisplayId, billingStatusLabels } from "@/components/firm/billing/billing-variants"
+import {
+  billingDisplayId,
+  billingStatusLabels,
+  invoiceTypeLabels,
+} from "@/components/firm/billing/billing-variants"
 import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
 
 const statusFilters = [
@@ -258,7 +262,7 @@ export default function ClientBillingPage() {
                     {billingDisplayId(invoice)}
                   </p>
                   <p className="mt-1 truncate text-xs text-muted-foreground">
-                    {invoice.billing_type}
+                    {invoiceTypeLabels[invoice.billing_type] ?? invoice.billing_type ?? "Billing"}
                   </p>
                   <div className="mt-2">
                     <BillingStatusBadge status={invoice.status} />

@@ -12,7 +12,10 @@ import {
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { BillingStatusBadge } from "@/components/firm/billing/billing-status-badge"
-import { billingDisplayId } from "@/components/firm/billing/billing-variants"
+import {
+  billingDisplayId,
+  invoiceTypeLabels,
+} from "@/components/firm/billing/billing-variants"
 import {
   FileDropzone,
   FilePreviewDialog,
@@ -43,8 +46,7 @@ function formatDate(value) {
     : date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
-const BILLING_TYPE_LABELS = { service_fee: "Service Fee", retainer_fee: "Retainer Fee" }
-const billingTypeLabel = (type) => BILLING_TYPE_LABELS[type] ?? type ?? "Billing"
+const billingTypeLabel = (type) => invoiceTypeLabels[type] ?? type ?? "Billing"
 
 const paymentStatusLabels = {
   "for verification": "Payment Under Review",
@@ -104,6 +106,10 @@ export default function ClientBillingDetailPage() {
   const canSubmitPayment =
     ["pending", "overdue", "for resubmission"].includes(invoice?.status)
   const typeLabel = billingTypeLabel(invoice?.billing_type ?? invoice?.invoice_type)
+  const isRetainerFee = (invoice?.billing_type ?? invoice?.invoice_type) === "retainer_fee"
+  const amountDue = isRetainerFee
+    ? business?.retainerFee ?? invoice?.amount
+    : invoice?.amount
 
   usePageMeta({
     title: invoice ? billingDisplayId(invoice) : "Billing Details",
@@ -289,7 +295,7 @@ export default function ClientBillingDetailPage() {
                 Total Amount Due
               </p>
               <p className="mt-1 text-2xl font-semibold">
-                {formatCurrency(invoice.amount)}
+                {formatCurrency(amountDue)}
               </p>
             </div>
           </div>
