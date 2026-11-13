@@ -1,8 +1,8 @@
-# Accentra
+<img width="1920" height="968" alt="image" src="https://github.com/user-attachments/assets/bda2b19f-4e62-46be-a220-f15f93bf0d1b" />
+<img width="1920" height="968" alt="image" src="https://github.com/user-attachments/assets/5863ab3a-66b3-4f27-8784-e542b2f0ed67" />
 
-<img width="1900" height="850" alt="Accentra application screenshot" src="https://github.com/user-attachments/assets/22bea220-2e90-46bf-bf8d-d4f1883e9f2c" />
 
-**Demo:** [accentra.up.railway.app](https://accentra.up.railway.app)
+**Demo:** [Live Link](https://jobalconsultancy.app/)
 
 Accentra is a web-based practice-management system for accounting firms in the
 Philippines. It brings client service requests, engagements, workflow tasks,
